@@ -7,16 +7,15 @@
   <!--
     OBS Browser Source — "Stream Starting Soon", pixelated Japanese style.
       • Size in OBS: 1920 x 1080, Use custom frame rate = 60
-      • Left  : your photo, auto-pixelated to match the pixel-art look
+      • Left  : your photo, shown clean (not pixelated)
       • Right : clean pixel "STREAM STARTING SOON" + Japanese dot text
       • Bottom: a loading bar that fills once over 60s (timer is internal, never shown)
 
-    PHOTO: save your picture as  assets/intro-photo.jpg  (any size; it gets pixelated for you).
+    PHOTO: save your picture as  assets/intro-photo.jpg  (any size; it's cropped to fill the tall left panel).
 
     Optional URL settings (append to the file URL in OBS):
       ?seconds=60                 how long the bar takes to fill (default 60, hidden)
       &photo=assets/intro-photo.jpg
-      &pixel=180                  photo pixelation detail (lower = chunkier blocks)
       &handle=@yourname           shows a small handle line (optional)
   -->
   <link rel="stylesheet" href="style.css" />
@@ -25,9 +24,9 @@
   <!-- base background sits behind everything -->
   <div class="bg" aria-hidden="true"></div>
 
-  <!-- LEFT: pixelated photo -->
+  <!-- LEFT: your photo, shown clean (not pixelated) -->
   <section class="photo" aria-hidden="true">
-    <canvas id="photoCanvas" width="884" height="1080"></canvas>
+    <img id="photoImg" class="photo__img" alt="" />
     <div class="photo__grade"></div>
   </section>
 

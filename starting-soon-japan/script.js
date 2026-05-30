@@ -17,52 +17,15 @@
   }
 
   /* =====================================================================
-     1. PHOTO — pixelate any image onto the left canvas
+     1. PHOTO — your picture, shown clean (not pixelated) on the left.
+     CSS handles the cover-crop; we just fade it in once it has loaded.
      ===================================================================== */
-  const photoCanvas = document.getElementById('photoCanvas');
-  const pctx = photoCanvas.getContext('2d');
-  const PHOTO_SRC = params.get('photo') || 'assets/intro-photo.jpg';
-  const DETAIL = num('pixel', 180);   // downsample width; lower = chunkier pixels
-
-  // Draw `img` so it covers a w x h box (object-fit: cover), centered.
-  function coverDraw(ctx, img, w, h) {
-    const ir = img.width / img.height, tr = w / h;
-    let dw, dh;
-    if (ir > tr) { dh = h; dw = h * ir; } else { dw = w; dh = w / ir; }
-    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-  }
-
-  function pixelatePhoto(img) {
-    const W = photoCanvas.width, H = photoCanvas.height;
-    const dsW = DETAIL, dsH = Math.round(DETAIL * (H / W));
-    // 1) downscale smoothly into a tiny offscreen canvas
-    const small = document.createElement('canvas');
-    small.width = dsW; small.height = dsH;
-    const sctx = small.getContext('2d');
-    sctx.imageSmoothingEnabled = true;
-    coverDraw(sctx, img, dsW, dsH);
-    // 2) blow it back up with smoothing OFF -> clean chunky pixels
-    pctx.imageSmoothingEnabled = false;
-    pctx.clearRect(0, 0, W, H);
-    pctx.drawImage(small, 0, 0, dsW, dsH, 0, 0, W, H);
-  }
-
-  function drawPlaceholder() {
-    const W = photoCanvas.width, H = photoCanvas.height;
-    pctx.fillStyle = '#141a3d'; pctx.fillRect(0, 0, W, H);
-    pctx.fillStyle = 'rgba(232,179,73,.9)';
-    pctx.font = '20px "Courier New", monospace';
-    pctx.textAlign = 'center';
-    pctx.fillText('drop your photo here:', W / 2, H / 2 - 16);
-    pctx.fillStyle = '#f5ece0';
-    pctx.fillText('assets/intro-photo.jpg', W / 2, H / 2 + 16);
-  }
-
   const photoEl = document.querySelector('.photo');
-  const photo = new Image();
-  photo.onload = () => { pixelatePhoto(photo); photoEl.classList.add('ready'); };
-  photo.onerror = () => { drawPlaceholder(); photoEl.classList.add('ready'); };
-  photo.src = PHOTO_SRC;
+  const photoImg = document.getElementById('photoImg');
+  const PHOTO_SRC = params.get('photo') || 'assets/intro-photo.jpg';
+  photoImg.onload = () => photoEl.classList.add('ready');
+  photoImg.onerror = () => photoEl.classList.add('placeholder', 'ready');
+  photoImg.src = PHOTO_SRC;
 
   /* =====================================================================
      2. PETALS — gentle pixel sakura over the right panel

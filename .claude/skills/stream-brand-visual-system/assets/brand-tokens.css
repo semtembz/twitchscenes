@@ -1,0 +1,45 @@
+/* =========================================================================
+   BRAND TOKENS — single source of truth for a channel's look.
+   Copy this into the overlay's style.css :root (the
+   obs-browser-source-animator template uses these exact names).
+   Fill every value for the channel; keep the variable names stable.
+
+   Channel:   <name / @handle>
+   Vibe:      <2-3 adjectives>
+   ========================================================================= */
+:root {
+  /* ---------------- Color (aim text vs bg >= 4.5:1; always scrim text) ----- */
+  --brand-bg-1:    #1a1030;   /* background gradient start (darker)   */
+  --brand-bg-2:    #3a1a5c;   /* background gradient end              */
+  --brand-primary: #b388ff;   /* main brand hue (logo, accents)      */
+  --brand-accent:  #00e5ff;   /* high-energy highlight (countdown)   */
+  --brand-ink:     #f5f3ff;   /* primary text on dark bg             */
+  --brand-ink-dim: #b9b3d6;   /* secondary text                      */
+  --brand-scrim:   rgba(10, 5, 25, .45); /* wash behind text for legibility */
+  --brand-alert:   #ff5470;   /* errors / "LIVE NOW" / urgent        */
+
+  /* ---------------- Type (self-host in fonts/; keep system fallbacks) ------ */
+  --font-display: "Clash Display", system-ui, "Segoe UI", sans-serif; /* titles  */
+  --font-body:    "Inter", system-ui, "Segoe UI", sans-serif;         /* labels  */
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;          /* digits  */
+
+  /* ---------------- Space / shape ------------------------------------------ */
+  --pad-safe: 96px;   /* 5% safe margin at 1080p — keep key info inside this */
+  --radius:   28px;
+  --stroke:   2px;
+
+  /* ---------------- Motion (the channel's "hand") -------------------------- */
+  --ease-snap:   cubic-bezier(.2, .9, .2, 1);   /* overshoot entrance */
+  --ease-smooth: cubic-bezier(.4, 0, .2, 1);    /* soft settle / loops */
+  --dur-reveal:  700ms;   /* one-shot entrance beat */
+  --dur-loop:    12s;     /* ambient loop length    */
+}
+
+/*
+  GUIDELINES (fill in, keep with the file):
+  - Palette: list each hex + where it's used.
+  - Fonts: name, source URL, license (must permit streaming/broadcast), self-hosted? y/n.
+  - Motion personality: one line (e.g. "slow, soft, cozy" or "fast, snappy, hype").
+  - Legibility rule: every text block sits on --brand-scrim OR has a shadow/outline.
+  - Accent discipline: --brand-accent only on 1-2 elements (countdown + one glow).
+*/

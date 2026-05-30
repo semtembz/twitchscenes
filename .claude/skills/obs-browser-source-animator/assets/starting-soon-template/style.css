@@ -1,0 +1,125 @@
+/* =========================================================================
+   Starting Soon — styles
+   Brand tokens live in :root. Replace these values with the channel's
+   brand-tokens.css from the stream-brand-visual-system skill (names match).
+   ========================================================================= */
+:root {
+  /* Color */
+  --brand-bg-1: #1a1030;
+  --brand-bg-2: #3a1a5c;
+  --brand-primary: #b388ff;
+  --brand-accent: #00e5ff;          /* overridden by ?accent= at runtime */
+  --brand-ink: #f5f3ff;
+  --brand-ink-dim: #b9b3d6;
+  --brand-scrim: rgba(10, 5, 25, .45);
+
+  /* Type — self-host these in fonts/ for reliability; system fallbacks here */
+  --font-display: "Clash Display", system-ui, "Segoe UI", sans-serif;
+  --font-body: "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* Space / shape */
+  --pad-safe: 96px;
+  --radius: 28px;
+
+  /* Motion */
+  --ease-snap: cubic-bezier(.2, .9, .2, 1);
+  --ease-smooth: cubic-bezier(.4, 0, .2, 1);
+  --dur-reveal: 700ms;
+  --dur-loop: 12s;
+}
+
+/* OBS injects a transparent body by default. We keep the page itself transparent
+   and paint the opaque background on .bg, so this same file can be stripped down
+   to a transparent in-game overlay by removing .bg / .particles. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+body { font-family: var(--font-body); color: var(--brand-ink); }
+
+/* ---- Background: animated gradient, slow drift (transform/opacity only) ---- */
+.bg {
+  position: fixed; inset: -10%;
+  background:
+    radial-gradient(120% 120% at 30% 20%, var(--brand-bg-2), transparent 60%),
+    linear-gradient(160deg, var(--brand-bg-1), var(--brand-bg-2));
+  animation: bgDrift var(--dur-loop) ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes bgDrift {
+  from { transform: scale(1.05) translate3d(-1%, -1%, 0); }
+  to   { transform: scale(1.12) translate3d(1.5%, 1%, 0); }
+}
+
+/* Soft vignette to push focus to center and lift text legibility */
+.bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(80% 70% at 50% 45%, transparent 40%, rgba(0,0,0,.45));
+}
+
+/* ---- Particle canvas (drawn by script.js) ---- */
+.particles { position: fixed; inset: 0; width: 1920px; height: 1080px; }
+
+/* ---- Stage / card ---- */
+.stage {
+  position: relative; z-index: 2;
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  padding: var(--pad-safe);
+}
+.card { text-align: center; display: grid; gap: 28px; justify-items: center; }
+
+/* Brand anchor — replace .orb with an <img> mascot/logo. Gentle idle bob + glow. */
+.brand-anchor { display: grid; place-items: center; }
+.orb {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--brand-primary) 55%, var(--brand-accent));
+  box-shadow: 0 0 60px 8px color-mix(in srgb, var(--brand-accent) 55%, transparent);
+  animation: bob 3.2s var(--ease-smooth) infinite alternate,
+             glow 2.4s ease-in-out infinite alternate;
+  will-change: transform, box-shadow;
+}
+@keyframes bob  { from { transform: translateY(-8px); } to { transform: translateY(10px); } }
+@keyframes glow {
+  from { box-shadow: 0 0 40px 4px color-mix(in srgb, var(--brand-accent) 35%, transparent); }
+  to   { box-shadow: 0 0 80px 14px color-mix(in srgb, var(--brand-accent) 65%, transparent); }
+}
+
+/* Title — display font, with a scrim-free shadow for legibility over motion */
+.title {
+  font-family: var(--font-display);
+  font-size: 96px; font-weight: 700; letter-spacing: .5px; line-height: 1;
+  text-shadow: 0 2px 24px rgba(0,0,0,.55), 0 0 2px rgba(0,0,0,.4);
+}
+
+/* Countdown — tabular/mono digits so width doesn't jitter as numbers change */
+.countdown {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 140px; font-weight: 700; line-height: 1;
+  color: var(--brand-accent);
+  padding: 10px 40px; border-radius: var(--radius);
+  background: var(--brand-scrim);                 /* legibility scrim */
+  backdrop-filter: blur(2px);
+  text-shadow: 0 0 30px color-mix(in srgb, var(--brand-accent) 45%, transparent);
+}
+.countdown.live { color: #ff5470; }               /* applied by script at 0 */
+
+.subtitle { font-size: 34px; color: var(--brand-ink-dim); text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+
+.handle {
+  font-size: 30px; font-weight: 600; letter-spacing: 1px;
+  padding: 10px 26px; border-radius: 999px;
+  background: var(--brand-scrim);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 40%, transparent);
+}
+
+/* ---- One-shot reveal: staggered cascade via per-element --i ---- */
+.card > * {
+  opacity: 0;
+  animation: reveal var(--dur-reveal) var(--ease-snap) forwards;
+  animation-delay: calc(var(--i) * 140ms + 200ms);
+}
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(26px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Stream Starting Soon</title>
+  <!--
+    OBS Browser Source: Starting Soon scene (dependency-free, offline-capable).
+    Size in OBS: 1920x1080, custom FPS 60.
+    Configure via URL query string, e.g.:
+      index.html?title=Stream%20Starting%20Soon&subtitle=grab%20a%20coffee&handle=@you&minutes=10&accent=%2300e5ff
+    Params: title, subtitle, handle, minutes (duration) OR until (ISO time), accent (hex, url-encode # as %23)
+  -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Full-screen background layers (opaque: this is a "scene", not an in-game overlay).
+       For an in-game overlay, delete .bg and .particles and keep the body transparent. -->
+  <div class="bg"></div>
+  <canvas class="particles" aria-hidden="true"></canvas>
+
+  <!-- Content. Each element gets a staggered reveal via CSS (see --i custom property). -->
+  <main class="stage">
+    <div class="card">
+      <div class="brand-anchor" style="--i:0">
+        <!-- Swap this for a generated mascot/logo PNG: <img src="assets/mascot.png" alt=""> -->
+        <div class="orb"></div>
+      </div>
+
+      <h1 class="title" id="title" style="--i:1">Stream Starting Soon</h1>
+
+      <div class="countdown" id="countdown" style="--i:2">10:00</div>
+
+      <p class="subtitle" id="subtitle" style="--i:3">grab a coffee, we start soon</p>
+
+      <div class="handle" id="handle" style="--i:4">@yourhandle</div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

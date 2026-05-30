@@ -23,11 +23,11 @@ A Claude Skills package plus built OBS scenes for making **animated Twitch intro
   scene is hidden — don't gate one-shot starts on it).
 
 ## Git workflow
-After completing a meaningful change:
+After each completed feature (or any meaningful change):
 1. Run `git status`
 2. Run `git add .`
 3. Run `git commit -m "Clear description of changes"`
-4. Do NOT run `git push` unless I explicitly say: "push to GitHub"
+4. Do NOT run `git push` unless I explicitly say so (e.g. "push to GitHub")
 
 - Never commit `.env`, `.env.local`, secrets, API keys, or tokens.
 - Always check `git status` before committing.

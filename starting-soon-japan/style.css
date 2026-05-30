@@ -63,7 +63,9 @@ img, canvas { image-rendering: pixelated; }   /* keep everything crisp-blocky */
   position: fixed; top: 0; left: 0; z-index: 1;
   width: var(--panel-x); height: 100%;
   overflow: hidden;
+  opacity: 0;                 /* fades in via .ready once the photo is pixelated */
 }
+.photo.ready { animation: fade .8s ease both; }
 .photo canvas { width: 100%; height: 100%; display: block; }
 .photo__grade {                                /* blend the photo into the palette */
   position: absolute; inset: 0;
@@ -174,3 +176,20 @@ img, canvas { image-rendering: pixelated; }   /* keep everything crisp-blocky */
 
 /* ---- Motion ---- */
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* ---- One-shot reveal: a calm staggered cascade when the scene loads ---- */
+.kicker { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .15s; }
+.rule   { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .30s; }
+.title span:nth-child(1) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .38s; }
+.title span:nth-child(2) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .48s; }
+.title span:nth-child(3) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .58s,
+                                      soonGlow 3.4s ease-in-out 1.4s infinite; }
+.sub     { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .72s; }
+.loadbar { animation: fade .8s ease both .55s; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes soonGlow {                          /* gentle breathing glow on "SOON" */
+  0%, 100% { text-shadow: 5px 5px 0 var(--vermilion-dark), 0 0 16px rgba(232,179,73,.28); }
+  50%      { text-shadow: 5px 5px 0 var(--vermilion-dark), 0 0 34px rgba(232,179,73,.55); }
+}

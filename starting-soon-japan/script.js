@@ -58,9 +58,10 @@
     pctx.fillText('assets/intro-photo.jpg', W / 2, H / 2 + 16);
   }
 
+  const photoEl = document.querySelector('.photo');
   const photo = new Image();
-  photo.onload = () => pixelatePhoto(photo);
-  photo.onerror = drawPlaceholder;
+  photo.onload = () => { pixelatePhoto(photo); photoEl.classList.add('ready'); };
+  photo.onerror = () => { drawPlaceholder(); photoEl.classList.add('ready'); };
   photo.src = PHOTO_SRC;
 
   /* =====================================================================

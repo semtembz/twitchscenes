@@ -1,0 +1,13 @@
+Save your picture in THIS folder named exactly:
+
+    intro-photo.jpg
+
+(That temple photo you sent works great.)
+
+- Any size/resolution is fine — the scene automatically pixelates it to match the
+  pixel-art look, so you don't need to edit it first.
+- Prefer a portrait (tall) image; the left panel is tall and narrow (884 x 1080).
+- Want chunkier or finer pixels? Add  ?pixel=120  (chunkier) or  ?pixel=260  (finer)
+  to the file URL in OBS. Default is 180.
+- Using a .png instead? Either rename it to intro-photo.jpg, or in OBS add
+  ?photo=assets/intro-photo.png to the URL.

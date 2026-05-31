@@ -34,7 +34,7 @@
 
   --panel-x: 46%;        /* where the photo ends / message begins */
   --bar-h: 30px;
-  --frame-inset: 26px;   /* outer frame's margin from the screen edge (turn up/down to spread it) */
+  --frame-inset: 0px;    /* red frame hugs the screen edge so it encloses everything */
 
   --font-pixel: "Silkscreen", "Courier New", monospace;
   --font-jp: "DotGothic16", "Silkscreen", monospace;
@@ -84,15 +84,6 @@ body { font-family: var(--font-pixel); color: var(--washi); }
   position: absolute; inset: 0; display: grid; place-items: center;
   padding: 24px; text-align: center;
   font-family: var(--font-pixel); font-size: 18px; color: var(--gold-soft);
-}
-.photo__frame {                                /* thin gold "matte" frame around the photo */
-  position: absolute; pointer-events: none;
-  top: calc(var(--frame-inset) + 18px);
-  left: calc(var(--frame-inset) + 18px);
-  bottom: calc(var(--frame-inset) + 18px);
-  right: 22px;                                 /* stops just short of the seam */
-  border: 3px solid var(--gold);
-  box-shadow: inset 0 0 0 1px rgba(143,42,30,.65);  /* tiny vermilion pixel edge */
 }
 
 /* ---- Pixel sakura petals ---- */
@@ -171,8 +162,8 @@ body { font-family: var(--font-pixel); color: var(--washi); }
 /* ---- Outer pixel frame ---- */
 .frame {
   position: fixed; inset: var(--frame-inset); z-index: 6; pointer-events: none;
-  border: 4px solid var(--vermilion);
-  box-shadow: inset 0 0 0 3px var(--indigo-1), inset 0 0 0 6px rgba(232,179,73,.55);
+  border: 6px solid var(--vermilion);
+  box-shadow: inset 0 0 0 2px var(--vermilion-dark);   /* subtle darker-red inner edge, no gold */
 }
 
 /* ---- BOTTOM: loading bar (no numbers) ---- */

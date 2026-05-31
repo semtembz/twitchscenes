@@ -4,8 +4,14 @@
     {
       "name": "starting-soon-japan",
       "runtimeExecutable": "node",
-      "runtimeArgs": [".claude/static-server.js"],
+      "runtimeArgs": [".claude/static-server.js", "starting-soon-japan", "5577"],
       "port": 5577
+    },
+    {
+      "name": "starting-soon-neon",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "starting-soon-neon", "5578"],
+      "port": 5578
     }
   ]
 }

@@ -3,8 +3,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, '..', 'starting-soon-japan');
-const PORT = 5577;
+const ROOT = path.join(__dirname, '..', process.argv[2] || 'starting-soon-japan');
+const PORT = Number(process.argv[3]) || 5577;
 const MIME = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
   '.ttf': 'font/ttf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -21,4 +21,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
     res.end(data);
   });
-}).listen(PORT, () => console.log('serving starting-soon-japan on http://localhost:' + PORT));
+}).listen(PORT, () => console.log('serving ' + (process.argv[2] || 'starting-soon-japan') + ' on http://localhost:' + PORT));

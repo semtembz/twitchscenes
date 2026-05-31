@@ -1,0 +1,11 @@
+Save your picture in THIS folder named exactly:
+
+    intro-photo.jpg
+
+(That temple photo you sent works great.)
+
+- Any size/resolution is fine — it's shown clean (not pixelated) and cropped to
+  fill the panel. No editing needed.
+- Prefer a portrait (tall) image; the left panel is tall and narrow (884 x 1080).
+- Using a .png instead? Either rename it to intro-photo.jpg, or in OBS add
+  ?photo=assets/intro-photo.png to the URL.

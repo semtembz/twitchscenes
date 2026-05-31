@@ -88,5 +88,14 @@
   setTimeout(() => {
     bar.classList.add('done');
     document.getElementById('statusEn').textContent = 'READY';
+    // LOADING fades out, then the message becomes BOOTING UP and fades back in
+    const ls = document.getElementById('loadstatus');
+    if (ls) {
+      ls.style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('loadtext').textContent = 'BOOTING UP';
+        ls.style.opacity = '1';
+      }, 560);
+    }
   }, seconds * 1000);
 })();

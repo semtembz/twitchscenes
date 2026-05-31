@@ -61,6 +61,12 @@
   <!-- frame drawn on top, never blocks anything -->
   <div class="frame" aria-hidden="true"></div>
 
+  <!-- LOADING status (bottom-right, just above the bar) -> flips to BOOTING UP at the end -->
+  <div class="loadstatus" id="loadstatus" aria-hidden="true">
+    <span class="spinner" id="spinner"></span>
+    <span id="loadtext">LOADING</span>
+  </div>
+
   <!-- BOTTOM: loading bar (fills once over `seconds`, no numbers) -->
   <div class="loadbar" aria-hidden="true">
     <div class="loadbar__track">

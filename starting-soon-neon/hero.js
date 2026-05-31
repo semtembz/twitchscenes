@@ -118,6 +118,12 @@
     return parts;
   }
   const blobParts = buildParticles(blobStill, BSC);
+  // colorful firework burst for the blob death
+  const FW_COLORS = ['#ff3df0', '#2fe08c', '#79ffc4', '#ffd84a', '#ffffff', '#00e5ff'];
+  const fireworkParts = Array.from({ length: 64 }, function (_, i) {
+    const a = Math.random() * Math.PI * 2, sp = 130 + Math.random() * 290;
+    return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 70, color: FW_COLORS[i % FW_COLORS.length], size: 3 + (i % 3) };
+  });
 
   /* ---- blitting + the full-res energy sword ---- */
   function blit(src, cx, cy, scale, faceL, glow, alpha) {
@@ -132,6 +138,15 @@
     const L = 50, dir = faceL ? -1 : 1;
     ctx.save();
     ctx.translate(hx, hy); ctx.scale(dir, 1); ctx.rotate(ang);
+    // powered: a glowing energy aura that hugs the blade shape (drawn behind it)
+    if (powered) {
+      const pulse = 0.5 + 0.5 * Math.sin(T * 8);
+      ctx.save();
+      ctx.shadowColor = PWR; ctx.shadowBlur = 24 + pulse * 16;
+      ctx.globalAlpha = 0.40 + 0.25 * pulse; ctx.fillStyle = MINT;
+      ctx.beginPath(); ctx.moveTo(-5, -1); ctx.lineTo(5, -1); ctx.lineTo(3, -L * 0.84); ctx.lineTo(0, -L - 5); ctx.lineTo(-3, -L * 0.84); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
     // grip
     ctx.fillStyle = '#10241b'; ctx.fillRect(-2, 0, 4, 9);
     // guard
@@ -142,18 +157,15 @@
     ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(2, -L * 0.82); ctx.lineTo(0, -L); ctx.lineTo(-2, -L * 0.82); ctx.closePath(); ctx.fill();
     // core highlight
     ctx.fillStyle = '#ffffff'; ctx.globalAlpha = .85; ctx.fillRect(-1, -L * 0.8, 2, L * 0.72); ctx.globalAlpha = 1;
-    // power-up lightning crackle
+    // power-up: rising energy motes flowing up the blade (cooler than jagged lines)
     if (powered) {
-      ctx.strokeStyle = MINT; ctx.lineWidth = 1.4; ctx.shadowColor = MINT; ctx.shadowBlur = 14;
-      for (let s = 0; s < 2; s++) {
-        ctx.beginPath();
-        for (let i = 0; i <= 6; i++) {
-          const yy = -6 - i * (L - 8) / 6;
-          const xx = (s ? -1 : 1) * (3 + 2.4 * Math.sin(T * 34 + i * 1.7 + s * 3));
-          i === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
-        }
-        ctx.stroke();
+      ctx.fillStyle = '#eafff5'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 9;
+      for (let i = 0; i < 3; i++) {
+        const t = (T * 0.9 + i / 3) % 1;
+        const yy = -8 - t * (L - 12), xx = Math.sin(T * 6 + i * 2) * 2;
+        ctx.globalAlpha = 1 - t; ctx.fillRect(xx - 1.25, yy - 1.25, 2.5, 2.5);
       }
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
@@ -263,7 +275,8 @@
       else ang = 1.4 - 1.2 * ((ct - 0.52) / 0.48);                   // recover
       Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang });
       s.sliceT = ct;                                                 // drives the epic slash visual
-      s.portal = Math.max(0, (ct - 0.52) / 0.48);                    // the rift tears open AFTER the slash lands
+      const pp = Math.max(0, (ct - 0.52) / 0.48);                    // the rift tears open AFTER the slash lands
+      s.portal = pp >= 1 ? 1 : 1 + 2.70158 * Math.pow(pp - 1, 3) + 1.70158 * Math.pow(pp - 1, 2);  // SNAP open (ease-out-back)
       s.portalT = T;
     } else if (T < T_JUMP) {
       s.phase = 'jump';
@@ -297,12 +310,34 @@
 
     if (s.blob.vis) { drawBlob(blobCv.getContext('2d'), s.blob.scared); blit(blobCv, s.blob.x, s.blob.y, BSC, s.blob.faceLeft, s.blob.scared ? MAG_SCARED : MAG, s.blob.alpha); }
     if (s.killT >= 0) {
-      const a = Math.max(0, 1 - s.killT / 1.0);
-      if (a > 0) { ctx.save(); ctx.globalAlpha = a; for (const p of blobParts) { const x = meetPos.x + p.ox + p.vx * s.killT, y = meetPos.y + p.oy + p.vy * s.killT + 120 * s.killT * s.killT; ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 6; ctx.fillRect(x, y, p.size, p.size); } ctx.restore(); }
+      const kt = s.killT;
+      // bright burst flash at the moment of death
+      if (kt < 0.28) {
+        const bf = 1 - kt / 0.28; ctx.save(); ctx.globalAlpha = bf;
+        const g = ctx.createRadialGradient(meetPos.x, meetPos.y, 0, meetPos.x, meetPos.y, 240);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.4, 'rgba(255,61,240,0.45)'); g.addColorStop(1, 'rgba(255,61,240,0)');
+        ctx.fillStyle = g; ctx.fillRect(meetPos.x - 240, meetPos.y - 240, 480, 480); ctx.restore();
+      }
+      // bigger, colorful firework burst
+      const a = Math.max(0, 1 - kt / 1.4);
+      if (a > 0) {
+        ctx.save();
+        for (const p of fireworkParts) {
+          const x = meetPos.x + p.vx * kt, y = meetPos.y + p.vy * kt + 190 * kt * kt;
+          ctx.globalAlpha = a; ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 9;
+          ctx.fillRect(x, y, p.size, p.size);
+        }
+        ctx.restore();
+      }
     }
 
     // portal behind hero during cut/jump, in front during zip
     if (s.portal > 0 && s.phase !== 'zip') drawPortal(PORTAL_X, PORTAL_Y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
+    if (s.phase === 'portalCut' && s.portal > 0.03 && s.portal < 1) {   // shockwave bursting out as it tears open
+      const op = s.portal; ctx.save(); ctx.globalAlpha = Math.max(0, 1 - op) * 0.85;
+      ctx.strokeStyle = MINT; ctx.lineWidth = 4; ctx.shadowColor = NEON; ctx.shadowBlur = 26;
+      ctx.beginPath(); ctx.ellipse(PORTAL_X, PORTAL_Y, 36 + op * 250, 48 + op * 320, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
 
     if (s.hero.vis) {
       const frame = Math.floor(T * 7) % 2;

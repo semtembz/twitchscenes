@@ -96,10 +96,11 @@ body { font-family: var(--font-pixel); color: var(--washi); }
   background: linear-gradient(90deg, var(--vermilion-dark), var(--vermilion) 50%, var(--vermilion-dark));
   box-shadow: 0 0 24px rgba(214,74,51,.45);
 }
-.divider::before {                             /* gold pixel rivets down the beam */
-  content: ""; position: absolute; inset: 0;
+.divider::before {                             /* gold studs — evenly spaced, stop clear above the loading bar */
+  content: ""; position: absolute; left: 0; right: 0;
+  top: 0; bottom: 100px;                       /* clip ~70px above the bar so none collide with it */
   background-image: radial-gradient(var(--gold-soft) 2.5px, transparent 3px);
-  background-size: 18px 64px; background-position: center 24px;
+  background-size: 18px 59px; background-position: center 26px;
 }
 
 /* ---- RIGHT: the message panel ---- */

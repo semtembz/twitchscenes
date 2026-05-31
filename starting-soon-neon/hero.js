@@ -22,7 +22,7 @@
   const SKIN = '#e6bd9a', HAIR = '#19110b', CAPE = '#0b2c1f', OUTFIT = '#0e3325', DOT = '#cfeede';
 
   /* ---- rectangular path (right of the seam, around the text) ---- */
-  const LX = 944, RX = 1848, TY = 150, BY = 882;          // path edges (widened lanes around the centered text)
+  const LX = 958, RX = 1838, TY = 130, BY = 785;          // path edges — traced to the user's red box (bottom pulled up, off the seam)
   const Wd = RX - LX, Ht = BY - TY, PER = 2 * (Wd + Ht);
   const CENTERX = (LX + RX) / 2;
   const norm = (u) => ((u % 1) + 1) % 1;

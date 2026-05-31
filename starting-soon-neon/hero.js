@@ -22,7 +22,7 @@
   const SKIN = '#e6bd9a', HAIR = '#19110b', CAPE = '#0b2c1f', OUTFIT = '#0e3325', DOT = '#cfeede';
 
   /* ---- rectangular path (right of the seam, around the text) ---- */
-  const LX = 962, RX = 1815, TY = 150, BY = 882;          // path edges
+  const LX = 944, RX = 1848, TY = 150, BY = 882;          // path edges (widened lanes around the centered text)
   const Wd = RX - LX, Ht = BY - TY, PER = 2 * (Wd + Ht);
   const CENTERX = (LX + RX) / 2;
   const norm = (u) => ((u % 1) + 1) % 1;
@@ -38,7 +38,7 @@
     const a = getPos(u), b = getPos(u + 0.012 * dir);
     const dx = b.x - a.x;
     if (Math.abs(dx) > 0.5) return dx < 0;
-    return a.x > CENTERX;                                           // vertical: face inward
+    return a.x < CENTERX;                                           // vertical: face AWAY from the centered text
   }
 
   /* ---- chase / dots config ---- */
@@ -112,7 +112,7 @@
     const w = still.width, h = still.height, data = still.getContext('2d').getImageData(0, 0, w, h).data, parts = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4; if (data[i + 3] < 40) continue;
-      parts.push({ ox: (x - w / 2) * scale, oy: (y - h / 2) * scale, vx: (Math.random() * 2 - 1) * 120, vy: -(0.2 + Math.random()) * 130, color: `rgb(${data[i]},${data[i + 1]},${data[i + 2]})`, size: scale });
+      parts.push({ ox: (x - w / 2) * scale, oy: (y - h / 2) * scale, vx: (Math.random() * 2 - 1) * 80, vy: -(0.2 + Math.random()) * 130, color: `rgb(${data[i]},${data[i + 1]},${data[i + 2]})`, size: scale });
     }
     return parts;
   }
@@ -226,13 +226,13 @@
       s.phase = 'kill';
       const kt = (T - T_REVERSE) / (T_KILL - T_REVERSE);
       const ang = -0.8 + kt * 2.4;                                  // big downward swing
-      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: meetPos.x > CENTERX, ang });
+      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang });
       s.killT = T - T_REVERSE;
       if (kt > 0.25 && kt < 0.8) s.slash = { a0: -0.8, a1: ang, alpha: 1 - (kt - 0.25) / 0.55 };
     } else if (T < T_CELEB) {
       s.phase = 'celebrate';
       const ct = T - T_KILL;
-      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y - Math.abs(Math.sin(ct * 7)) * 14, vis: true, powered: true, faceLeft: meetPos.x > CENTERX, ang: -0.15 });
+      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y - Math.abs(Math.sin(ct * 7)) * 14, vis: true, powered: true, faceLeft: false, ang: -0.15 });
       s.celebT = ct;
     } else if (T < T_PCUT) {
       s.phase = 'portalCut';

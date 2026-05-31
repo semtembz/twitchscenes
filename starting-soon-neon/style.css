@@ -89,6 +89,9 @@ body { font-family: var(--font-pixel); color: var(--text); }
 /* ---- Pixel petals ---- */
 .petals { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 
+/* ---- Neon hero-vs-blob chase layer (orbits behind the headline text) ---- */
+.hero { position: fixed; inset: 0; z-index: 4; width: 1920px; height: 1080px; pointer-events: none; }
+
 /* ---- Beam divider ---- */
 .divider {
   position: fixed; top: var(--frame-inset); bottom: var(--frame-inset); z-index: 3;

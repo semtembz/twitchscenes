@@ -111,7 +111,8 @@ body { font-family: var(--font-pixel); color: var(--text); }
   position: fixed; top: 0; right: 0; z-index: 5;
   width: calc(100% - var(--panel-x)); height: 100%;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 0 8% 60px 7%;         /* balanced so the chase loop clears the text both sides */
+  align-items: flex-start;       /* hug the message to the left, opening the right side for the chase */
+  padding: 0 8% 60px 6%;
 }
 .sun {                                         /* soft glow behind text */
   position: absolute; z-index: -1;
@@ -143,7 +144,7 @@ body { font-family: var(--font-pixel); color: var(--text); }
 /* headline */
 .title {
   font-family: var(--font-pixel); font-weight: 700;
-  font-size: 84px; line-height: 1.18; letter-spacing: 1px;
+  font-size: 64px; line-height: 1.18; letter-spacing: 1px;
   color: var(--text);
   text-shadow: 5px 5px 0 var(--neon-dark);
 }

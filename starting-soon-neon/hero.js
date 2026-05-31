@@ -22,7 +22,7 @@
   const SKIN = '#e6bd9a', HAIR = '#19110b', CAPE = '#0b2c1f', OUTFIT = '#0e3325', DOT = '#cfeede';
 
   /* ---- rectangular path (right of the seam, around the text) ---- */
-  const LX = 958, RX = 1838, TY = 130, BY = 785;          // path edges — traced to the user's red box (bottom pulled up, off the seam)
+  const LX = 1500, RX = 1850, TY = 160, BY = 860;         // path edges — loop lives entirely in the open band RIGHT of the text
   const Wd = RX - LX, Ht = BY - TY, PER = 2 * (Wd + Ht);
   const CENTERX = (LX + RX) / 2;
   const norm = (u) => ((u % 1) + 1) % 1;
@@ -38,13 +38,13 @@
     const a = getPos(u), b = getPos(u + 0.012 * dir);
     const dx = b.x - a.x;
     if (Math.abs(dx) > 0.5) return dx < 0;
-    return a.x < CENTERX;                                           // vertical: face AWAY from the centered text
+    return a.x > CENTERX;                                           // vertical: face inward (text is to the loop's left now)
   }
 
   /* ---- chase / dots config ---- */
   const GAP = 0.12, P_BIG = 0.86, MEET = 0.66;
   const meetPos = getPos(MEET);
-  const PORTAL_X = 1838, PORTAL_W = 84, PORTAL_H = 220;   // sits in the empty gap between text and frame
+  const PORTAL_X = 1845, PORTAL_W = 84, PORTAL_H = 220;   // near the right edge of the loop band
   const dots = [];
   for (let p = 0.02; p < P_BIG - 0.01; p += 0.0258) dots.push({ p, pos: getPos(p) });
   const pelletPos = getPos(P_BIG);

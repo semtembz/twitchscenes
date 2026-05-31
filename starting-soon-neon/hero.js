@@ -44,7 +44,7 @@
   /* ---- chase / dots config ---- */
   const GAP = 0.12, P_BIG = 0.98, MEET = 0.64;   // start bottom-left; after power-up the blob bolts right-then-up, caught on the right edge
   const meetPos = getPos(MEET);
-  const PORTAL_X = meetPos.x, PORTAL_W = 84, PORTAL_H = 180;  // portal opens at the kill spot (right edge, clear of the text)
+  const PORTAL_X = meetPos.x, PORTAL_W = 92, PORTAL_H = 250;  // tall vertical rift at the kill spot (right edge, clear of the text)
   const PORTAL_Y = meetPos.y;
   const dots = [];
   for (let p = 0.02; p < P_BIG - 0.01; p += 0.0258) dots.push({ p, pos: getPos(p) });
@@ -52,7 +52,7 @@
 
   /* ---- timeline (seconds) ---- */
   const T_INTRO = 1.0, T_CHASE = 10.5, T_POWER = 11.7, T_REVERSE = 16.7,
-        T_KILL = 18.3, T_CELEB = 19.9, T_PCUT = 21.2, T_JUMP = 22.2, T_ZIP = 23.2, LOOP = 25.0;
+        T_KILL = 18.3, T_CELEB = 19.9, T_PCUT = 22.2, T_JUMP = 23.2, T_ZIP = 24.5, LOOP = 26.2;
   const chaseHu = (T) => ((T - T_INTRO) / (T_CHASE - T_INTRO)) * P_BIG;
 
   /* =====================================================================
@@ -168,16 +168,36 @@
   }
 
   function drawPortal(cx, cy, w, h, T) {
-    ctx.save(); ctx.shadowColor = NEON; ctx.shadowBlur = 18;
-    ctx.fillStyle = 'rgba(4,26,18,.9)';
-    ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(1, w / 2 * 0.9), h / 2 * 0.94, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = MINT; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(1, w / 2), h / 2, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = NEON; ctx.lineWidth = 2; ctx.globalAlpha = .55;
-    for (let k = 1; k <= 3; k++) {
-      const f = k / 4 + 0.06 * Math.sin(T * 6 + k);
-      ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(1, w / 2 * f), h / 2 * f, 0, 0, Math.PI * 2); ctx.stroke();
+    if (w < 2) return;
+    const rw = Math.max(1, w / 2), rh = h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    // chromatic "torn reality" rims (offset cyan + mint) with a wide neon haze
+    ctx.shadowColor = NEON; ctx.shadowBlur = 45; ctx.lineWidth = 4; ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = '#00ffc0'; ctx.beginPath(); ctx.ellipse(-4, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#b6fff0'; ctx.beginPath(); ctx.ellipse(4, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    // dark void
+    ctx.fillStyle = 'rgba(2,12,9,0.94)';
+    ctx.beginPath(); ctx.ellipse(0, 0, rw * 0.9, rh * 0.95, 0, 0, Math.PI * 2); ctx.fill();
+    // swirling energy (clipped to the void), rotating with time
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, rw * 0.9, rh * 0.95, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.strokeStyle = MINT; ctx.lineWidth = 2;
+    for (let k = 0; k < 5; k++) {
+      const f = (k + 1) / 6, rot = T * 1.8 + k * 0.7;
+      ctx.globalAlpha = 0.18 + 0.12 * Math.sin(T * 4 + k);
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(rot) * rw * 0.12, Math.sin(rot) * rh * 0.12, rw * f, rh * f * 0.82, rot, 0, Math.PI * 2);
+      ctx.stroke();
     }
+    ctx.restore();
+    // bright vertical core slit
+    ctx.globalAlpha = 0.95; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 22; ctx.fillStyle = '#eafff5';
+    ctx.beginPath(); ctx.ellipse(0, 0, Math.max(1, rw * 0.14), rh * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+    // crisp white rim
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.shadowColor = MINT; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
@@ -196,7 +216,7 @@
       phase: 'gap',
       hero: { x: 0, y: 0, vis: false, faceLeft: false, ang: 0.5, powered: false, scale: 1, alpha: 1, swing: 0 },
       blob: { x: 0, y: 0, vis: false, scared: false, faceLeft: false, alpha: 1 },
-      pelletVis: false, flash: 0, killT: -1, celebT: -1, slash: null,
+      pelletVis: false, flash: 0, killT: -1, celebT: -1, sliceT: -1,
       portal: 0, portalT: 0,
     };
     if (T < T_INTRO) {
@@ -226,11 +246,9 @@
       Object.assign(s.blob, { x: bp.x, y: bp.y, vis: true, scared: true, faceLeft: faceLeft(bu, -1) });
     } else if (T < T_KILL) {
       s.phase = 'kill';
-      const kt = (T - T_REVERSE) / (T_KILL - T_REVERSE);
-      const ang = -0.8 + kt * 2.4;                                  // big downward swing
-      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang });
+      // no sword slice on the blob — it just bursts into pixels (killT)
+      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang: 0.35 });
       s.killT = T - T_REVERSE;
-      if (kt > 0.25 && kt < 0.8) s.slash = { a0: -0.8, a1: ang, alpha: 1 - (kt - 0.25) / 0.55 };
     } else if (T < T_CELEB) {
       s.phase = 'celebrate';
       const ct = T - T_KILL;
@@ -239,9 +257,14 @@
     } else if (T < T_PCUT) {
       s.phase = 'portalCut';
       const ct = (T - T_CELEB) / (T_PCUT - T_CELEB);
-      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang: -0.7 + ct * 2.2 });
-      s.portal = ct; s.portalT = T;
-      if (ct > 0.3 && ct < 0.85) s.slash = { a0: -0.7, a1: -0.7 + ct * 2.2, alpha: 1 - (ct - 0.3) / 0.55, atPortal: true };
+      let ang;                                                       // windup -> FAST slash -> recover
+      if (ct < 0.40) ang = -0.3 - 1.4 * (ct / 0.40);                 // raise the blade up/back
+      else if (ct < 0.52) ang = -1.7 + 3.1 * ((ct - 0.40) / 0.12);   // whip it down through the cut
+      else ang = 1.4 - 1.2 * ((ct - 0.52) / 0.48);                   // recover
+      Object.assign(s.hero, { x: meetPos.x, y: meetPos.y, vis: true, powered: true, faceLeft: false, ang });
+      s.sliceT = ct;                                                 // drives the epic slash visual
+      s.portal = Math.max(0, (ct - 0.52) / 0.48);                    // the rift tears open AFTER the slash lands
+      s.portalT = T;
     } else if (T < T_JUMP) {
       s.phase = 'jump';
       const jt = (T - T_PCUT) / (T_JUMP - T_PCUT);
@@ -291,7 +314,32 @@
       ctx.save(); ctx.globalAlpha = s.hero.alpha;
       drawSword(hx, hy, s.hero.faceLeft, s.hero.ang, s.hero.powered, T);
       ctx.restore();
-      if (s.slash) drawSlashArc(hx, hy, s.hero.faceLeft, s.slash.a0, s.slash.a1, s.slash.alpha);
+    }
+
+    // ---- EPIC portal slice: impact flash, blazing vertical cut-streak, sparks ----
+    if (s.sliceT >= 0) {
+      const ct = s.sliceT;
+      if (ct > 0.40 && ct < 0.66) {                                   // radial impact flash, peaks at the slash
+        const f = Math.max(0, 1 - Math.abs(ct - 0.52) / 0.13);
+        ctx.save(); ctx.globalAlpha = f;
+        const g = ctx.createRadialGradient(PORTAL_X, PORTAL_Y, 0, PORTAL_X, PORTAL_Y, 380);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.35, 'rgba(120,255,200,0.5)'); g.addColorStop(1, 'rgba(47,224,140,0)');
+        ctx.fillStyle = g; ctx.fillRect(PORTAL_X - 380, PORTAL_Y - 380, 760, 760); ctx.restore();
+      }
+      if (ct > 0.46 && ct < 0.95) {                                   // blazing vertical cut-streak
+        const life = (ct - 0.46) / 0.49, grow = Math.min(1, life / 0.25);
+        const halfLen = 40 + grow * 260, fade = Math.max(0, 1 - Math.max(0, life - 0.25) / 0.75);
+        ctx.save(); ctx.translate(PORTAL_X, PORTAL_Y); ctx.globalAlpha = fade;
+        ctx.fillStyle = MINT; ctx.shadowColor = MINT; ctx.shadowBlur = 38; ctx.fillRect(-8, -halfLen, 16, halfLen * 2);
+        ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 18; ctx.fillRect(-2.5, -halfLen, 5, halfLen * 2);
+        ctx.restore();
+      }
+      if (ct > 0.46 && ct < 0.98) {                                   // sparks flung off the cut
+        const life = (ct - 0.46) / 0.52;
+        ctx.save(); ctx.fillStyle = '#dffff4'; ctx.shadowColor = MINT; ctx.shadowBlur = 12; ctx.globalAlpha = Math.max(0, 1 - life);
+        for (let i = 0; i < 14; i++) { const sa = (i / 14) * Math.PI * 2 + 0.4, sd = life * (90 + (i % 4) * 60); ctx.fillRect(PORTAL_X + Math.cos(sa) * sd, PORTAL_Y + Math.sin(sa) * sd * 1.4, 3, 3); }
+        ctx.restore();
+      }
     }
 
     if (s.phase === 'zip') {

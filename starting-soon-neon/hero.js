@@ -157,13 +157,18 @@
     ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(2, -L * 0.82); ctx.lineTo(0, -L); ctx.lineTo(-2, -L * 0.82); ctx.closePath(); ctx.fill();
     // core highlight
     ctx.fillStyle = '#ffffff'; ctx.globalAlpha = .85; ctx.fillRect(-1, -L * 0.8, 2, L * 0.72); ctx.globalAlpha = 1;
-    // power-up: rising energy motes flowing up the blade (cooler than jagged lines)
+    // power-up: electric current crackling up the blade
     if (powered) {
-      ctx.fillStyle = '#eafff5'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 9;
-      for (let i = 0; i < 3; i++) {
-        const t = (T * 0.9 + i / 3) % 1;
-        const yy = -8 - t * (L - 12), xx = Math.sin(T * 6 + i * 2) * 2;
-        ctx.globalAlpha = 1 - t; ctx.fillRect(xx - 1.25, yy - 1.25, 2.5, 2.5);
+      for (let a = 0; a < 3; a++) {
+        if (Math.sin(T * 19 + a * 2.3) < -0.1) continue;            // flicker on/off
+        const t = (T * (0.7 + a * 0.2) + a * 0.33) % 1;
+        const yc = -10 - t * (L - 16);
+        ctx.strokeStyle = a % 2 ? '#ffffff' : MINT; ctx.lineWidth = 1.3; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 12; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.moveTo(-3, yc);
+        ctx.lineTo(2 + Math.sin(T * 40 + a) * 1.6, yc - 3.5);
+        ctx.lineTo(-2, yc - 7);
+        ctx.lineTo(3 + Math.sin(T * 36 + a) * 1.6, yc - 10.5);
+        ctx.stroke();
       }
       ctx.globalAlpha = 1;
     }
@@ -181,35 +186,65 @@
 
   function drawPortal(cx, cy, w, h, T) {
     if (w < 2) return;
-    const rw = Math.max(1, w / 2), rh = h / 2;
-    ctx.save();
-    ctx.translate(cx, cy);
-    // chromatic "torn reality" rims (offset cyan + mint) with a wide neon haze
-    ctx.shadowColor = NEON; ctx.shadowBlur = 45; ctx.lineWidth = 4; ctx.globalAlpha = 0.7;
-    ctx.strokeStyle = '#00ffc0'; ctx.beginPath(); ctx.ellipse(-4, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = '#b6fff0'; ctx.beginPath(); ctx.ellipse(4, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-    // dark void
-    ctx.fillStyle = 'rgba(2,12,9,0.94)';
-    ctx.beginPath(); ctx.ellipse(0, 0, rw * 0.9, rh * 0.95, 0, 0, Math.PI * 2); ctx.fill();
-    // swirling energy (clipped to the void), rotating with time
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(0, 0, rw * 0.9, rh * 0.95, 0, 0, Math.PI * 2); ctx.clip();
-    ctx.strokeStyle = MINT; ctx.lineWidth = 2;
-    for (let k = 0; k < 5; k++) {
-      const f = (k + 1) / 6, rot = T * 1.8 + k * 0.7;
-      ctx.globalAlpha = 0.18 + 0.12 * Math.sin(T * 4 + k);
-      ctx.beginPath();
-      ctx.ellipse(Math.cos(rot) * rw * 0.12, Math.sin(rot) * rh * 0.12, rw * f, rh * f * 0.82, rot, 0, Math.PI * 2);
-      ctx.stroke();
+    const rw = Math.max(1, w / 2), rh = h / 2, N = 42;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const ang = (i / N) * Math.PI * 2;
+      const jag = 1 + 0.17 * Math.sin(ang * 6 + T * 6) + 0.11 * Math.sin(ang * 12 - T * 9);   // ragged, energetic edge
+      pts.push([Math.cos(ang) * rw * jag, Math.sin(ang) * rh * (1 + 0.05 * Math.sin(ang * 9 + T * 5))]);
     }
+    const trace = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); };
+    ctx.save(); ctx.translate(cx, cy);
+    // dark void
+    trace(); ctx.fillStyle = 'rgba(2,12,9,0.95)'; ctx.fill();
+    // chromatic torn rims (offset cyan + mint), neon haze
+    ctx.shadowColor = NEON; ctx.shadowBlur = 28; ctx.lineWidth = 3; ctx.globalAlpha = 0.75;
+    ctx.save(); ctx.translate(-4, 0); ctx.strokeStyle = '#00ffc0'; trace(); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(4, 0); ctx.strokeStyle = '#b6fff0'; trace(); ctx.stroke(); ctx.restore();
+    // bright ragged rim
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.shadowColor = MINT; ctx.shadowBlur = 16; trace(); ctx.stroke();
+    // electric arcs jumping across the rift
+    ctx.lineWidth = 1.5; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 14;
+    for (let a = 0; a < 4; a++) {
+      if (Math.sin(T * 17 + a * 2.3) < -0.15) continue;            // flicker on/off
+      const a1 = T * 1.3 + a * 1.9, a2 = a1 + 1.0 + 0.6 * Math.sin(T * 3 + a);
+      const p1x = Math.cos(a1) * rw * 0.85, p1y = Math.sin(a1) * rh * 0.85;
+      const p2x = Math.cos(a2) * rw * 0.85, p2y = Math.sin(a2) * rh * 0.85;
+      ctx.strokeStyle = a % 2 ? '#ffffff' : MINT; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(p1x, p1y);
+      for (let k = 1; k < 4; k++) { const f = k / 4; ctx.lineTo(p1x + (p2x - p1x) * f + Math.sin(T * 28 + a * 5 + k) * 11, p1y + (p2y - p1y) * f + Math.cos(T * 24 + k * 2) * 11); }
+      ctx.lineTo(p2x, p2y); ctx.stroke();
+    }
+    // flickering bright core
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(T * 15); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 22; ctx.fillStyle = '#eafff5';
+    ctx.beginPath(); ctx.ellipse(0, 0, Math.max(1, rw * 0.16), rh * 0.6, 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    // bright vertical core slit
-    ctx.globalAlpha = 0.95; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 22; ctx.fillStyle = '#eafff5';
-    ctx.beginPath(); ctx.ellipse(0, 0, Math.max(1, rw * 0.14), rh * 0.72, 0, 0, Math.PI * 2); ctx.fill();
-    // crisp white rim
-    ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.shadowColor = MINT; ctx.shadowBlur = 16;
-    ctx.beginPath(); ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Goku-style rage-fire aura that flares up around the hero while powered
+  function drawAura(cx, cy, T, intensity, alpha) {
+    const A = alpha == null ? 1 : alpha;
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.shadowColor = NEON; ctx.shadowBlur = 30 * intensity;
+    const tongues = 16, baseY = 30;
+    for (let i = 0; i < tongues; i++) {
+      const ang = -Math.PI / 2 + (i / (tongues - 1) - 0.5) * Math.PI * 1.05;   // fan upward + sides
+      const flick = 0.5 + 0.5 * Math.sin(T * 13 + i * 1.9);
+      const len = (42 + flick * 62) * intensity, bw = 7 + flick * 5;
+      const ax = Math.cos(ang), ay = Math.sin(ang), px = -ay, py = ax;
+      ctx.globalAlpha = (0.22 + 0.34 * flick) * A;
+      ctx.fillStyle = i % 3 === 0 ? '#ffffff' : (i % 2 ? MINT : NEON);
+      ctx.beginPath();
+      ctx.moveTo(px * bw, baseY + py * bw); ctx.lineTo(ax * len, baseY + ay * len); ctx.lineTo(-px * bw, baseY - py * bw);
+      ctx.closePath(); ctx.fill();
+    }
+    // rising embers
+    ctx.shadowBlur = 10; ctx.fillStyle = '#eafff5';
+    for (let i = 0; i < 7; i++) {
+      const t = (T * 0.9 + i / 7) % 1;
+      const yy = baseY - t * (160 * intensity), xx = Math.sin(T * 5 + i * 2) * 36 * (1 - t * 0.5);
+      ctx.globalAlpha = (1 - t) * A; ctx.fillRect(xx - 1.5, yy - 1.5, 3, 3);
+    }
     ctx.restore();
   }
 
@@ -290,6 +325,7 @@
     return s;
   }
   window.heroStateAt = computeState;
+  window.heroDrawAt = (T) => draw(T);   // exposed so a single frame can be rendered/verified on demand
 
   /* ---- render ---- */
   function draw(T) {
@@ -339,6 +375,10 @@
       ctx.beginPath(); ctx.ellipse(PORTAL_X, PORTAL_Y, 36 + op * 250, 48 + op * 320, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
     }
 
+    if (s.hero.vis && s.hero.powered) {
+      const auraI = s.phase === 'power' ? 0.25 + 0.75 * s.flash : 1;   // ignite during the power-up, then sustain
+      drawAura(s.hero.x, s.hero.y, T, auraI, s.hero.alpha);
+    }
     if (s.hero.vis) {
       const frame = Math.floor(T * 7) % 2;
       drawHeroBody(heroCv.getContext('2d'), frame);
@@ -381,7 +421,7 @@
       drawPortal(PORTAL_X, PORTAL_Y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
       if (s.portal < 0.25) { ctx.save(); ctx.globalAlpha = s.portal / 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.shadowColor = MINT; ctx.shadowBlur = 26; ctx.beginPath(); ctx.moveTo(PORTAL_X, PORTAL_Y - 90); ctx.lineTo(PORTAL_X, PORTAL_Y + 90); ctx.stroke(); ctx.restore(); }
     }
-    if (s.flash > 0) { ctx.save(); ctx.globalAlpha = 1 - s.flash; ctx.strokeStyle = MINT; ctx.lineWidth = 5; ctx.shadowColor = MINT; ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(pelletPos.x, pelletPos.y, 10 + s.flash * 80, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    // (power-up ring removed — the rage-fire aura is drawn around the hero instead)
     if (s.celebT >= 0) { ctx.save(); ctx.fillStyle = MINT; ctx.shadowColor = MINT; ctx.shadowBlur = 12; ctx.globalAlpha = Math.max(0, 1 - s.celebT / 1.6); for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + s.celebT * 2.5, rr = 26 + s.celebT * 55, tw = 2 + 2 * Math.sin(s.celebT * 9 + i); ctx.fillRect(meetPos.x + Math.cos(a) * rr, meetPos.y - 24 + Math.sin(a) * rr, tw, tw); } ctx.restore(); }
   }
 

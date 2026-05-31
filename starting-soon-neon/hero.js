@@ -42,10 +42,10 @@
   }
 
   /* ---- chase / dots config ---- */
-  const GAP = 0.12, P_BIG = 0.98, MEET = 0.85;   // start at u=0 (bottom-left = X); kill at MEET (bottom-center = checkmark)
+  const GAP = 0.12, P_BIG = 0.98, MEET = 0.64;   // start bottom-left; after power-up the blob bolts right-then-up, caught on the right edge
   const meetPos = getPos(MEET);
-  const PORTAL_X = 1316, PORTAL_W = 84, PORTAL_H = 150;   // at the kill spot (bottom-center)
-  const PORTAL_Y = meetPos.y + 40;                        // drop it just below the kill so it clears the text
+  const PORTAL_X = meetPos.x, PORTAL_W = 84, PORTAL_H = 180;  // portal opens at the kill spot (right edge, clear of the text)
+  const PORTAL_Y = meetPos.y;
   const dots = [];
   for (let p = 0.02; p < P_BIG - 0.01; p += 0.0258) dots.push({ p, pos: getPos(p) });
   const pelletPos = getPos(P_BIG);
@@ -218,8 +218,9 @@
       s.flash = (T - T_CHASE) / (T_POWER - T_CHASE);
     } else if (T < T_REVERSE) {
       s.phase = 'reverse';
-      const rt = (T - T_POWER) / (T_REVERSE - T_POWER), e = rt * rt;
-      const hu = P_BIG + (MEET - P_BIG) * e, bu = (P_BIG - GAP) + (MEET - (P_BIG - GAP)) * rt;
+      const rt = (T - T_POWER) / (T_REVERSE - T_POWER);
+      const hu = P_BIG + (MEET - P_BIG) * (rt * rt);                                   // hero accelerates and closes the gap late
+      const bu = (P_BIG - GAP) + (MEET - (P_BIG - GAP)) * (1 - (1 - rt) * (1 - rt));   // blob bolts away FAST early (ease-out)
       const hp = getPos(hu), bp = getPos(bu);
       Object.assign(s.hero, { x: hp.x, y: hp.y, vis: true, powered: true, faceLeft: faceLeft(hu, -1), ang: 0.2 });
       Object.assign(s.blob, { x: bp.x, y: bp.y, vis: true, scared: true, faceLeft: faceLeft(bu, -1) });

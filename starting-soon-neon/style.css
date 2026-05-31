@@ -111,7 +111,7 @@ body { font-family: var(--font-pixel); color: var(--text); }
   position: fixed; top: 0; right: 0; z-index: 5;
   width: calc(100% - var(--panel-x)); height: 100%;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 0 8% 60px 7%;
+  padding: 0 8% 60px 7%;         /* balanced so the chase loop clears the text both sides */
 }
 .sun {                                         /* soft glow behind text */
   position: absolute; z-index: -1;

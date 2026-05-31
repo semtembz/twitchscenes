@@ -88,6 +88,5 @@
   setTimeout(() => {
     bar.classList.add('done');
     document.getElementById('statusEn').textContent = 'READY';
-    document.getElementById('statusJp').textContent = '準備完了';
   }, seconds * 1000);
 })();

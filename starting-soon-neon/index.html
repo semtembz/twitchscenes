@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Fixed 1920x1080 stage; scaled to fit the window so the browser view == OBS view -->
+  <div id="stage">
   <!-- base background sits behind everything -->
   <div class="bg" aria-hidden="true"></div>
 
@@ -68,7 +70,20 @@
 
   <!-- Neon hero vs. blob mini-chase (separate layer, orbits behind the text) -->
   <canvas id="hero" class="hero" width="1920" height="1080" aria-hidden="true"></canvas>
+  </div><!-- #stage -->
 
+  <script>
+    // Scale the fixed 1920x1080 stage to fit the window, so the browser shows
+    // exactly what OBS renders and the text + animation can never drift apart.
+    (function () {
+      function fit() {
+        var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        document.documentElement.style.setProperty('--scale', s);
+      }
+      fit();
+      window.addEventListener('resize', fit);
+    })();
+  </script>
   <script src="script.js"></script>
   <script src="hero.js"></script>
 </body>

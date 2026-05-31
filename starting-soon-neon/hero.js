@@ -22,7 +22,7 @@
   const SKIN = '#e6bd9a', HAIR = '#19110b', CAPE = '#0b2c1f', OUTFIT = '#0e3325', DOT = '#cfeede';
 
   /* ---- rectangular path (right of the seam, around the text) ---- */
-  const LX = 945, RX = 1850, TY = 155, BY = 860;          // wide loop: starting (left) edge a little left of the writing, extends across the open right area
+  const LX = 940, RX = 1560, TY = 170, BY = 770;          // snug box wrapping the text (right pulled in, bottom up) — traced to the red box
   const Wd = RX - LX, Ht = BY - TY, PER = 2 * (Wd + Ht);
   const CENTERX = (LX + RX) / 2;
   const norm = (u) => ((u % 1) + 1) % 1;
@@ -42,9 +42,10 @@
   }
 
   /* ---- chase / dots config ---- */
-  const GAP = 0.12, P_BIG = 0.86, MEET = 0.66;
+  const GAP = 0.12, P_BIG = 0.98, MEET = 0.85;   // start at u=0 (bottom-left = X); kill at MEET (bottom-center = checkmark)
   const meetPos = getPos(MEET);
-  const PORTAL_X = 1845, PORTAL_W = 84, PORTAL_H = 220;   // near the right edge of the loop band
+  const PORTAL_X = 1316, PORTAL_W = 84, PORTAL_H = 150;   // at the kill spot (bottom-center)
+  const PORTAL_Y = meetPos.y + 40;                        // drop it just below the kill so it clears the text
   const dots = [];
   for (let p = 0.02; p < P_BIG - 0.01; p += 0.0258) dots.push({ p, pos: getPos(p) });
   const pelletPos = getPos(P_BIG);
@@ -277,7 +278,7 @@
     }
 
     // portal behind hero during cut/jump, in front during zip
-    if (s.portal > 0 && s.phase !== 'zip') drawPortal(PORTAL_X, meetPos.y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
+    if (s.portal > 0 && s.phase !== 'zip') drawPortal(PORTAL_X, PORTAL_Y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
 
     if (s.hero.vis) {
       const frame = Math.floor(T * 7) % 2;
@@ -293,8 +294,8 @@
     }
 
     if (s.phase === 'zip') {
-      drawPortal(PORTAL_X, meetPos.y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
-      if (s.portal < 0.25) { ctx.save(); ctx.globalAlpha = s.portal / 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.shadowColor = MINT; ctx.shadowBlur = 26; ctx.beginPath(); ctx.moveTo(PORTAL_X, meetPos.y - 120); ctx.lineTo(PORTAL_X, meetPos.y + 120); ctx.stroke(); ctx.restore(); }
+      drawPortal(PORTAL_X, PORTAL_Y, s.portal * PORTAL_W, PORTAL_H, s.portalT);
+      if (s.portal < 0.25) { ctx.save(); ctx.globalAlpha = s.portal / 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.shadowColor = MINT; ctx.shadowBlur = 26; ctx.beginPath(); ctx.moveTo(PORTAL_X, PORTAL_Y - 90); ctx.lineTo(PORTAL_X, PORTAL_Y + 90); ctx.stroke(); ctx.restore(); }
     }
     if (s.flash > 0) { ctx.save(); ctx.globalAlpha = 1 - s.flash; ctx.strokeStyle = MINT; ctx.lineWidth = 5; ctx.shadowColor = MINT; ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(pelletPos.x, pelletPos.y, 10 + s.flash * 80, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
     if (s.celebT >= 0) { ctx.save(); ctx.fillStyle = MINT; ctx.shadowColor = MINT; ctx.shadowBlur = 12; ctx.globalAlpha = Math.max(0, 1 - s.celebT / 1.6); for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + s.celebT * 2.5, rr = 26 + s.celebT * 55, tw = 2 + 2 * Math.sin(s.celebT * 9 + i); ctx.fillRect(meetPos.x + Math.cos(a) * rr, meetPos.y - 24 + Math.sin(a) * rr, tw, tw); } ctx.restore(); }

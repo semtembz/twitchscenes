@@ -22,7 +22,7 @@
   const SKIN = '#e6bd9a', HAIR = '#19110b', CAPE = '#0b2c1f', OUTFIT = '#0e3325', DOT = '#cfeede';
 
   /* ---- rectangular path (right of the seam, around the text) ---- */
-  const LX = 1500, RX = 1850, TY = 160, BY = 860;         // path edges — loop lives entirely in the open band RIGHT of the text
+  const LX = 945, RX = 1850, TY = 155, BY = 860;          // wide loop: starting (left) edge a little left of the writing, extends across the open right area
   const Wd = RX - LX, Ht = BY - TY, PER = 2 * (Wd + Ht);
   const CENTERX = (LX + RX) / 2;
   const norm = (u) => ((u % 1) + 1) % 1;
@@ -38,7 +38,7 @@
     const a = getPos(u), b = getPos(u + 0.012 * dir);
     const dx = b.x - a.x;
     if (Math.abs(dx) > 0.5) return dx < 0;
-    return a.x > CENTERX;                                           // vertical: face inward (text is to the loop's left now)
+    return a.x < CENTERX;                                           // vertical: face outward — left edge faces away from the writing on its right
   }
 
   /* ---- chase / dots config ---- */

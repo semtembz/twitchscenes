@@ -35,13 +35,6 @@
     const INDIGO = '#1b2350', DEEP = '#0e1230';
     const easeInOut = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 
-    // sakura burst
-    const SAK = ['#f2a6c0', '#f7c2d4', '#f5ece0'];
-    const burst = Array.from({ length: 52 }, (_, i) => {
-      const a = Math.random() * Math.PI * 2, sp = 260 + Math.random() * 700;
-      return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 130, color: SAK[i % 3], size: 6 + (i % 4) * 2 };
-    });
-
     // Each corner's triangle is anchored at its corner and grows along the two
     // adjacent screen edges. At p = 1 the inner edges meet at the screen center.
     function cornerTriangle(corner, p) {
@@ -93,21 +86,6 @@
       ctx.restore();
     }
 
-    function crest(cx, cy, s, a, rot) {
-      ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.rotate(rot);
-      ctx.shadowColor = GOLD; ctx.shadowBlur = 36;
-      ctx.strokeStyle = GOLD; ctx.lineWidth = 7;
-      ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, 0, s * 0.66, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = VERM;
-      ctx.beginPath();
-      ctx.moveTo(0, -s * 0.45); ctx.lineTo(s * 0.45, 0); ctx.lineTo(0, s * 0.45); ctx.lineTo(-s * 0.45, 0); ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#fff2d8';
-      for (let k = 0; k < 4; k++) { const ang = k * Math.PI / 2; ctx.fillRect(Math.cos(ang) * s - 4, Math.sin(ang) * s - 4, 8, 8); }
-      ctx.restore();
-    }
-
     function frame(t) {
       ctx.clearRect(0, 0, W, H);
 
@@ -153,25 +131,11 @@
         }
       }
 
-      // Center crest + white flash during the full-cover hold
+      // Brief white flash punctuates the full-cover hold (kept; no crest, no sparkles)
       if (holdA > 0) {
-        const rot = (t - 0.5) * 7;                      // gentle spin
-        crest(W / 2, H / 2, 110, Math.max(0, holdA), rot);
         ctx.save();
         ctx.globalAlpha = holdA * 0.28; ctx.fillStyle = '#fff2d8';
         ctx.fillRect(0, 0, W, H);
-        ctx.restore();
-      }
-
-      // Sakura burst from center, strongest at the cover moment
-      if (t > 0.42 && t < 0.96) {
-        const lt = (t - 0.42) / 0.54;
-        ctx.save();
-        for (const p of burst) {
-          const x = W / 2 + p.vx * lt, y = H / 2 + p.vy * lt + 460 * lt * lt;
-          ctx.globalAlpha = Math.max(0, 1 - lt) * 0.95; ctx.fillStyle = p.color;
-          ctx.fillRect(x, y, p.size, p.size);
-        }
         ctx.restore();
       }
     }

@@ -5,20 +5,20 @@
   <meta name="viewport" content="width=1920, height=1080" />
   <title>Ending — Red / Gold</title>
   <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
-       Optional URL params: ?handle=@you   ?photo=assets/x.jpg -->
+       Optional URL params: ?handle=@you -->
   <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* Ending overrides: no photo, no seam, message centered full-width. */
+    .panel { width: 100%; left: 0; right: 0; padding: 0 7% 60px 7%; }
+    .sun   { right: auto; left: 50%; transform: translate(-50%, -52%); }
+    .handle { font-size: 28px; }
+  </style>
 </head>
 <body>
   <div id="stage">
     <div class="bg" aria-hidden="true"></div>
 
-    <section class="photo" aria-hidden="true">
-      <img id="photoImg" class="photo__img" alt="" />
-      <div class="photo__grade"></div>
-    </section>
-
     <canvas id="petals" class="petals" width="1920" height="1080" aria-hidden="true"></canvas>
-    <div class="divider" aria-hidden="true"></div>
 
     <main class="panel">
       <div class="sun" aria-hidden="true"></div>
@@ -26,7 +26,7 @@
       <div class="rule" aria-hidden="true"></div>
       <h1 class="title">THANKS<br>FOR<br><span class="title__accent">WATCHING</span></h1>
       <p class="sub">see you next stream — take care of yourselves</p>
-      <p class="handle" id="handle">twitch.tv/yourname &middot; @yourhandle</p>
+      <p class="handle" id="handle">@Semtembz everywhere &middot; twitch.tv/Semtembz</p>
     </main>
 
     <div class="frame" aria-hidden="true"></div>

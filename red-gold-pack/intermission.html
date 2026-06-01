@@ -32,6 +32,18 @@
     <div class="frame" aria-hidden="true"></div>
   </div>
 
+  <script>
+    // Inline fit (runs immediately so the page is correctly sized before shared.js loads).
+    (function () {
+      function fit() {
+        var iw = window.innerWidth, ih = window.innerHeight;
+        if (iw < 10 || ih < 10) return;
+        document.documentElement.style.setProperty('--scale', Math.min(iw / 1920, ih / 1080));
+      }
+      fit();
+      window.addEventListener('resize', fit);
+    })();
+  </script>
   <script src="shared.js"></script>
 </body>
 </html>

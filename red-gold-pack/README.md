@@ -23,7 +23,11 @@ For `brb.html`, `intermission.html`, `ending.html`, or `transition.html`:
 
 1. **Sources → + → Browser → Create new → OK**
 2. Check **Local file**, browse to the HTML file
-3. **Width 1920, Height 1080**
+3. **⚠ Width 1920, Height 1080** — this is the most important setting. OBS defaults
+   new Browser Sources to **800×600**, which makes the scene render at a smaller
+   internal resolution. If you then scale the source bigger on the OBS canvas, OBS
+   upscales blurry pixels. **Always set 1920×1080 in the source properties**, then
+   the rendered output is already canvas-sized and pixel-sharp.
 4. Check **Use custom frame rate → 60**
 5. Recommended: **Refresh browser when scene becomes active** (replays the intro reveal
    and resets the timer each time you switch to the scene)

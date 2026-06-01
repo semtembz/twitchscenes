@@ -9,9 +9,18 @@
   const $ = (s) => document.querySelector(s);
   const $id = (id) => document.getElementById(id);
 
-  /* ---- fit the 1920x1080 stage to the window ---- */
-  const fit = () => document.documentElement.style.setProperty('--scale', Math.min(innerWidth / 1920, innerHeight / 1080));
-  fit(); addEventListener('resize', fit);
+  /* ---- fit the 1920x1080 stage to the window (defensive: skip degenerate viewports) ---- */
+  function fit() {
+    var iw = window.innerWidth, ih = window.innerHeight;
+    if (iw < 10 || ih < 10) return;                        // viewport not ready / collapsed; don't write 0
+    var s = Math.min(iw / 1920, ih / 1080);
+    document.documentElement.style.setProperty('--scale', s);
+  }
+  fit();
+  window.addEventListener('resize', fit);
+  // Belt-and-suspenders: keep re-fitting briefly after load so we catch any late
+  // viewport (some embedders set the viewport AFTER the script runs).
+  var ticks = 0; var iv = setInterval(function () { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
 
   /* ---- optional handle line ---- */
   const handle = params.get('handle'), handleEl = $id('handle');

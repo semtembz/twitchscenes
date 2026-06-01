@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Red / Gold (generator)</title>
+  <!--
+    Twitch profile banner (the strip that fills the top of your channel page).
+    Recommended size: 1920 x 480 px (5:2). Twitch crops the sides on narrower
+    viewports, so everything important is kept in the centered "safe" area.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner" (the wide image at the top of your channel page).
+  -->
+  <style>
+    :root {
+      --indigo-1: #0e1230; --indigo-2: #1b2350; --deep: #0a0d24;
+      --vermilion: #d64a33; --vermilion-dark: #8f2a1e;
+      --gold: #e8b349; --gold-soft: #f2c75a;
+      --washi: #f5ece0; --washi-dim: #b9bfe0;
+    }
+    @font-face {
+      font-family: "Silkscreen";
+      src: url("assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: "Silkscreen";
+      src: url("assets/fonts/Silkscreen-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #0a0d24; color: var(--washi); padding: 32px; }
+    h1 { font-family: "Silkscreen"; font-weight: 700; font-size: 28px; color: var(--gold-soft); letter-spacing: 2px; margin: 0 0 6px; }
+    p.lead { color: #b9bfe0; margin: 0 0 22px; max-width: 760px; line-height: 1.55; }
+    button { font-family: "Silkscreen"; font-weight: 700; font-size: 14px; letter-spacing: 2px;
+      padding: 12px 22px; background: var(--vermilion); color: var(--washi); border: 2px solid var(--gold); cursor: pointer; }
+    button:hover { background: var(--vermilion-dark); }
+    .preview { margin-top: 22px; background: #11163a; padding: 14px; border: 1px solid #2a3370; display: inline-block; }
+    canvas { display: block; width: 1152px; height: 288px; image-rendering: pixelated; }
+    code { color: var(--gold-soft); background: #161a3a; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the red/gold pixel-Japan style.
+    Click Download, then upload it on Twitch under
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <p class="lead" style="font-size: 13px;">
+    <strong>Note:</strong> Twitch crops the sides of the banner at smaller window
+    widths, so the title + handle are kept centered in the safe area.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+  </div>
+
+  <script>
+    const W = 1920, H = 480;
+    const INDIGO_1 = '#0e1230', INDIGO_2 = '#1b2350', DEEP = '#0a0d24';
+    const VERMILION = '#d64a33', VERMILION_DARK = '#8f2a1e';
+    const GOLD = '#e8b349', GOLD_SOFT = '#f2c75a';
+    const WASHI = '#f5ece0', WASHI_DIM = '#b9bfe0';
+    const SAKURA = ['#f2a6c0', '#f7c2d4', '#f5ece0'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    async function draw() {
+      // Wait for the bundled pixel font to be ready before rasterizing text
+      await document.fonts.load('700 110px "Silkscreen"');
+      await document.fonts.load('400 22px "Silkscreen"');
+      await document.fonts.ready;
+
+      // ---- BACKGROUND ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, INDIGO_2); grad.addColorStop(1, DEEP);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // Warm radial glow (offset to the right, like the other scenes)
+      const radial = ctx.createRadialGradient(W * 0.78, H * 0.42, 40, W * 0.78, H * 0.42, 600);
+      radial.addColorStop(0, 'rgba(214,74,51,0.30)');
+      radial.addColorStop(0.55, 'rgba(214,74,51,0.10)');
+      radial.addColorStop(1, 'rgba(214,74,51,0)');
+      ctx.fillStyle = radial; ctx.fillRect(0, 0, W, H);
+
+      // Subtle pixel dot grid
+      ctx.fillStyle = 'rgba(120,140,220,0.10)';
+      for (let y = 12; y < H; y += 14) for (let x = 12; x < W; x += 14) ctx.fillRect(x, y, 1.5, 1.5);
+
+      // Tiled background wordmark (very faint, evokes the user's existing red banner)
+      // Reproducible so it doesn't shift between regenerations.
+      const seedRand = (() => { let s = 31337; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
+      ctx.save();
+      ctx.font = '700 56px "Silkscreen", monospace';
+      ctx.fillStyle = 'rgba(143,42,30,0.18)';   // very faint vermilion-dark
+      const tileText = 'SEMTEMBZ';
+      const tileGap = 28;
+      for (let row = -1; row <= Math.ceil(H / 70); row++) {
+        const yPos = row * 70 + 20;
+        const xOffset = (row % 2) * 220 + seedRand() * 60;
+        let x = -200 + xOffset;
+        while (x < W + 200) {
+          ctx.save();
+          ctx.translate(x, yPos);
+          ctx.rotate(-0.05);
+          ctx.fillText(tileText, 0, 0);
+          ctx.restore();
+          x += ctx.measureText(tileText).width + tileGap + (seedRand() * 30);
+        }
+      }
+      ctx.restore();
+
+      // Scattered sakura petals (frozen moment, mostly on the right side)
+      for (let i = 0; i < 22; i++) {
+        const x = 800 + seedRand() * (W - 880);
+        const y = seedRand() * H;
+        const sz = 5 + (i % 4) * 2;
+        ctx.globalAlpha = 0.30 + seedRand() * 0.30;
+        ctx.fillStyle = SAKURA[i % 3];
+        ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+        ctx.fillRect(Math.round(x + sz), Math.round(y - sz * 0.5), Math.round(sz * 0.6), Math.round(sz * 0.6));
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- CENTERED CONTENT (safe area) ----
+      const cx = W / 2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // Kicker
+      ctx.font = '400 22px "Silkscreen", monospace';
+      const kickerTxt = '   STREAMER';
+      const kickerW = ctx.measureText(kickerTxt).width;
+      const kickerY = H / 2 - 110;
+      // status dot
+      const dotX = cx - kickerW / 2 + 8;
+      ctx.fillStyle = VERMILION; ctx.shadowColor = VERMILION; ctx.shadowBlur = 14;
+      ctx.fillRect(Math.round(dotX - 7), Math.round(kickerY - 7), 14, 14);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = GOLD_SOFT;
+      ctx.fillText(kickerTxt, cx, kickerY);
+
+      // Gold pixel rule
+      const ruleY = kickerY + 30;
+      ctx.fillStyle = GOLD;
+      for (let i = 0; i < 9; i++) ctx.fillRect(cx - 99 + i * 22, ruleY - 4, 14, 8);
+
+      // Title: "@SEMTEMBZ"
+      ctx.font = '700 110px "Silkscreen", monospace';
+      const titleY = H / 2 + 35;
+      // hard pixel shadow + washi top, with a soft gold halo
+      ctx.fillStyle = VERMILION_DARK;
+      ctx.fillText('@SEMTEMBZ', cx + 6, titleY + 6);
+      ctx.shadowColor = 'rgba(232,179,73,0.40)';
+      ctx.shadowBlur = 28;
+      ctx.fillStyle = WASHI;
+      ctx.fillText('@SEMTEMBZ', cx, titleY);
+      ctx.shadowBlur = 0;
+
+      // Subtitle / handle line
+      ctx.font = '400 24px "Silkscreen", monospace';
+      ctx.fillStyle = GOLD_SOFT;
+      ctx.fillText('twitch.tv/Semtembz   ·   live whenever the vibes are right', cx, H / 2 + 130);
+
+      // ---- OUTER VERMILION FRAME (matches the other scenes) ----
+      ctx.strokeStyle = VERMILION; ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, W - 10, H - 10);
+      ctx.strokeStyle = VERMILION_DARK; ctx.lineWidth = 3;
+      ctx.strokeRect(13, 13, W - 26, H - 26);
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Red / Gold Slash</title>
+  <!--
+    Red/gold "blade-slash" stinger. Plays ONCE on load (transparent before/after).
+    ?loop=1 loops it (for previewing).  ?ms=1200 sets the duration.
+
+    To use as an OBS Stinger transition you need a VIDEO file (OBS can't use a web page
+    as a stinger). Easiest path: add this as a Browser Source, RIGHT-CLICK it ->
+    "Record"/use a screen recorder while it plays once, save as .webm/.mov, then
+    Settings -> add it as a Stinger transition with the transition point ~ halfway
+    (when the screen is fully covered). Or just use it as a full-screen Browser Source
+    on a brief "transition" scene.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    const W = 1920, H = 1080, SKEW = 240;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = (Number(params.get('ms')) || 1200);          // total ms
+    const LOOP = params.get('loop') === '1';
+    const VERM = '#d64a33', GOLD = '#e8b349', INDIGO = '#1b2350', DEEP = '#0e1230';
+    const easeInOut = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+    // sakura burst (precomputed)
+    const SAK = ['#f2a6c0', '#f7c2d4', '#f5ece0'];
+    const burst = Array.from({ length: 46 }, (_, i) => {
+      const a = Math.random() * Math.PI * 2, sp = 250 + Math.random() * 650;
+      return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, color: SAK[i % 3], size: 6 + (i % 4) * 2, rot: Math.random() * 6 };
+    });
+
+    // a tilted edge line from (x,0) to (x-SKEW,H)
+    function bandPath(leftX, rightX) {
+      ctx.beginPath();
+      ctx.moveTo(rightX, 0); ctx.lineTo(leftX, 0);
+      ctx.lineTo(leftX - SKEW, H); ctx.lineTo(rightX - SKEW, H); ctx.closePath();
+    }
+    function slashEdge(x) {                                    // glowing blade edge along a tilted line
+      ctx.save(); ctx.lineCap = 'round';
+      const layers = [[26, VERM, 0.9, 40], [12, GOLD, 0.95, 26], [4, '#ffffff', 1, 18]];
+      for (const [w, col, al, blur] of layers) {
+        ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.shadowColor = col; ctx.shadowBlur = blur;
+        ctx.beginPath(); ctx.moveTo(x + 30, -20); ctx.lineTo(x - SKEW - 30, H + 20); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function crest(cx, cy, s, a) {                             // gold mon flashed at full cover
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy);
+      ctx.shadowColor = GOLD; ctx.shadowBlur = 30;
+      ctx.strokeStyle = GOLD; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, s * 0.66, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = VERM; ctx.beginPath();
+      ctx.moveTo(0, -s * 0.4); ctx.lineTo(s * 0.4, 0); ctx.lineTo(0, s * 0.4); ctx.lineTo(-s * 0.4, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff2d8'; for (let k = 0; k < 4; k++) { const ang = k * Math.PI / 2; ctx.fillRect(Math.cos(ang) * s - 3, Math.sin(ang) * s - 3, 6, 6); }
+      ctx.restore();
+    }
+
+    function frame(t) {                                        // t = 0..1
+      ctx.clearRect(0, 0, W, H);
+      // cover sweeps left->right (coverP), then reveal sweeps left->right (revealP)
+      let coverP, revealP, holdA = 0;
+      if (t < 0.42) { coverP = easeInOut(t / 0.42); revealP = 0; }
+      else if (t < 0.6) { coverP = 1; revealP = 0; holdA = 1 - Math.abs(t - 0.51) / 0.09; }
+      else { coverP = 1; revealP = easeInOut((t - 0.6) / 0.4); }
+      const span = W + 2 * SKEW;
+      const coverX = -SKEW + coverP * span, revealX = -SKEW + revealP * span;
+
+      // the covering band (indigo with gold pinstripes)
+      bandPath(revealX, coverX);
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, INDIGO); g.addColorStop(0.5, DEEP); g.addColorStop(1, INDIGO);
+      ctx.save(); ctx.fillStyle = g; ctx.fill();
+      bandPath(revealX, coverX); ctx.clip();
+      ctx.strokeStyle = 'rgba(232,179,73,0.18)'; ctx.lineWidth = 3;
+      for (let x = revealX; x < coverX + SKEW; x += 46) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - SKEW, H); ctx.stroke(); }
+      ctx.restore();
+
+      if (coverP > 0.001 && coverP < 0.999) slashEdge(coverX);     // leading blade (cover in)
+      if (revealP > 0.001 && revealP < 0.999) slashEdge(revealX);  // trailing blade (reveal out)
+
+      if (holdA > 0) {                                              // crest + white flash at full cover
+        crest(W / 2, H / 2, 90, Math.max(0, holdA));
+        ctx.save(); ctx.globalAlpha = holdA * 0.25; ctx.fillStyle = '#fff2d8'; ctx.fillRect(0, 0, W, H); ctx.restore();
+      }
+
+      // sakura burst from center, strongest at the cover moment
+      if (t > 0.38 && t < 0.95) {
+        const lt = (t - 0.38) / 0.57;
+        ctx.save();
+        for (const p of burst) {
+          const x = W / 2 + p.vx * lt, y = H / 2 + p.vy * lt + 420 * lt * lt;
+          ctx.globalAlpha = Math.max(0, 1 - lt) * 0.95; ctx.fillStyle = p.color;
+          ctx.fillRect(x, y, p.size, p.size);
+        }
+        ctx.restore();
+      }
+    }
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 900; t = 0; }     // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; } // play once, then clear
+      }
+      frame(Math.max(0, Math.min(1, t)));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

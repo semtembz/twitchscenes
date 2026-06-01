@@ -22,7 +22,7 @@
   if (photoEl && photoImg) {
     photoImg.onload = () => photoEl.classList.add('ready');
     photoImg.onerror = () => photoEl.classList.add('placeholder', 'ready');
-    photoImg.src = params.get('photo') || 'assets/intro-photo.jpg';
+    photoImg.src = params.get('photo') || photoImg.dataset.photo || 'assets/intro-photo.jpg';
   }
 
   /* ---- sakura petals (if a #petals canvas is present) ---- */

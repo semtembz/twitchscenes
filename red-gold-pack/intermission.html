@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=1920, height=1080" />
   <title>Intermission — Red / Gold</title>
   <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
-       Optional URL params: ?seconds=180 (hidden timer)  ?handle=@you  ?photo=assets/x.jpg -->
+       Optional URL params: ?handle=@you  ?photo=assets/x.jpg -->
   <link rel="stylesheet" href="shared.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
     <div class="bg" aria-hidden="true"></div>
 
     <section class="photo" aria-hidden="true">
-      <img id="photoImg" class="photo__img" alt="" />
+      <img id="photoImg" class="photo__img" alt="" data-photo="assets/lily.jpg" />
       <div class="photo__grade"></div>
     </section>
 
@@ -22,7 +22,7 @@
 
     <main class="panel">
       <div class="sun" aria-hidden="true"></div>
-      <p class="kicker"><span class="dot"></span> <span id="statusEn" data-done="RESUMING">INTERMISSION</span></p>
+      <p class="kicker"><span class="dot"></span> <span id="statusEn">INTERMISSION</span></p>
       <div class="rule" aria-hidden="true"></div>
       <h1 class="title">BACK<br><span class="title__accent">SHORTLY</span></h1>
       <p class="sub">stretching our legs — the stream resumes soon</p>
@@ -30,15 +30,6 @@
     </main>
 
     <div class="frame" aria-hidden="true"></div>
-
-    <div class="loadstatus" id="loadstatus" aria-hidden="true">
-      <span class="spinner" id="spinner"></span>
-      <span id="loadtext" data-done="RESUMING">BREAK</span>
-    </div>
-
-    <div class="loadbar" aria-hidden="true">
-      <div class="loadbar__track"><div class="loadbar__fill" id="fill"></div></div>
-    </div>
   </div>
 
   <script src="shared.js"></script>

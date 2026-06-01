@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Red / Gold (generator)</title>
+  <!--
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page renders the offline screen on a canvas and downloads it as a PNG.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (the image people see when you're offline).
+  -->
+  <style>
+    :root {
+      --indigo-1: #0e1230; --indigo-2: #1b2350; --deep: #0a0d24;
+      --vermilion: #d64a33; --vermilion-dark: #8f2a1e;
+      --gold: #e8b349; --gold-soft: #f2c75a;
+      --washi: #f5ece0; --washi-dim: #b9bfe0;
+      --sakura: #f2a6c0;
+    }
+    @font-face {
+      font-family: "Silkscreen";
+      src: url("assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: "Silkscreen";
+      src: url("assets/fonts/Silkscreen-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #0a0d24; color: var(--washi); padding: 32px; }
+    h1 { font-family: "Silkscreen"; font-weight: 700; font-size: 28px; color: var(--gold-soft); letter-spacing: 2px; margin: 0 0 6px; }
+    p.lead { color: #b9bfe0; margin: 0 0 22px; max-width: 760px; line-height: 1.55; }
+    button { font-family: "Silkscreen"; font-weight: 700; font-size: 14px; letter-spacing: 2px;
+      padding: 12px 22px; background: var(--vermilion); color: var(--washi); border: 2px solid var(--gold); cursor: pointer; }
+    button:hover { background: var(--vermilion-dark); }
+    .preview { margin-top: 22px; background: #11163a; padding: 14px; border: 1px solid #2a3370; display: inline-block; }
+    canvas { display: block; width: 960px; height: 540px; image-rendering: pixelated; }
+    code { color: var(--gold-soft); background: #161a3a; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the red/gold pixel-Japan style.
+    Click Download, then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    const W = 1920, H = 1080;
+    const INDIGO_1 = '#0e1230', INDIGO_2 = '#1b2350', DEEP = '#0a0d24';
+    const VERMILION = '#d64a33', VERMILION_DARK = '#8f2a1e';
+    const GOLD = '#e8b349', GOLD_SOFT = '#f2c75a';
+    const WASHI = '#f5ece0', WASHI_DIM = '#b9bfe0';
+    const SAKURA = ['#f2a6c0', '#f7c2d4', '#f5ece0'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    async function draw() {
+      // Ensure the bundled pixel font is loaded before we rasterize text
+      await document.fonts.load('700 160px "Silkscreen"');
+      await document.fonts.load('400 40px "Silkscreen"');
+      await document.fonts.ready;
+
+      // ---- BACKGROUND: indigo gradient with a lifted glow upper-right ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, INDIGO_1); grad.addColorStop(1, DEEP);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      const radial = ctx.createRadialGradient(W * 0.78, H * 0.30, 60, W * 0.78, H * 0.30, W * 0.7);
+      radial.addColorStop(0, 'rgba(27,35,80,0.85)'); radial.addColorStop(1, 'rgba(27,35,80,0)');
+      ctx.fillStyle = radial; ctx.fillRect(0, 0, W, H);
+
+      // Subtle pixel dot grid texture
+      ctx.fillStyle = 'rgba(120,140,220,0.08)';
+      for (let y = 12; y < H; y += 14) for (let x = 12; x < W; x += 14) ctx.fillRect(x, y, 1.5, 1.5);
+
+      // Sun-glow behind the OFFLINE text (warm vermilion)
+      const sun = ctx.createRadialGradient(W / 2, H / 2 + 60, 80, W / 2, H / 2 + 60, 620);
+      sun.addColorStop(0, 'rgba(214,74,51,0.30)');
+      sun.addColorStop(0.5, 'rgba(214,74,51,0.12)');
+      sun.addColorStop(1, 'rgba(214,74,51,0)');
+      ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
+
+      // ---- SCATTERED SAKURA (static painterly accent) ----
+      // Reproducible "frozen moment" instead of random each time.
+      const seedRand = (() => { let s = 1337; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
+      for (let i = 0; i < 38; i++) {
+        const x = seedRand() * W, y = seedRand() * H;
+        const sz = 6 + (i % 4) * 2;
+        const col = SAKURA[i % 3];
+        ctx.globalAlpha = 0.35 + seedRand() * 0.35;
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+        ctx.fillRect(Math.round(x + sz), Math.round(y - sz * 0.5), Math.round(sz * 0.6), Math.round(sz * 0.6));
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- CENTERED TEXT BLOCK ----
+      const cx = W / 2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // Kicker (small) -- "● OFFLINE"
+      ctx.font = '400 30px "Silkscreen", monospace';
+      ctx.fillStyle = GOLD_SOFT;
+      const kickerY = H / 2 - 240;
+      const kickerTxt = '  OFFLINE';
+      const kickerW = ctx.measureText(kickerTxt).width;
+      // dot
+      const dotX = cx - kickerW / 2 + 8;
+      ctx.fillStyle = VERMILION; ctx.shadowColor = VERMILION; ctx.shadowBlur = 14;
+      ctx.fillRect(Math.round(dotX - 8), Math.round(kickerY - 8), 16, 16);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = GOLD_SOFT;
+      ctx.fillText(kickerTxt, cx, kickerY);
+
+      // Gold pixel rule
+      const ruleY = kickerY + 40;
+      ctx.fillStyle = GOLD;
+      for (let i = 0; i < 11; i++) ctx.fillRect(cx - 121 + i * 22, ruleY - 4, 14, 8);
+
+      // HEADLINE: "STREAM IS" / "OFFLINE"
+      ctx.font = '700 120px "Silkscreen", monospace';
+      const titleY1 = H / 2 - 70;
+      // hard pixel shadow + washi top
+      ctx.fillStyle = VERMILION_DARK;
+      ctx.fillText('STREAM IS', cx + 6, titleY1 + 6);
+      ctx.fillStyle = WASHI;
+      ctx.fillText('STREAM IS', cx, titleY1);
+
+      // "OFFLINE" — bigger, gold with hard red shadow + soft glow
+      ctx.font = '700 200px "Silkscreen", monospace';
+      const titleY2 = H / 2 + 100;
+      ctx.fillStyle = VERMILION_DARK;
+      ctx.fillText('OFFLINE', cx + 8, titleY2 + 8);
+      ctx.shadowColor = 'rgba(232,179,73,0.55)';
+      ctx.shadowBlur = 40;
+      ctx.fillStyle = GOLD_SOFT;
+      ctx.fillText('OFFLINE', cx, titleY2);
+      ctx.shadowBlur = 0;
+
+      // Subtitle
+      ctx.font = '400 36px system-ui, "Segoe UI", sans-serif';
+      ctx.fillStyle = WASHI_DIM;
+      ctx.fillText('be back live soon — follow to get notified', cx, H / 2 + 250);
+
+      // Handle
+      ctx.font = '700 30px "Silkscreen", monospace';
+      ctx.fillStyle = GOLD_SOFT;
+      ctx.fillText('@Semtembz everywhere  ·  twitch.tv/Semtembz', cx, H / 2 + 320);
+
+      // ---- OUTER VERMILION FRAME (matches the other scenes) ----
+      ctx.strokeStyle = VERMILION; ctx.lineWidth = 12;
+      ctx.strokeRect(6, 6, W - 12, H - 12);
+      ctx.strokeStyle = VERMILION_DARK; ctx.lineWidth = 4;
+      ctx.strokeRect(16, 16, W - 32, H - 32);
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    draw();
+  </script>
+</body>
+</html>

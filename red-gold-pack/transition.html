@@ -69,14 +69,16 @@
       ctx.closePath();
     }
 
-    function bladeEdge(p1, p2) {
+    function bladeEdge(p1, p2, alphaMul) {
+      const am = alphaMul == null ? 1 : alphaMul;
+      if (am < 0.01) return;
       // Stack glowing layers: thick vermilion -> gold -> bright white core
       const layers = [[40, VERM, 0.75, 52], [18, GOLD, 0.95, 34], [5, '#ffffff', 1, 22]];
       ctx.save(); ctx.lineCap = 'round';
       const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
       const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, ext = 30;
       for (const [w, col, al, blur] of layers) {
-        ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = w;
+        ctx.globalAlpha = al * am; ctx.strokeStyle = col; ctx.lineWidth = w;
         ctx.shadowColor = col; ctx.shadowBlur = blur;
         ctx.beginPath();
         ctx.moveTo(p1[0] - ux * ext, p1[1] - uy * ext);   // extend past endpoints so corners look sharp
@@ -89,14 +91,9 @@
     function frame(t) {
       ctx.clearRect(0, 0, W, H);
 
-      // Phase model: ONE size variable for the triangles.
-      //   close (0..0.42):  size grows 0 -> 1.05 (slightly past center)
-      //   hold  (0.42..0.58): size stays 1.05, crest flashes at center
-      //   open  (0.58..1.0): size shrinks 1.05 -> 0, retracting to corners
-      let size;
-      if (t < 0.42) { size = easeInOut(t / 0.42) * 1.05; }
-      else if (t < 0.58) { size = 1.05; }
-      else { size = 1.05 - easeInOut((t - 0.58) / 0.42) * 1.05; }
+      // ONE continuous sine: size = 0 -> 1.05 -> 0 across the whole duration.
+      // No hold, no abrupt phase change — motion never stops, no stutter, no flash.
+      const size = Math.sin(t * Math.PI) * 1.05;
 
       const corners = ['tl', 'tr', 'br', 'bl'];
 
@@ -123,15 +120,17 @@
         ctx.restore();
       }
 
-      // Blade edges: glow along each corner's inner edge while it's moving
-      if (size > 0.02 && size < 1.04) {
+      // Blade edges: glow along each corner's inner edge. Edge position is capped at
+      // size=1 (so the lines never overshoot the center diagonal) and the brightness
+      // FADES smoothly to 0 around the peak, so there's no abrupt on/off "flash".
+      if (size > 0.02) {
+        const edgeSize = Math.min(size, 1);
+        const edgeAlpha = size < 0.88 ? 1 : Math.max(0, 1 - (size - 0.88) / 0.17);
         for (const c of corners) {
-          const e = innerEdge(c, size);
-          if (e) bladeEdge(e[0], e[1]);
+          const e = innerEdge(c, edgeSize);
+          if (e) bladeEdge(e[0], e[1], edgeAlpha);
         }
       }
-
-      // (No crest, no sparkles, no white flash — clean close -> hold -> open)
     }
 
     // Exposed so the verification step can render a frame on demand.

@@ -93,9 +93,9 @@
       //   close (0..0.42):  size grows 0 -> 1.05 (slightly past center)
       //   hold  (0.42..0.58): size stays 1.05, crest flashes at center
       //   open  (0.58..1.0): size shrinks 1.05 -> 0, retracting to corners
-      let size, holdA = 0;
+      let size;
       if (t < 0.42) { size = easeInOut(t / 0.42) * 1.05; }
-      else if (t < 0.58) { size = 1.05; holdA = 1 - Math.abs(t - 0.5) / 0.08; }
+      else if (t < 0.58) { size = 1.05; }
       else { size = 1.05 - easeInOut((t - 0.58) / 0.42) * 1.05; }
 
       const corners = ['tl', 'tr', 'br', 'bl'];
@@ -131,13 +131,7 @@
         }
       }
 
-      // Brief white flash punctuates the full-cover hold (kept; no crest, no sparkles)
-      if (holdA > 0) {
-        ctx.save();
-        ctx.globalAlpha = holdA * 0.28; ctx.fillStyle = '#fff2d8';
-        ctx.fillRect(0, 0, W, H);
-        ctx.restore();
-      }
+      // (No crest, no sparkles, no white flash — clean close -> hold -> open)
     }
 
     // Exposed so the verification step can render a frame on demand.

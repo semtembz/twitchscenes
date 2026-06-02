@@ -10,7 +10,7 @@
     the corners. Plays ONCE on load (transparent before/after).
 
     ?loop=1   loops it (for previewing).
-    ?ms=2400  total duration in ms (default is the new, slower speed).
+    ?ms=1680  total duration in ms (default).
 
     To use as an OBS Stinger transition you need a VIDEO file (OBS can't use a web
     page as a stinger). Easiest path: add this as a Browser Source, record while
@@ -29,7 +29,7 @@
     const W = 1920, H = 1080;
     const cv = document.getElementById('c'), ctx = cv.getContext('2d');
     const params = new URLSearchParams(location.search);
-    const DUR = (Number(params.get('ms')) || 2400);          // half as fast (was 1200)
+    const DUR = (Number(params.get('ms')) || 1680);          // 30% faster (was 2400)
     const LOOP = params.get('loop') === '1';
     const VERM = '#d64a33', GOLD = '#e8b349', GOLD_SOFT = '#f2c75a';
     const INDIGO = '#1b2350', DEEP = '#0e1230';

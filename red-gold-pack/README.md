@@ -46,7 +46,7 @@ Works on `brb.html`, `intermission.html`, `ending.html`:
 `transition.html`:
 
 ```
-?ms=1200            total duration
+?ms=1680            total duration (default; lower = faster)
 &loop=1             loop it for preview
 ```
 
@@ -67,6 +67,6 @@ panel). Each scene already references it.
 OBS Stinger transitions need a video file, not a web page. Easiest path:
 - Drop `transition.html` as a Browser Source on a brief "transition" scene and just use it
   there, OR
-- Use OBS's built-in **Recording** while the page plays once (`?ms=1200`), save the
+- Use OBS's built-in **Recording** while the page plays once (`?ms=1680`), save the
   result as a `.webm`, then **Settings → Scene Transitions → + → Stinger** and set the
-  transition point ~50% of the duration.
+  transition point ~50% of the duration (~840 ms).

@@ -1,0 +1,234 @@
+/* =========================================================================
+   Red/Gold pixel-Japan overlay pack — shared styles for all screens.
+   Dark indigo background, vermilion + gold accents, washi highlights.
+   ========================================================================= */
+
+/* ---- Bundled pixel fonts (offline-safe, OFL licensed) ---- */
+@font-face {
+  font-family: "Silkscreen";
+  src: url("assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+  font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "Silkscreen";
+  src: url("assets/fonts/Silkscreen-Bold.ttf") format("truetype");
+  font-weight: 700; font-display: swap;
+}
+:root {
+  --green-deep: #061a13;  /* deepest background      */
+  --green-mid:  #0f4030;  /* lifted background        */
+  --green-line: #1c5a44;  /* pattern lines            */
+  --neon:       #2fe08c;  /* vermilion — frame, beam, bar */
+  --neon-dark:  #0f5f3c;  /* deep vermilion — edges, pixel shadow    */
+  --mint:       #79ffc4;  /* gold — studs, rule            */
+  --mint-soft:  #a6ffd6;  /* lightest accent — kicker, SOON, handle */
+  --text:       #eafff5;  /* warm off-white (washi)  */
+  --text-dim:   #93e6c2;  /* dim washi text           */
+
+  --panel-x: 46%;        /* where the photo ends / message begins */
+  --bar-h: 30px;
+  --frame-inset: 0px;    /* frame hugs the screen edge so it encloses everything */
+
+  --font-pixel: "Silkscreen", "Courier New", monospace;
+  --font-jp: system-ui, "Segoe UI", Roboto, sans-serif;   /* clean readable font for subtitles */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+body { font-family: var(--font-pixel); color: var(--text); }
+
+/* Fixed 1920x1080 stage, scaled (--scale set by JS) to fit the window.
+   EVERY scene layer is an absolute child of this, so the text and the animation
+   share ONE coordinate system — the browser view always matches OBS and the two
+   can never drift apart at different window sizes. */
+#stage {
+  position: absolute; top: 50%; left: 50%;
+  width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--scale, 1));
+  transform-origin: center center;
+  overflow: hidden; background: var(--green-deep);
+}
+.photo__img { image-rendering: auto; }         /* your photo stays smooth / un-pixelated */
+
+/* ---- Base background: indigo gradient + faint pixel dot-grid ---- */
+.bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(120% 90% at 78% 30%, var(--green-mid), transparent 60%),
+    linear-gradient(160deg, var(--green-deep), #03120c 90%);
+}
+.bg::after {                                   /* subtle pixel texture on the right */
+  content: ""; position: absolute; inset: 0; left: var(--panel-x);
+  background-image: radial-gradient(rgba(110,230,170,.10) 1.5px, transparent 1.6px);
+  background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%);
+}
+
+/* ---- LEFT: photo ---- */
+.photo {
+  position: absolute; top: 0; left: 0; z-index: 1;
+  width: var(--panel-x); height: 100%;
+  overflow: hidden;
+  opacity: 0;                 /* fades in via .ready once the photo loads */
+}
+.photo.ready { animation: fade .8s ease both; }
+.photo__img {                                  /* cover the tall panel, crisp */
+  width: 100%; height: 100%; display: block;
+  object-fit: cover; object-position: 50% 45%;
+}
+.photo__grade {                                /* light blend so the photo meets the seam cleanly */
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(6,26,19,.08), rgba(6,26,19,.40) 100%),
+    linear-gradient(90deg, transparent 82%, rgba(6,26,19,.58));
+}
+.photo.placeholder { background: #082018; }
+.photo.placeholder .photo__img { display: none; }
+.photo.placeholder::after {
+  content: "save your photo as assets/intro-photo.jpg";
+  position: absolute; inset: 0; display: grid; place-items: center;
+  padding: 24px; text-align: center;
+  font-family: var(--font-pixel); font-size: 18px; color: var(--mint-soft);
+}
+
+/* ---- Pixel petals ---- */
+.petals { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+
+/* ---- Hero-vs-blob chase layer (orbits behind the headline text) ---- */
+.hero { position: fixed; inset: 0; z-index: 4; width: 1920px; height: 1080px; pointer-events: none; }
+
+/* ---- Beam divider ---- */
+.divider {
+  position: absolute; top: var(--frame-inset); bottom: var(--frame-inset); z-index: 3;
+  left: calc(var(--panel-x) - 9px); width: 18px;
+  background: linear-gradient(90deg, var(--neon-dark), var(--neon) 50%, var(--neon-dark));
+  box-shadow: 0 0 24px rgba(47,224,140,.45);
+}
+.divider::before {                             /* studs — evenly spaced, stop clear above the loading bar */
+  content: ""; position: absolute; left: 0; right: 0;
+  top: 0; bottom: 100px;                       /* clip above the bar so none collide with it */
+  background-image: radial-gradient(var(--mint) 2.5px, transparent 3px);
+  background-size: 18px 59px; background-position: center 26px;
+}
+
+/* ---- RIGHT: the message panel ---- */
+.panel {
+  position: absolute; top: 0; right: 0; z-index: 5;
+  width: calc(100% - var(--panel-x)); height: 100%;
+  display: flex; flex-direction: column; justify-content: center;
+  align-items: center; text-align: center;     /* centered message (no chase on these screens) */
+  padding: 0 7% 60px 7%;
+}
+.sun {                                         /* soft glow behind text */
+  position: absolute; z-index: -1;
+  width: 620px; height: 620px; right: 12%; top: 50%;
+  transform: translateY(-52%);
+  background: radial-gradient(circle, rgba(47,224,140,.28), rgba(47,224,140,.10) 45%, transparent 62%);
+}
+
+/* kicker line */
+.kicker {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 22px; letter-spacing: 2px; color: var(--mint-soft);
+  margin-bottom: 22px;
+}
+.dot {
+  width: 14px; height: 14px; background: var(--neon);
+  box-shadow: 0 0 12px var(--neon);
+  animation: blink 1.4s ease-in-out infinite;
+}
+.kicker__jp { font-family: var(--font-jp); color: var(--text-dim); letter-spacing: 1px; }
+
+/* pixel rule */
+.rule {
+  width: 180px; height: 8px; margin-bottom: 30px;
+  background-image: linear-gradient(90deg, var(--mint) 0 14px, transparent 14px 22px);
+  background-size: 22px 8px;
+}
+
+/* headline */
+.title {
+  font-family: var(--font-pixel); font-weight: 700;
+  font-size: 84px; line-height: 1.12; letter-spacing: 1px;
+  color: var(--text);
+  text-shadow: 5px 5px 0 var(--neon-dark);
+}
+.title span { display: block; }
+.title__accent {
+  color: var(--neon);
+  text-shadow: 5px 5px 0 var(--neon-dark), 0 0 26px rgba(47,224,140,.45);
+}
+
+/* sub line (Japanese hospitality) */
+.sub {
+  font-family: var(--font-jp); font-size: 30px; letter-spacing: 3px;
+  color: var(--text-dim); margin-top: 30px;
+}
+.handle {
+  font-family: var(--font-pixel); font-size: 22px; letter-spacing: 1px;
+  color: var(--mint-soft); margin-top: 18px;
+}
+
+/* ---- Outer pixel frame ---- */
+.frame {
+  position: absolute; inset: var(--frame-inset); z-index: 6; pointer-events: none;
+  border: 6px solid var(--neon);
+  box-shadow: inset 0 0 0 2px var(--neon-dark);   /* subtle darker inner edge */
+}
+
+/* ---- BOTTOM: loading bar (no numbers) ---- */
+.loadbar {
+  position: absolute; left: 40px; right: 40px; bottom: 40px; z-index: 7;
+  height: var(--bar-h);
+  background: rgba(3,18,12,.85);
+  border: 3px solid var(--neon);
+  box-shadow: inset 0 0 0 2px rgba(121,255,196,.4);
+  padding: 4px;
+}
+.loadbar__track { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.loadbar__fill {
+  width: 0%; height: 100%;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.28), transparent 45%),
+    repeating-linear-gradient(90deg,
+      var(--neon) 0 16px, var(--mint) 16px 18px, var(--neon) 18px 20px);
+  /* width transition is set from JS so duration matches ?seconds (default 60s) */
+}
+.loadbar.done .loadbar__fill { box-shadow: 0 0 22px rgba(47,224,140,.7); }
+
+/* ---- LOADING / BOOTING UP status (bottom-right, just above the bar) ---- */
+.loadstatus {
+  position: absolute; right: 44px; bottom: 84px; z-index: 7;
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-pixel); font-size: 22px; letter-spacing: 3px;
+  color: var(--mint-soft); text-shadow: 0 0 12px rgba(47,224,140,.5);
+  transition: opacity .55s ease;
+}
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 3px solid rgba(121,255,196,.22);
+  border-top-color: var(--neon);
+  box-shadow: 0 0 10px rgba(47,224,140,.45);
+  animation: spin .85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Motion ---- */
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* ---- One-shot reveal: a calm staggered cascade when the scene loads ---- */
+.kicker { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .15s; }
+.rule   { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .30s; }
+.title span:nth-child(1) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .38s; }
+.title span:nth-child(2) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .48s; }
+.title span:nth-child(3) { animation: rise .55s cubic-bezier(.2,.9,.2,1) both .58s,
+                                      soonGlow 3.4s ease-in-out 1.4s infinite; }
+.sub     { animation: rise .6s cubic-bezier(.2,.9,.2,1) both .72s; }
+.loadbar { animation: fade .8s ease both .55s; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes soonGlow {                          /* gentle breathing glow on "SOON" */
+  0%, 100% { text-shadow: 5px 5px 0 var(--neon-dark), 0 0 16px rgba(47,224,140,.30); }
+  50%      { text-shadow: 5px 5px 0 var(--neon-dark), 0 0 34px rgba(47,224,140,.6); }
+}

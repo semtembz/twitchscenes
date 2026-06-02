@@ -18,6 +18,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "red-gold-pack", "5579"],
       "port": 5579
+    },
+    {
+      "name": "neon-pack",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "neon-pack", "5580"],
+      "port": 5580
     }
   ]
 }

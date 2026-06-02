@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Green / Neon Corner Collapse</title>
+  <!--
+    Green/neon "four-corner collapse" stinger. Four triangular blades sweep in from
+    the corners to the center, hold with a gold crest flash, then retract back to
+    the corners. Plays ONCE on load (transparent before/after).
+
+    ?loop=1   loops it (for previewing).
+    ?ms=1680  total duration in ms (default).
+
+    To use as an OBS Stinger transition you need a VIDEO file (OBS can't use a web
+    page as a stinger). Easiest path: add this as a Browser Source, record while
+    it plays once, save as .webm/.mov, then add as a Stinger transition with
+    the transition point at ~50% (the full-cover crest flash).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = (Number(params.get('ms')) || 1680);          // 30% faster (was 2400)
+    const LOOP = params.get('loop') === '1';
+    const VERM = '#2fe08c', GOLD = '#79ffc4', GOLD_SOFT = '#a6ffd6';
+    const INDIGO = '#0f4030', DEEP = '#061a13';
+    const easeInOut = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+    // Each corner's triangle is anchored at its corner and grows along the two
+    // adjacent screen edges. At p = 1 the inner edges meet at the screen center.
+    function cornerTriangle(corner, p) {
+      if (p <= 0.001) return null;
+      const e = p;
+      switch (corner) {
+        case 'tl': return [[0, 0], [e * W, 0], [0, e * H]];
+        case 'tr': return [[W, 0], [W - e * W, 0], [W, e * H]];
+        case 'br': return [[W, H], [W - e * W, H], [W, H - e * H]];
+        case 'bl': return [[0, H], [e * W, H], [0, H - e * H]];
+      }
+    }
+
+    // The "inner edge" — the diagonal leading edge of a corner triangle. This is
+    // where the blade glow is drawn so it looks like a sword edge slashing inward.
+    function innerEdge(corner, p) {
+      if (p <= 0.001) return null;
+      const e = p;
+      switch (corner) {
+        case 'tl': return [[e * W, 0], [0, e * H]];
+        case 'tr': return [[W - e * W, 0], [W, e * H]];
+        case 'br': return [[W - e * W, H], [W, H - e * H]];
+        case 'bl': return [[e * W, H], [0, H - e * H]];
+      }
+    }
+
+    function pathTriangle(pts) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      ctx.lineTo(pts[1][0], pts[1][1]);
+      ctx.lineTo(pts[2][0], pts[2][1]);
+      ctx.closePath();
+    }
+
+    function bladeEdge(p1, p2, alphaMul) {
+      const am = alphaMul == null ? 1 : alphaMul;
+      if (am < 0.01) return;
+      // Stack glowing layers: thick vermilion -> gold -> bright white core
+      const layers = [[40, VERM, 0.75, 52], [18, GOLD, 0.95, 34], [5, '#ffffff', 1, 22]];
+      ctx.save(); ctx.lineCap = 'round';
+      const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+      const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, ext = 30;
+      for (const [w, col, al, blur] of layers) {
+        ctx.globalAlpha = al * am; ctx.strokeStyle = col; ctx.lineWidth = w;
+        ctx.shadowColor = col; ctx.shadowBlur = blur;
+        ctx.beginPath();
+        ctx.moveTo(p1[0] - ux * ext, p1[1] - uy * ext);   // extend past endpoints so corners look sharp
+        ctx.lineTo(p2[0] + ux * ext, p2[1] + uy * ext);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+
+      // ONE continuous sine: size = 0 -> 1.05 -> 0 across the whole duration.
+      // No hold, no abrupt phase change — motion never stops, no stutter, no flash.
+      const size = Math.sin(t * Math.PI) * 1.05;
+
+      const corners = ['tl', 'tr', 'br', 'bl'];
+
+      // Paint the four corner panels (indigo gradient)
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, INDIGO); grad.addColorStop(0.5, DEEP); grad.addColorStop(1, INDIGO);
+      ctx.fillStyle = grad;
+      for (const c of corners) {
+        const pts = cornerTriangle(c, size);
+        if (pts) { pathTriangle(pts); ctx.fill(); }
+      }
+
+      // Faint gold dot grid clipped to the covered panels (subtle texture)
+      if (size > 0.05) {
+        ctx.save();
+        for (const c of corners) {
+          const pts = cornerTriangle(c, size);
+          if (!pts) continue;
+          ctx.save(); pathTriangle(pts); ctx.clip();
+          ctx.fillStyle = 'rgba(121,255,196,0.08)';
+          for (let y = 10; y < H; y += 18) for (let x = 10; x < W; x += 18) ctx.fillRect(x, y, 2, 2);
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      // Blade edges: glow along each corner's inner edge. Edge position is capped at
+      // size=1 (so the lines never overshoot the center diagonal) and the brightness
+      // FADES smoothly to 0 around the peak, so there's no abrupt on/off "flash".
+      if (size > 0.02) {
+        const edgeSize = Math.min(size, 1);
+        const edgeAlpha = size < 0.88 ? 1 : Math.max(0, 1 - (size - 0.88) / 0.17);
+        for (const c of corners) {
+          const e = innerEdge(c, edgeSize);
+          if (e) bladeEdge(e[0], e[1], edgeAlpha);
+        }
+      }
+    }
+
+    // Exposed so the verification step can render a frame on demand.
+    window.__txDraw = (t) => frame(Math.max(0, Math.min(1, t)));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 900; t = 0; }     // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; } // play once, then clear
+      }
+      frame(Math.max(0, Math.min(1, t)));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

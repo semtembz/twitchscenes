@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Intermission — Green / Neon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you  ?photo=assets/x.jpg -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <div class="bg" aria-hidden="true"></div>
+
+    <section class="photo" aria-hidden="true">
+      <img id="photoImg" class="photo__img" alt="" data-photo="assets/lily.jpg" />
+      <div class="photo__grade"></div>
+    </section>
+
+    <canvas id="petals" class="petals" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="divider" aria-hidden="true"></div>
+
+    <main class="panel">
+      <div class="sun" aria-hidden="true"></div>
+      <p class="kicker"><span class="dot"></span> <span id="statusEn">INTERMISSION</span></p>
+      <div class="rule" aria-hidden="true"></div>
+      <h1 class="title">BACK<br><span class="title__accent">SHORTLY</span></h1>
+      <p class="sub">remember to stretch &amp; hydrate!</p>
+      <p class="handle" id="handle" hidden></p>
+    </main>
+
+    <div class="frame" aria-hidden="true"></div>
+  </div>
+
+  <script>
+    // Inline fit (runs immediately so the page is correctly sized before shared.js loads).
+    (function () {
+      function fit() {
+        var iw = window.innerWidth, ih = window.innerHeight;
+        if (iw < 10 || ih < 10) return;
+        document.documentElement.style.setProperty('--scale', Math.min(iw / 1920, ih / 1080));
+      }
+      fit();
+      window.addEventListener('resize', fit);
+    })();
+  </script>
+  <script src="shared.js"></script>
+</body>
+</html>

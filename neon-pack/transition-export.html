@@ -12,7 +12,7 @@
 
     NOTE: keep this tab visible while it records. Browsers throttle background
     tabs and the canvas frames will drop. The recording takes the same time as
-    the animation (~1.7s).
+    the animation (~1.3s).
   -->
   <style>
     html, body { margin: 0; padding: 24px; background: #03120c; color: #eafff5;
@@ -45,8 +45,8 @@
      <code>1920×1080 60fps</code>. Click Record; the animation plays once while it captures;
      when it finishes, your browser downloads <code>transition.webm</code>.</p>
   <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
-     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 840 ms</strong>
-     (half the default 1680 ms — that's the full-cover moment when OBS swaps scenes).</p>
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 672 ms</strong>
+     (half the default 1344 ms — that's the full-cover moment when OBS swaps scenes).</p>
   <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
      but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
      <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
@@ -64,7 +64,7 @@
   (() => {
     const W = 1920, H = 1080;
     const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-    const DUR = 1680;     // total duration in ms (must match transition.html default)
+    const DUR = 1344;     // total duration in ms (must match transition.html default)
     const VERM = '#2fe08c', GOLD = '#79ffc4', INDIGO = '#0f4030', DEEP = '#061a13';
 
     // ===== TRANSITION RENDERING (mirror of transition.html) =====

@@ -9,6 +9,7 @@ matching `starting-soon-japan/`. Drop the folder anywhere and open files in a br
 | File | Use it for | Type |
 |---|---|---|
 | `starting-soon/` | Animated "Stream Starting Soon" (photo + hero animation + 60s loading bar) | OBS Browser Source — point at `starting-soon/index.html` |
+| `starting-soon-gamefest/` | Same scene, swapped to the Summer Game Fest photo | OBS Browser Source — point at `starting-soon-gamefest/index.html` |
 | `brb.html` | Be Right Back scene | OBS Browser Source (full screen) |
 | `intermission.html` | Intermission / break scene | OBS Browser Source |
 | `ending.html` | Stream ending / "thanks for watching" | OBS Browser Source |

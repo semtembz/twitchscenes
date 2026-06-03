@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Stream Starting Soon — Red / Gold</title>
+  <!--
+    OBS Browser Source — "Stream Starting Soon", red/gold pixel-Japanese recolor.
+      • Size in OBS: 1920 x 1080, Use custom frame rate = 60
+      • Left  : your photo, shown clean (not pixelated)
+      • Right : clean pixel "STREAM STARTING SOON" + Japanese dot text
+      • Bottom: a loading bar that fills once over 60s (timer is internal, never shown)
+
+    PHOTO: save your picture as  assets/intro-photo.jpg  (any size; it's cropped to fill the tall left panel).
+
+    Optional URL settings (append to the file URL in OBS):
+      ?seconds=60                 how long the bar takes to fill (default 60, hidden)
+      &photo=assets/intro-photo.jpg
+      &handle=@yourname           shows a small handle line (optional)
+  -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Fixed 1920x1080 stage; scaled to fit the window so the browser view == OBS view -->
+  <div id="stage">
+  <!-- base background sits behind everything -->
+  <div class="bg" aria-hidden="true"></div>
+
+  <!-- LEFT: your photo, shown clean (not pixelated) -->
+  <section class="photo" aria-hidden="true">
+    <img id="photoImg" class="photo__img" alt="" />
+    <div class="photo__grade"></div>
+  </section>
+
+  <!-- gentle drifting pixel sakura petals over the right side -->
+  <canvas id="petals" class="petals" width="1920" height="1080" aria-hidden="true"></canvas>
+
+  <!-- temple-beam divider between photo and message -->
+  <div class="divider" aria-hidden="true"></div>
+
+  <!-- RIGHT: the message -->
+  <main class="panel">
+    <div class="sun" aria-hidden="true"></div>
+
+    <p class="kicker">
+      <span class="dot" id="statusDot"></span>
+      <span class="kicker__en" id="statusEn">STANDBY</span>
+    </p>
+
+    <div class="rule" aria-hidden="true"></div>
+
+    <h1 class="title">
+      <span>STREAM</span>
+      <span>STARTING</span>
+      <span class="title__accent">SOON</span>
+    </h1>
+
+    <p class="handle" id="handle" hidden></p>
+  </main>
+
+  <!-- frame drawn on top, never blocks anything -->
+  <div class="frame" aria-hidden="true"></div>
+
+  <!-- LOADING status (bottom-right, just above the bar) -> flips to BOOTING UP at the end -->
+  <div class="loadstatus" id="loadstatus" aria-hidden="true">
+    <span class="spinner" id="spinner"></span>
+    <span id="loadtext">LOADING</span>
+  </div>
+
+  <!-- BOTTOM: loading bar (fills once over `seconds`, no numbers) -->
+  <div class="loadbar" aria-hidden="true">
+    <div class="loadbar__track">
+      <div class="loadbar__fill" id="fill"></div>
+    </div>
+  </div>
+
+  <!-- Neon hero vs. blob mini-chase (separate layer, orbits behind the text) -->
+  <canvas id="hero" class="hero" width="1920" height="1080" aria-hidden="true"></canvas>
+  </div><!-- #stage -->
+
+  <script>
+    // Scale the fixed 1920x1080 stage to fit the window, so the browser shows
+    // exactly what OBS renders and the text + animation can never drift apart.
+    (function () {
+      function fit() {
+        var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        document.documentElement.style.setProperty('--scale', s);
+      }
+      fit();
+      window.addEventListener('resize', fit);
+    })();
+  </script>
+  <script src="script.js"></script>
+  <script src="hero.js"></script>
+</body>
+</html>

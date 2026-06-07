@@ -13,6 +13,7 @@
     const W = canvas.width  || 1080;
     const H = canvas.height || 1920;
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;   // context unavailable (GPU reset / refused) — fail safe, don't throw
 
     const RIBBONS = 42;
     const ribbons = [];
@@ -29,7 +30,7 @@
         speed2:      -0.26 + ((i * 17) % 5) * 0.05,
         driftAmp:     20 + Math.sin(i * 0.27) * 9,
         driftSpeed:   0.06 + ((i * 11) % 9) * 0.012,
-        alpha:        0.09 + (i % 3) * 0.025,
+        alpha:        0.12 + (i % 3) * 0.04,   // floor raised so lines survive stream compression
       });
     }
 
@@ -39,7 +40,7 @@
       ctx.strokeStyle = "#2fe08c";
       ctx.lineCap = "round";
 
-      const step = 8;
+      const step = 16;   // 16px segments; curves are low-frequency so this is visually identical, ~2x cheaper
       for (const r of ribbons) {
         const yShift = r.driftAmp * Math.sin(t * r.driftSpeed + r.phase1);
         ctx.globalAlpha = r.alpha;
@@ -56,12 +57,27 @@
       ctx.globalAlpha = 1;
     }
 
-    let start = null;
+    // Advance an animation clock by CLAMPED real time, then throttle drawing to
+    // ~30fps. The clamp matters because OBS pauses rAF while a source's scene is
+    // hidden; without it, returning to the scene would fast-forward `t` by the whole
+    // hidden duration and snap every ribbon to a new phase in one frame. The 30fps
+    // cap roughly halves cost (with step=16, ~4x cheaper total) — imperceptible for
+    // slow contour drift, and leaves headroom for a game running alongside OBS.
+    // Verification hook: render a specific frame on demand (rAF-independent).
+    if (!window.__topoDraw) window.__topoDraw = draw;
+
+    let last = null, t = 0, since = 0;
+    const MIN_DT = 1000 / 30;
     function loop(now) {
-      if (start == null) start = now;
-      const t = (now - start) / 1000;
-      draw(t);
       requestAnimationFrame(loop);
+      if (last == null) last = now;
+      let dt = now - last; last = now;
+      if (dt > 100) dt = 100;        // clamp hidden-scene resume / long GC stalls
+      t += dt / 1000;                // motion stays real-time, framerate-independent
+      since += dt;
+      if (since < MIN_DT) return;    // ~30fps draw throttle
+      since = 0;
+      draw(t);
     }
     requestAnimationFrame(loop);
   }

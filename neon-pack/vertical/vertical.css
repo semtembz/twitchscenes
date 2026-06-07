@@ -86,7 +86,9 @@ body { font-family: "Silkscreen", "Courier New", monospace; color: var(--text); 
   text-shadow: 0 0 10px rgba(166,255,214,0.7);
 }
 .title {
-  font-size: 210px; line-height: 0.95;
+  /* 130px is the largest size where the longest title word ("STARTING", 8 chars)
+     fits the 960px usable text width. Keep title words <= ~8 chars at this size. */
+  font-size: 130px; line-height: 0.95;
   font-weight: 700; letter-spacing: 6px;
   color: var(--text);
   text-shadow:
@@ -97,6 +99,7 @@ body { font-family: "Silkscreen", "Courier New", monospace; color: var(--text); 
 .subtitle {
   margin-top: 40px;
   font-size: 30px; letter-spacing: 6px;
+  line-height: 1.35;            /* wrap longer subtitles cleanly onto 2 lines */
   color: var(--text-dim);
 }
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>HUD Cam Top — Vertical Neon</title>
+  <!-- Transparent HUD: webcam frame in the upper section, game capture
+       visible below. In OBS layer this Browser Source ON TOP of your game
+       capture, with your webcam source positioned inside the top frame. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- (No topo bg — center transparent so game shows through) -->
+
+    <!-- Top webcam frame (16:9 inside the 1080-wide canvas) -->
+    <div class="frame" style="left:40px; top:40px; width:1000px; height:560px;"></div>
+
+    <!-- Small status chip just under the cam -->
+    <div class="status-chip" style="top:620px;">@SEMTEMBZ &middot; LIVE</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

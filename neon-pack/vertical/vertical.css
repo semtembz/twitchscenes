@@ -1,0 +1,162 @@
+/* ============================================================================
+   Vertical Overlays — shared engine (green/neon)
+   1080 x 1920 (9:16) for TikTok / YouTube Shorts / vertical streams.
+   ============================================================================ */
+
+:root {
+  --bg-deep: #03120c;
+  --bg-mid:  #061a13;
+  --neon:        #2fe08c;
+  --neon-dim:    #1c8a55;
+  --mint:        #79ffc4;
+  --mint-soft:   #a6ffd6;
+  --text:        #eafff5;
+  --text-dim:    #93e6c2;
+}
+
+@font-face {
+  font-family: "Silkscreen";
+  src: url("../assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Silkscreen";
+  src: url("../assets/fonts/Silkscreen-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  overflow: hidden;
+  background: transparent;   /* safe for OBS — HUD scenes need transparent bg */
+}
+body { font-family: "Silkscreen", "Courier New", monospace; color: var(--text); }
+
+/* Fixed 1080 x 1920 design canvas, scaled by JS (--scale) to fit the viewport */
+#stage {
+  position: fixed; left: 50%; top: 50%;
+  width: 1080px; height: 1920px;
+  transform: translate(-50%, -50%) scale(var(--scale, 1));
+  transform-origin: center center;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Takeover scenes opt into the full dark-green base + topo background. */
+#stage.has-bg {
+  background:
+    radial-gradient(120% 70% at 50% 30%, rgba(15,64,48,0.85) 0%, var(--bg-deep) 70%),
+    var(--bg-deep);
+}
+
+/* The animated topographic canvas sits behind everything in a takeover scene */
+.topo-canvas { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+/* =========================================================================
+   Neon frame (webcam / chat / generic content rectangles)
+   ========================================================================= */
+.frame {
+  position: absolute;
+  border: 3px solid var(--neon);
+  background: transparent;
+  border-radius: 4px;
+  z-index: 4;
+  box-shadow:
+    0 0 14px var(--neon),
+    inset 0 0 18px rgba(47,224,140,0.55),
+    0 0 40px rgba(47,224,140,0.30);
+}
+
+/* =========================================================================
+   Text (used on takeover scenes)
+   ========================================================================= */
+.text-block {
+  position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  text-align: center;
+  z-index: 5;
+  padding: 0 60px;
+}
+.kicker {
+  font-size: 38px; letter-spacing: 12px;
+  color: var(--mint-soft);
+  margin-bottom: 28px;
+  text-shadow: 0 0 10px rgba(166,255,214,0.7);
+}
+.title {
+  font-size: 210px; line-height: 0.95;
+  font-weight: 700; letter-spacing: 6px;
+  color: var(--text);
+  text-shadow:
+    0 0 22px var(--neon),
+    0 0 55px rgba(47,224,140,0.75),
+    0 0 100px rgba(47,224,140,0.40);
+}
+.subtitle {
+  margin-top: 40px;
+  font-size: 30px; letter-spacing: 6px;
+  color: var(--text-dim);
+}
+
+/* Bottom @handle watermark */
+.handle {
+  position: absolute; bottom: 70px; left: 0; width: 100%;
+  text-align: center;
+  font-size: 34px; letter-spacing: 6px;
+  color: var(--neon);
+  text-shadow: 0 0 12px var(--neon), 0 0 28px rgba(47,224,140,0.6);
+  z-index: 6;
+}
+
+/* Top "STREAM IS" / status kicker for HUD overlays (small chip at top) */
+.status-chip {
+  position: absolute; top: 36px; left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 22px;
+  border: 2px solid var(--neon);
+  background: rgba(6,26,19,0.85);
+  font-size: 22px; letter-spacing: 6px;
+  color: var(--neon); text-shadow: 0 0 10px var(--neon);
+  z-index: 5;
+  border-radius: 2px;
+}
+
+/* =========================================================================
+   Chat box (used on hud-cam-chat)
+   ========================================================================= */
+.chat-box {
+  position: absolute;
+  border: 3px solid var(--neon);
+  background: rgba(6,26,19,0.78);
+  border-radius: 4px;
+  z-index: 4;
+  box-shadow:
+    0 0 14px var(--neon),
+    inset 0 0 18px rgba(47,224,140,0.50);
+}
+.chat-box .chat-label {
+  position: absolute; top: -22px; left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 20px;
+  background: var(--bg-deep);
+  border: 2px solid var(--neon);
+  border-radius: 2px;
+  font-size: 20px; letter-spacing: 6px;
+  color: var(--neon);
+  text-shadow: 0 0 8px var(--neon);
+  z-index: 1;
+}
+
+/* =========================================================================
+   Soft entrance animation on takeover scenes
+   ========================================================================= */
+@keyframes vRise { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes vFade { from { opacity: 0; } to { opacity: 1; } }
+.text-block .kicker   { animation: vRise .65s cubic-bezier(.2,.9,.2,1) both .2s; }
+.text-block .title    { animation: vRise .8s  cubic-bezier(.2,.9,.2,1) both .35s; }
+.text-block .subtitle { animation: vRise .7s  cubic-bezier(.2,.9,.2,1) both .5s; }
+.handle               { animation: vFade .9s  ease both .65s; }
+.frame                { animation: vFade .6s  ease both .35s; }
+.chat-box             { animation: vFade .6s  ease both .45s; }

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>Cam Single — Vertical Neon</title>
+  <!-- A single big vertical webcam frame over the animated topo background.
+       In OBS: put this Browser Source on TOP; put your webcam source UNDERNEATH
+       and position it to fit inside the glowing frame. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage" class="has-bg">
+    <canvas class="topo-canvas" width="1080" height="1920" aria-hidden="true"></canvas>
+
+    <!-- Full-vertical webcam frame (40px inset on all sides) -->
+    <div class="frame" style="left:40px; top:40px; width:1000px; height:1840px;"></div>
+
+    <div class="handle">@SEMTEMBZ</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

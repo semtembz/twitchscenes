@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vertical Overlays — Green / Neon Index</title>
+  <style>
+    :root {
+      --bg: #03120c; --card-bg: #061a13; --line: #1c8a55;
+      --neon: #2fe08c; --mint: #79ffc4; --mint-soft: #a6ffd6;
+      --text: #eafff5; --text-dim: #93e6c2;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, "Segoe UI", sans-serif; padding: 28px; }
+    h1 { color: var(--mint); letter-spacing: 2px; margin: 0 0 6px;
+      text-shadow: 0 0 12px rgba(47,224,140,0.5); font-size: 28px; }
+    h2 { color: var(--mint-soft); letter-spacing: 2px; font-size: 18px;
+      margin: 32px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+    .scope { margin: 14px 0 24px; padding: 14px 18px; max-width: 900px;
+      border-left: 4px solid var(--neon); background: var(--card-bg); line-height: 1.55; color: var(--text-dim); font-size: 14px; }
+    .scope strong { color: var(--text); }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 1400px; }
+    .card { background: var(--card-bg); border: 1px solid var(--line); padding: 12px;
+      text-decoration: none; color: var(--text); transition: transform .15s ease, border-color .15s ease; display: block; }
+    .card:hover { transform: translateY(-2px); border-color: var(--neon); }
+    .card .frame { width: 100%; aspect-ratio: 9 / 16; background: #000; border: 1px solid #0f3a26; overflow: hidden; position: relative; }
+    .card iframe { display: block; width: 100%; height: 100%; border: none; pointer-events: none; }
+    .card h3 { margin: 12px 0 4px; color: var(--neon); font-size: 15px; letter-spacing: 1px;
+      font-family: "Courier New", monospace; }
+    .card p { margin: 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
+    code { background: #0a2c1f; padding: 2px 6px; border-radius: 3px; color: var(--mint-soft);
+      font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>VERTICAL OVERLAYS &mdash; 1080 &times; 1920 (9:16)</h1>
+  <div class="scope">
+    For <strong>TikTok / YouTube Shorts / vertical streams</strong> in the
+    green-neon theme. All scenes share an animated topographic background &mdash;
+    flowing green contour lines that drift continuously.
+    <br><br>
+    <strong>OBS setup:</strong> Sources &rarr; + &rarr; Browser Source &rarr; Local file
+    &rarr; pick a scene &rarr; set <code>Width 1080, Height 1920</code>, Custom FPS 60.
+    For cam-frame / HUD scenes: layer your <strong>webcam source UNDER</strong> the Browser
+    Source, positioned inside the glowing frame.
+  </div>
+
+  <h2>FULL-SCREEN TAKEOVER</h2>
+  <div class="grid">
+    <a class="card" href="starting.html" target="_blank">
+      <div class="frame"><iframe src="starting.html" loading="lazy"></iframe></div>
+      <h3>starting.html</h3><p>"STREAM IS STARTING" &mdash; pre-stream landing screen.</p>
+    </a>
+    <a class="card" href="pause.html" target="_blank">
+      <div class="frame"><iframe src="pause.html" loading="lazy"></iframe></div>
+      <h3>pause.html</h3><p>"I'LL BE RIGHT BACK / PAUSE" &mdash; break screen.</p>
+    </a>
+    <a class="card" href="ending.html" target="_blank">
+      <div class="frame"><iframe src="ending.html" loading="lazy"></iframe></div>
+      <h3>ending.html</h3><p>"STREAM IS ENDING" &mdash; outro / thanks-for-watching.</p>
+    </a>
+  </div>
+
+  <h2>CAM FRAME LAYOUTS (full topographic background)</h2>
+  <div class="grid">
+    <a class="card" href="cam-single.html" target="_blank">
+      <div class="frame"><iframe src="cam-single.html" loading="lazy"></iframe></div>
+      <h3>cam-single.html</h3><p>One full-vertical webcam frame.</p>
+    </a>
+    <a class="card" href="cams-stacked.html" target="_blank">
+      <div class="frame"><iframe src="cams-stacked.html" loading="lazy"></iframe></div>
+      <h3>cams-stacked.html</h3><p>Two stacked cam frames &mdash; 2-cam setup.</p>
+    </a>
+    <a class="card" href="cams-square.html" target="_blank">
+      <div class="frame"><iframe src="cams-square.html" loading="lazy"></iframe></div>
+      <h3>cams-square.html</h3><p>Big square + smaller square (PiP style).</p>
+    </a>
+  </div>
+
+  <h2>IN-GAME HUD OVERLAYS (transparent &mdash; only frames render)</h2>
+  <div class="grid">
+    <a class="card" href="hud-cam-top.html" target="_blank">
+      <div class="frame" style="background: #1a1a1a;"><iframe src="hud-cam-top.html" loading="lazy"></iframe></div>
+      <h3>hud-cam-top.html</h3><p>Cam frame at top, game capture visible below.</p>
+    </a>
+    <a class="card" href="hud-cam-bottom.html" target="_blank">
+      <div class="frame" style="background: #1a1a1a;"><iframe src="hud-cam-bottom.html" loading="lazy"></iframe></div>
+      <h3>hud-cam-bottom.html</h3><p>Cam frame at bottom, game capture above.</p>
+    </a>
+    <a class="card" href="hud-cam-chat.html" target="_blank">
+      <div class="frame" style="background: #1a1a1a;"><iframe src="hud-cam-chat.html" loading="lazy"></iframe></div>
+      <h3>hud-cam-chat.html</h3><p>Top cam + bottom "CHAT" box.</p>
+    </a>
+  </div>
+</body>
+</html>

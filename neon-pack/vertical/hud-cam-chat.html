@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>HUD Cam + Chat — Vertical Neon</title>
+  <!-- Transparent HUD: webcam frame on top + CHAT box on bottom, game capture
+       visible in the middle band. Drop a chat widget (e.g. ChatBox by
+       streamelements/streamlabs) UNDER this overlay aligned to the chat box. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- Top webcam frame -->
+    <div class="frame" style="left:40px; top:40px; width:1000px; height:560px;"></div>
+
+    <!-- Bottom chat box (with "CHAT" label tab) -->
+    <div class="chat-box" style="left:40px; top:1240px; width:1000px; height:580px;">
+      <span class="chat-label">CHAT</span>
+    </div>
+
+    <!-- Handle floats at the very bottom -->
+    <div class="handle" style="bottom:36px;">@SEMTEMBZ</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

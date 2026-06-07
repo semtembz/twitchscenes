@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>Cams Square — Vertical Neon</title>
+  <!-- One big square cam frame above + one smaller square cam frame below.
+       Classic IRL streamer / PiP style. Add two webcam sources UNDER this
+       overlay in OBS, one per frame. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage" class="has-bg">
+    <canvas class="topo-canvas" width="1080" height="1920" aria-hidden="true"></canvas>
+
+    <!-- Big square (top) -->
+    <div class="frame" style="left:60px; top:160px; width:960px; height:960px;"></div>
+    <!-- Smaller square (bottom, centered) -->
+    <div class="frame" style="left:260px; top:1220px; width:560px; height:560px;"></div>
+
+    <div class="handle">@SEMTEMBZ</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

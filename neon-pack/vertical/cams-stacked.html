@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>Cams Stacked — Vertical Neon</title>
+  <!-- Two rectangular cam frames stacked vertically. Use for a 2-cam setup
+       (e.g. facecam + secondary cam, or IRL stream + chat reaction). Add
+       two webcam sources UNDER this overlay in OBS, one per frame. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage" class="has-bg">
+    <canvas class="topo-canvas" width="1080" height="1920" aria-hidden="true"></canvas>
+
+    <!-- Top cam frame -->
+    <div class="frame" style="left:60px; top:90px; width:960px; height:820px;"></div>
+    <!-- Bottom cam frame -->
+    <div class="frame" style="left:60px; top:1010px; width:960px; height:820px;"></div>
+
+    <div class="handle">@SEMTEMBZ</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

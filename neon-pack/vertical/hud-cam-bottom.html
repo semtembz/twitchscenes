@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>HUD Cam Bottom — Vertical Neon</title>
+  <!-- Transparent HUD: webcam frame in the lower section, game capture
+       visible above. -->
+  <link rel="stylesheet" href="vertical.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- Bottom webcam frame -->
+    <div class="frame" style="left:40px; top:1240px; width:1000px; height:560px;"></div>
+
+    <!-- Status chip ABOVE the cam frame, so it sits over the game area edge -->
+    <div class="status-chip" style="top:1180px;">@SEMTEMBZ &middot; LIVE</div>
+  </div>
+  <script src="vertical-bg.js"></script>
+</body>
+</html>

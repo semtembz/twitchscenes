@@ -2,14 +2,28 @@
 
 Status: ✅ approved · ❌ cut · ✏️ revise.
 
-## ✅ Locked decisions (24 approved / 6 cut)
+## ✅ FINAL 30 (locked) — 24 from slate + 6 backfill
 
-**APPROVED (24):** Neon Tokyo · Frost Protocol · Hologrid · Vapor Circuit · Mecha Hangar · Strawberry Milk · Lo-Fi Cafe · Cottagecore Bloom · Starlit Dreamcore · Bubble Bath · Cartridge 8 (Free) · Bit Quest · Tracking Error · Coin Riot · Studio Noir · Champagne Mono · Sakura Static · Oni Circuit · Mythforge Keep · Nebula Drift · Kitsune Lantern · Primetime Pro · Venom Surge · Halftone Havoc
+**Futuristic (5):** Neon Tokyo · Frost Protocol · Hologrid · Vapor Circuit · Mecha Hangar
+**Cozy (6):** Strawberry Milk · Lo-Fi Cafe · Cottagecore Bloom · Starlit Dreamcore · Bubble Bath · **Witching Hour** ⁺
+**Retro (5):** Cartridge 8 (Free) · Bit Quest · Tracking Error · Coin Riot · **Miami Drive** ⁺
+**Premium (5):** Studio Noir · Champagne Mono · **Velvet Lounge** ⁺ · **Platinum Frame** ⁺ · **Aurora Noir** ⁺
+**Cultural (5):** Sakura Static · Oni Circuit · Mythforge Keep · Nebula Drift · Kitsune Lantern
+**Bold (4):** Primetime Pro · Venom Surge · Halftone Havoc · **Acid Rave** ⁺
 
-**CUT (6):** Glitchwave · Honey Burrow · Outrun Apex · Obsidian Atelier · Bauhaus Suite · Carbon Edge
+⁺ = backfill replacements. **CUT (6):** Glitchwave · Honey Burrow · Outrun Apex · Obsidian Atelier · Bauhaus Suite · Carbon Edge.
 
-**Coverage after cuts:** Futuristic 5 · Cozy 5 · Retro 4 · **Premium 2** · Cultural 5 · Bold 3 = **24**.
-> ⚠️ Premium dropped from 5→2 (cut the black-gold anchor, Bauhaus, Carbon Edge). Glitch niche (Glitchwave) and pure-synthwave anchor (Outrun Apex) also gone. Candidates to backfill toward 30 — see bottom.
+**Build order:** flagship #1 = **Sakura Static** (full manifest). Fast-follow = Venom Surge (neon-green engine).
+
+### Backfill theme details (the 6 added)
+| Name | Family | Vibe | Palette | Tier |
+|---|---|---|---|---|
+| **Velvet Lounge** | Premium | Speakeasy jewel-luxe: plum + brass, bokeh, art-deco hairlines | `#140A14 #3A1B33 #B5894E #E6C98C #F2E9DC` | Pro |
+| **Platinum Frame** | Premium | Cool ultra-minimal platinum on charcoal, razor frames | `#0E1013 #1A1E24 #9AA7B2 #D7DEE6 #F4F7FA` | Core |
+| **Aurora Noir** | Premium | Dark-luxe, iridescent aurora sheen behind black glass | `#08090D #14161D #5BE0C0 #8A7BFF #EAF0F2` | Pro |
+| **Acid Rave** | Bold | UV blacklight rave: acid-green/magenta/cyan, strobe | `#07030F #C6FF00 #FF14C8 #00E5FF #B26BFF` | Core |
+| **Miami Drive** | Retro | Pure outrun: teal/hot-pink/sunset, grid + chrome sun | `#160033 #FF2E97 #00E0D0 #FF7A00 #FDF06A` | Core |
+| **Witching Hour** | Cozy | Dark-academia witchy: candlelight, moths, celestial | `#0B0E12 #14323A #C9A24B #5B2A4E #E8E0CC` | Core |
 
 ---
 

@@ -1,0 +1,95 @@
+/* ============================================================
+   SAKURA STATIC — alert system ("lo-fi anime night")
+   A "mini now-playing card" that slides in from the LEFT, holds,
+   then slides out. Transparent background so it composites over
+   gameplay / the scene. Cohesive with shared.css tokens.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --plum-deep:#0E0A12; --plum-deepest:#07050A; --plum-mid:#1C1322;
+  --mag:#FF5E9C; --mag-deep:#7B2D5E; --pink:#FFD1E6; --pink-soft:#FFE3F0;
+  --washi:#F7F2F5; --dim:#C9A6BC;
+  --card:rgba(24,15,30,0.62); --hair:rgba(255,209,230,0.22);
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;font-family:system-ui,"Segoe UI",Roboto,sans-serif;color:var(--washi);
+  background:transparent;}
+
+/* one canvas for the petal burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left, slides in from off-screen left ---- */
+.alert{position:absolute;left:90px;bottom:130px;width:760px;padding:34px 40px;
+  background:var(--card);border:1px solid var(--hair);border-radius:26px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 24px 70px rgba(0,0,0,.5), 0 0 50px rgba(255,94,156,.10);
+  display:grid;grid-template-columns:150px 1fr;gap:30px;align-items:center;
+  /* start off-screen to the left + hidden; .show animates it in */
+  opacity:0;transform:translateX(-940px);
+  will-change:transform,opacity;}
+/* a thin magenta seam down the left edge — the "now playing" accent */
+.alert::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:5px;
+  border-radius:5px;background:linear-gradient(180deg,var(--mag),var(--mag-deep));
+  box-shadow:0 0 16px rgba(255,94,156,.7);}
+
+/* entrance / exit driven by JS toggling .show */
+.alert.show{animation:alert-in .62s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateX(-940px);}
+  70%{opacity:1;transform:translateX(22px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateX(0);}
+  100%{opacity:0;transform:translateX(-940px);}
+}
+
+/* icon tile (⛩ / per-event glyph) */
+.alert .art{width:150px;height:150px;border-radius:18px;position:relative;overflow:hidden;
+  background:linear-gradient(145deg, var(--mag) 0%, var(--mag-deep) 70%, #2a1430 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.4);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:74px;color:rgba(255,255,255,.9);text-shadow:0 0 16px rgba(255,255,255,.45);
+  animation:glyph-pop .7s var(--ease) both .18s;}
+.alert .art::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+.alert .kick{font-family:"Courier New",monospace;letter-spacing:5px;font-size:21px;color:var(--pink-soft);
+  display:flex;align-items:center;gap:12px;margin-bottom:8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:12px;height:12px;border-radius:50%;background:var(--mag);
+  box-shadow:0 0 12px var(--mag);flex:none;
+  animation:blink 1.6s steps(1,end) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.15}}
+
+/* big NAME — clamped to one line so a long handle never breaks the card */
+.alert .name{font-size:68px;line-height:1.0;font-weight:800;letter-spacing:-1px;margin:2px 0 6px;
+  text-shadow:0 0 26px rgba(255,94,156,.45);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (magenta) — hidden unless .has-amount */
+.alert .amount{font-size:30px;color:var(--mag);font-weight:800;letter-spacing:.5px;
+  text-shadow:0 0 16px rgba(255,94,156,.5);margin-bottom:4px;display:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--pink-soft);}
+
+/* tiny mono sub line */
+.alert .sub{font-size:22px;color:var(--dim);letter-spacing:1px;
+  font-family:"Courier New",monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a little signal-bars motif top-right of the card for the dead-channel feel */
+.alert .sig{position:absolute;top:18px;right:22px;display:inline-flex;gap:3px;align-items:flex-end;height:16px;opacity:.7;}
+.alert .sig i{width:4px;background:var(--pink);border-radius:1px;}

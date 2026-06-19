@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1920, height=1080" />
-  <title>Transition — Sakura Static Corner Collapse</title>
+  <title>Transition — Sakura Petal / VHS-Glitch Wipe</title>
   <!--
-    Red/gold "four-corner collapse" stinger. Four triangular blades sweep in from
-    the corners to the center, hold with a gold crest flash, then retract back to
-    the corners. Plays ONCE on load (transparent before/after).
+    SAKURA STATIC stinger ("lo-fi anime night"). A magenta→plum sweep floods the
+    screen while a flurry of cherry-blossom PETALS sweeps across; a quick VHS
+    RGB-split + scanline glitch hits at the mid (full-cover) point, then the sweep
+    retracts and the screen clears. Transparent before & after, sine-driven, ~1300ms.
 
-    ?loop=1   loops it (for previewing).
-    ?ms=1344  total duration in ms (default).
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
 
-    To use as an OBS Stinger transition you need a VIDEO file (OBS can't use a web
-    page as a stinger). Easiest path: add this as a Browser Source, record while
-    it plays once, save as .webm/.mov, then add as a Stinger transition with
-    the transition point at ~50% (the full-cover crest flash).
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover glitch).
   -->
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
@@ -26,125 +27,229 @@
   <canvas id="c" width="1920" height="1080"></canvas>
   <script>
   (() => {
+    "use strict";
     const W = 1920, H = 1080;
     const cv = document.getElementById('c'), ctx = cv.getContext('2d');
     const params = new URLSearchParams(location.search);
-    const DUR = (Number(params.get('ms')) || 1344);          // 20% faster (was 1680)
+    const DUR = Number(params.get('ms')) || 1300;
     const LOOP = params.get('loop') === '1';
-    const VERM = '#ff5e9c', GOLD = '#ffd1e6', GOLD_SOFT = '#ffe3f0';
-    const INDIGO = '#1c1322', DEEP = '#0e0a12';
-    const easeInOut = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 
-    // Each corner's triangle is anchored at its corner and grows along the two
-    // adjacent screen edges. At p = 1 the inner edges meet at the screen center.
-    function cornerTriangle(corner, p) {
-      if (p <= 0.001) return null;
-      const e = p;
-      switch (corner) {
-        case 'tl': return [[0, 0], [e * W, 0], [0, e * H]];
-        case 'tr': return [[W, 0], [W - e * W, 0], [W, e * H]];
-        case 'br': return [[W, H], [W - e * W, H], [W, H - e * H]];
-        case 'bl': return [[0, H], [e * W, H], [0, H - e * H]];
-      }
-    }
+    /* ---- palette (sakura static) ---- */
+    const MAG = '#FF5E9C', MAG_DEEP = '#7B2D5E', PINK = '#FFD1E6', PINK_SOFT = '#FFE3F0';
+    const PLUM_MID = '#1C1322', PLUM_DEEP = '#0E0A12', PLUM_DEEPEST = '#07050A';
+    const PINKS = [MAG, PINK, MAG_DEEP, '#FF9EC4'];
 
-    // The "inner edge" — the diagonal leading edge of a corner triangle. This is
-    // where the blade glow is drawn so it looks like a sword edge slashing inward.
-    function innerEdge(corner, p) {
-      if (p <= 0.001) return null;
-      const e = p;
-      switch (corner) {
-        case 'tl': return [[e * W, 0], [0, e * H]];
-        case 'tr': return [[W - e * W, 0], [W, e * H]];
-        case 'br': return [[W - e * W, H], [W, H - e * H]];
-        case 'bl': return [[e * W, H], [0, H - e * H]];
-      }
-    }
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
 
-    function pathTriangle(pts) {
+    /* ---- a fixed flurry of petals; positions are a deterministic function of t ----
+       Each petal travels diagonally across the screen on a slow sine sway. Their
+       on-screen window is staggered so the flurry builds with the flood and thins as
+       it retracts. seeded so the look is stable frame-to-frame and in the export. ---- */
+    let seed = 1337;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const N_PETALS = 46;
+    const petals = Array.from({ length: N_PETALS }, () => ({
+      // start just off the top-left, end off the bottom-right (a diagonal sweep)
+      x0: R(-220, W * 0.7), y0: R(-260, -20),
+      vx: R(W * 0.45, W * 1.15), vy: R(H * 1.05, H * 1.65),   // total travel across the clip
+      s: R(13, 34), sway: R(26, 80), swf: R(1.2, 3.0), phase: R(0, 6.2832),
+      rot0: R(0, 6.2832), vr: R(-7, 7),
+      c: PINKS[(rnd() * PINKS.length) | 0],
+      lead: R(0, 0.22), span: R(0.55, 0.9), a: R(0.55, 0.95),
+    }));
+
+    function drawPetal(px, py, s, rot, col, alpha) {
+      if (alpha <= 0.01) return;
+      ctx.save();
+      ctx.translate(Math.round(px), Math.round(py));
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      ctx.lineTo(pts[1][0], pts[1][1]);
-      ctx.lineTo(pts[2][0], pts[2][1]);
+      ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * 0.6, -s * 0.6, s * 0.5, s * 0.5, 0, s);
+      ctx.bezierCurveTo(-s * 0.5, s * 0.5, -s * 0.6, -s * 0.6, 0, -s);
       ctx.closePath();
+      ctx.fill();
+      // little notch at the tip (matches the scenes' petal shape)
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(14,10,18,0.6)';
+      ctx.beginPath();
+      ctx.moveTo(0, s); ctx.lineTo(-s * 0.12, s * 0.6); ctx.lineTo(s * 0.12, s * 0.6); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
 
-    function bladeEdge(p1, p2, alphaMul) {
-      const am = alphaMul == null ? 1 : alphaMul;
-      if (am < 0.01) return;
-      // Stack glowing layers: thick vermilion -> gold -> bright white core
-      const layers = [[40, VERM, 0.75, 52], [18, GOLD, 0.95, 34], [5, '#ffffff', 1, 22]];
-      ctx.save(); ctx.lineCap = 'round';
-      const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
-      const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, ext = 30;
-      for (const [w, col, al, blur] of layers) {
-        ctx.globalAlpha = al * am; ctx.strokeStyle = col; ctx.lineWidth = w;
-        ctx.shadowColor = col; ctx.shadowBlur = blur;
-        ctx.beginPath();
-        ctx.moveTo(p1[0] - ux * ext, p1[1] - uy * ext);   // extend past endpoints so corners look sharp
-        ctx.lineTo(p2[0] + ux * ext, p2[1] + uy * ext);
-        ctx.stroke();
+    function drawPetals(t, coverAlpha) {
+      ctx.save();
+      for (const p of petals) {
+        // local life 0..1 across this petal's staggered window
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = p.x0 + p.vx * lt + Math.sin(p.phase + lt * p.swf * 6.2832) * p.sway;
+        const py = p.y0 + p.vy * lt;
+        const rot = p.rot0 + p.vr * lt;
+        // fade each petal in/out at the ends of its own window, plus overall presence
+        const ends = Math.sin(lt * Math.PI);          // 0 at ends, 1 mid
+        // petals read most over the flood; keep a touch visible against transparency too
+        const present = lerp(0.55, 1, coverAlpha);
+        drawPetal(px, py, p.s, rot, p.c, p.a * ends * present);
       }
       ctx.restore();
     }
 
-    function frame(t) {
-      ctx.clearRect(0, 0, W, H);
+    /* ---- the magenta→plum flood: a soft diagonal band that grows to full cover at
+           t=0.5 then retracts. Drawn as a wide gradient masked by a moving wipe. ---- */
+    function drawFlood(cover) {
+      if (cover <= 0.001) return;
+      // diagonal wipe progress: the leading edge sweeps top-left -> bottom-right.
+      // cover is 0..1..0; we map it to how much of the diagonal is filled.
+      const diag = W + H;
+      const lead = cover * (diag + 480) - 240;        // pixels along x+y that are covered
+      ctx.save();
+      // build the colour band
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0.00, MAG);
+      g.addColorStop(0.30, MAG_DEEP);
+      g.addColorStop(0.62, PLUM_MID);
+      g.addColorStop(1.00, PLUM_DEEP);
+      ctx.fillStyle = g;
+      ctx.globalAlpha = Math.min(1, cover * 1.25);
+      // soft diagonal mask via per-pixel coverage is costly; instead fill a clipped
+      // polygon whose hypotenuse = the wipe line x+y = lead (with a feathered edge band).
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      // points where x+y = lead intersect the screen rect
+      const pA = lead <= H ? [0, lead] : [lead - H, H];
+      const pB = lead <= W ? [lead, 0] : [W, lead - W];
+      ctx.lineTo(pB[0], pB[1]);
+      ctx.lineTo(pA[0], pA[1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
 
-      // ONE continuous sine: size = 0 -> 1.05 -> 0 across the whole duration.
-      // No hold, no abrupt phase change — motion never stops, no stutter, no flash.
-      const size = Math.sin(t * Math.PI) * 1.05;
-
-      const corners = ['tl', 'tr', 'br', 'bl'];
-
-      // Paint the four corner panels (indigo gradient)
-      const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, INDIGO); grad.addColorStop(0.5, DEEP); grad.addColorStop(1, INDIGO);
-      ctx.fillStyle = grad;
-      for (const c of corners) {
-        const pts = cornerTriangle(c, size);
-        if (pts) { pathTriangle(pts); ctx.fill(); }
-      }
-
-      // Faint gold dot grid clipped to the covered panels (subtle texture)
-      if (size > 0.05) {
+      // feathered leading edge: a bright magenta glow band right at the wipe line
+      const edgeA = Math.sin(cover * Math.PI);        // strongest mid-sweep
+      if (edgeA > 0.02 && lead > 0 && lead < diag) {
         ctx.save();
-        for (const c of corners) {
-          const pts = cornerTriangle(c, size);
-          if (!pts) continue;
-          ctx.save(); pathTriangle(pts); ctx.clip();
-          ctx.fillStyle = 'rgba(255,209,230,0.08)';
-          for (let y = 10; y < H; y += 18) for (let x = 10; x < W; x += 18) ctx.fillRect(x, y, 2, 2);
-          ctx.restore();
-        }
+        ctx.globalAlpha = 0.7 * edgeA;
+        ctx.strokeStyle = PINK_SOFT;
+        ctx.lineWidth = 6;
+        ctx.shadowColor = MAG;
+        ctx.shadowBlur = 60;
+        ctx.beginPath();
+        ctx.moveTo(pA[0], pA[1]);
+        ctx.lineTo(pB[0], pB[1]);
+        ctx.stroke();
+        // a softer wide magenta wash just behind the edge
+        ctx.globalAlpha = 0.35 * edgeA;
+        ctx.strokeStyle = MAG;
+        ctx.lineWidth = 26;
+        ctx.shadowBlur = 40;
+        ctx.stroke();
         ctx.restore();
-      }
-
-      // Blade edges: glow along each corner's inner edge. Edge position is capped at
-      // size=1 (so the lines never overshoot the center diagonal) and the brightness
-      // FADES smoothly to 0 around the peak, so there's no abrupt on/off "flash".
-      if (size > 0.02) {
-        const edgeSize = Math.min(size, 1);
-        const edgeAlpha = size < 0.88 ? 1 : Math.max(0, 1 - (size - 0.88) / 0.17);
-        for (const c of corners) {
-          const e = innerEdge(c, edgeSize);
-          if (e) bladeEdge(e[0], e[1], edgeAlpha);
-        }
       }
     }
 
-    // Exposed so the verification step can render a frame on demand.
-    window.__txDraw = (t) => frame(Math.max(0, Math.min(1, t)));
+    /* ---- VHS RGB-split + scanline glitch, peaking at the full-cover mid point ---- */
+    function drawGlitch(t, cover) {
+      // glitch envelope: a sharp pulse centred on t=0.5
+      const gx = Math.exp(-Math.pow((t - 0.5) / 0.085, 2));   // gaussian pulse
+      if (gx < 0.02) return;
+      ctx.save();
+      // RGB split: redraw the flood polygon twice, offset, in screen-blend R/B tints
+      const off = 14 * gx;
+      ctx.globalCompositeOperation = 'screen';
+      const diag = W + H;
+      const lead = cover * (diag + 480) - 240;
+      const pA = lead <= H ? [0, lead] : [lead - H, H];
+      const pB = lead <= W ? [lead, 0] : [W, lead - W];
+      const poly = (dx) => {
+        ctx.beginPath();
+        ctx.moveTo(0 + dx, 0); ctx.lineTo(pB[0] + dx, pB[1]); ctx.lineTo(pA[0] + dx, pA[1]); ctx.closePath();
+      };
+      ctx.globalAlpha = 0.5 * gx;
+      ctx.fillStyle = 'rgba(255,40,120,1)';  poly(-off); ctx.fill();   // magenta-red ghost left
+      ctx.fillStyle = 'rgba(80,180,255,1)';  poly(off);  ctx.fill();   // cyan ghost right
+      ctx.restore();
+
+      // torn horizontal slices: shift random bands of the already-drawn frame sideways
+      const bands = 7;
+      ctx.save();
+      for (let i = 0; i < bands; i++) {
+        if (rndPulse(i, t) > 0.55) continue;          // only some bands tear
+        const by = Math.floor(R(0, H));
+        const bh = Math.floor(R(8, 46));
+        const dx = (R(-1, 1)) * 60 * gx;
+        try { ctx.drawImage(cv, 0, by, W, bh, dx, by, W, bh); } catch (e) {}
+      }
+      ctx.restore();
+
+      // scanlines + a quick white flash at the very peak
+      ctx.save();
+      ctx.globalAlpha = 0.28 * gx;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.04, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 * flash;
+        ctx.fillStyle = PINK_SOFT;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    // tiny deterministic per-band noise so tears flicker but stay reproducible
+    function rndPulse(i, t) {
+      const v = Math.sin((i * 12.9898 + t * 78.233) * 43758.5453);
+      return v - Math.floor(v);
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      // cover = 0 -> 1 -> 0 (one smooth sine). full cover at t=0.5.
+      const cover = Math.sin(clamp01(t) * Math.PI);
+
+      drawFlood(cover);
+      drawPetals(t, cover);
+      drawGlitch(t, cover);
+
+      // gentle vignette over the flood so it reads as a moody plum night, not flat
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(7,5,10,' + (0.55 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step can render any frame (t in 0..1) on demand.
+    window.__txDraw = (t) => frame(clamp01(t));
 
     let start = null;
     function loop(ts) {
       if (start == null) start = ts;
       let t = (ts - start) / DUR;
       if (t >= 1) {
-        if (LOOP) { start = ts + 900; t = 0; }     // pause then replay
-        else { ctx.clearRect(0, 0, W, H); return; } // play once, then clear
+        if (LOOP) { start = ts + 700; t = 0; }        // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }   // play once, then clear
       }
-      frame(Math.max(0, Math.min(1, t)));
+      frame(clamp01(t));
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);

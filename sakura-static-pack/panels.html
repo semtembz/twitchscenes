@@ -2,12 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Sakura Static Twitch Panels — generator</title>
+  <title>Sakura Static — Twitch Panels (generator)</title>
   <!--
-    Twitch panels are PNG image files (recommended 320 x 100 px) you upload to
-    your channel's "About" page. This file renders each panel onto a canvas at
-    exactly 320 x 100 in the sakura-static visual language, with a Download button
-    per panel that saves it as a PNG.
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the sakura "lo-fi anime
+    night" visual language:
+        - translucent plum card with rounded corners + soft magenta glow
+        - a rounded magenta accent strip down the left edge
+        - a soft-pink LINE icon (heart, calendar, list, ...)
+        - the label in clean bold sans (washi)
+    Each panel has its own Download button + there is a "Download all".
 
     How to use:
       1. Open this file in a browser.
@@ -16,237 +21,508 @@
          twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
   -->
   <style>
+    /* ---- Sakura "lo-fi anime night" palette ---- */
     :root {
-      --indigo-1: #0e0a12; --indigo-2: #1c1322;
-      --vermilion: #ff5e9c; --vermilion-dark: #7b2d5e;
-      --gold: #ffd1e6; --gold-soft: #ffe3f0;
-      --washi: #f7f2f5;
-    }
-    @font-face {
-      font-family: "Silkscreen";
-      src: url("assets/fonts/Silkscreen-Regular.ttf") format("truetype");
-      font-weight: 400;
-    }
-    @font-face {
-      font-family: "Silkscreen";
-      src: url("assets/fonts/Silkscreen-Bold.ttf") format("truetype");
-      font-weight: 700;
+      --plum-deep:    #0E0A12;
+      --plum-deepest: #07050A;
+      --plum-mid:     #1C1322;
+      --mag:          #FF5E9C;
+      --mag-deep:     #7B2D5E;
+      --pink:         #FFD1E6;
+      --pink-soft:    #FFE3F0;
+      --washi:        #F7F2F5;
+      --dim:          #C9A6BC;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #07050a; color: var(--washi); padding: 32px; }
-    h1 { font-family: "Silkscreen"; font-weight: 700; font-size: 28px; color: var(--gold-soft); letter-spacing: 2px; margin: 0 0 6px; }
-    p.lead { color: #c9a6bc; margin: 0 0 22px; }
-    .toolbar { margin: 0 0 28px; display: flex; gap: 14px; flex-wrap: wrap; }
-    button { font-family: "Silkscreen"; font-weight: 700; font-size: 14px; letter-spacing: 2px;
-      padding: 10px 18px; background: var(--vermilion); color: var(--washi); border: 2px solid var(--gold); cursor: pointer; }
-    button:hover { background: var(--vermilion-dark); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
-    .card { background: #11163a; padding: 14px; border: 1px solid #33203a; }
-    canvas { display: block; width: 320px; height: 100px; image-rendering: pixelated; }
-    .card-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: #c9a6bc; }
-    .card-row .name { font-family: "Silkscreen"; color: var(--gold-soft); letter-spacing: 1px; }
-    .card-row a { color: var(--gold-soft); text-decoration: none; border-bottom: 1px dashed var(--gold); }
+    body {
+      margin: 0;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      color: var(--washi);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 500px at 18% -10%, rgba(255,94,156,0.16), transparent 60%),
+        radial-gradient(700px 480px at 100% 110%, rgba(123,45,94,0.30), transparent 60%),
+        linear-gradient(160deg, var(--plum-mid), var(--plum-deepest));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Courier New", monospace; letter-spacing: 4px; font-size: 12px;
+      color: var(--mag); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .rec { width: 9px; height: 9px; border-radius: 50%; background: var(--mag);
+      box-shadow: 0 0 10px var(--mag); animation: blink 1.4s steps(1) infinite; }
+    @keyframes blink { 0%,60% { opacity: 1; } 61%,100% { opacity: .25; } }
+    h1 { font-weight: 800; font-size: 30px; letter-spacing: .5px; margin: 0 0 6px;
+      color: var(--pink-soft); text-shadow: 0 0 22px rgba(255,94,156,0.45); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 720px; line-height: 1.55; }
+    code { font-family: "Courier New", monospace; color: var(--pink-soft);
+      background: rgba(255,209,230,0.08); padding: 2px 7px; border-radius: 5px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Courier New", monospace; font-weight: 700; font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 12px 22px; cursor: pointer; color: var(--washi);
+      background: linear-gradient(180deg, var(--mag), var(--mag-deep));
+      border: 1px solid rgba(255,209,230,0.5); border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(255,94,156,0.30);
+    }
+    button:hover { filter: brightness(1.12); }
+    button.ghost { background: rgba(24,15,30,0.62); box-shadow: none;
+      border: 1px solid rgba(255,209,230,0.22); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(24,15,30,0.55); padding: 16px; border-radius: 18px;
+      border: 1px solid rgba(255,209,230,0.16);
+      backdrop-filter: blur(6px);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 14px; overflow: hidden; display: block;
+      background-color: #15101b;
+      background-image:
+        linear-gradient(45deg, #1d1526 25%, transparent 25%),
+        linear-gradient(-45deg, #1d1526 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1d1526 75%),
+        linear-gradient(-45deg, transparent 75%, #1d1526 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: "Courier New", monospace; letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: "Courier New", monospace; letter-spacing: 1px;
+      color: var(--pink-soft); text-decoration: none;
+      border: 1px solid rgba(255,209,230,0.28); border-radius: 8px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(255,94,156,0.18); }
   </style>
 </head>
 <body>
-  <h1>SAKURA STATIC TWITCH PANELS</h1>
-  <p class="lead">Each tile is a 320 &times; 100 PNG ready to upload to your Twitch panels page.</p>
+  <p class="kicker"><span class="rec"></span>CH 03 · LO-FI · PANELS</p>
+  <h1>Sakura Static — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the lo-fi anime-night style:
+    a frosted plum card, a rounded magenta accent strip, and a soft-pink line icon.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
   <div class="toolbar">
     <button id="dlAll">Download all</button>
   </div>
   <div class="grid" id="grid"></div>
 
   <script>
-    // ---- Panel inventory ----
-    // Each panel: title, optional subtitle, and a small geometric icon drawn in gold.
-    const PANELS = [
-      { id: 'about',     title: 'ABOUT ME',  sub: 'who i am',           icon: 'user' },
-      { id: 'rules',     title: 'RULES',     sub: 'chat guidelines',    icon: 'shield' },
-      { id: 'schedule',  title: 'SCHEDULE',  sub: 'when i go live',     icon: 'cal' },
-      { id: 'donate',    title: 'DONATE',    sub: 'support the stream', icon: 'coin' },
-      { id: 'subscribe', title: 'SUBSCRIBE', sub: 'join the squad',     icon: 'star' },
-      { id: 'discord',   title: 'DISCORD',   sub: 'come hang out',      icon: 'chat' },
-      { id: 'twitter',   title: 'TWITTER',   sub: 'follow me',          icon: 'bird' },
-      { id: 'instagram', title: 'INSTAGRAM', sub: 'pictures of stuff',  icon: 'cam' },
-      { id: 'youtube',   title: 'YOUTUBE',   sub: 'vods & highlights',  icon: 'play' },
-      { id: 'socials',   title: 'SOCIALS',   sub: 'all my links',       icon: 'links' },
-      { id: 'specs',     title: 'PC SPECS',  sub: 'my setup',           icon: 'cpu' },
-      { id: 'merch',     title: 'MERCH',     sub: 'wear the brand',     icon: 'tag' },
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the CSS vars) ----
+    var W = 320, H = 100;
+    var PLUM_DEEP = '#0E0A12', PLUM_MID = '#1C1322';
+    var MAG = '#FF5E9C', MAG_DEEP = '#7B2D5E';
+    var PINK = '#FFD1E6', PINK_SOFT = '#FFE3F0';
+    var WASHI = '#F7F2F5', DIM = '#C9A6BC';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT ME',  icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'specs',     title: 'PC SPECS',  icon: 'monitor' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' }
     ];
 
-    // ---- Tokens (must match the screens) ----
-    const W = 320, H = 100, ICON_W = 92;
-    const INDIGO_1 = '#0e0a12', INDIGO_2 = '#1c1322';
-    const VERMILION = '#ff5e9c', VERMILION_DARK = '#7b2d5e';
-    const GOLD = '#ffd1e6', GOLD_SOFT = '#ffe3f0';
-    const WASHI = '#f7f2f5', WASHI_DIM = '#c9a6bc';
-
-    function drawPanel(ctx, p) {
-      // background gradient (indigo)
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, INDIGO_2); g.addColorStop(1, INDIGO_1);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
-      // subtle right-side pixel dot texture (very faint)
-      ctx.fillStyle = 'rgba(255,209,230,0.06)';
-      for (let y = 6; y < H; y += 14) for (let x = ICON_W + 14; x < W - 6; x += 14) ctx.fillRect(x, y, 1.5, 1.5);
-
-      // left vermilion strip (icon area)
-      ctx.fillStyle = VERMILION; ctx.fillRect(0, 0, ICON_W, H);
-      ctx.fillStyle = VERMILION_DARK; ctx.fillRect(ICON_W - 4, 0, 4, H);
-      // gold pixel rivets down the strip
-      ctx.fillStyle = GOLD_SOFT;
-      for (let y = 14; y < H; y += 24) ctx.fillRect(ICON_W - 12, y, 3, 3);
-
-      drawIcon(ctx, p.icon, ICON_W / 2 - 14, H / 2 - 14, 28);
-
-      // right side: gold accent rule + title + subtitle
-      // gold pixel rule
-      const rx = ICON_W + 16;
-      for (let i = 0; i < 5; i++) { ctx.fillStyle = GOLD; ctx.fillRect(rx + i * 8, 22, 5, 3); }
-
-      // title (Silkscreen bold)
-      ctx.font = 'bold 22px "Silkscreen", monospace';
-      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-      // hard pixel shadow then washi top
-      ctx.fillStyle = VERMILION_DARK; ctx.fillText(p.title, rx + 2, 34 + 2);
-      ctx.fillStyle = WASHI; ctx.fillText(p.title, rx, 34);
-
-      // subtitle (Silkscreen regular, small)
-      ctx.font = '11px "Silkscreen", monospace';
-      ctx.fillStyle = GOLD_SOFT;
-      ctx.fillText(p.sub, rx, 66);
-
-      // outer 2px gold border
-      ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
-      ctx.strokeRect(1, 1, W - 2, H - 2);
-      // inner 1px vermilion highlight
-      ctx.strokeStyle = VERMILION_DARK; ctx.lineWidth = 1;
-      ctx.strokeRect(3, 3, W - 6, H - 6);
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
     }
 
-    // tiny pixel icons drawn in gold-soft, all 28x28-ish
-    function drawIcon(ctx, kind, x, y, s) {
-      ctx.save(); ctx.translate(x, y);
-      ctx.fillStyle = GOLD_SOFT; ctx.shadowColor = GOLD; ctx.shadowBlur = 8;
-      const px = (xx, yy, w, h) => ctx.fillRect(Math.round(xx), Math.round(yy), Math.round(w), Math.round(h));
+    // soft pink bokeh bloom (blurred radial gradient)
+    function bloom(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(255,94,156,' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(255,94,156,' + (alpha * 0.35).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(255,94,156,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;                 // keep the card off the very edge
+      var cardR = 16;
+
+      // frosted translucent plum card body
+      ctx.save();
+      roundRectPath(ctx, pad, pad, W - pad * 2, H - pad * 2, cardR);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(28,19,34,0.78)');
+      bg.addColorStop(1, 'rgba(14,10,18,0.86)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // bokeh blooms inside the card
+      bloom(ctx, 250, 14, 150, 0.22);
+      bloom(ctx, 60, 96, 120, 0.16);
+
+      // faint VHS scanlines
+      ctx.fillStyle = 'rgba(7,5,10,0.16)';
+      for (var sy = pad; sy < H - pad; sy += 3) ctx.fillRect(0, sy, W, 1);
+
+      // faint dot texture on the text field
+      ctx.fillStyle = 'rgba(255,209,230,0.05)';
+      for (var dy = 10; dy < H; dy += 13) {
+        for (var dx = 78; dx < W; dx += 13) ctx.fillRect(dx, dy, 1.5, 1.5);
+      }
+
+      // subtle vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(7,5,10,0.40)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // rounded magenta accent strip down the left
+      ctx.save();
+      var stripX = pad + 8, stripW = 8;
+      var sg = ctx.createLinearGradient(0, 0, 0, H);
+      sg.addColorStop(0, MAG);
+      sg.addColorStop(1, MAG_DEEP);
+      ctx.fillStyle = sg;
+      ctx.shadowColor = 'rgba(255,94,156,0.65)';
+      ctx.shadowBlur = 12;
+      roundRectPath(ctx, stripX, pad + 14, stripW, H - pad * 2 - 28, stripW / 2);
+      ctx.fill();
+      ctx.restore();
+
+      // vertical サクラ kana accent (faint, right edge)
+      ctx.save();
+      ctx.font = '600 13px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,209,230,0.16)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var kana = ['サ', 'ク', 'ラ'];
+      for (var k = 0; k < kana.length; k++) ctx.fillText(kana[k], W - 16, 26 + k * 18);
+      ctx.restore();
+
+      // soft pink line icon
+      drawIcon(ctx, p.icon, 40, H / 2, 34);
+
+      // "CH 03 · LO-FI" badge kicker above the title
+      ctx.save();
+      ctx.font = '700 9px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = MAG;
+      ctx.shadowColor = 'rgba(255,94,156,0.8)'; ctx.shadowBlur = 8;
+      ctx.fillRect(78, 26, 5, 5);                 // tiny rec dot
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = DIM;
+      ctx.fillText('CH 03 · LO-FI', 90, 31);
+      ctx.restore();
+
+      // label in clean bold sans (washi) with soft magenta glow
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      // shrink-to-fit so long labels (INSTAGRAM, SUBSCRIBE) stay inside
+      var size = 26;
+      var maxW = W - 78 - 26;
+      ctx.font = '800 ' + size + 'px system-ui, "Segoe UI", sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '800 ' + size + 'px system-ui, "Segoe UI", sans-serif';
+      }
+      var ty = 70;
+      ctx.shadowColor = 'rgba(255,94,156,0.55)';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = WASHI;
+      ctx.fillText(label, 78, ty);
+      ctx.restore();
+
+      // music "seek-bar" accent under the label
+      ctx.save();
+      var barX = 78, barY = 80, barW = W - 78 - 26, barH = 3;
+      ctx.fillStyle = 'rgba(255,209,230,0.18)';
+      roundRectPath(ctx, barX, barY, barW, barH, barH / 2);
+      ctx.fill();
+      var fill = barW * 0.62;
+      var fg = ctx.createLinearGradient(barX, 0, barX + fill, 0);
+      fg.addColorStop(0, MAG_DEEP);
+      fg.addColorStop(1, MAG);
+      ctx.fillStyle = fg;
+      roundRectPath(ctx, barX, barY, fill, barH, barH / 2);
+      ctx.fill();
+      // playhead knob
+      ctx.fillStyle = PINK_SOFT;
+      ctx.shadowColor = 'rgba(255,94,156,0.8)'; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(barX + fill, barY + barH / 2, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // hairline card border
+      ctx.save();
+      roundRectPath(ctx, pad + 0.5, pad + 0.5, W - pad * 2 - 1, H - pad * 2 - 1, cardR);
+      ctx.strokeStyle = 'rgba(255,209,230,0.22)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent soft-pink stroke, centred on (cx, cy),
+    // sized to roughly `s` px box. Stroke style is set up once here.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;                               // half box
+      ctx.strokeStyle = PINK;
+      ctx.fillStyle = PINK;
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(255,94,156,0.55)';
+      ctx.shadowBlur = 8;
+
       switch (kind) {
-        case 'user':   // head + shoulders
-          px(s*0.34, s*0.10, s*0.32, s*0.28);
-          px(s*0.18, s*0.50, s*0.64, s*0.40); break;
-        case 'shield':
-          px(s*0.20, s*0.10, s*0.60, s*0.10);
-          px(s*0.20, s*0.20, s*0.60, s*0.45);
-          px(s*0.30, s*0.65, s*0.40, s*0.10);
-          px(s*0.40, s*0.75, s*0.20, s*0.10); break;
-        case 'cal':    // calendar
-          px(s*0.12, s*0.20, s*0.76, s*0.65);
-          ctx.fillStyle = VERMILION; px(s*0.16, s*0.30, s*0.68, s*0.10);  // header band
-          ctx.fillStyle = GOLD_SOFT;
-          for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) px(s*0.20 + c*s*0.18, s*0.46 + r*s*0.12, s*0.10, s*0.06);
-          px(s*0.24, s*0.06, s*0.06, s*0.18); px(s*0.70, s*0.06, s*0.06, s*0.18); // hangers
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
           break;
-        case 'coin':   // $
-          px(s*0.30, s*0.16, s*0.40, s*0.10);
-          px(s*0.22, s*0.26, s*0.10, s*0.20);
-          px(s*0.22, s*0.46, s*0.56, s*0.10);
-          px(s*0.68, s*0.56, s*0.10, s*0.20);
-          px(s*0.30, s*0.74, s*0.40, s*0.10);
-          px(s*0.45, s*0.04, s*0.10, s*0.92); break;
-        case 'star':
-          px(s*0.42, s*0.04, s*0.16, s*0.20);
-          px(s*0.20, s*0.24, s*0.60, s*0.12);
-          px(s*0.10, s*0.36, s*0.80, s*0.16);
-          px(s*0.24, s*0.52, s*0.52, s*0.16);
-          px(s*0.16, s*0.68, s*0.20, s*0.20);
-          px(s*0.64, s*0.68, s*0.20, s*0.20); break;
-        case 'chat':   // speech bubble
-          px(s*0.10, s*0.14, s*0.80, s*0.50);
-          px(s*0.18, s*0.64, s*0.16, s*0.20);   // tail
-          ctx.fillStyle = INDIGO_1;
-          px(s*0.22, s*0.30, s*0.18, s*0.10);
-          px(s*0.45, s*0.30, s*0.18, s*0.10);
-          px(s*0.68, s*0.30, s*0.10, s*0.10); break;
-        case 'bird':   // tiny stylized bird
-          px(s*0.18, s*0.30, s*0.50, s*0.20);
-          px(s*0.32, s*0.48, s*0.30, s*0.16);
-          px(s*0.40, s*0.20, s*0.16, s*0.10);
-          px(s*0.62, s*0.40, s*0.20, s*0.08); break;
-        case 'cam':
-          px(s*0.12, s*0.22, s*0.76, s*0.56);
-          ctx.fillStyle = INDIGO_1;
-          px(s*0.34, s*0.36, s*0.32, s*0.30);
-          ctx.fillStyle = GOLD_SOFT;
-          px(s*0.66, s*0.30, s*0.10, s*0.10); break;
-        case 'play':
-          px(s*0.10, s*0.20, s*0.80, s*0.60);
-          ctx.fillStyle = INDIGO_1;
-          for (let i = 0; i < 8; i++) px(s*0.34 + i*2, s*0.32 + i*2, s*0.06 - i*0.4, s*0.06 - i*0.4);
-          // triangle play arrow
-          ctx.fillStyle = INDIGO_1;
-          for (let i = 0; i < 10; i++) px(s*0.36, s*0.34 + i*s*0.034, s*0.34 - i*s*0.030, s*0.034);
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);   // header rule
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5); // hangers
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          // day dots
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.4, 0, Math.PI * 2);
+              ctx.fill();
+            }
           break;
-        case 'links':
-          for (let r = 0; r < 3; r++) px(s*0.18, s*0.20 + r*s*0.22, s*0.60, s*0.12);
-          break;
-        case 'cpu':
-          px(s*0.20, s*0.20, s*0.60, s*0.60);
-          ctx.fillStyle = INDIGO_1; px(s*0.28, s*0.28, s*0.44, s*0.44);
-          ctx.fillStyle = GOLD_SOFT;
-          for (let i = 0; i < 3; i++) { px(s*0.30 + i*s*0.18, s*0.08, s*0.06, s*0.12); px(s*0.30 + i*s*0.18, s*0.80, s*0.06, s*0.12); }
-          for (let i = 0; i < 3; i++) { px(s*0.08, s*0.30 + i*s*0.18, s*0.12, s*0.06); px(s*0.80, s*0.30 + i*s*0.18, s*0.12, s*0.06); }
-          break;
-        case 'tag':
-          for (let r = 0; r < 10; r++) {
-            const w = s*0.74 - r*s*0.04;
-            if (w > 0) px(s*0.10 + r*s*0.04, s*0.16 + r*0.5, w, s*0.06);
+        }
+        case 'list': {
+          ctx.lineWidth = 2.4;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath();
+            ctx.arc(-h * 0.78, ly, 1.7, 0, Math.PI * 2); ctx.fill();   // bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
           }
-          px(s*0.10, s*0.16, s*0.20, s*0.60); // left band
-          ctx.fillStyle = INDIGO_1; px(s*0.18, s*0.26, s*0.08, s*0.08); // hole
           break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.62) + 'px system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          // rounded controller-ish blob with two eyes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // simple bird silhouette via strokes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();   // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();  // lens
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();   // hole
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 5); ctx.stroke();    // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);  // stand
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);  // foot
+          ctx.stroke();
+          // signal bars inside
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke(); // medal
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);                                    // ribbon tail L
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);                                     // ribbon tail R
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr, Y = Math.sin(ang) * rr;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
         default:
-          px(s*0.30, s*0.30, s*0.40, s*0.40);
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
 
-    // ---- Build the grid ----
-    const grid = document.getElementById('grid');
-    const made = [];
+    // local rounded-rect path helper for icons (separate so it doesn't
+    // disturb the panel-level path state)
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
 
-    async function build() {
-      await document.fonts.load('bold 22px "Silkscreen"');
-      await document.fonts.load('11px "Silkscreen"');
-      await document.fonts.ready;
-      for (const p of PANELS) {
-        const card = document.createElement('div'); card.className = 'card';
-        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-        const ctx = cv.getContext('2d');
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
         drawPanel(ctx, p);
-        const row = document.createElement('div'); row.className = 'card-row';
-        const nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
-        const dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
-        dl.addEventListener('click', (e) => { e.preventDefault(); save(cv, p.id); });
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
         row.appendChild(nm); row.appendChild(dl);
-        card.appendChild(cv); card.appendChild(row);
+
+        card.appendChild(frame); card.appendChild(row);
         grid.appendChild(card);
         made.push({ canvas: cv, id: p.id });
       }
     }
 
     function save(canvas, id) {
-      const a = document.createElement('a');
+      var a = document.createElement('a');
       a.download = 'panel-' + id + '.png';
       a.href = canvas.toDataURL('image/png');
       document.body.appendChild(a); a.click(); a.remove();
     }
 
-    document.getElementById('dlAll').addEventListener('click', () => {
-      // sequential to avoid the browser blocking multi-downloads
-      let i = 0; const next = () => { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); }; next();
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);   // sequential so the browser allows multi-download
+      })();
     });
 
-    build();
+    // Fonts here are system fonts (no @font-face / CDN), so they are ready
+    // immediately. document.fonts.ready still guards any late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
   </script>
 </body>
 </html>

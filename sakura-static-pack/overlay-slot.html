@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Sakura Static — In-Game Overlay (now-playing slot)</title>
+  <!--
+    TRANSPARENT in-game overlay (1920x1080) that composites OVER gameplay.
+    OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+
+    Most of the screen stays transparent for the game. It draws:
+      - a slim frosted "now-playing" mini-card bottom-left: a small torii ⛩ tile,
+        "@yourhandle", a sub line, a thin magenta accent line + tiny seek styling;
+      - a tiny "CH 03 · LO-FI" dead-channel badge top-right (blinking rec dot);
+      - a FEW very subtle drifting cherry-blossom petals (low alpha).
+
+    Optional URL params:
+      ?handle=@you     handle shown on the card (default @yourhandle)
+      ?petals=6        petal count (default 6, kept low so the game shows through)
+      ?now=Lo-Fi%20Mix sub/now-playing line under the handle (default "lo-fi beats · live")
+      ?corner=bl       card corner: bl | br | tl | tr (default bl)
+
+    Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage + fit()
+    + delta-clamped rAF. Exposes window.__draw() to render one canvas frame on demand.
+  -->
+  <style>
+    :root{
+      --plum-deep:#0E0A12; --plum-deepest:#07050A; --plum-mid:#1C1322;
+      --mag:#FF5E9C; --mag-deep:#7B2D5E; --pink:#FFD1E6; --pink-soft:#FFE3F0;
+      --washi:#F7F2F5; --dim:#C9A6BC;
+      --card:rgba(24,15,30,0.62); --hair:rgba(255,209,230,0.22);
+      --ease:cubic-bezier(.2,.9,.2,1);
+    }
+    *{box-sizing:border-box;}
+    /* TRANSPARENT everywhere so gameplay shows through */
+    html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+    /* fixed design stage, scaled to fit viewport == OBS. Transparent. */
+    #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+      transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+      overflow:hidden;background:transparent;
+      font-family:system-ui,"Segoe UI",Roboto,sans-serif;color:var(--washi);}
+
+    canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+    /* top-right dead-channel badge */
+    .chan{position:absolute;top:40px;right:52px;display:flex;align-items:center;gap:12px;
+      font-family:"Courier New",monospace;letter-spacing:4px;font-size:20px;color:var(--pink);
+      text-shadow:0 0 12px rgba(255,94,156,.5);
+      background:rgba(24,15,30,0.42);border:1px solid var(--hair);border-radius:14px;
+      padding:8px 16px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      animation:fade .8s var(--ease) both .15s;}
+    .chan .sig{display:inline-flex;gap:3px;align-items:flex-end;height:18px;}
+    .chan .sig i{width:4px;background:var(--pink);opacity:.8;}
+    .chan .rec{width:12px;height:12px;border-radius:50%;background:var(--mag);
+      box-shadow:0 0 14px var(--mag);animation:blink 1.6s steps(1,end) infinite;}
+    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.15}}
+
+    /* slim frosted now-playing mini-card (anchored via corner modifier) */
+    .slot{position:absolute;display:flex;align-items:center;gap:18px;
+      padding:16px 26px 16px 16px;min-width:380px;max-width:560px;
+      background:var(--card);border:1px solid var(--hair);border-radius:22px;
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      box-shadow:0 18px 50px rgba(0,0,0,.5), 0 0 40px rgba(255,94,156,.08);
+      animation:rise .8s var(--ease) both .2s;}
+    .slot.bl{left:64px;bottom:64px;}
+    .slot.br{right:64px;bottom:64px;}
+    .slot.tl{left:64px;top:64px;}
+    .slot.tr{right:64px;top:64px;}
+
+    /* small torii ⛩ tile */
+    .tile{flex:none;width:66px;height:66px;border-radius:14px;position:relative;overflow:hidden;
+      background:linear-gradient(145deg, var(--mag) 0%, var(--mag-deep) 70%, #2a1430 100%);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 18px rgba(0,0,0,.4);}
+    .tile span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font-size:36px;color:rgba(255,255,255,.86);text-shadow:0 0 14px rgba(255,255,255,.4);}
+    .tile::after{content:"";position:absolute;inset:0;
+      background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);}
+
+    .info{min-width:0;display:flex;flex-direction:column;gap:6px;}
+    .kick{font-family:"Courier New",monospace;letter-spacing:4px;font-size:13px;color:var(--pink-soft);
+      display:flex;align-items:center;gap:9px;text-transform:uppercase;}
+    .kick .dot{width:9px;height:9px;border-radius:50%;background:var(--mag);box-shadow:0 0 10px var(--mag);
+      animation:blink 1.6s steps(1,end) infinite;}
+    .hdl{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1;
+      text-shadow:0 0 18px rgba(255,94,156,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .hdl b{color:var(--mag);}
+    .now{font-size:14px;color:var(--dim);letter-spacing:1px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    /* thin magenta accent line (animated seek shimmer along it) */
+    .accent{position:relative;height:3px;border-radius:3px;margin-top:4px;
+      background:rgba(255,255,255,.10);overflow:hidden;}
+    .accent::before{content:"";position:absolute;top:0;left:0;height:100%;width:40%;border-radius:3px;
+      background:linear-gradient(90deg, transparent, var(--mag), var(--pink-soft), var(--mag), transparent);
+      box-shadow:0 0 10px rgba(255,94,156,.6);animation:slide 3.6s linear infinite;}
+    @keyframes slide{from{transform:translateX(-110%)}to{transform:translateX(360%)}}
+
+    @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="chan" aria-hidden="true">
+      <span class="sig"><i style="height:6px"></i><i style="height:11px"></i><i style="height:16px"></i><i style="height:9px"></i></span>
+      <span>CH&nbsp;03</span><span style="opacity:.5">·</span><span>LO-FI</span>
+      <span class="rec"></span>
+    </div>
+
+    <div class="slot bl" id="slot">
+      <div class="tile" aria-hidden="true"><span>&#9961;</span></div>
+      <div class="info">
+        <p class="kick"><span class="dot"></span> NOW PLAYING</p>
+        <p class="hdl" id="handle">@yourhandle</p>
+        <p class="now" id="now">lo-fi beats · live</p>
+        <div class="accent" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const $ = (s) => document.querySelector(s);
+    const $id = (id) => document.getElementById(id);
+
+    /* ---- fit the 1920x1080 stage to the window (defensive) ---- */
+    function fit() {
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw / 1920, ih / 1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional text params ---- */
+    const handle = params.get("handle"), handleEl = $id("handle");
+    if (handle && handleEl) handleEl.textContent = handle;
+    const now = params.get("now"), nowEl = $id("now");
+    if (now && nowEl) nowEl.textContent = now;
+
+    /* ---- card corner ---- */
+    const corner = (params.get("corner") || "bl").toLowerCase();
+    const slot = $id("slot");
+    if (slot && ["bl", "br", "tl", "tr"].includes(corner)) {
+      slot.classList.remove("bl"); slot.classList.add(corner);
+    }
+
+    /* ---- canvas field: a FEW very subtle drifting petals (low alpha) ---- */
+    const cv = $(".bg");
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      if (!ctx) return;
+      const W = cv.width || 1920, H = cv.height || 1080;
+      const PINKS = ["#FF5E9C", "#FFD1E6", "#FF9EC4"];
+      const R = (a, b) => a + Math.random() * (b - a);
+      const PETALS = Math.max(0, num("petals", 6));
+
+      const mk = (initial) => ({
+        x: R(0, W), y: initial ? R(0, H) : R(-80, -10), s: R(14, 28), vy: R(12, 26) / 60,
+        sway: R(0.4, 1.1), ph: R(0, 6.28), drift: R(-0.25, 0.25), rot: R(0, 6.28),
+        vr: R(-0.5, 0.5) / 60, a: R(0.10, 0.26), c: PINKS[(Math.random() * PINKS.length) | 0],
+      });
+      const petals = Array.from({ length: PETALS }, () => mk(true));
+
+      function drawPetal(p) {
+        ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y)); ctx.rotate(p.rot);
+        ctx.globalAlpha = p.a; ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 8;
+        const s = p.s;
+        ctx.beginPath(); ctx.moveTo(0, -s);
+        ctx.bezierCurveTo(s * 0.6, -s * 0.6, s * 0.5, s * 0.5, 0, s);
+        ctx.bezierCurveTo(-s * 0.5, s * 0.5, -s * 0.6, -s * 0.6, 0, -s); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, W, H);
+        for (const p of petals) {
+          p.y += p.vy; p.ph += 0.02; p.rot += p.vr; p.x += Math.sin(p.ph) * p.sway + p.drift;
+          if (p.y > H + 40 || p.x < -60 || p.x > W + 60) Object.assign(p, mk(false));
+          drawPetal(p);
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      }
+      window.__draw = frame; // rAF-independent verification hook (OBS pauses rAF when hidden)
+      frame();
+
+      let last = null, since = 0; const MIN = 1000 / 30;
+      function loop(now) {
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        since += dt; if (since < MIN) return; since = 0; frame();
+      }
+      requestAnimationFrame(loop);
+    } else {
+      window.__draw = function () {};
+    }
+  })();
+  </script>
+</body>
+</html>

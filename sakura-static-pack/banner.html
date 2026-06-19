@@ -2,15 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Profile Banner — Sakura Static (generator)</title>
+  <title>Profile Banner — Sakura Static (PNG generator)</title>
   <!--
-    Twitch profile banner (1920 x 480, 5:2).
+    SAKURA STATIC · "lo-fi anime night" PROFILE BANNER generator (1920 x 480, 5:2).
 
-    Twitch overlays its offline video player in the CENTER of the banner, so the
-    important branding is split into LEFT and RIGHT blocks (each well outside the
-    player area) with decorative texture in the middle. Both sides carry standalone
-    identity so the banner reads even when the page sidebar crops a chunk off the
-    left edge on smaller screens.
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = LO-FI / VIBES tagline. The centre is decorative only — a faint torii gate +
+    bokeh — so the player can sit over it without hiding anything important.
+
+    Everything is drawn from a SEEDED LCG, so the bokeh / petal scatter is identical on
+    every render (Math.random is never used) — re-running gives the same banner.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
 
     How to use:
       1. Open this file in a browser.
@@ -19,48 +24,45 @@
          -> "Profile Banner".
   -->
   <style>
-    :root {
-      --indigo-1: #0e0a12; --indigo-2: #1c1322; --deep: #07050a;
-      --vermilion: #ff5e9c; --vermilion-dark: #7b2d5e;
-      --gold: #ffd1e6; --gold-soft: #ffe3f0;
-      --washi: #f7f2f5; --washi-dim: #c9a6bc;
+    :root{
+      --plum-deep:#0E0A12; --plum-deepest:#07050A; --plum-mid:#1C1322;
+      --mag:#FF5E9C; --mag-deep:#7B2D5E; --pink:#FFD1E6; --pink-soft:#FFE3F0;
+      --washi:#F7F2F5; --dim:#C9A6BC;
     }
-    @font-face {
-      font-family: "Silkscreen";
-      src: url("assets/fonts/Silkscreen-Regular.ttf") format("truetype");
-      font-weight: 400;
-    }
-    @font-face {
-      font-family: "Silkscreen";
-      src: url("assets/fonts/Silkscreen-Bold.ttf") format("truetype");
-      font-weight: 700;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #07050a; color: var(--washi); padding: 32px; }
-    h1 { font-family: "Silkscreen"; font-weight: 700; font-size: 28px; color: var(--gold-soft); letter-spacing: 2px; margin: 0 0 6px; }
-    p.lead { color: #c9a6bc; margin: 0 0 22px; max-width: 760px; line-height: 1.55; }
-    button { font-family: "Silkscreen"; font-weight: 700; font-size: 14px; letter-spacing: 2px;
-      padding: 12px 22px; background: var(--vermilion); color: var(--washi); border: 2px solid var(--gold); cursor: pointer; }
-    button:hover { background: var(--vermilion-dark); }
-    .preview { margin-top: 22px; background: #11163a; padding: 14px; border: 1px solid #33203a; display: inline-block; position: relative; }
-    canvas { display: block; width: 1152px; height: 288px; image-rendering: pixelated; }
-    /* The ghost overlay shows roughly where Twitch's offline player sits, so you
-       can confirm the L/R blocks are clear of the player before downloading. */
-    .ghost { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 460px; height: 154px; border: 2px dashed rgba(255,255,255,0.45);
-      background: rgba(20,20,20,0.45); pointer-events: none;
-      color: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center;
-      font-family: system-ui; font-size: 13px; letter-spacing: 1px; }
-    code { color: var(--gold-soft); background: #161a3a; padding: 2px 6px; border-radius: 3px; }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:system-ui,"Segoe UI",sans-serif;background:var(--plum-deepest);
+      color:var(--washi);padding:32px;}
+    h1{font-weight:800;font-size:26px;color:var(--pink-soft);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 18px rgba(255,94,156,.35);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:820px;line-height:1.55;}
+    .kicker{font-family:"Courier New",monospace;letter-spacing:4px;font-size:13px;color:var(--mag);
+      margin:0 0 14px;text-transform:uppercase;}
+    button{font-family:"Courier New",monospace;font-weight:700;font-size:14px;letter-spacing:3px;
+      padding:13px 24px;background:var(--mag);color:var(--washi);border:1px solid var(--pink);
+      border-radius:12px;cursor:pointer;box-shadow:0 0 30px rgba(255,94,156,.25);}
+    button:hover{background:var(--mag-deep);}
+    .preview{margin-top:22px;background:var(--plum-mid);padding:14px;border:1px solid #33203a;
+      border-radius:14px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:6px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits so you can
+       confirm the L/R blocks stay clear. It is NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(255,255,255,0.45);
+      background:rgba(20,18,28,0.45);pointer-events:none;border-radius:8px;
+      color:rgba(255,255,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Courier New",monospace;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--pink-soft);background:#161320;
+      padding:2px 6px;border-radius:4px;}
   </style>
 </head>
 <body>
+  <p class="kicker">CH 03 · LO-FI · PROFILE BANNER</p>
   <h1>PROFILE BANNER GENERATOR</h1>
   <p class="lead">
-    Renders a 1920&times;480 profile banner in the sakura-static pixel-Japan style.
-    Identity sits on the <strong>left</strong>, a tagline on the <strong>right</strong>;
-    the centre is decorative so Twitch's offline player can sit over it without hiding
-    anything important. Click Download then upload at
+    Renders a 1920&times;480 profile banner in the sakura-static lo-fi-night style — seeded so
+    the bokeh and petals are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Click Download then upload at
     <code>Settings → Channel → Brand → Profile Banner</code>.
   </p>
   <button id="dl">Download profile-banner.png</button>
@@ -71,176 +73,144 @@
   </div>
 
   <script>
+    "use strict";
     const W = 1920, H = 480;
-    const INDIGO_1 = '#0e0a12', INDIGO_2 = '#1c1322', DEEP = '#07050a';
-    const VERMILION = '#ff5e9c', VERMILION_DARK = '#7b2d5e';
-    const GOLD = '#ffd1e6', GOLD_SOFT = '#ffe3f0';
-    const WASHI = '#f7f2f5', WASHI_DIM = '#c9a6bc';
-    const SAKURA = ['#ff9ec4', '#ffd1e6', '#f7f2f5'];
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const PLUM_DEEP = '#0E0A12', PLUM_DEEPEST = '#07050A', PLUM_MID = '#1C1322';
+    const MAG = '#FF5E9C', MAG_DEEP = '#7B2D5E', PINK = '#FFD1E6', PINK_SOFT = '#FFE3F0';
+    const WASHI = '#F7F2F5', DIM = '#C9A6BC';
+    const PINKS = [MAG, PINK, MAG_DEEP, '#FF9EC4'];
 
     const cv = document.getElementById('c');
     const ctx = cv.getContext('2d');
 
-    // -------------------------------------------------------------------------
-    // little drawing primitives
-    // -------------------------------------------------------------------------
-    function pixelRule(cx, y, segments) {
-      ctx.fillStyle = GOLD;
-      const half = (segments * 22 - 8) / 2;
-      for (let i = 0; i < segments; i++) ctx.fillRect(cx - half + i * 22, y - 4, 14, 8);
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
     }
-    function statusDot(x, y, size, color) {
-      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 14;
-      ctx.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
-      ctx.shadowBlur = 0;
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
     }
-    // Draws a centered text block: kicker + rule + big title + subtitle.
-    function blockOfText(cx, ky, kickerLabel, titleFont, titleText, subFont, subText) {
-      // Kicker (with leading status dot)
-      ctx.font = '400 22px "Silkscreen", monospace';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const dotPad = 22;
-      const kw = ctx.measureText(kickerLabel).width + dotPad;
-      statusDot(cx - kw / 2 + 6, ky, 14, VERMILION);
-      ctx.fillStyle = GOLD_SOFT;
-      ctx.fillText(kickerLabel, cx + dotPad / 2 - 2, ky);
-      // Rule
-      pixelRule(cx, ky + 30, 7);
-      // Title -- with hard pixel shadow + soft gold halo
-      ctx.font = titleFont;
-      ctx.fillStyle = VERMILION_DARK;
-      ctx.fillText(titleText, cx + 6, ky + 110 + 6);
-      ctx.shadowColor = 'rgba(255,209,230,0.40)'; ctx.shadowBlur = 26;
-      ctx.fillStyle = WASHI;
-      ctx.fillText(titleText, cx, ky + 110);
-      ctx.shadowBlur = 0;
-      // Subtitle
-      ctx.font = subFont;
-      ctx.fillStyle = GOLD_SOFT;
-      ctx.fillText(subText, cx, ky + 200);
+    function petal(x, y, s, rot, color, alpha) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+      ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * 0.6, -s * 0.6, s * 0.5, s * 0.5, 0, s);
+      ctx.bezierCurveTo(-s * 0.5, s * 0.5, -s * 0.6, -s * 0.6, 0, -s); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = alpha * 0.5; ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(14,10,18,0.6)';
+      ctx.beginPath(); ctx.moveTo(0, s); ctx.lineTo(-s * 0.12, s * 0.6); ctx.lineTo(s * 0.12, s * 0.6); ctx.closePath(); ctx.fill();
+      ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     }
 
-    // -------------------------------------------------------------------------
-    // central decorative element: a stylised torii gate
-    // -------------------------------------------------------------------------
+    // ---- faint torii gate (centre, behind the player) ----
     function drawTorii(cx, cy, scale) {
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(scale, scale);
-      ctx.shadowColor = VERMILION; ctx.shadowBlur = 24;
-      ctx.fillStyle = VERMILION;
-      // upper roof bar (kasagi) -- gently curved with a flat lower edge
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.5;
+      ctx.shadowColor = MAG; ctx.shadowBlur = 24; ctx.fillStyle = 'rgba(255,94,156,0.55)';
+      // upper roof bar (kasagi) — gently curved
       ctx.beginPath();
       ctx.moveTo(-110, -60); ctx.quadraticCurveTo(0, -86, 110, -60);
       ctx.lineTo(95, -42); ctx.lineTo(-95, -42); ctx.closePath(); ctx.fill();
-      // tie bar (shimaki)
-      ctx.fillRect(-100, -34, 200, 12);
-      // crossbeam (nuki) lower
-      ctx.fillRect(-78, -10, 156, 14);
-      // two pillars
-      ctx.fillRect(-66, -22, 12, 84);
-      ctx.fillRect(54, -22, 12, 84);
-      // gold center plaque
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = GOLD;
-      ctx.fillRect(-14, -16, 28, 18);
-      ctx.fillStyle = VERMILION_DARK;
-      // little kanji-ish ⛩ pixel mark
-      ctx.fillRect(-9, -12, 18, 3);
-      ctx.fillRect(-4, -9, 8, 8);
+      ctx.fillRect(-100, -34, 200, 12);      // tie bar (shimaki)
+      ctx.fillRect(-78, -10, 156, 14);       // crossbeam (nuki)
+      ctx.fillRect(-66, -22, 12, 84);        // left pillar
+      ctx.fillRect(54, -22, 12, 84);         // right pillar
       ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred branding block: dot + mono kicker, big bold title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with leading status dot
+      ctx.font = '600 22px "Courier New", monospace';
+      const kw = ctx.measureText(kickerLabel).width;
+      ctx.fillStyle = MAG; ctx.shadowColor = MAG; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(cx - kw / 2 - 16, 120, 7, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = PINK_SOFT;
+      ctx.fillText(kickerLabel, cx, 120);
+      // title — bold sans, soft magenta glow
+      ctx.font = '800 ' + titleSize + 'px system-ui, "Segoe UI", sans-serif';
+      ctx.fillStyle = WASHI; ctx.shadowColor = 'rgba(255,94,156,0.45)'; ctx.shadowBlur = 30;
+      ctx.fillText(titleText, cx, 235);
+      ctx.shadowBlur = 0;
+      // subtitle — mono
+      ctx.font = '400 20px "Courier New", monospace';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 330);
     }
 
     async function draw() {
-      // Wait for the bundled pixel font to be ready before rasterising text
-      await document.fonts.load('700 78px "Silkscreen"');
-      await document.fonts.load('400 22px "Silkscreen"');
       await document.fonts.ready;
+      const rnd = makeRand(0x5A47A); // fixed seed -> identical scatter every render
 
-      // ---- BACKGROUND ----
+      // ---- BACKGROUND: plum night gradient ----
       const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, INDIGO_2); grad.addColorStop(1, DEEP);
+      grad.addColorStop(0, PLUM_MID); grad.addColorStop(0.6, PLUM_DEEP); grad.addColorStop(1, PLUM_DEEPEST);
       ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
-      // Warm vermilion glow behind the centre (creates the bridge look)
-      const radial = ctx.createRadialGradient(W / 2, H / 2 + 30, 60, W / 2, H / 2 + 30, 700);
-      radial.addColorStop(0, 'rgba(255,94,156,0.32)');
-      radial.addColorStop(0.55, 'rgba(255,94,156,0.10)');
-      radial.addColorStop(1, 'rgba(255,94,156,0)');
-      ctx.fillStyle = radial; ctx.fillRect(0, 0, W, H);
+      // warm magenta glow behind the centre (the "bridge" glow)
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(255,94,156,0.30)', 1);
+      bloom(W * 0.16, H * 0.30, 360, 'rgba(123,45,94,0.45)', 1);
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(123,45,94,0.45)', 1);
 
-      // Subtle pixel dot grid texture across the whole canvas
-      ctx.fillStyle = 'rgba(200,120,170,0.10)';
-      for (let y = 12; y < H; y += 14) for (let x = 12; x < W; x += 14) ctx.fillRect(x, y, 1.5, 1.5);
-
-      // Reproducible pseudo-random so the banner is identical on every render
-      const seedRand = (() => { let s = 31337; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
-
-      // Tiled YOURHANDLE wordmark across the centre (homage to your existing banner)
-      ctx.save();
-      ctx.font = '700 52px "Silkscreen", monospace';
-      ctx.fillStyle = 'rgba(123,45,94,0.22)';
-      const tileText = 'YOURHANDLE', tileGap = 36;
-      for (let row = -1; row <= Math.ceil(H / 68); row++) {
-        const yPos = row * 68 + 18;
-        const xOffset = (row % 2) * 200 + seedRand() * 60;
-        let x = -200 + xOffset;
-        while (x < W + 200) {
-          ctx.save();
-          ctx.translate(x, yPos); ctx.rotate(-0.05);
-          ctx.fillText(tileText, 0, 0);
-          ctx.restore();
-          x += ctx.measureText(tileText).width + tileGap + (seedRand() * 30);
-        }
+      // ---- SEEDED BOKEH BLOOMS ----
+      for (let i = 0; i < 12; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), r = R(rnd, 60, 180);
+        const c = PINKS[(rnd() * PINKS.length) | 0], a = R(rnd, 0.05, 0.15);
+        bloom(x, y, r, c, a);
       }
-      ctx.restore();
 
-      // Central decorative torii gate (visible when the player isn't covering)
-      drawTorii(W / 2, H / 2 - 20, 1.0);
+      // ---- faint torii centre ----
+      drawTorii(W / 2, H / 2 - 6, 1.05);
 
-      // Scattered sakura petals, denser around the edges
-      for (let i = 0; i < 36; i++) {
-        const onSide = i % 2 === 0;                                 // alternate between sides
-        const sideX = onSide
-          ? 60 + seedRand() * 540                                    // LEFT zone
-          : 1320 + seedRand() * 540;                                 // RIGHT zone
-        const y = 30 + seedRand() * (H - 60);
-        const sz = 5 + (i % 4) * 2;
-        ctx.globalAlpha = 0.35 + seedRand() * 0.30;
-        ctx.fillStyle = SAKURA[i % 3];
-        ctx.fillRect(Math.round(sideX), Math.round(y), sz, sz);
-        ctx.fillRect(Math.round(sideX + sz), Math.round(y - sz * 0.5), Math.round(sz * 0.6), Math.round(sz * 0.6));
+      // ---- SEEDED PETALS scattered into the LEFT and RIGHT thirds ----
+      for (let i = 0; i < 30; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 600) : R(rnd, W - 600, W - 40);
+        const y = R(rnd, 24, H - 24);
+        const s = R(rnd, 9, 22), rot = R(rnd, 0, 6.28);
+        const c = rnd() < 0.5 ? MAG : PINK, a = R(rnd, 0.30, 0.65);
+        petal(x, y, s, rot, c, a);
       }
+
+      // ---- VHS SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
       ctx.globalAlpha = 1;
 
-      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
-      blockOfText(
-        400, 105,
-        '   STREAMER',
-        '700 82px "Silkscreen", monospace', '@YOURHANDLE',
-        '400 20px "Silkscreen", monospace', 'twitch.tv/yourname'
-      );
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.62)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
-      // Vertical accent line between the LEFT block and the centre
-      ctx.fillStyle = 'rgba(255,209,230,0.45)';
-      for (let yy = 110; yy < H - 80; yy += 14) ctx.fillRect(640, yy, 3, 6);
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      block(400, 'STREAMER', '@YOURHANDLE', 76, 'twitch.tv/yourname');
 
       // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      blockOfText(
-        1520, 105,
-        '   24 / 7',
-        '700 92px "Silkscreen", monospace', 'VIBES',
-        '400 20px "Silkscreen", monospace', 'whenever it feels right'
-      );
+      block(1520, 'CH 03 · LO-FI', 'VIBES', 96, 'whenever it feels right');
 
-      // Mirrored vertical accent on the right side
-      for (let yy = 110; yy < H - 80; yy += 14) ctx.fillRect(1277, yy, 3, 6);
+      // small "LO-FI" kicker above VIBES, plus vertical accent dashes flanking centre
+      ctx.fillStyle = 'rgba(255,209,230,0.40)';
+      for (let yy = 110; yy < H - 70; yy += 14) { ctx.fillRect(648, yy, 3, 6); ctx.fillRect(1269, yy, 3, 6); }
 
-      // ---- OUTER VERMILION FRAME (matches the other scenes) ----
-      ctx.strokeStyle = VERMILION; ctx.lineWidth = 10;
-      ctx.strokeRect(5, 5, W - 10, H - 10);
-      ctx.strokeStyle = VERMILION_DARK; ctx.lineWidth = 3;
-      ctx.strokeRect(13, 13, W - 26, H - 26);
+      // ---- VERTICAL サクラ KANA, faint, just inside each accent line ----
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 46px system-ui, "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(255,209,230,0.10)';
+      const kanaChars = ['サ', 'ク', 'ラ'];
+      let lky = H / 2 - 64;
+      for (const ch of kanaChars) { ctx.fillText(ch, 700, lky); lky += 64; }
+      ctx.restore();
     }
 
     function download() {

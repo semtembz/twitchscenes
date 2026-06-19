@@ -5,192 +5,36 @@
   <meta name="viewport" content="width=1920, height=1080" />
   <title>Sakura Static — Starting Soon</title>
   <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
-       Bespoke "lo-fi anime night" design (NOT shared with other themes' layouts).
        Optional URL params: ?seconds=60  ?handle=@you -->
-  <style>
-    :root{
-      --plum-deep:#0E0A12; --plum-deepest:#07050A; --plum-mid:#1C1322;
-      --mag:#FF5E9C; --mag-deep:#7B2D5E; --pink:#FFD1E6; --pink-soft:#FFE3F0;
-      --washi:#F7F2F5; --dim:#C9A6BC;
-      --card: rgba(24,15,30,0.62);
-      --hair: rgba(255,209,230,0.22);
-    }
-    *{box-sizing:border-box;}
-    html,body{margin:0;height:100%;overflow:hidden;background:var(--plum-deepest);}
-    /* fixed design stage, scaled to fit viewport == OBS */
-    #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
-      transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
-      overflow:hidden;font-family:system-ui,"Segoe UI",Roboto,sans-serif;color:var(--washi);
-      background:
-        radial-gradient(120% 80% at 78% 22%, rgba(123,45,94,0.55), transparent 55%),
-        radial-gradient(90% 70% at 18% 88%, rgba(255,94,156,0.10), transparent 60%),
-        linear-gradient(160deg, var(--plum-mid), var(--plum-deep) 55%, var(--plum-deepest));
-    }
-    canvas{position:absolute;inset:0;width:1920px;height:1080px;}
-    /* VHS scanline + vignette overlay */
-    .grain{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;opacity:.5;
-      background:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);}
-    .vign{position:absolute;inset:0;pointer-events:none;
-      box-shadow:inset 0 0 320px rgba(0,0,0,.7), inset 0 0 80px rgba(0,0,0,.4);}
-
-    /* top-right dead-channel badge */
-    .chan{position:absolute;top:54px;right:64px;display:flex;align-items:center;gap:14px;
-      font-family:"Courier New",monospace;letter-spacing:4px;font-size:24px;color:var(--pink);
-      text-shadow:0 0 12px rgba(255,94,156,.5);}
-    .chan .rec{width:14px;height:14px;border-radius:50%;background:var(--mag);
-      box-shadow:0 0 14px var(--mag);animation:blink 1.6s steps(1,end) infinite;}
-    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.15}}
-    .chan .ch{opacity:.85;}
-    .chan .sig{display:inline-flex;gap:3px;align-items:flex-end;height:22px;}
-    .chan .sig i{width:4px;background:var(--pink);opacity:.8;}
-
-    /* right-edge vertical kana accent */
-    .kana{position:absolute;top:50%;right:42px;transform:translateY(-50%);
-      writing-mode:vertical-rl;text-orientation:upright;letter-spacing:18px;
-      font-size:120px;font-weight:700;color:rgba(255,209,230,.07);user-select:none;}
-    .kana b{color:rgba(255,94,156,.16);}
-
-    /* lower-left now-playing card */
-    .card{position:absolute;left:90px;bottom:110px;width:760px;padding:34px 40px;
-      background:var(--card);border:1px solid var(--hair);border-radius:26px;
-      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-      box-shadow:0 24px 70px rgba(0,0,0,.5), 0 0 50px rgba(255,94,156,.08);
-      display:grid;grid-template-columns:150px 1fr;gap:30px;align-items:center;
-      animation:rise .8s cubic-bezier(.2,.9,.2,1) both .2s;}
-    .art{width:150px;height:150px;border-radius:18px;position:relative;overflow:hidden;
-      background:linear-gradient(145deg, var(--mag) 0%, var(--mag-deep) 70%, #2a1430 100%);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.4);}
-    .art .torii{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      font-size:74px;color:rgba(255,255,255,.82);text-shadow:0 0 16px rgba(255,255,255,.4);}
-    .art::after{content:"";position:absolute;inset:0;
-      background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);}
-
-    .meta{min-width:0;}
-    .kick{font-family:"Courier New",monospace;letter-spacing:5px;font-size:20px;color:var(--pink-soft);
-      display:flex;align-items:center;gap:12px;margin-bottom:6px;}
-    .kick .dot{width:12px;height:12px;border-radius:50%;background:var(--mag);box-shadow:0 0 12px var(--mag);}
-    .title{font-size:78px;line-height:.98;font-weight:800;letter-spacing:-1px;margin:2px 0 4px;
-      text-shadow:0 0 26px rgba(255,94,156,.45);}
-    .title b{color:var(--mag);}
-    .sub{font-size:24px;color:var(--dim);letter-spacing:1px;margin-bottom:22px;}
-
-    /* lo-fi seek bar (the hidden 60s timer, no numbers) */
-    .seek{position:relative;height:10px;border-radius:6px;background:rgba(255,255,255,.10);overflow:visible;}
-    .seek .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:6px;
-      background:linear-gradient(90deg,var(--mag-deep),var(--mag));box-shadow:0 0 14px rgba(255,94,156,.6);}
-    .seek .knob{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--washi);
-      transform:translate(-50%,-50%);box-shadow:0 0 14px rgba(255,255,255,.7);left:0;}
-    .wave{position:absolute;left:0;right:0;top:-14px;height:12px;display:flex;gap:4px;align-items:flex-end;opacity:.35;}
-    .wave i{flex:1;background:var(--pink);border-radius:2px;}
-
-    .handle{position:absolute;right:64px;bottom:54px;font-family:"Courier New",monospace;
-      letter-spacing:3px;font-size:24px;color:var(--dim);}
-
-    @keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-  </style>
+  <link rel="stylesheet" href="shared.css" />
 </head>
 <body>
   <div id="stage">
-    <canvas id="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
     <div class="grain" aria-hidden="true"></div>
     <div class="vign" aria-hidden="true"></div>
 
     <div class="chan" aria-hidden="true">
       <span class="sig"><i style="height:8px"></i><i style="height:14px"></i><i style="height:20px"></i><i style="height:12px"></i></span>
-      <span class="ch">CH&nbsp;03</span><span style="opacity:.5">·</span><span>LO-FI</span>
+      <span>CH&nbsp;03</span><span style="opacity:.5">·</span><span>LO-FI</span>
       <span class="rec"></span>
     </div>
-
     <div class="kana" aria-hidden="true">サ<b>ク</b>ラ</div>
 
-    <main class="card">
+    <main class="card card--bl">
       <div class="art" aria-hidden="true"><div class="torii">⛩</div></div>
       <div class="meta">
-        <p class="kick"><span class="dot"></span> STREAM&nbsp;IS</p>
+        <p class="kick"><span class="dot"></span> <span id="kicker" data-done="WE'RE LIVE">STREAM IS</span></p>
         <h1 class="title">STARTING<br><b>SOON</b></h1>
         <p class="sub">sit back — we begin shortly</p>
         <div class="seek" aria-hidden="true">
-          <div class="wave" id="wave"></div>
-          <div class="fill" id="fill"></div>
-          <div class="knob" id="knob"></div>
+          <div class="wave" id="wave"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div>
         </div>
       </div>
     </main>
 
     <div class="handle" id="handle">@yourhandle</div>
   </div>
-
-  <script>
-  (() => {
-    "use strict";
-    const params = new URLSearchParams(location.search);
-    const num = (k,d)=>Number(params.get(k))||d;
-    const handle = params.get('handle'); if (handle) document.getElementById('handle').textContent = handle;
-
-    // ---- fit stage to viewport (browser == OBS) ----
-    function fit(){ const iw=innerWidth, ih=innerHeight; if(iw<10||ih<10) return;
-      document.documentElement.style.setProperty('--scale', Math.min(iw/1920, ih/1080)); }
-    fit(); addEventListener('resize', fit);
-    let t=0; const ivv=setInterval(()=>{ fit(); if(++t>10) clearInterval(ivv); },60);
-
-    // ---- decorative waveform behind the seek bar ----
-    const wave=document.getElementById('wave'); let whtml='';
-    for(let i=0;i<64;i++){ const h=3+Math.abs(Math.sin(i*0.7))*9 + (i%5); whtml+='<i style="height:'+h.toFixed(0)+'px"></i>'; }
-    wave.innerHTML=whtml;
-
-    // ---- seek bar = hidden 60s timer (no numbers shown) ----
-    const seconds=num('seconds',60), fill=document.getElementById('fill'), knob=document.getElementById('knob');
-    fill.style.transition='width '+seconds+'s linear'; knob.style.transition='left '+seconds+'s linear';
-    setTimeout(()=>{ fill.style.width='100%'; knob.style.left='100%'; },80);
-
-    // ---- canvas: bokeh blooms + soft drifting petals (lo-fi night) ----
-    const cv=document.getElementById('bg'), ctx=cv.getContext('2d'); if(!ctx) return;
-    const W=1920,H=1080;
-    const PINKS=['#FF5E9C','#FFD1E6','#7B2D5E','#FF9EC4'];
-    // seeded-ish PRNG (Math.random unavailable cap aside — this runs in browser, allowed)
-    const R=(a,b)=>a+Math.random()*(b-a);
-    const bokeh=Array.from({length:13},()=>({x:R(0,W),y:R(0,H),r:R(70,210),
-      c:PINKS[(Math.random()*PINKS.length)|0],a:R(0.05,0.16),vx:R(-6,6)/60,vy:R(-5,3)/60,ph:R(0,6.28),ps:R(0.4,1.0)}));
-    function petal(init){return {x:R(0,W),y:init?R(0,H):R(-80,-10),s:R(16,34),
-      vy:R(16,34)/60,sway:R(0.5,1.4),ph:R(0,6.28),drift:R(-0.3,0.3),rot:R(0,6.28),
-      vr:R(-0.6,0.6)/60,a:R(0.35,0.8),c:PINKS[(Math.random()*2)|0?1:0]};}
-    const petals=Array.from({length:18},()=>petal(true));
-
-    function drawPetal(p){ ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.ph*0.0+p.rot);
-      ctx.globalAlpha=p.a; ctx.fillStyle=p.c; ctx.shadowColor=p.c; ctx.shadowBlur=10;
-      const s=p.s; ctx.beginPath(); ctx.moveTo(0,-s);
-      ctx.bezierCurveTo(s*0.6,-s*0.6, s*0.5,s*0.5, 0,s);
-      ctx.bezierCurveTo(-s*0.5,s*0.5, -s*0.6,-s*0.6, 0,-s); ctx.closePath(); ctx.fill();
-      // notch
-      ctx.globalAlpha=p.a*0.5; ctx.fillStyle='rgba(14,10,18,0.6)';
-      ctx.beginPath(); ctx.moveTo(0,s); ctx.lineTo(-s*0.12,s*0.6); ctx.lineTo(s*0.12,s*0.6); ctx.closePath(); ctx.fill();
-      ctx.restore(); }
-
-    function frame(time){
-      ctx.clearRect(0,0,W,H);
-      // bokeh (soft radial blooms)
-      for(const b of bokeh){ b.x+=b.vx; b.y+=b.vy; b.ph+=0.01*b.ps;
-        if(b.x<-260)b.x=W+260; if(b.x>W+260)b.x=-260; if(b.y<-260)b.y=H+260; if(b.y>H+260)b.y=-260;
-        const pulse=1+Math.sin(b.ph)*0.12, rr=b.r*pulse;
-        const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,rr);
-        g.addColorStop(0,b.c); g.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.globalAlpha=b.a; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,rr,0,6.2832); ctx.fill(); }
-      ctx.globalAlpha=1;
-      // petals
-      for(const p of petals){ p.y+=p.vy; p.ph+=0.02; p.rot+=p.vr; p.x+=Math.sin(p.ph)*p.sway+p.drift;
-        if(p.y>H+40||p.x<-60||p.x>W+60) Object.assign(p,petal(false));
-        drawPetal(p); }
-      ctx.globalAlpha=1; ctx.shadowBlur=0;
-    }
-    window.__sakuraDraw = frame; // verification hook (rAF-independent)
-
-    // delta-clamped ~30fps loop (OBS hidden-scene safe)
-    let last=null, since=0; const MIN=1000/30;
-    function loop(now){ requestAnimationFrame(loop);
-      if(last==null)last=now; let dt=now-last; last=now; if(dt>100)dt=100;
-      since+=dt; if(since<MIN) return; since=0; frame(now); }
-    requestAnimationFrame(loop);
-  })();
-  </script>
+  <script src="shared.js"></script>
 </body>
 </html>

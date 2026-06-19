@@ -3,56 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1920, height=1080" />
-  <title>Be Right Back — Sakura Static</title>
+  <title>Sakura Static — Be Right Back</title>
   <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
-       Optional URL params: ?seconds=120 (hidden "back in" timer) ?handle=@you ?photo=assets/x.jpg -->
+       Optional URL params: ?seconds=120  ?handle=@you -->
   <link rel="stylesheet" href="shared.css" />
 </head>
 <body>
   <div id="stage">
-    <div class="bg" aria-hidden="true"></div>
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
 
-    <section class="photo" aria-hidden="true">
-      <img id="photoImg" class="photo__img" alt="" />
-      <div class="photo__grade"></div>
-    </section>
+    <div class="chan" aria-hidden="true">
+      <span class="sig"><i style="height:8px"></i><i style="height:14px"></i><i style="height:20px"></i><i style="height:12px"></i></span>
+      <span>CH&nbsp;03</span><span style="opacity:.5">·</span><span>BRB</span>
+      <span class="rec"></span>
+    </div>
+    <div class="kana" aria-hidden="true">サ<b>ク</b>ラ</div>
 
-    <canvas id="petals" class="petals" width="1920" height="1080" aria-hidden="true"></canvas>
-    <div class="divider" aria-hidden="true"></div>
-
-    <main class="panel">
-      <div class="sun" aria-hidden="true"></div>
-      <p class="kicker"><span class="dot"></span> <span id="statusEn" data-done="BACK NOW">AWAY</span></p>
-      <div class="rule" aria-hidden="true"></div>
-      <h1 class="title">BE<br>RIGHT<br><span class="title__accent">BACK</span></h1>
-      <p class="sub">grabbing a quick break — back in a moment</p>
-      <p class="handle" id="handle" hidden></p>
+    <main class="card card--bl">
+      <div class="art" aria-hidden="true"><div class="torii">⛩</div></div>
+      <div class="meta">
+        <p class="kick"><span class="dot"></span> <span id="kicker" data-done="BACK NOW">PAUSED</span></p>
+        <h1 class="title">BE RIGHT<br><b>BACK</b></h1>
+        <p class="sub">grabbing a quick break — back in a moment</p>
+        <div class="seek" aria-hidden="true">
+          <div class="wave" id="wave"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div>
+        </div>
+      </div>
     </main>
 
-    <div class="frame" aria-hidden="true"></div>
-
-    <div class="loadstatus" id="loadstatus" aria-hidden="true">
-      <span class="spinner" id="spinner"></span>
-      <span id="loadtext" data-done="RESUMING">PAUSED</span>
-    </div>
-
-    <div class="loadbar" aria-hidden="true">
-      <div class="loadbar__track"><div class="loadbar__fill" id="fill"></div></div>
-    </div>
+    <div class="handle" id="handle">@yourhandle</div>
   </div>
-
-  <script>
-    // Inline fit (runs immediately so the page is correctly sized before shared.js loads).
-    (function () {
-      function fit() {
-        var iw = window.innerWidth, ih = window.innerHeight;
-        if (iw < 10 || ih < 10) return;
-        document.documentElement.style.setProperty('--scale', Math.min(iw / 1920, ih / 1080));
-      }
-      fit();
-      window.addEventListener('resize', fit);
-    })();
-  </script>
   <script src="shared.js"></script>
 </body>
 </html>

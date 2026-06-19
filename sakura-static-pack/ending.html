@@ -3,47 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1920, height=1080" />
-  <title>Ending — Sakura Static</title>
+  <title>Sakura Static — Ending</title>
   <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
        Optional URL params: ?handle=@you -->
   <link rel="stylesheet" href="shared.css" />
-  <style>
-    /* Ending overrides: no photo, no seam, message centered full-width. */
-    .panel { width: 100%; left: 0; right: 0; padding: 0 7% 60px 7%; }
-    .sun   { right: auto; left: 50%; transform: translate(-50%, -52%); }
-    .handle { font-size: 28px; }
-  </style>
 </head>
 <body>
   <div id="stage">
-    <div class="bg" aria-hidden="true"></div>
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
 
-    <canvas id="petals" class="petals" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="chan" aria-hidden="true">
+      <span class="sig"><i style="height:8px"></i><i style="height:14px"></i><i style="height:20px"></i><i style="height:12px"></i></span>
+      <span>CH&nbsp;03</span><span style="opacity:.5">·</span><span>END</span>
+      <span class="rec"></span>
+    </div>
+    <div class="kana" aria-hidden="true">サ<b>ク</b>ラ</div>
 
-    <main class="panel">
-      <div class="sun" aria-hidden="true"></div>
-      <p class="kicker"><span class="dot"></span> <span id="statusEn">SIGNING OFF</span></p>
-      <div class="rule" aria-hidden="true"></div>
-      <h1 class="title">THANKS<br>FOR<br><span class="title__accent">WATCHING</span></h1>
-      <p class="sub">see you next stream — take care of yourselves</p>
-      <p class="handle" id="handle">@yourhandle everywhere &middot; twitch.tv/yourname</p>
+    <main class="card card--center card--noart" style="text-align:center;">
+      <div class="meta">
+        <p class="kick" style="justify-content:center;"><span class="dot"></span> <span id="kicker">THANKS FOR</span></p>
+        <h1 class="title">WATCHING<br><b>&#9825;</b></h1>
+        <p class="sub">see you next stream — take care of yourselves</p>
+        <p class="handle handle--big" id="handle" style="position:static;margin-top:10px;letter-spacing:4px;">@yourhandle</p>
+      </div>
     </main>
-
-    <div class="frame" aria-hidden="true"></div>
   </div>
-
-  <script>
-    // Inline fit (runs immediately so the page is correctly sized before shared.js loads).
-    (function () {
-      function fit() {
-        var iw = window.innerWidth, ih = window.innerHeight;
-        if (iw < 10 || ih < 10) return;
-        document.documentElement.style.setProperty('--scale', Math.min(iw / 1920, ih / 1080));
-      }
-      fit();
-      window.addEventListener('resize', fit);
-    })();
-  </script>
   <script src="shared.js"></script>
 </body>
 </html>

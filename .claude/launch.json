@@ -30,6 +30,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "sakura-static-source", "5581"],
       "port": 5581
+    },
+    {
+      "name": "neon-tokyo-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "neon-tokyo-source", "5582"],
+      "port": 5582
     }
   ]
 }

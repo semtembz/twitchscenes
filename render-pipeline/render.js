@@ -16,38 +16,41 @@ const { execFileSync } = require("child_process");
 const ffmpeg = require("ffmpeg-static");
 const puppeteer = require("puppeteer");
 
-const PACK = path.resolve(__dirname, "..", "sakura-static-pack");
-const fileUrl = (rel) => "file://" + path.resolve(PACK, rel).replace(/\\/g, "/");
+const SRC = path.resolve(__dirname, "..", "sakura-static-source"); // factory: the HTML/CSS/JS
+const PROD = path.resolve(__dirname, "..", "sakura-static-pack");  // product: category folders of finished assets
+const fileUrl = (rel) => "file://" + path.resolve(SRC, rel).replace(/\\/g, "/");
 
 const argv = process.argv.slice(2);
 const which = argv.find((a) => !a.startsWith("--")) || "all";
 const opt = (k, d) => { const a = argv.find((x) => x.startsWith("--" + k + "=")); return a ? a.split("=").slice(1).join("=") : d; };
 const HANDLE = opt("handle", "@yourhandle");
-const OUTDIR = path.resolve(opt("out", PACK));
+const OUTDIR = path.resolve(opt("out", PROD));
 const hq = "handle=" + encodeURIComponent(HANDLE);
 
 const ALERT_TYPES = ["follower","subscriber","member","cheer","donation","host","raid","like","share","star","superchat","supporter"];
+const ALERT_NICE = { follower:"Follower", subscriber:"Subscriber", member:"Member", cheer:"Cheer", donation:"Donation", host:"Host", raid:"Raid", like:"Like", share:"Share", star:"Star", superchat:"Super Chat", supporter:"Supporter" };
+const SCREEN_NICE = { "starting-soon":"Starting Soon", brb:"Be Right Back", intermission:"Intermission", ending:"Ending" };
 
 const JOBS = [
-  { name: "transition", mode: "hook", url: "transition.html?loop=0", out: "transition.webm",
+  { name: "transition", mode: "hook", url: "transition.html?loop=0", out: "Transition/Transition.webm",
     w: 1920, h: 1080, fps: 30, durMs: 1300, hook: "__txDraw",
     render: `(t)=>{window.__txDraw(t);return document.querySelector('canvas').toDataURL('image/png');}` },
 
   // alerts: NO baked name (noname=1); amount kept so cheer/donation/etc. show a sample value
   ...ALERT_TYPES.map((t) => ({
     name: "alert-" + t, mode: "manual", group: "alerts",
-    url: `alerts/${t}.html?render=1&noname=1&amount=10`, out: `alerts/${t}.webm`,
+    url: `alerts/${t}.html?render=1&noname=1&amount=10`, out: `Alerts/${ALERT_NICE[t]}.webm`,
     w: 1920, h: 1080, fps: 30, durMs: 5340, transparent: true,
   })),
 
   // handle-bearing scenes (the streamer handle is baked in)
   { name: "overlay-slot", mode: "screenshot", group: "overlays", url: `overlay-slot.html?${hq}`,
-    out: "overlay-slot.webm", w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: true },
+    out: "Overlays/In-Game Overlay.webm", w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: true },
   { name: "webcam", mode: "screenshot", group: "overlays", url: `webcam.html?${hq}`,
-    out: "webcam.webm", w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: true },
+    out: "Overlays/Webcam Frame.webm", w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: true },
   ...["starting-soon","brb","intermission","ending"].map((s) => ({
     name: s, mode: "screenshot", group: "screens", url: `${s}.html?${hq}`,
-    out: `${s}.webm`, w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: false,
+    out: `Screens/${SCREEN_NICE[s]}.webm`, w: 1920, h: 1080, fps: 30, startMs: 0, durMs: 6000, transparent: false,
   })),
 ];
 

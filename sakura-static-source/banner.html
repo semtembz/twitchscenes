@@ -221,6 +221,7 @@
     }
 
     document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
     draw();
   </script>
 </body>

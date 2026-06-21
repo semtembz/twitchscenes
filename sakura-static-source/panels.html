@@ -515,6 +515,11 @@
       })();
     });
 
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
     // Fonts here are system fonts (no @font-face / CDN), so they are ready
     // immediately. document.fonts.ready still guards any late metrics.
     if (document.fonts && document.fonts.ready) {

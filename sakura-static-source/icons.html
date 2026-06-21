@@ -476,6 +476,7 @@
 
     buildGrid('grid-social', SOCIAL);
     buildGrid('grid-label', LABEL);
+    window.__exportAssets = () => made.map(m => ({ name: m.id, dataURL: m.canvas.toDataURL('image/png') }));
   })();
   </script>
 </body>

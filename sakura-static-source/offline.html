@@ -263,6 +263,7 @@
     }
 
     document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
     draw();
   </script>
 </body>

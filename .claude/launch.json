@@ -26,9 +26,9 @@
       "port": 5580
     },
     {
-      "name": "sakura-static-pack",
+      "name": "sakura-static-source",
       "runtimeExecutable": "node",
-      "runtimeArgs": [".claude/static-server.js", "sakura-static-pack", "5581"],
+      "runtimeArgs": [".claude/static-server.js", "sakura-static-source", "5581"],
       "port": 5581
     }
   ]

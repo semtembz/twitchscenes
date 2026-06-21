@@ -70,14 +70,21 @@ Open the page in Chrome/Edge, click **Download** (or "Download all"). Then uploa
 - **Profile banner** (1920×480) → Twitch: Settings → Channel → Brand → **Profile Banner**
 - **Icons** (transparent PNGs) → use in your panels, descriptions, or socials
 
-## Animated deliverables → .webm (for portable clips / Stinger)
+## Pre-rendered transparent `.webm` (included — drop-in)
 
-`transition-export.html` and `alerts-export.html` record the live animation to a
-**transparent .webm** (click Record in a foreground Chrome/Edge tab). Alpha survives only in
-VP9/VP8 webm — not mp4. For a ProRes `.mov` with alpha:
+Ready-to-use **transparent WebM (VP9 + alpha)** clips ship alongside the HTML, so you can
+drop them straight into OBS as a **Media Source** (no recording needed):
+`transition.webm`, `overlay-slot.webm`, `webcam.webm`, the four screen `*.webm`, and
+`alerts/*.webm` (all 12 events). They're 30 fps; alerts ~5.4 s, overlays/screens ~6 s loops.
+
+OBS/Streamlabs read the alpha natively. If you ever convert to ProRes `.mov` with alpha,
+decode with the alpha-aware decoder:
 ```
-ffmpeg -i in.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le out.mov
+ffmpeg -c:v libvpx-vp9 -i in.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le out.mov
 ```
+Prefer the **live HTML** sources for the screens if you want the full 60 s loading bar
+(the `.webm` is a short ambient loop). The `*-export.html` pages also still let you
+re-record manually if you tweak a scene.
 
 ## Customizing the look
 

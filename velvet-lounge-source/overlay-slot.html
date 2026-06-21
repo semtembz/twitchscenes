@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Velvet Lounge — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD: a slim on-brand brass strip lower-left with @handle
+       + a small "ON AIR" tag, plus a tiny deco monogram top-right. Most of the
+       screen stays transparent so gameplay shows through.
+       Optional URL param: ?handle=@you   ?tag=ON%20AIR -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no page chrome, no velvet background, no sweep/sheen/vign */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few faint drifting gold dust motes (low alpha) hug the strip */
+    canvas.bg{pointer-events:none;opacity:.7;}
+
+    /* ---- slim brass HUD strip, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:56px;height:62px;
+      display:flex;align-items:center;gap:22px;padding:0 30px 0 24px;
+      background:linear-gradient(180deg, rgba(20,10,20,.62), rgba(12,6,12,.46));
+      border:1px solid var(--line);
+      box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 0 40px rgba(20,10,20,.5),
+        0 0 30px rgba(230,201,140,.06);
+      /* stepped (ziggurat) deco corners, matching the frame language */
+      clip-path:polygon(
+        0 14px,10px 14px,10px 8px,18px 8px,18px 0,
+        calc(100% - 18px) 0,calc(100% - 18px) 8px,calc(100% - 10px) 8px,calc(100% - 10px) 14px,100% 14px,
+        100% calc(100% - 14px),calc(100% - 10px) calc(100% - 14px),calc(100% - 10px) calc(100% - 8px),calc(100% - 18px) calc(100% - 8px),calc(100% - 18px) 100%,
+        18px 100%,18px calc(100% - 8px),10px calc(100% - 8px),10px calc(100% - 14px),0 calc(100% - 14px));
+      animation:slotin .9s var(--ease) both .15s;}
+    /* inner hairline double border */
+    .slot::before{content:"";position:absolute;inset:5px;border:1px solid var(--line-soft);
+      clip-path:inherit;pointer-events:none;}
+    /* slow gold light-sweep travels along the strip */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:120px;left:-120px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(230,201,140,.16), transparent);
+      animation:slotsweep 6s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-120px}100%{left:100%}}
+
+    /* "ON AIR" tag — spaced deco caps + a glowing brass diamond */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:"Optima","Gill Sans","Futura","Century Gothic",system-ui,sans-serif;
+      letter-spacing:.42em;font-size:18px;font-weight:500;text-transform:uppercase;
+      color:var(--brass-lt);text-indent:.42em;text-shadow:0 0 14px rgba(230,201,140,.4);}
+    .slot .tag .dia{width:11px;height:11px;border:1px solid var(--brass-lt);transform:rotate(45deg);
+      background:var(--brass-lt);box-shadow:0 0 12px var(--glow);
+      animation:pulse 2.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--glow)}50%{opacity:.45;box-shadow:0 0 6px var(--glow)}}
+
+    /* thin brass divider rule with a tiny diamond, between tag and handle */
+    .slot .div{position:relative;width:1px;height:32px;
+      background:linear-gradient(180deg,transparent,var(--brass),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--brass-lt);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px var(--glow);}
+
+    /* handle — refined deco serif in cream */
+    .slot .who{
+      font-family:"Didot","Bodoni MT","Bodoni 72","Playfair Display",Georgia,serif;
+      font-weight:600;letter-spacing:.03em;font-size:30px;color:var(--cream);
+      text-shadow:0 2px 0 rgba(0,0,0,.3),0 0 26px rgba(230,201,140,.3);white-space:nowrap;}
+
+    /* tiny deco monogram tag, top-right */
+    .mono-tr{position:absolute;top:44px;right:60px;display:flex;align-items:center;gap:14px;
+      font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+      letter-spacing:.5em;font-size:18px;color:var(--brass);text-indent:.5em;opacity:.82;
+      animation:fade .9s var(--ease) both .25s;}
+    .mono-tr .dia{width:9px;height:9px;border:1px solid var(--brass);transform:rotate(45deg);
+      box-shadow:0 0 8px rgba(230,201,140,.3);}
+    @keyframes fade{from{opacity:0}to{opacity:.82}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .mono-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dia{animation:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .mono-tr{opacity:.82;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="mono-tr" aria-hidden="true"><span class="dia"></span>THE VELVET LOUNGE</div>
+
+    <div class="slot">
+      <span class="tag"><span class="dia"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a FEW very subtle drifting gold dust motes (low alpha) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv.getContext("2d");
+    const W = cv.width || 1920, H = cv.height || 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const dust = Array.from({ length: Math.max(0, num("dust", 34)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.5), vy: R(-6, 8) / 60, sway: R(0.3, 1.1),
+      ph: R(0, 6.28), a: R(0.18, 0.6),
+    }));
+    function drawBg(dt){
+      ctx.clearRect(0, 0, W, H);
+      for (const d of dust){
+        d.y += d.vy * dt * 60; d.ph += 0.03 * dt * 60; d.x += Math.sin(d.ph) * d.sway * 0.6;
+        if (d.y < -10){ d.y = H + 10; d.x = Math.random() * W; }
+        if (d.y > H + 10){ d.y = -10; d.x = Math.random() * W; }
+        const tw = 0.55 + Math.sin(d.ph * 1.7) * 0.45;
+        ctx.globalAlpha = d.a * tw;
+        ctx.fillStyle = "#E6C98C"; ctx.shadowColor = "#E6C98C"; ctx.shadowBlur = 6 * d.z;
+        const s = Math.max(1, Math.round(d.z * 1.7));
+        ctx.fillRect(Math.round(d.x), Math.round(d.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__velvetDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

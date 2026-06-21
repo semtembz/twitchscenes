@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Strawberry Milk Icon Set — generator</title>
+  <!--
+    A consistent set of 18 stand-alone TRANSPARENT PNG icons in the
+    strawberry-milk "sticker journal cafe" language: chunky rounded LINE icons
+    in deep-rose ink (--rose) with a soft pink halo on a fully transparent
+    background. Each icon is rendered at 200 x 200 px.
+
+    The set is split into two families that share ONE stroke weight, ONE
+    corner radius and ONE halo so they read as a matched sticker sheet:
+      - SOCIAL  : Twitch, YouTube, Twitter/X, Instagram, Discord, TikTok,
+                  Kick, Patreon, PayPal/donate, Steam
+      - LABELS  : follow (heart), subscribe (star), bits/cheer (diamond),
+                  raid (flag), host (broadcast), like (thumb), share (node),
+                  member (crown)
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or a single Download under any icon).
+      3. Drop the transparent PNGs into overlays, panels, alert boxes, etc.
+
+    These are pure vector strokes drawn on a canvas (no baked-in text / fonts),
+    so they stay crisp at the export size.
+  -->
+  <style>
+    :root {
+      --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+      --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+      --ink:#7A4453; --ink-soft:#B07E8C; --bead:#C98AA0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Baloo 2", "Quicksand", "Varela Round", "Trebuchet MS", system-ui, sans-serif;
+      color: var(--ink); padding: 32px; min-height: 100vh;
+      background:
+        radial-gradient(1100px 700px at 30% -10%, rgba(255,255,255,0.85), transparent 60%),
+        radial-gradient(820px 600px at 86% 104%, rgba(255,143,171,0.20), transparent 60%),
+        linear-gradient(160deg, var(--cream) 0%, var(--milk) 52%, var(--pink) 135%);
+      background-attachment: fixed;
+    }
+    h1 { font-weight: 800; font-size: 28px; color: var(--ink); letter-spacing: .3px; margin: 0 0 6px;
+      text-shadow: 0 3px 0 var(--gloss), 0 8px 18px rgba(164,93,110,.16); }
+    h1 b { color: var(--hot); }
+    p.lead { color: var(--ink-soft); margin: 0 0 22px; max-width: 760px; line-height: 1.55; font-weight: 600; }
+    .toolbar { margin: 0 0 26px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    button {
+      font-family: inherit; font-weight: 800; font-size: 13px; letter-spacing: 2px;
+      padding: 12px 22px; background: linear-gradient(180deg, var(--hot), #ED6F8E); color: var(--gloss);
+      border: none; border-radius: 30px; cursor: pointer; text-transform: uppercase;
+      box-shadow: 0 10px 24px rgba(255,143,171,0.40), inset 0 0 0 3px rgba(255,255,255,0.55);
+    }
+    button:hover { filter: brightness(1.05); }
+    .section { margin: 8px 0 6px; font-weight: 800; letter-spacing: 3px;
+      font-size: 12px; color: var(--hot); text-transform: uppercase; opacity: .95;
+      border-top: 1px solid rgba(255,143,171,0.30); padding-top: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; margin-bottom: 10px; }
+    .card {
+      background: rgba(255,255,255,0.62); padding: 12px 12px 10px; border: 1px solid rgba(255,143,171,0.30);
+      border-radius: 22px; box-shadow: 0 12px 26px rgba(164,93,110,0.12);
+      display: flex; flex-direction: column; align-items: center;
+      /* a faint checker so the transparency is visible */
+      --c: rgba(164,93,110,0.06);
+    }
+    .canvas-wrap {
+      border-radius: 16px; overflow: hidden;
+      background-image:
+        linear-gradient(45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--c) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--c) 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 126px; height: 126px; }
+    .card .name { margin-top: 9px; font-weight: 800; font-size: 11px;
+      letter-spacing: 1px; color: var(--rose); text-align: center; }
+    .card a { margin-top: 4px; font-weight: 700; font-size: 11px; color: var(--ink-soft);
+      text-decoration: none; border-bottom: 1px dashed rgba(255,143,171,0.5); }
+    .card a:hover { color: var(--rose); }
+  </style>
+</head>
+<body>
+  <h1>Strawberry Milk <b>Icon Set</b></h1>
+  <p class="lead">
+    18 transparent PNG line icons in one cohesive sticker-cafe style &mdash; chunky deep-rose
+    strokes with a soft pink halo, shared stroke weight &amp; corner radius. Each is 200&times;200 with
+    its own Download, plus a Download-all. Drop them into overlays, panels, or alert boxes.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+
+  <div class="section">Social platforms</div>
+  <div class="grid" id="grid-social"></div>
+
+  <div class="section">Stream labels &amp; events</div>
+  <div class="grid" id="grid-label"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- Tokens (shared across every icon so the set stays cohesive) ----
+    const SIZE   = 200;          // export px (square, transparent)
+    const PAD    = 32;           // safe margin around the 200px frame
+    const STROKE = 12;           // ONE stroke weight for all icons
+    const RADIUS = 16;           // ONE corner radius for all rounded joins
+    const ROSE      = '#A45D6E'; // primary line color (deep rose ink)
+    const HOT       = '#FF8FAB'; // accent / fill pop
+    const GLOSS     = '#FFFFFF'; // brightest accent
+    const HALO      = 'rgba(255,143,171,0.85)';
+
+    // The usable drawing box (everything is authored inside this square).
+    const BOX = { x: PAD, y: PAD, w: SIZE - PAD * 2, h: SIZE - PAD * 2 };
+
+    // ---------------------------------------------------------------------
+    // Stroke helper: every path is drawn with the SAME cap/join/weight/halo.
+    // Pass a function that builds the path on ctx; we set up + tear down the
+    // consistent style around it. fill=true fills instead of strokes (used
+    // sparingly for solid marks like eyes / jewels).
+    // ---------------------------------------------------------------------
+    function pen(ctx, build, opts) {
+      opts = opts || {};
+      ctx.save();
+      ctx.lineWidth = opts.weight || STROKE;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = opts.color || ROSE;
+      ctx.fillStyle = opts.color || ROSE;
+      ctx.shadowColor = opts.halo || HALO;
+      ctx.shadowBlur = opts.blur != null ? opts.blur : 12;
+      ctx.beginPath();
+      build(ctx);
+      if (opts.fill) ctx.fill(); else ctx.stroke();
+      ctx.restore();
+    }
+
+    // rounded-rect path appended to the current ctx path
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // A regular n-pointed star path (used by subscribe).
+    function starPath(ctx, cx, cy, outer, inner, points) {
+      for (let i = 0; i < points * 2; i++) {
+        const rad = (i % 2 === 0) ? outer : inner;
+        const a = -Math.PI / 2 + (i * Math.PI) / points;
+        const px = cx + Math.cos(a) * rad;
+        const py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    // =====================================================================
+    // ICON DRAWERS — each receives (ctx) and draws inside BOX.
+    // Geometry is intentionally simplified/stylised so all 18 share weight.
+    // =====================================================================
+    const ICONS = {
+      // ---- SOCIAL ----
+      twitch(ctx) {
+        const b = BOX;
+        // chat/body with the signature notched bottom corner
+        pen(ctx, c => {
+          c.moveTo(b.x + RADIUS, b.y);
+          c.lineTo(b.x + b.w, b.y);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.62);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.52, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + RADIUS);
+          c.arcTo(b.x, b.y, b.x + RADIUS, b.y, RADIUS);
+          c.closePath();
+        });
+        // two eye bars
+        const ey = b.y + b.h * 0.30, eh = b.h * 0.26;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.40, ey); c.lineTo(b.x + b.w * 0.40, ey + eh); }, { weight: STROKE - 2 });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.64, ey); c.lineTo(b.x + b.w * 0.64, ey + eh); }, { weight: STROKE - 2 });
+      },
+
+      youtube(ctx) {
+        const b = BOX;
+        const ry = b.y + b.h * 0.16, rh = b.h * 0.68;
+        pen(ctx, c => roundRectPath(c, b.x, ry, b.w, rh, RADIUS + 6));
+        // play triangle
+        const cx = b.x + b.w / 2, cy = ry + rh / 2, t = rh * 0.30;
+        pen(ctx, c => {
+          c.moveTo(cx - t * 0.85, cy - t);
+          c.lineTo(cx + t * 1.15, cy);
+          c.lineTo(cx - t * 0.85, cy + t);
+          c.closePath();
+        }, { fill: true, color: HOT });
+      },
+
+      'twitter-x'(ctx) {
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x, b.y); c.lineTo(b.x + b.w, b.y + b.h); });
+        pen(ctx, c => { c.moveTo(b.x + b.w, b.y); c.lineTo(b.x, b.y + b.h); });
+      },
+
+      instagram(ctx) {
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y, b.w, b.h, RADIUS + 14));
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.24, 0, Math.PI * 2); });
+        // shutter dot top-right
+        pen(ctx, c => { c.arc(b.x + b.w * 0.78, b.y + b.h * 0.22, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, color: HOT });
+      },
+
+      discord(ctx) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.50;
+        // rounded controller-ish body
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.quadraticCurveTo(cx, b.y + b.h * 0.06, b.x + b.w * 0.84, b.y + b.h * 0.20);
+          c.quadraticCurveTo(b.x + b.w * 1.02, b.y + b.h * 0.62, b.x + b.w * 0.80, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.20, b.y + b.h * 0.88);
+          c.quadraticCurveTo(b.x - b.w * 0.02, b.y + b.h * 0.62, b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.closePath();
+        });
+        // two eyes
+        pen(ctx, c => { c.arc(cx - b.w * 0.16, cy, STROKE * 0.52, 0, Math.PI * 2); }, { fill: true, color: HOT });
+        pen(ctx, c => { c.arc(cx + b.w * 0.16, cy, STROKE * 0.52, 0, Math.PI * 2); }, { fill: true, color: HOT });
+      },
+
+      tiktok(ctx) {
+        const b = BOX;
+        // the note: descending stem with a hook, plus the round body
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.lineTo(b.x + b.w * 0.58, b.y + b.h * 0.66);
+          c.arc(b.x + b.w * 0.40, b.y + b.h * 0.66, b.w * 0.18, 0, Math.PI * 2);
+        });
+        // top hook over to the right
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.quadraticCurveTo(b.x + b.w * 0.78, b.y + b.h * 0.04, b.x + b.w * 0.92, b.y + b.h * 0.22);
+        });
+      },
+
+      kick(ctx) {
+        const b = BOX;
+        // bold "K" made of strokes
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y); c.lineTo(b.x + b.w * 0.18, b.y + b.h); });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.18, b.y + b.h * 0.50);
+          c.lineTo(b.x + b.w * 0.60, b.y + b.h * 0.06);
+        });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.36, b.y + b.h * 0.36);
+          c.lineTo(b.x + b.w * 0.78, b.y + b.h);
+        });
+      },
+
+      patreon(ctx) {
+        const b = BOX;
+        // circle + standing bar (the classic Patreon mark)
+        pen(ctx, c => { c.arc(b.x + b.w * 0.62, b.y + b.h * 0.40, b.w * 0.30, 0, Math.PI * 2); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.10, b.y); c.lineTo(b.x + b.w * 0.10, b.y + b.h); });
+      },
+
+      paypal(ctx) {
+        const b = BOX;
+        // a stylised "donate" coin with a $ — reads for PayPal/tip
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        // dollar sign
+        pen(ctx, c => {
+          c.moveTo(cx + b.w * 0.14, cy - b.h * 0.22);
+          c.quadraticCurveTo(cx - b.w * 0.22, cy - b.h * 0.30, cx - b.w * 0.16, cy - b.h * 0.02);
+          c.quadraticCurveTo(cx + b.w * 0.22, cy + b.h * 0.04, cx + b.w * 0.14, cy + b.h * 0.24);
+          c.quadraticCurveTo(cx - b.w * 0.20, cy + b.h * 0.32, cx - b.w * 0.16, cy + b.h * 0.10);
+        }, { weight: STROKE - 2 });
+        pen(ctx, c => { c.moveTo(cx - b.w * 0.02, cy - b.h * 0.34); c.lineTo(cx - b.w * 0.02, cy + b.h * 0.36); }, { weight: STROKE - 4, color: HOT });
+      },
+
+      steam(ctx) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        // outer ring
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        // big bearing + small bearing connected (the Steam clutch)
+        pen(ctx, c => { c.arc(b.x + b.w * 0.66, b.y + b.h * 0.34, b.w * 0.16, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.30, b.y + b.h * 0.66, b.w * 0.10, 0, Math.PI * 2); });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.30, b.y + b.h * 0.66);
+          c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.34);
+        }, { weight: STROKE - 3 });
+      },
+
+      // ---- LABELS / EVENTS ----
+      follow(ctx) { // heart
+        const b = BOX;
+        const cx = b.x + b.w / 2, top = b.y + b.h * 0.20;
+        pen(ctx, c => {
+          c.moveTo(cx, b.y + b.h * 0.94);
+          c.lineTo(b.x + b.w * 0.08, top + b.h * 0.18);
+          c.arc(b.x + b.w * 0.29, top, b.w * 0.21, Math.PI * 0.95, Math.PI * 1.95);
+          c.arc(b.x + b.w * 0.71, top, b.w * 0.21, Math.PI * 1.05, Math.PI * 2.05);
+          c.lineTo(cx, b.y + b.h * 0.94);
+          c.closePath();
+        });
+      },
+
+      subscribe(ctx) { // star
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.54;
+        pen(ctx, c => starPath(c, cx, cy, b.w * 0.46, b.w * 0.19, 5));
+      },
+
+      'bits-cheer'(ctx) { // diamond / gem
+        const b = BOX;
+        const cx = b.x + b.w / 2;
+        const top = b.y + b.h * 0.06, mid = b.y + b.h * 0.34, bot = b.y + b.h * 0.96;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.22, top);
+          c.lineTo(b.x + b.w * 0.78, top);
+          c.lineTo(b.x + b.w, mid);
+          c.lineTo(cx, bot);
+          c.lineTo(b.x, mid);
+          c.closePath();
+        });
+        // facet lines
+        pen(ctx, c => { c.moveTo(b.x, mid); c.lineTo(b.x + b.w, mid); }, { weight: STROKE - 4 });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.22, top); c.lineTo(cx, mid); c.lineTo(b.x + b.w * 0.78, top); }, { weight: STROKE - 4 });
+        pen(ctx, c => { c.moveTo(cx, mid); c.lineTo(cx, bot); }, { weight: STROKE - 4 });
+      },
+
+      raid(ctx) { // flag
+        const b = BOX;
+        const px = b.x + b.w * 0.18;
+        pen(ctx, c => { c.moveTo(px, b.y); c.lineTo(px, b.y + b.h); }); // pole
+        pen(ctx, c => {
+          c.moveTo(px, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.26);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.46);
+          c.lineTo(px, b.y + b.h * 0.46);
+          c.closePath();
+        });
+      },
+
+      host(ctx) { // broadcast / signal
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.62;
+        pen(ctx, c => { c.arc(cx, cy, STROKE * 0.7, 0, Math.PI * 2); }, { fill: true });
+        // two arcs each side
+        for (let i = 1; i <= 2; i++) {
+          const r = b.w * (0.14 + i * 0.16);
+          pen(ctx, c => { c.arc(cx, cy, r, Math.PI * 1.20, Math.PI * 1.80); }, { weight: STROKE - 2 });
+        }
+        // mast up to a tower top
+        pen(ctx, c => { c.moveTo(cx, cy); c.lineTo(cx, b.y); });
+      },
+
+      like(ctx) { // thumbs up
+        const b = BOX;
+        // cuff
+        pen(ctx, c => roundRectPath(c, b.x, b.y + b.h * 0.42, b.w * 0.26, b.h * 0.58, RADIUS - 4));
+        // thumb + folded fingers
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.32, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.32, b.y + b.h * 0.46);
+          c.lineTo(b.x + b.w * 0.50, b.y + b.h * 0.18);
+          c.quadraticCurveTo(b.x + b.w * 0.58, b.y, b.x + b.w * 0.64, b.y + b.h * 0.10);
+          c.quadraticCurveTo(b.x + b.w * 0.70, b.y + b.h * 0.22, b.x + b.w * 0.58, b.y + b.h * 0.40);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.40);
+          c.quadraticCurveTo(b.x + b.w, b.y + b.h * 0.46, b.x + b.w * 0.94, b.y + b.h * 0.70);
+          c.quadraticCurveTo(b.x + b.w * 0.90, b.y + b.h, b.x + b.w * 0.70, b.y + b.h);
+          c.closePath();
+        });
+      },
+
+      share(ctx) { // three-node share graph
+        const b = BOX;
+        const a = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.12 };
+        const d = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.88 };
+        const e = { x: b.x + b.w * 0.16, y: b.y + b.h * 0.50 };
+        const rN = STROKE * 1.0;
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(a.x, a.y); }, { weight: STROKE - 3 });
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(d.x, d.y); }, { weight: STROKE - 3 });
+        [a, d, e].forEach(n => pen(ctx, c => { c.arc(n.x, n.y, rN, 0, Math.PI * 2); }));
+      },
+
+      member(ctx) { // crown
+        const b = BOX;
+        const baseY = b.y + b.h * 0.80, topY = b.y + b.h * 0.12, midY = b.y + b.h * 0.44;
+        pen(ctx, c => {
+          c.moveTo(b.x, baseY);
+          c.lineTo(b.x, midY);
+          c.lineTo(b.x + b.w * 0.27, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w * 0.50, topY);
+          c.lineTo(b.x + b.w * 0.73, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w, midY);
+          c.lineTo(b.x + b.w, baseY);
+          c.closePath();
+        });
+        // base band
+        pen(ctx, c => { c.moveTo(b.x, baseY); c.lineTo(b.x + b.w, baseY); }, { weight: STROKE - 3 });
+        // center jewel
+        pen(ctx, c => { c.arc(b.x + b.w * 0.50, b.y + b.h * 0.52, STROKE * 0.55, 0, Math.PI * 2); }, { fill: true, color: HOT });
+      },
+    };
+
+    // Display labels + which grid each belongs to.
+    const SOCIAL = [
+      ['twitch', 'TWITCH'], ['youtube', 'YOUTUBE'], ['twitter-x', 'TWITTER / X'],
+      ['instagram', 'INSTAGRAM'], ['discord', 'DISCORD'], ['tiktok', 'TIKTOK'],
+      ['kick', 'KICK'], ['patreon', 'PATREON'], ['paypal', 'DONATE'], ['steam', 'STEAM'],
+    ];
+    const LABEL = [
+      ['follow', 'FOLLOW'], ['subscribe', 'SUBSCRIBE'], ['bits-cheer', 'BITS / CHEER'],
+      ['raid', 'RAID'], ['host', 'HOST'], ['like', 'LIKE'], ['share', 'SHARE'], ['member', 'MEMBER'],
+    ];
+
+    const made = []; // { canvas, id }
+
+    function renderIcon(id) {
+      const cv = document.createElement('canvas');
+      cv.width = SIZE; cv.height = SIZE;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, SIZE, SIZE); // fully transparent background
+      const fn = ICONS[id];
+      if (fn) fn(ctx);
+      return cv;
+    }
+
+    function buildGrid(targetId, list) {
+      const grid = document.getElementById(targetId);
+      for (const [id, label] of list) {
+        const cv = renderIcon(id);
+        const card = document.createElement('div'); card.className = 'card';
+        const wrap = document.createElement('div'); wrap.className = 'canvas-wrap';
+        wrap.appendChild(cv);
+        const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = label;
+        const dl = document.createElement('a'); dl.href = '#'; dl.textContent = 'Download';
+        dl.addEventListener('click', e => { e.preventDefault(); save(cv, id); });
+        card.appendChild(wrap); card.appendChild(nm); card.appendChild(dl);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id });
+      }
+    }
+
+    function save(canvas, id) {
+      const a = document.createElement('a');
+      a.download = 'icon-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', () => {
+      let i = 0;
+      const next = () => { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); };
+      next();
+    });
+
+    buildGrid('grid-social', SOCIAL);
+    buildGrid('grid-label', LABEL);
+    window.__exportAssets = () => made.map(m => ({ name: m.id, dataURL: m.canvas.toDataURL('image/png') }));
+  })();
+  </script>
+</body>
+</html>

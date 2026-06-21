@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Primetime Pro (PNG generator)</title>
+  <!--
+    PRIMETIME PRO · "network sports broadcast" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the broadcast look (stadium night gradient, soft light
+    sweeps + drifting sparks, field scanlines + vignette, a brushed-steel
+    lower-third "OFF AIR" bar, a corner score-bug, the CH 01 dead-channel badge,
+    and a scrolling-style ticker strip) onto a <canvas> and downloads it as a PNG.
+
+    ?handle=@you customises the bottom-right handle + bug.
+
+    Everything is drawn from a SEEDED LCG, so the spark scatter is identical on
+    every render (Math.random is never used) — re-running gives the same frame.
+
+    How to use:
+      1. Open this file in a browser (optionally append ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+      --orange:#FF5A1F; --steel-3:#8595A3; --dim:#8FA6BC;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;
+      font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;
+      background:linear-gradient(160deg,#07131f,var(--navy));
+      color:var(--white);padding:32px;}
+    h1{font-weight:800;font-style:italic;font-size:28px;color:var(--white);letter-spacing:-.5px;
+      text-transform:uppercase;margin:0 0 6px;text-shadow:0 0 18px rgba(22,184,255,.4);}
+    h1 b{color:var(--orange);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:800px;line-height:1.55;}
+    .kicker{font-weight:700;letter-spacing:5px;font-size:13px;color:var(--blue);
+      margin:0 0 14px;text-transform:uppercase;}
+    button{font-weight:800;font-size:14px;letter-spacing:3px;text-transform:uppercase;
+      padding:14px 26px;color:#1a0a02;
+      background:linear-gradient(180deg,#ff7a45,var(--orange) 60%,#d8430f);
+      border:1px solid rgba(255,209,180,.5);cursor:pointer;
+      clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+      box-shadow:0 0 30px rgba(255,90,31,.25);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:var(--blue-deep);padding:14px;border:1px solid #1c3c5a;
+      border-radius:8px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--blue);background:#0a1622;
+      padding:2px 6px;border-radius:4px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">CH 01 · PRIMETIME · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN <b>GENERATOR</b></h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the Primetime Pro network-sports style — seeded so
+    the spark scatter is reproducible. Pass <code>?handle=@you</code> to set the name. Click
+    Download then upload on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const NAVY = '#0A1B2A', BLUE_DEEP = '#0E2C4A', BLUE = '#16B8FF', WHITE = '#F5F7FA';
+    const ORANGE = '#FF5A1F';
+    const STEEL1 = '#3A4754', STEEL2 = '#5A6B79', STEEL_HI = '#C3CED8', DIM = '#8FA6BC';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft bokeh / glow ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // a soft stadium light beam (broad cone from above)
+    function beam(x, w, col, alpha) {
+      const g = ctx.createLinearGradient(x, -60, x, H);
+      g.addColorStop(0, 'rgba(' + col + ',' + alpha + ')');
+      g.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x - 70, -60); ctx.lineTo(x + 70, -60);
+      ctx.lineTo(x + w, H); ctx.lineTo(x - w, H);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // chamfered (cut-corner) rect path
+    function chamferPath(x, y, w, h, cuts) {
+      const tl = cuts.tl||0, tr = cuts.tr||0, br = cuts.br||0, bl = cuts.bl||0;
+      ctx.beginPath();
+      ctx.moveTo(x + tl, y);
+      ctx.lineTo(x + w - tr, y);
+      ctx.lineTo(x + w, y + tr);
+      ctx.lineTo(x + w, y + h - br);
+      ctx.lineTo(x + w - br, y + h);
+      ctx.lineTo(x + bl, y + h);
+      ctx.lineTo(x, y + h - bl);
+      ctx.lineTo(x, y + tl);
+      ctx.closePath();
+    }
+
+    function steelFill(x, y, w, h) {
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, STEEL2); g.addColorStop(0.55, STEEL1); g.addColorStop(1, '#2c3742');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+      for (let sx = x; sx < x + w; sx += 3) {
+        ctx.fillStyle = (sx % 6 === 0) ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+        ctx.fillRect(sx, y, 1, h);
+      }
+      const sg = ctx.createLinearGradient(0, y, 0, y + h * 0.4);
+      sg.addColorStop(0, 'rgba(255,255,255,0.12)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sg; ctx.fillRect(x, y, w, h * 0.4);
+    }
+
+    async function draw() {
+      if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+      const rnd = makeRand(0xA11CE); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: stadium night gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, '#103a5e'); grad.addColorStop(0.34, BLUE_DEEP);
+      grad.addColorStop(0.78, NAVY); grad.addColorStop(1, '#07131f');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // big blue glow upper-centre + orange ember lower-left
+      bloom(W * 0.5, H * -0.10, W * 0.62, 'rgba(22,184,255,0.26)', 1);
+      bloom(W * 0.18, H * 0.88, W * 0.50, 'rgba(255,90,31,0.12)', 1);
+      bloom(W * 0.82, H * 0.30, W * 0.40, 'rgba(22,184,255,0.10)', 1);
+
+      // ---- SEEDED STADIUM LIGHT BEAMS ----
+      for (let i = 0; i < 5; i++) {
+        const x = R(rnd, 160, W - 160), w = R(rnd, 200, 460);
+        const col = (i % 2 === 0) ? '22,184,255' : '255,90,31';
+        beam(x, w, col, R(rnd, 0.04, 0.10));
+      }
+
+      // turf glow floor
+      const fg0 = ctx.createLinearGradient(0, H * 0.55, 0, H);
+      fg0.addColorStop(0, 'rgba(22,184,255,0)'); fg0.addColorStop(1, 'rgba(16,58,94,0.35)');
+      ctx.fillStyle = fg0; ctx.fillRect(0, H * 0.55, W, H * 0.45);
+
+      // ---- SEEDED DRIFTING SPARKS ----
+      for (let i = 0; i < 70; i++) {
+        const x = R(rnd, 20, W - 20), y = R(rnd, 20, H - 20);
+        const r = R(rnd, 1, 3.4);
+        ctx.globalAlpha = R(rnd, 0.15, 0.6);
+        ctx.fillStyle = rnd() < 0.78 ? WHITE : BLUE;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- FIELD SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.72)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- handle resolved up-front (used by bug + footer) ----
+      let handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+
+      // =================================================================
+      // SCORE-BUG chip (top-left) — orange LIVE-style tab + steel body
+      // =================================================================
+      (function () {
+        const bx = 80, by = 70, bh = 74;
+        // orange tab
+        const tabW = 150;
+        ctx.save();
+        chamferPath(bx, by, tabW, bh, { bl: 18 });
+        ctx.clip();
+        const tg = ctx.createLinearGradient(0, by, 0, by + bh);
+        tg.addColorStop(0, '#ff7a45'); tg.addColorStop(0.6, ORANGE); tg.addColorStop(1, '#d8430f');
+        ctx.fillStyle = tg; ctx.fillRect(bx, by, tabW, bh);
+        ctx.restore();
+        // OFF AIR dot + label on tab
+        ctx.fillStyle = '#1a0a02';
+        ctx.beginPath(); ctx.arc(bx + 26, by + bh / 2, 8, 0, 6.2832); ctx.fill();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.font = '800 30px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillText('OFF AIR', bx + 44, by + bh / 2 + 1);
+        // steel body
+        const bodyX = bx + tabW - 14, bodyW = 360;
+        ctx.save();
+        chamferPath(bodyX, by, bodyW, bh, { tr: 0, br: 0, bl: 18 });
+        ctx.clip();
+        steelFill(bodyX, by, bodyW, bh);
+        ctx.restore();
+        ctx.fillStyle = 'rgba(22,184,255,0.55)'; ctx.fillRect(bodyX, by, bodyW, 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bodyX, by + bh - 2, bodyW, 2);
+        // team-style readout on the body
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = '800 24px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = WHITE; ctx.fillText('HOME', bodyX + 22, by + 34);
+        ctx.font = '700 13px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = BLUE; ctx.fillText('STREAM', bodyX + 22, by + 54);
+        ctx.font = '800 38px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = WHITE;
+        ctx.shadowColor = 'rgba(22,184,255,0.4)'; ctx.shadowBlur = 14;
+        ctx.fillText('00', bodyX + 130, by + 50);
+        ctx.fillStyle = 'rgba(22,184,255,0.4)'; ctx.shadowBlur = 0;
+        ctx.fillRect(bodyX + 196, by + 16, 2, bh - 32);
+        ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(22,184,255,0.4)'; ctx.shadowBlur = 14;
+        ctx.fillText('00', bodyX + 214, by + 50);
+        ctx.shadowBlur = 0;
+        ctx.font = '800 24px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = WHITE; ctx.fillText('CHAT', bodyX + 280, by + 34);
+        ctx.font = '700 13px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = BLUE; ctx.fillText('CREW', bodyX + 280, by + 54);
+      })();
+
+      // ---- top-right CH 01 dead-channel status plate ----
+      (function () {
+        const px = W - 80, py = 76;
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+        // signal bars
+        const sigH = [12, 20, 30, 18];
+        ctx.fillStyle = 'rgba(195,206,216,0.85)';
+        const sigRight = px;
+        let sx = sigRight - 4;
+        for (let i = sigH.length - 1; i >= 0; i--) { ctx.fillRect(sx, py + 16 - sigH[i], 6, sigH[i]); sx -= 9; }
+        // label
+        ctx.font = '700 26px "Bahnschrift", system-ui, sans-serif';
+        ctx.fillStyle = ORANGE; ctx.shadowColor = 'rgba(255,90,31,0.5)'; ctx.shadowBlur = 10;
+        ctx.fillText('PTP', sx - 14, py + 2);
+        ctx.shadowBlur = 0;
+        const ptpW = ctx.measureText('PTP').width;
+        ctx.fillStyle = BLUE; ctx.shadowColor = 'rgba(22,184,255,0.5)'; ctx.shadowBlur = 10;
+        ctx.fillText('· OFF AIR', sx - 14 - ptpW - 10, py + 2);
+        ctx.shadowBlur = 0;
+      })();
+
+      // =================================================================
+      // LOWER-THIRD "OFF AIR" bar (the signature composition)
+      // =================================================================
+      const railX = 90, railY = H - 372, railW = W - 180;
+      // thin blue->orange rail
+      const rg = ctx.createLinearGradient(railX, 0, railX + railW, 0);
+      rg.addColorStop(0, ORANGE); rg.addColorStop(0.6, BLUE); rg.addColorStop(1, 'rgba(22,184,255,0)');
+      ctx.fillStyle = rg; ctx.shadowColor = 'rgba(22,184,255,0.6)'; ctx.shadowBlur = 16;
+      ctx.fillRect(railX, railY, railW, 8); ctx.shadowBlur = 0;
+
+      const barY = railY + 18, barH = 172;
+      // left orange flag
+      const flagX = railX, flagW = 300;
+      ctx.save();
+      chamferPath(flagX, barY, flagW, barH, { br: 0 });
+      // angled right edge
+      ctx.beginPath();
+      ctx.moveTo(flagX, barY); ctx.lineTo(flagX + flagW, barY);
+      ctx.lineTo(flagX + flagW - 34, barY + barH); ctx.lineTo(flagX, barY + barH);
+      ctx.closePath();
+      ctx.clip();
+      const fgrad = ctx.createLinearGradient(0, barY, 0, barY + barH);
+      fgrad.addColorStop(0, '#ff7a45'); fgrad.addColorStop(0.55, ORANGE); fgrad.addColorStop(1, '#d8430f');
+      ctx.fillStyle = fgrad; ctx.fillRect(flagX, barY, flagW, barH);
+      ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(flagX, barY, flagW, barH * 0.32);
+      ctx.restore();
+      // flag label
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#1a0a02';
+      ctx.font = '800 44px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillText('OFF AIR', flagX + 40, barY + 86);
+      ctx.beginPath(); ctx.arc(flagX + 52, barY + 116, 9, 0, 6.2832);
+      ctx.fillStyle = '#1a0a02'; ctx.fill();
+      ctx.font = '700 22px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(26,10,2,0.8)';
+      ctx.fillText('BACK SHORTLY', flagX + 70, barY + 124);
+
+      // main glass plate
+      const plateX = flagX + flagW - 26, plateW = railX + railW - plateX;
+      ctx.save();
+      chamferPath(plateX, barY, plateW, barH, { tl: 34, bl: 0 });
+      // angled left edge to slot under the flag
+      ctx.beginPath();
+      ctx.moveTo(plateX + 34, barY); ctx.lineTo(plateX + plateW, barY);
+      ctx.lineTo(plateX + plateW, barY + barH); ctx.lineTo(plateX, barY + barH);
+      ctx.closePath();
+      ctx.clip();
+      const pg = ctx.createLinearGradient(0, barY, 0, barY + barH);
+      pg.addColorStop(0, BLUE_DEEP); pg.addColorStop(0.6, '#0a2238'); pg.addColorStop(1, NAVY);
+      ctx.fillStyle = pg; ctx.fillRect(plateX, barY, plateW, barH);
+      // blue glaze + sheen
+      const pgl = ctx.createLinearGradient(plateX, barY, plateX + plateW * 0.5, barY + barH);
+      pgl.addColorStop(0, 'rgba(22,184,255,0.12)'); pgl.addColorStop(0.5, 'rgba(22,184,255,0)');
+      ctx.fillStyle = pgl; ctx.fillRect(plateX, barY, plateW, barH);
+      // scanlines
+      ctx.fillStyle = 'rgba(255,255,255,0.035)';
+      for (let sy = barY; sy < barY + barH; sy += 4) ctx.fillRect(plateX, sy, plateW, 1);
+      ctx.restore();
+      // top/bottom edges + left accent
+      ctx.save();
+      chamferPath(plateX + 34, barY, plateW - 34, barH, { tl: 0 });
+      ctx.clip();
+      ctx.fillStyle = 'rgba(22,184,255,0.6)'; ctx.fillRect(plateX, barY, plateW, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(plateX, barY + barH - 3, plateW, 3);
+      ctx.restore();
+
+      // plate text
+      const tx = plateX + 70;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      // sup row
+      ctx.font = '700 24px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = BLUE; ctx.shadowColor = 'rgba(22,184,255,0.5)'; ctx.shadowBlur = 10;
+      // chip
+      ctx.save();
+      ctx.shadowBlur = 0;
+      chamferPath(tx, barY + 24, 64, 26, { tl: 8, br: 8 });
+      ctx.fillStyle = 'rgba(22,184,255,0.16)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(22,184,255,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.font = '700 16px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillText('CH 01', tx + 9, barY + 43);
+      ctx.restore();
+      ctx.fillStyle = BLUE; ctx.shadowColor = 'rgba(22,184,255,0.5)'; ctx.shadowBlur = 10;
+      ctx.font = '700 24px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillText('PRIMETIME BROADCAST', tx + 84, barY + 44);
+      ctx.shadowBlur = 0;
+
+      // big title: STREAM OFFLINE (italic broadcast caps)
+      ctx.font = '800 italic 92px "Bahnschrift", "Arial Narrow", system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillText('STREAM ', tx + 3, barY + 122);
+      const sw = ctx.measureText('STREAM ').width;
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(22,184,255,0.28)'; ctx.shadowBlur = 30;
+      ctx.fillText('STREAM ', tx, barY + 120);
+      ctx.fillStyle = ORANGE; ctx.shadowColor = 'rgba(255,90,31,0.4)';
+      ctx.fillText('OFFLINE', tx + sw, barY + 120);
+      ctx.shadowBlur = 0;
+
+      // subtitle
+      ctx.font = '600 24px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText('coverage resumes soon — follow to get the call', tx, barY + 158);
+
+      // =================================================================
+      // TICKER strip along the very bottom
+      // =================================================================
+      const tickY = H - 54, tickH = 54;
+      const tgrad = ctx.createLinearGradient(0, tickY, 0, tickY + tickH);
+      tgrad.addColorStop(0, '#0a2238'); tgrad.addColorStop(1, '#06121e');
+      ctx.fillStyle = tgrad; ctx.fillRect(0, tickY, W, tickH);
+      ctx.fillStyle = 'rgba(22,184,255,0.5)'; ctx.fillRect(0, tickY, W, 2);
+      // tag
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, tickY); ctx.lineTo(150, tickY);
+      ctx.lineTo(128, tickY + tickH); ctx.lineTo(0, tickY + tickH);
+      ctx.closePath(); ctx.clip();
+      const tagG = ctx.createLinearGradient(0, tickY, 0, tickY + tickH);
+      tagG.addColorStop(0, '#ff7a45'); tagG.addColorStop(0.6, ORANGE); tagG.addColorStop(1, '#d8430f');
+      ctx.fillStyle = tagG; ctx.fillRect(0, tickY, 150, tickH);
+      ctx.restore();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '800 22px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = '#1a0a02'; ctx.fillText('OFF AIR', 22, tickY + tickH / 2 + 1);
+      // ticker items
+      ctx.font = '700 21px "Bahnschrift", system-ui, sans-serif';
+      const items = [
+        'THANKS FOR STOPPING BY THE PRIMETIME BROADCAST',
+        'DROP A FOLLOW TO GET NOTIFIED WHEN WE GO LIVE',
+        'NEXT COVERAGE COMING SOON — STAND BY',
+        'SUBSCRIBE FOR FRONT-ROW SEATS ALL SEASON',
+      ];
+      let ix = 178;
+      for (const it of items) {
+        // diamond bullet
+        ctx.save();
+        ctx.translate(ix, tickY + tickH / 2); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = BLUE; ctx.shadowColor = 'rgba(22,184,255,0.6)'; ctx.shadowBlur = 8;
+        ctx.fillRect(-5, -5, 10, 10);
+        ctx.restore();
+        ctx.shadowBlur = 0;
+        ix += 26;
+        ctx.fillStyle = WHITE;
+        ctx.fillText(it, ix, tickY + tickH / 2 + 1);
+        ix += ctx.measureText(it).width + 36;
+      }
+
+      // ---- HANDLE (above the ticker, right) ----
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '800 28px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = BLUE; ctx.shadowColor = 'rgba(22,184,255,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText(handleAt, W - 90, tickY - 26);
+      ctx.shadowBlur = 0;
+      ctx.font = '600 18px "Consolas", "Courier New", monospace'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean.toLowerCase(), W - 90, tickY - 4);
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

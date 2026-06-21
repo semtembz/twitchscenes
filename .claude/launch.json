@@ -36,6 +36,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "neon-tokyo-source", "5582"],
       "port": 5582
+    },
+    {
+      "name": "primetime-pro-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "primetime-pro-source", "5583"],
+      "port": 5583
+    },
+    {
+      "name": "velvet-lounge-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "velvet-lounge-source", "5585"],
+      "port": 5585
+    },
+    {
+      "name": "strawberry-milk-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "strawberry-milk-source", "5584"],
+      "port": 5584
+    },
+    {
+      "name": "miami-drive-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "miami-drive-source", "5586"],
+      "port": 5586
     }
   ]
 }

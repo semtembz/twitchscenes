@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Strawberry Milk — Twitch Panels (generator)</title>
+  <!--
+    STRAWBERRY MILK · "Sticker Journal Cafe" PANELS generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the strawberry-milk style:
+        - glossy cream sticker card with rounded corners + a candy stitch
+        - a soft pink scalloped tab on the left holding a cute line icon
+        - the label in chunky friendly sans, deep-rose ink
+        - a little "milk fill" seek bar under the label
+    Each panel has its own Download button + a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Strawberry Milk palette (mirrors shared.css design tokens) ---- */
+    :root {
+      --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+      --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+      --ink:#7A4453; --ink-soft:#B07E8C; --bead:#C98AA0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Baloo 2", "Quicksand", "Varela Round", "Trebuchet MS", system-ui, sans-serif;
+      color: var(--ink);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -8%, rgba(255,255,255,0.85), transparent 58%),
+        radial-gradient(780px 480px at 100% 110%, rgba(191,234,214,0.40), transparent 60%),
+        radial-gradient(820px 600px at 84% 96%, rgba(255,143,171,0.22), transparent 60%),
+        linear-gradient(160deg, var(--cream) 0%, var(--milk) 50%, var(--pink) 130%);
+      min-height: 100vh;
+    }
+    .kicker {
+      font-weight: 800; letter-spacing: 3px; font-size: 13px;
+      color: var(--hot); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .heart { width: 13px; height: 13px; color: var(--hot);
+      animation: beat 1.4s cubic-bezier(.22,1,.36,1) infinite; }
+    @keyframes beat { 0%,100% { transform: scale(1); } 30% { transform: scale(1.28); } }
+    h1 { font-weight: 800; font-size: 32px; letter-spacing: .3px; margin: 0 0 6px;
+      color: var(--ink); text-shadow: 0 3px 0 var(--gloss), 0 8px 20px rgba(164,93,110,0.18); }
+    h1 b { color: var(--hot); }
+    p.lead { color: var(--ink-soft); margin: 0 0 24px; max-width: 720px; line-height: 1.55; font-weight: 600; }
+    code { font-weight: 700; color: var(--rose);
+      background: rgba(255,143,171,0.16); padding: 2px 8px; border-radius: 8px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: inherit; font-weight: 800; font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 13px 24px; cursor: pointer; color: var(--gloss);
+      background: linear-gradient(180deg, var(--hot), #ED6F8E);
+      border: none; border-radius: 30px;
+      box-shadow: 0 10px 24px rgba(255,143,171,0.40), inset 0 0 0 3px rgba(255,255,255,0.55);
+    }
+    button:hover { filter: brightness(1.05); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(255,255,255,0.62); padding: 16px; border-radius: 22px;
+      border: 1px solid rgba(255,143,171,0.30);
+      box-shadow: 0 14px 30px rgba(164,93,110,0.14); backdrop-filter: blur(6px);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 16px; overflow: hidden; display: block;
+      background-color: #ffeaf0;
+      background-image:
+        linear-gradient(45deg, #ffd6e2 25%, transparent 25%),
+        linear-gradient(-45deg, #ffd6e2 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ffd6e2 75%),
+        linear-gradient(-45deg, transparent 75%, #ffd6e2 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-weight: 800; letter-spacing: 1.5px;
+      color: var(--ink-soft); text-transform: uppercase; }
+    .card-row a { font-weight: 700; letter-spacing: 1px;
+      color: var(--rose); text-decoration: none;
+      border: 1px solid rgba(255,143,171,0.40); border-radius: 14px; padding: 5px 14px; }
+    .card-row a:hover { background: rgba(255,143,171,0.18); }
+  </style>
+</head>
+<body>
+  <p class="kicker">
+    <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16 2 12 2 8.5 2 5.4 4.4 3 7.5 3 9.3 3 11 4 12 5.5 13 4 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5 22 12 19 16 12 21z"/></svg>
+    SWEET SHOP · PANELS
+  </p>
+  <h1>Strawberry Milk — <b>Twitch Panels</b></h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the cozy sticker-cafe style:
+    a glossy cream card, a pink scalloped icon tab, and a chunky friendly label with a
+    little milk-fill bar. Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the CSS vars) ----
+    var W = 320, H = 100;
+    var CREAM = '#FFF1F4', MILK = '#FFE3EC', PINK = '#FFB3C6', HOT = '#FF8FAB';
+    var ROSE = '#A45D6E', MINT = '#BFEAD6', GLOSS = '#FFFFFF';
+    var INK = '#7A4453', INK_SOFT = '#B07E8C', BEAD = '#C98AA0';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT ME',  icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'specs',     title: 'PC SPECS',  icon: 'monitor' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // soft pink bloom (blurred radial gradient)
+    function bloom(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(255,143,171,' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(255,143,171,' + (alpha * 0.4).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(255,143,171,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // scalloped left tab: a rounded pill whose left edge has soft bumps
+    function scallopTab(ctx, x, y, w, h, r) {
+      roundRectPath(ctx, x, y, w, h, r);
+      // bumps along the left edge of the tab read as a cloud/scallop
+      var bump = 11, n = Math.floor(h / (bump * 2));
+      for (var i = 0; i < n; i++) {
+        var by = y + bump + i * (h - bump * 2) / Math.max(1, n - 1);
+        ctx.moveTo(x + bump, by);
+        ctx.arc(x, by, bump, 0, Math.PI * 2);
+      }
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;                 // keep the card off the very edge
+      var cardR = 22;
+
+      // glossy cream sticker card body
+      ctx.save();
+      roundRectPath(ctx, pad, pad, W - pad * 2, H - pad * 2, cardR);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#FFFFFF');
+      bg.addColorStop(1, '#FFF1F5');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // soft pink blooms inside the card
+      bloom(ctx, 250, 92, 150, 0.16);
+      bloom(ctx, 70, 8, 120, 0.12);
+
+      // faint dot texture on the text field
+      ctx.fillStyle = 'rgba(255,143,171,0.10)';
+      for (var dy = 14; dy < H; dy += 14) {
+        for (var dx = 96; dx < W; dx += 14) ctx.fillRect(dx, dy, 1.6, 1.6);
+      }
+
+      // bottom milk gloss
+      var gl = ctx.createLinearGradient(0, H - 30, 0, H);
+      gl.addColorStop(0, 'rgba(255,179,198,0)');
+      gl.addColorStop(1, 'rgba(255,179,198,0.30)');
+      ctx.fillStyle = gl;
+      ctx.fillRect(0, H - 30, W, 30);
+      ctx.restore();
+
+      // pink scalloped icon tab on the left
+      ctx.save();
+      var tabX = pad + 10, tabY = pad + 12, tabW = 56, tabH = H - pad * 2 - 24;
+      var tg = ctx.createLinearGradient(tabX, tabY, tabX, tabY + tabH);
+      tg.addColorStop(0, PINK);
+      tg.addColorStop(1, HOT);
+      ctx.fillStyle = tg;
+      ctx.shadowColor = 'rgba(255,143,171,0.55)';
+      ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
+      ctx.beginPath();
+      scallopTab(ctx, tabX, tabY, tabW, tabH, 16);
+      ctx.fill();
+      ctx.restore();
+      // glossy highlight on the tab
+      ctx.save();
+      ctx.globalAlpha = 0.5; ctx.fillStyle = GLOSS;
+      roundRectPath(ctx, tabX + 8, tabY + 7, tabW - 22, 14, 7);
+      ctx.fill();
+      ctx.restore();
+
+      // cute white line icon on the tab
+      drawIcon(ctx, p.icon, tabX + tabW / 2, H / 2, 30);
+
+      // little "SWEET" badge kicker above the title
+      ctx.save();
+      ctx.font = '800 9px "Baloo 2", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      // tiny heart dot
+      heartMark(ctx, 84, 28, 4, HOT);
+      ctx.fillStyle = INK_SOFT;
+      ctx.fillText('S W E E T   S H O P', 94, 31);
+      ctx.restore();
+
+      // label in chunky friendly sans (deep rose ink)
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      // shrink-to-fit so long labels (INSTAGRAM, SUBSCRIBE) stay inside
+      var size = 27;
+      var maxW = W - 84 - 22;
+      ctx.font = '800 ' + size + 'px "Baloo 2", system-ui, sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '800 ' + size + 'px "Baloo 2", system-ui, sans-serif';
+      }
+      var ty = 70;
+      ctx.fillStyle = MILK;
+      ctx.fillText(label, 84, ty + 2);            // soft drop shadow
+      ctx.fillStyle = INK;
+      ctx.fillText(label, 84, ty);
+      ctx.restore();
+
+      // "milk fill" seek bar under the label
+      ctx.save();
+      var barX = 84, barY = 80, barW = W - 84 - 22, barH = 5;
+      ctx.fillStyle = 'rgba(255,143,171,0.22)';
+      roundRectPath(ctx, barX, barY, barW, barH, barH / 2);
+      ctx.fill();
+      var fill = barW * 0.62;
+      var fg = ctx.createLinearGradient(barX, 0, barX + fill, 0);
+      fg.addColorStop(0, HOT);
+      fg.addColorStop(1, PINK);
+      ctx.fillStyle = fg;
+      roundRectPath(ctx, barX, barY, fill, barH, barH / 2);
+      ctx.fill();
+      // playhead pearl
+      ctx.fillStyle = GLOSS;
+      ctx.shadowColor = 'rgba(255,143,171,0.8)'; ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(barX + fill, barY + barH / 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // candy stitch (dashed) just inside the card
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(255,143,171,0.45)';
+      ctx.lineWidth = 1.6;
+      roundRectPath(ctx, pad + 6, pad + 6, W - pad * 2 - 12, H - pad * 2 - 12, cardR - 6);
+      ctx.stroke();
+      ctx.restore();
+
+      // hairline card border
+      ctx.save();
+      roundRectPath(ctx, pad + 0.5, pad + 0.5, W - pad * 2 - 1, H - pad * 2 - 1, cardR);
+      ctx.strokeStyle = 'rgba(255,143,171,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // tiny solid heart mark used as the kicker dot
+    function heartMark(ctx, x, y, s, color) {
+      ctx.save();
+      ctx.translate(x, y); ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.34);
+      ctx.bezierCurveTo(s * 0.9, -s * 0.55, s * 0.55, -s * 1.05, 0, -s * 0.5);
+      ctx.bezierCurveTo(-s * 0.55, -s * 1.05, -s * 0.9, -s * 0.55, 0, s * 0.34);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent white stroke, centred on (cx, cy),
+    // sized to roughly `s` px box. Style is set up once here.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;                               // half box
+      ctx.strokeStyle = GLOSS;
+      ctx.fillStyle = GLOSS;
+      ctx.lineWidth = 2.4;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);   // header rule
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5); // hangers
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.6;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath();
+            ctx.arc(-h * 0.78, ly, 1.8, 0, Math.PI * 2); ctx.fill();   // bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '800 ' + Math.round(s * 0.62) + 'px "Baloo 2", system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2.1, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2.1, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 6); ctx.stroke();   // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 7); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();  // lens
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.7, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2.1, 0, Math.PI * 2); ctx.stroke();   // hole
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 6); ctx.stroke();    // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);  // stand
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);  // foot
+          ctx.stroke();
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke(); // medal
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);                                    // ribbon tail L
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);                                     // ribbon tail R
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 1.7, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr, Y = Math.sin(ang) * rr;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // local rounded-rect path helper for icons (separate so it doesn't
+    // disturb the panel-level path state)
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);   // sequential so the browser allows multi-download
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    // Fonts here fall back to system fonts (no CDN), so they are ready
+    // immediately. document.fonts.ready still guards any late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

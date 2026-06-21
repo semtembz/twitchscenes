@@ -1,0 +1,143 @@
+/* ============================================================
+   VELVET LOUNGE — alert system ("The Gilt Room")
+   A brass-framed art-deco "calling card" that slides in from the
+   LEFT, holds, then slides out. Transparent background so it
+   composites over gameplay / the scene. Cohesive with shared.css
+   tokens: stepped (ziggurat) corners, hairline brass double border,
+   a deco glyph plate, spaced deco caps, a brass NAME line, an
+   optional brass amount, deco rules + a corner monogram tag.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --plum-black:#140A14; --plum-black2:#0C060C; --velvet:#3A1B33; --velvet2:#21102017;
+  --brass:#B5894E; --brass-lt:#E6C98C; --cream:#F2E9DC;
+  --dim:#A98E78;
+  /* derived */
+  --line:rgba(181,137,78,.55);
+  --line-soft:rgba(181,137,78,.28);
+  --glow:rgba(230,201,140,.55);
+  --card:rgba(20,10,20,.74); --card2:rgba(12,6,12,.62);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--cream);background:transparent;
+  font-family:"Didot","Bodoni MT","Bodoni 72","Playfair Display",Georgia,"Times New Roman",serif;}
+
+/* one canvas for the gold-dust burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left, slides in from off-screen left ---- */
+.alert{position:absolute;left:90px;bottom:130px;width:780px;padding:34px 44px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(58,27,51,.5), transparent 70%),
+    linear-gradient(150deg, var(--card), var(--card2));
+  border:1px solid var(--line);
+  box-shadow:0 40px 110px rgba(0,0,0,.6), 0 0 60px rgba(181,137,78,.10),
+    inset 0 0 80px rgba(20,10,20,.5);
+  /* stepped (ziggurat) corners — echoes the shared.css frame */
+  clip-path:polygon(
+    0 18px,10px 18px,10px 10px,18px 10px,18px 0,
+    calc(100% - 18px) 0,calc(100% - 18px) 10px,calc(100% - 10px) 10px,calc(100% - 10px) 18px,100% 18px,
+    100% calc(100% - 18px),calc(100% - 10px) calc(100% - 18px),calc(100% - 10px) calc(100% - 10px),calc(100% - 18px) calc(100% - 10px),calc(100% - 18px) 100%,
+    18px 100%,18px calc(100% - 10px),10px calc(100% - 10px),10px calc(100% - 18px),0 calc(100% - 18px));
+  display:grid;grid-template-columns:150px 1fr;gap:32px;align-items:center;
+  /* start off-screen to the left + hidden; .show animates it in */
+  opacity:0;transform:translateX(-960px);
+  will-change:transform,opacity;}
+/* inner hairline brass double border, echoing the clip-path */
+.alert::before{content:"";position:absolute;inset:9px;border:1px solid var(--line-soft);
+  clip-path:inherit;pointer-events:none;}
+/* a slow diagonal gold light-sweep travelling across the card */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.55;
+  background:linear-gradient(115deg, transparent 40%, rgba(230,201,140,.16) 49%, rgba(242,233,220,.06) 51%, transparent 60%);
+  animation:alert-sweep 4.5s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-30%)}100%{transform:translateX(30%)}}
+
+/* a thin brass seam down the left edge — the deco accent */
+.alert .seam{position:absolute;left:9px;top:20px;bottom:20px;width:4px;
+  background:linear-gradient(180deg,var(--brass-lt),var(--brass));
+  box-shadow:0 0 16px rgba(230,201,140,.7);}
+
+/* entrance / exit driven by JS toggling .show */
+.alert.show{animation:alert-in .62s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateX(-960px);}
+  70%{opacity:1;transform:translateX(22px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateX(0);}
+  100%{opacity:0;transform:translateX(-960px);}
+}
+
+/* event glyph plate — brass deco tile with stepped corners + a sunburst glaze */
+.alert .art{width:150px;height:150px;position:relative;overflow:hidden;
+  background:
+    repeating-conic-gradient(from -90deg at 50% 130%, rgba(230,201,140,.10) 0 2deg, transparent 2deg 11deg),
+    linear-gradient(150deg, rgba(58,27,51,.9) 0%, rgba(33,16,30,.95) 55%, var(--plum-black) 100%);
+  border:1px solid var(--line);
+  clip-path:polygon(0 14px,14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%);
+  box-shadow:inset 0 0 0 1px rgba(230,201,140,.14), inset 0 0 26px rgba(181,137,78,.16), 0 8px 24px rgba(0,0,0,.45);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:78px;color:var(--brass-lt);
+  text-shadow:0 0 22px rgba(230,201,140,.55), 0 2px 1px rgba(0,0,0,.4);
+  animation:glyph-pop .7s var(--ease) both .18s;}
+.alert .art::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+/* deco caps kicker line (the small "channel · event" line) */
+.alert .kick{font-family:"Optima","Gill Sans","Futura","Century Gothic",system-ui,sans-serif;
+  letter-spacing:.42em;font-size:20px;font-weight:500;text-transform:uppercase;color:var(--brass-lt);
+  display:flex;align-items:center;gap:14px;margin-bottom:10px;white-space:nowrap;text-indent:.42em;
+  text-shadow:0 0 14px rgba(230,201,140,.3);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dia{width:11px;height:11px;border:1px solid var(--brass-lt);transform:rotate(45deg);
+  box-shadow:0 0 12px var(--glow);flex:none;text-indent:0;
+  animation:diapulse 1.8s steps(1,end) infinite;}
+@keyframes diapulse{0%,60%{opacity:1}61%,100%{opacity:.2}}
+
+/* big NAME — deco serif brass, clamped to one line so a long handle never breaks the card */
+.alert .name{font-size:66px;line-height:1.0;font-weight:600;letter-spacing:.01em;margin:2px 0 8px;
+  text-transform:uppercase;color:var(--cream);
+  text-shadow:0 2px 0 rgba(0,0,0,.3), 0 0 50px rgba(230,201,140,.28);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (brass gradient) — hidden unless .has-amount */
+.alert .amount{font-size:30px;font-weight:600;letter-spacing:.04em;margin-bottom:6px;display:none;
+  background:linear-gradient(180deg,var(--brass-lt) 0%,var(--brass) 60%,#8a6536 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 14px rgba(230,201,140,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--cream);-webkit-text-fill-color:var(--cream);}
+
+/* tiny italic serif sub line */
+.alert .sub{font-size:23px;font-style:italic;color:var(--dim);letter-spacing:.05em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* deco monogram tag top-right of the card (channel / room readout) */
+.alert .tagid{position:absolute;top:18px;right:26px;
+  font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+  font-size:15px;letter-spacing:.4em;color:var(--brass);opacity:.8;text-indent:.4em;
+  text-shadow:0 0 10px rgba(230,201,140,.35);}
+
+/* a small deco rule under the tag for the gilt detail */
+.alert .tagrule{position:absolute;top:42px;right:26px;width:96px;height:1px;opacity:.7;
+  background:linear-gradient(90deg,transparent,var(--brass) 30%,var(--brass-lt) 70%);}
+
+/* render mode: freeze CSS-driven motion (JS drives transform/opacity deterministically) */
+#stage.render .alert,#stage.render .alert.show,#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .kick .dia{animation:none!important;}

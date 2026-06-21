@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Primetime Pro Broadcast Bar Wipe</title>
+  <!--
+    PRIMETIME PRO stinger ("network sports broadcast"). A raked bank of angular
+    CHAMFERED broadcast bars — navy/steel plates edged in electric-blue + orange —
+    sweeps horizontally across the screen like a lower-third lock-in. A bright
+    blue+orange LEADING EDGE rides the wipe; at the mid (full-cover) point a quick
+    "instant replay" glitch hits (RGB split + CRT scanlines + a hard tear band +
+    white flash), then the bars sweep off and the screen clears.
+    Transparent before & after, deterministic, ~1300ms.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add
+    it as a Stinger transition with the Transition Point at ~50% (the replay hit).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (primetime pro) ---- */
+    const NAVY = '#0A1B2A', BLUE_DEEP = '#0E2C4A', BLUE = '#16B8FF', WHITE = '#F5F7FA';
+    const ORANGE = '#FF5A1F';
+    const STEEL_1 = '#3A4754', STEEL_2 = '#5A6B79', STEEL_DK = '#2c3742';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };          // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded rng so the look is stable + matches the export ---- */
+    let seed = 70125;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* ---- the bar bank: horizontal broadcast rows that wipe left->right. Each row is
+           staggered so the bank reads as a raked, angular sweep (like a lower-third
+           snapping in). Chamfered ends echo the scenes' clip-path bars. ---- */
+    const N_ROWS = 9;
+    const rowH = H / N_ROWS;
+    const rows = Array.from({ length: N_ROWS }, (_, i) => ({
+      y: i * rowH,
+      lead: (i / N_ROWS) * 0.16,                  // raked stagger down the bank
+      jitter: R(-6, 6),                           // per-row y glitch amplitude
+      // alternate the accent: most rows steel/navy, edged blue, a few orange
+      accent: (i % 3 === 1) ? ORANGE : BLUE,
+      phase: R(0, 6.2832),
+    }));
+
+    // tiny deterministic per-key noise (reproducible flicker)
+    function hash(a, b) {
+      const v = Math.sin((a * 12.9898 + b * 78.233) * 43758.5453);
+      return v - Math.floor(v);
+    }
+
+    /* ---- one chamfered broadcast row, filled from the left to `fill` (0..1 of W).
+           Drawn as a steel/navy gradient parallelogram with a slanted leading edge
+           and a bright accent rail running its leading face. ---- */
+    function drawRow(y, h, fill, accent, jy, alpha) {
+      if (alpha <= 0.01 || fill <= 0) return;
+      const cham = 30;                            // angular chamfer (px) — broadcast slant
+      const gap = 6;
+      const filledPx = fill * (W + cham);
+      const x0 = 0;
+      const y0 = Math.round(y + jy);
+      const yb = Math.round(y + h - gap + jy);
+      // top edge leads the bottom edge by `cham` -> a forward-raked plate
+      const leadTop = Math.round(filledPx);
+      const leadBot = Math.round(filledPx - cham);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      // steel/navy body gradient (matches .steel + plate look)
+      const g = ctx.createLinearGradient(0, y0, 0, yb);
+      g.addColorStop(0.00, STEEL_2);
+      g.addColorStop(0.30, STEEL_1);
+      g.addColorStop(0.55, BLUE_DEEP);
+      g.addColorStop(1.00, NAVY);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(leadTop, y0);
+      ctx.lineTo(leadBot, yb);
+      ctx.lineTo(x0, yb);
+      ctx.closePath();
+      ctx.fill();
+
+      // thin blue sheen along the top of the plate
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.fillStyle = 'rgba(22,184,255,0.18)';
+      ctx.fillRect(x0, y0, Math.max(0, leadTop - x0), 3);
+
+      // bright accent rail riding the slanted leading edge
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 7;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 24;
+      ctx.beginPath();
+      ctx.moveTo(leadTop, y0);
+      ctx.lineTo(leadBot, yb);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---- the bar bank wiping in then retracting ---- */
+    function drawBars(t, cover, ghostDX, ghostCol) {
+      ctx.save();
+      if (ghostDX) ctx.globalCompositeOperation = 'screen';
+      for (const r of rows) {
+        // local sweep for this row: in on the first half, out on the second
+        const lt = clamp01((t - r.lead) / (1 - 0.16));
+        let fill;
+        if (lt < 0.5) fill = smooth(lt / 0.5);             // wipe right to full
+        else fill = 1 - smooth((lt - 0.5) / 0.5);          // ... then a clearing wipe from the left
+        const a = lerp(0.0, 1, clamp01(cover * 1.3));
+        const jy = (r.jitter * (hash(r.y, Math.floor(t * 40)) - 0.5) * cover);
+        // ghost passes are shoved sideways; reuse the same fill via a translated draw
+        if (ghostDX) {
+          ctx.save();
+          ctx.translate(ghostDX, 0);
+          drawRow(r.y, rowH, fill, ghostCol, jy, a * 0.45);
+          ctx.restore();
+        } else {
+          drawRow(r.y, rowH, fill, r.accent, jy, a);
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- a solid stadium-navy wash UNDER the bars at full cover so the swap reads
+           as a clean broadcast cut, kept transparent at the ends ---- */
+    function drawWash(cover) {
+      if (cover <= 0.02) return;
+      const a = smooth((cover - 0.35) / 0.65);
+      if (a <= 0.01) return;
+      ctx.save();
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0.00, BLUE_DEEP);
+      g.addColorStop(0.55, NAVY);
+      g.addColorStop(1.00, '#07131f');
+      ctx.fillStyle = g;
+      ctx.globalAlpha = a;
+      ctx.fillRect(0, 0, W, H);
+      // faint field scanlines over the wash (matches .field texture)
+      ctx.globalAlpha = a * 0.10;
+      ctx.fillStyle = BLUE;
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+    }
+
+    /* ---- the bright blue+orange LEADING EDGE riding the lead wipe (strongest mid) ---- */
+    function drawLeadEdge(t, cover) {
+      const edgeA = Math.sin(clamp01(t) * Math.PI);          // strongest mid-sweep
+      if (edgeA < 0.04) return;
+      // use the centre-ish row's leading position as the headline edge
+      const lt = clamp01(t / (1 - 0.16));
+      let fill;
+      if (lt < 0.5) fill = smooth(lt / 0.5); else fill = 1 - smooth((lt - 0.5) / 0.5);
+      const cham = 30;
+      const x = fill * (W + cham);
+      if (x <= 2 || x >= W + cham - 2) return;
+      ctx.save();
+      // a tall raked bar of light spanning the whole screen height
+      ctx.globalAlpha = 0.85 * edgeA;
+      const lg = ctx.createLinearGradient(x - 40, 0, x + 8, 0);
+      lg.addColorStop(0, 'rgba(22,184,255,0)');
+      lg.addColorStop(0.7, 'rgba(22,184,255,0.55)');
+      lg.addColorStop(1, 'rgba(245,247,250,0.9)');
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.moveTo(x, 0); ctx.lineTo(x + 6, 0);
+      ctx.lineTo(x + 6 - cham, H); ctx.lineTo(x - cham, H);
+      ctx.closePath();
+      ctx.fill();
+      // hard white core line with blue glow
+      ctx.globalAlpha = 0.9 * edgeA;
+      ctx.strokeStyle = WHITE;
+      ctx.lineWidth = 4;
+      ctx.shadowColor = BLUE; ctx.shadowBlur = 50;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x), 0); ctx.lineTo(Math.round(x - cham), H);
+      ctx.stroke();
+      // an orange under-glow just behind the edge
+      ctx.globalAlpha = 0.4 * edgeA;
+      ctx.strokeStyle = ORANGE; ctx.lineWidth = 16; ctx.shadowColor = ORANGE; ctx.shadowBlur = 36;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x - 14), 0); ctx.lineTo(Math.round(x - 14 - cham), H);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---- "instant replay" glitch: RGB split + CRT scanlines + a hard tear band +
+           white flash, peaking at the full-cover mid point ---- */
+    function drawGlitch(t) {
+      const gx = Math.exp(-Math.pow((t - 0.5) / 0.10, 2));   // gaussian pulse around mid
+      if (gx < 0.02) return;
+      const cover = Math.sin(clamp01(t) * Math.PI);
+
+      // torn horizontal slices: shove random bands of the already-drawn frame sideways
+      const bands = 11;
+      for (let i = 0; i < bands; i++) {
+        if (hash(i, Math.floor(t * 60)) > 0.6) continue;     // only some bands tear
+        const by = Math.floor(R(0, H));
+        const bh = Math.floor(R(6, 50));
+        const dx = (R(-1, 1)) * 80 * gx;
+        try { ctx.drawImage(cv, 0, by, W, bh, dx, by, W, bh); } catch (e) {}
+      }
+
+      // RGB split: stamp the bar bank twice, offset, in screen blend (orange L / blue R)
+      const off = 16 * gx;
+      drawBars(t, cover, -off, 'rgba(255,90,31,1)');
+      drawBars(t, cover,  off, 'rgba(22,184,255,1)');
+
+      // hard scanline tear band right at the mid — a bright blue rip across the screen
+      const tear = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (tear > 0.02) {
+        const ty = H * 0.5 + Math.sin(t * 60) * 28;
+        ctx.save();
+        ctx.globalAlpha = 0.85 * tear;
+        ctx.fillStyle = WHITE;
+        ctx.shadowColor = BLUE; ctx.shadowBlur = 50;
+        ctx.fillRect(0, Math.round(ty - 3), W, 6);
+        ctx.globalAlpha = 0.5 * tear;
+        ctx.fillStyle = ORANGE; ctx.shadowColor = ORANGE; ctx.shadowBlur = 40;
+        ctx.fillRect(0, Math.round(ty - 26), W, 4);
+        ctx.fillStyle = BLUE; ctx.shadowColor = BLUE;
+        ctx.fillRect(0, Math.round(ty + 22), W, 4);
+        ctx.restore();
+      }
+
+      // dense scanlines flicker over everything during the pulse
+      ctx.save();
+      ctx.globalAlpha = 0.18 * gx;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+
+      // a quick white/blue flash at the very peak
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.04, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = 0.42 * flash;
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      seed = 70125;                              // reset rng each frame -> deterministic
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full at t=0.5
+
+      drawWash(cover);
+      drawBars(t, cover, 0, null);
+      drawLeadEdge(t, cover);
+      drawGlitch(t);
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step can render any frame (t in 0..1) on demand.
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }         // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }    // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

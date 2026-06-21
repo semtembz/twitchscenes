@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Miami Drive — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Miami Drive "outrun
+    sunset highway" visual language:
+        - deep violet night card with rounded corners + neon teal/pink glow
+        - a perspective neon GRID floor along the bottom of the card
+        - a chrome-bevelled accent strip + a teal LINE icon
+        - the label in bold ITALIC chrome lettering (sunset-gradient fill)
+        - VHS scanlines + a tiny corner chrome bracket
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Miami Drive "outrun sunset highway" palette ---- */
+    :root {
+      --night:    #160033;
+      --night-2:  #1E0A4A;
+      --night-3:  #0B0020;
+      --pink:     #FF2E97;
+      --teal:     #00E0D0;
+      --orange:   #FF7A00;
+      --yellow:   #FDF06A;
+      --chrome-1: #FFFFFF;
+      --chrome-2: #CFE9FF;
+      --ink:      #FFF0FB;
+      --dim:      #B49BD8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Eurostile", "Bahnschrift", "Arial Narrow", system-ui, sans-serif;
+      color: var(--ink);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 16% -12%, rgba(255,46,151,0.18), transparent 60%),
+        radial-gradient(760px 480px at 100% 112%, rgba(0,224,208,0.16), transparent 60%),
+        linear-gradient(160deg, var(--night-2), var(--night-3));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Courier New", monospace; letter-spacing: 5px; font-size: 12px;
+      color: var(--teal); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 9px; text-shadow: 0 0 12px rgba(0,224,208,0.5);
+    }
+    .rec { width: 9px; height: 9px; border-radius: 50%; background: var(--pink);
+      box-shadow: 0 0 12px var(--pink); animation: blink 1.4s steps(1) infinite; }
+    @keyframes blink { 0%,60% { opacity: 1; } 61%,100% { opacity: .25; } }
+    h1 { font-weight: 800; font-style: italic; font-size: 32px; letter-spacing: 1px; margin: 0 0 6px;
+      color: var(--chrome-2); text-shadow: 0 0 24px rgba(255,46,151,0.45); text-transform: uppercase; }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 720px; line-height: 1.55; }
+    code { font-family: "Courier New", monospace; color: var(--yellow);
+      background: rgba(0,224,208,0.08); padding: 2px 7px; border-radius: 5px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Courier New", monospace; font-weight: 700; font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 12px 22px; cursor: pointer; color: var(--night-3);
+      background: linear-gradient(180deg, var(--teal), #00a89c);
+      border: 1px solid rgba(207,233,255,0.6); border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,224,208,0.30);
+    }
+    button:hover { filter: brightness(1.12); }
+    button.ghost { background: rgba(11,0,32,0.62); color: var(--ink); box-shadow: none;
+      border: 1px solid rgba(255,46,151,0.32); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(11,0,32,0.55); padding: 16px; border-radius: 18px;
+      border: 1px solid rgba(0,224,208,0.18);
+      backdrop-filter: blur(6px);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 14px; overflow: hidden; display: block;
+      background-color: #120a26;
+      background-image:
+        linear-gradient(45deg, #1b1140 25%, transparent 25%),
+        linear-gradient(-45deg, #1b1140 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1b1140 75%),
+        linear-gradient(-45deg, transparent 75%, #1b1140 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: "Courier New", monospace; letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: "Courier New", monospace; letter-spacing: 1px;
+      color: var(--yellow); text-decoration: none;
+      border: 1px solid rgba(0,224,208,0.30); border-radius: 8px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(0,224,208,0.16); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="rec"></span>CH 88 · MIAMI · PANELS</p>
+  <h1>Miami Drive — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the outrun sunset-highway style:
+    a violet night card, a neon grid floor, a chrome strip and a teal line icon, with the
+    label in chrome-italic sunset lettering.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design vars) ----
+    var W = 320, H = 100;
+    var NIGHT = '#160033', NIGHT2 = '#1E0A4A', NIGHT3 = '#0B0020';
+    var PINK = '#FF2E97', TEAL = '#00E0D0', ORANGE = '#FF7A00', YELLOW = '#FDF06A';
+    var CHROME1 = '#FFFFFF', CHROME2 = '#CFE9FF', INK = '#FFF0FB', DIM = '#B49BD8';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT ME',  icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'specs',     title: 'PC SPECS',  icon: 'monitor' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // soft neon bloom (blurred radial gradient), rgb passed as "r,g,b"
+    function bloom(ctx, cx, cy, rad, rgb, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(' + rgb + ',' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(' + rgb + ',' + (alpha * 0.35).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(' + rgb + ',0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;                 // keep the card off the very edge
+      var cardR = 16;
+      var horizon = 64;            // grid horizon inside the card (y)
+
+      // violet night card body
+      ctx.save();
+      roundRectPath(ctx, pad, pad, W - pad * 2, H - pad * 2, cardR);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0,    'rgba(30,10,74,0.92)');
+      bg.addColorStop(0.55, 'rgba(22,0,51,0.94)');
+      bg.addColorStop(1,    'rgba(11,0,32,0.96)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // sunset wash blooming up from the horizon line
+      bloom(ctx, W * 0.5, horizon, 150, '255,122,0', 0.20);
+      bloom(ctx, W * 0.5, horizon, 120, '255,46,151', 0.16);
+      // teal glow lower-left
+      bloom(ctx, 60, H + 6, 110, '0,224,208', 0.14);
+
+      // ---- perspective neon GRID floor (below the horizon) ----
+      ctx.save();
+      // converging vertical lines fanning from the vanishing point
+      var vpX = W * 0.5, spread = W * 1.7;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,46,151,0.45)';
+      var LINES = 9;
+      for (var i = -LINES; i <= LINES; i++) {
+        var bx = vpX + (i / LINES) * spread;
+        ctx.beginPath();
+        ctx.moveTo(vpX, horizon);
+        ctx.lineTo(bx, H - pad);
+        ctx.stroke();
+      }
+      // horizontal rows bunched toward the horizon (perspective)
+      ctx.strokeStyle = 'rgba(0,224,208,0.55)';
+      var rows = [0.10, 0.24, 0.44, 0.70, 1.0];
+      for (var r2 = 0; r2 < rows.length; r2++) {
+        var gy = Math.round(horizon + (H - pad - horizon) * rows[r2]);
+        ctx.globalAlpha = 0.30 + rows[r2] * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(pad, gy); ctx.lineTo(W - pad, gy);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // neon teal horizon rule
+      ctx.save();
+      ctx.strokeStyle = '#aafff7';
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = 'rgba(0,224,208,0.9)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(pad, horizon); ctx.lineTo(W - pad, horizon); ctx.stroke();
+      ctx.restore();
+
+      // faint VHS scanlines
+      ctx.fillStyle = 'rgba(255,255,255,0.045)';
+      for (var sy = pad; sy < H - pad; sy += 3) ctx.fillRect(0, sy, W, 1);
+
+      // subtle vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(7,0,20,0.42)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // chrome-bevelled accent strip down the left
+      ctx.save();
+      var stripX = pad + 8, stripW = 8;
+      var sg = ctx.createLinearGradient(0, pad + 12, 0, H - pad - 12);
+      sg.addColorStop(0,   CHROME1);
+      sg.addColorStop(0.4, CHROME2);
+      sg.addColorStop(0.5, YELLOW);
+      sg.addColorStop(0.75, ORANGE);
+      sg.addColorStop(1,   PINK);
+      ctx.fillStyle = sg;
+      ctx.shadowColor = 'rgba(255,46,151,0.6)';
+      ctx.shadowBlur = 12;
+      roundRectPath(ctx, stripX, pad + 14, stripW, H - pad * 2 - 28, stripW / 2);
+      ctx.fill();
+      ctx.restore();
+
+      // vertical マイアミ-style kana accent (faint, right edge)
+      ctx.save();
+      ctx.font = '600 12px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(0,224,208,0.18)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var kana = ['マ', 'イ', 'ア'];
+      for (var k = 0; k < kana.length; k++) ctx.fillText(kana[k], W - 15, 22 + k * 17);
+      ctx.restore();
+
+      // teal line icon
+      drawIcon(ctx, p.icon, 40, 42, 32);
+
+      // "CH 88 · MIAMI" badge kicker above the title
+      ctx.save();
+      ctx.font = '700 9px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = PINK;
+      ctx.shadowColor = 'rgba(255,46,151,0.8)'; ctx.shadowBlur = 8;
+      ctx.fillRect(78, 22, 5, 5);                 // tiny rec dot
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = DIM;
+      ctx.fillText('CH 88 · MIAMI', 90, 27);
+      ctx.restore();
+
+      // label in BOLD ITALIC chrome lettering with a sunset-gradient fill
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      // shrink-to-fit so long labels (INSTAGRAM, SUBSCRIBE) stay inside
+      var size = 28;
+      var maxW = W - 78 - 24;
+      ctx.font = 'italic 800 ' + size + 'px "Eurostile", "Bahnschrift", "Arial Narrow", system-ui, sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1;
+        ctx.font = 'italic 800 ' + size + 'px "Eurostile", "Bahnschrift", "Arial Narrow", system-ui, sans-serif';
+      }
+      var ty = 56;
+      var lw = ctx.measureText(label).width;
+      // chrome-over-sunset vertical gradient fill
+      var tg = ctx.createLinearGradient(0, ty - size, 0, ty + 4);
+      tg.addColorStop(0,    CHROME1);
+      tg.addColorStop(0.34, CHROME2);
+      tg.addColorStop(0.5,  YELLOW);
+      tg.addColorStop(0.74, ORANGE);
+      tg.addColorStop(1,    PINK);
+      // soft outer glow
+      ctx.shadowColor = 'rgba(255,122,0,0.45)';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = tg;
+      ctx.fillText(label, 78, ty);
+      ctx.shadowBlur = 0;
+      // thin white stroke (chrome lip)
+      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.strokeText(label, 78, ty);
+      ctx.restore();
+
+      // neon "scan strip" accent under the label (sits at the horizon)
+      ctx.save();
+      var barX = 78, barY = horizon - 6, barW = Math.min(lw, W - 78 - 24), barH = 3;
+      ctx.fillStyle = 'rgba(207,233,255,0.16)';
+      roundRectPath(ctx, barX, barY, W - 78 - 24, barH, barH / 2);
+      ctx.fill();
+      var fill = barW;
+      var fg = ctx.createLinearGradient(barX, 0, barX + fill, 0);
+      fg.addColorStop(0, TEAL);
+      fg.addColorStop(1, PINK);
+      ctx.fillStyle = fg;
+      ctx.shadowColor = 'rgba(0,224,208,0.8)'; ctx.shadowBlur = 8;
+      roundRectPath(ctx, barX, barY, fill, barH, barH / 2);
+      ctx.fill();
+      ctx.restore();
+
+      // tiny chrome corner bracket (top-right of the card)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(207,233,255,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(0,224,208,0.45)'; ctx.shadowBlur = 6;
+      var bk = 14, bm = pad + 10;
+      ctx.beginPath();
+      ctx.moveTo(W - bm - bk, bm); ctx.lineTo(W - bm, bm); ctx.lineTo(W - bm, bm + bk);
+      ctx.stroke();
+      ctx.restore();
+
+      // hairline card border
+      ctx.save();
+      roundRectPath(ctx, pad + 0.5, pad + 0.5, W - pad * 2 - 1, H - pad * 2 - 1, cardR);
+      ctx.strokeStyle = 'rgba(0,224,208,0.26)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent teal stroke, centred on (cx, cy),
+    // sized to roughly `s` px box. Stroke style is set up once here.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;                               // half box
+      ctx.strokeStyle = TEAL;
+      ctx.fillStyle = TEAL;
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,224,208,0.6)';
+      ctx.shadowBlur = 8;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);   // header rule
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5); // hangers
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          // day dots
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.4;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath();
+            ctx.arc(-h * 0.78, ly, 1.7, 0, Math.PI * 2); ctx.fill();   // bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.62) + 'px system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          // rounded controller-ish blob with two eyes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // simple bird silhouette via strokes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();   // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();  // lens
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();   // hole
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 5); ctx.stroke();    // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);  // stand
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);  // foot
+          ctx.stroke();
+          // signal bars inside
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke(); // medal
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);                                    // ribbon tail L
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);                                     // ribbon tail R
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr, Y = Math.sin(ang) * rr;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // local rounded-rect path helper for icons (separate so it doesn't
+    // disturb the panel-level path state)
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);   // sequential so the browser allows multi-download
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    // Fonts here are system/stack fonts (no @font-face / CDN), so they are ready
+    // immediately. document.fonts.ready still guards any late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

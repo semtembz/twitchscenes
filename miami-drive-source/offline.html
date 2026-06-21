@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Miami Drive (PNG generator)</title>
+  <!--
+    MIAMI DRIVE · "outrun sunset highway" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the outrun look (deep-violet night sky, a chrome-banded
+    sunset SUN on the horizon, a receding neon perspective GRID floor, palm
+    silhouettes, dot-stars, VHS scanlines + vignette, corner chrome brackets,
+    a frosted "signal lost" plate, and the CH 88 · MIAMI dead-channel badge)
+    onto a <canvas> and downloads it as a PNG.
+
+    Everything is drawn from a SEEDED LCG, so the star / bokeh scatter is identical
+    on every render (Math.random is never used) — re-running gives the same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --night:#160033; --night-2:#1E0A4A; --night-3:#0B0020;
+      --pink:#FF2E97; --teal:#00E0D0; --orange:#FF7A00; --yellow:#FDF06A;
+      --chrome-2:#CFE9FF; --ink:#FFF0FB; --dim:#B49BD8;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+      background:var(--night-3);color:var(--ink);padding:32px;}
+    h1{font-weight:800;font-style:italic;font-size:26px;color:var(--chrome-2);letter-spacing:1px;
+      margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 18px rgba(255,46,151,.35);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:780px;line-height:1.55;}
+    .kicker{font-family:"Courier New",monospace;letter-spacing:5px;font-size:13px;color:var(--teal);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 12px rgba(0,224,208,.5);}
+    button{font-family:"Courier New",monospace;font-weight:700;font-size:14px;letter-spacing:3px;
+      padding:13px 24px;background:var(--teal);color:var(--night-3);border:1px solid var(--chrome-2);
+      border-radius:12px;cursor:pointer;box-shadow:0 0 30px rgba(0,224,208,.25);}
+    button:hover{filter:brightness(1.12);}
+    .preview{margin-top:22px;background:var(--night-2);padding:14px;border:1px solid #2c1656;
+      border-radius:14px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:6px;}
+    code{font-family:"Courier New",monospace;color:var(--yellow);background:#161033;
+      padding:2px 6px;border-radius:4px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">CH 88 · MIAMI · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the Miami Drive outrun style — seeded so
+    the stars and bokeh are reproducible. Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const HORIZON = 600;            // matches --horizon in shared.css
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const NIGHT = '#160033', NIGHT2 = '#1E0A4A', NIGHT3 = '#0B0020';
+    const PINK = '#FF2E97', TEAL = '#00E0D0', ORANGE = '#FF7A00', YELLOW = '#FDF06A';
+    const CHROME1 = '#FFFFFF', CHROME2 = '#CFE9FF', INK = '#FFF0FB', DIM = '#B49BD8';
+    const STARC = ['#FFFFFF', YELLOW, CHROME2];
+
+    const params = new URLSearchParams(location.search);
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft neon bloom (blurred radial gradient) ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- rounded rectangle path ----
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- chrome corner bracket (L shape) ----
+    function bracket(x, y, sx, sy, sz) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(207,233,255,0.75)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,224,208,0.5)'; ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(x + sx * sz, y);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x, y + sy * sz);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- the chrome-banded sunset SUN resting on the horizon ----
+    function drawSun(cx, baseY, rad) {
+      ctx.save();
+      // disc clip
+      ctx.beginPath(); ctx.arc(cx, baseY - rad, rad, 0, 6.2832); ctx.clip();
+      // sunset gradient fill
+      const g = ctx.createLinearGradient(0, baseY - rad * 2, 0, baseY);
+      g.addColorStop(0,    YELLOW);
+      g.addColorStop(0.26, '#FFC23A');
+      g.addColorStop(0.52, ORANGE);
+      g.addColorStop(0.76, '#FF4E7E');
+      g.addColorStop(1,    PINK);
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - rad, baseY - rad * 2, rad * 2, rad * 2);
+      // chrome gap stripes that thin toward the bottom (the night shows through)
+      ctx.fillStyle = NIGHT3;
+      const stripes = [
+        [0.50, 6], [0.585, 5], [0.66, 5], [0.74, 4], [0.82, 4], [0.90, 3], [0.97, 3]
+      ];
+      for (const [t, hh] of stripes) {
+        const yy = (baseY - rad * 2) + rad * 2 * t;
+        ctx.fillRect(cx - rad, yy, rad * 2, hh);
+      }
+      // top-light bloom
+      const tl = ctx.createRadialGradient(cx, baseY - rad * 1.5, 0, cx, baseY - rad * 1.5, rad * 0.9);
+      tl.addColorStop(0, 'rgba(255,255,255,0.45)'); tl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = tl; ctx.fillRect(cx - rad, baseY - rad * 2, rad * 2, rad * 2);
+      ctx.restore();
+      // outer glow
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,122,0,0.55)'; ctx.shadowBlur = 90;
+      ctx.strokeStyle = 'rgba(255,122,0,0.001)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, baseY - rad, rad, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- palm silhouette (reuses the starting-soon SVG path) ----
+    const PALM_PATH = new Path2D("M118 340c-4-70-6-150-8-196-14 4-30 14-46 30 12-22 30-37 45-44-18-6-40-4-66 8 22-20 47-26 66-23-14-12-33-19-58-19 26-9 50-5 64 6-3-19-14-36-33-50 26 10 39 30 41 50 6-20 22-39 49-49-17 16-26 34-27 52 16-12 38-18 65-15-25 6-45 17-56 31 19-2 41 3 62 19-26-11-49-12-65-5 16 9 31 25 41 47-15-15-31-26-44-31-1 47-2 116-4 161z");
+    function drawPalm(x, baseY, scale, flip) {
+      ctx.save();
+      ctx.translate(x, baseY);
+      ctx.scale(flip ? -scale : scale, scale);
+      ctx.translate(0, -340);
+      ctx.fillStyle = '#0A0016';
+      ctx.shadowColor = 'rgba(255,46,151,0.35)'; ctx.shadowBlur = 6;
+      ctx.fill(PALM_PATH);
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x881A1); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: deep violet night sky -> sunset wash at the horizon ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0,    NIGHT3);
+      grad.addColorStop(0.30, NIGHT);
+      grad.addColorStop(0.50, NIGHT2);
+      grad.addColorStop(0.555, '#3A0E5C');
+      grad.addColorStop(0.60, NIGHT2);
+      grad.addColorStop(1,    NIGHT3);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // sunset radial wash centred on the horizon
+      bloom(W / 2, HORIZON, W * 0.55, 'rgba(255,122,0,0.22)', 1);
+      bloom(W / 2, HORIZON, W * 0.42, 'rgba(255,46,151,0.18)', 1);
+
+      // ---- SEEDED DOT-STARS (only above the horizon) ----
+      for (let i = 0; i < 150; i++) {
+        const x = (R(rnd, 0, W)) | 0, y = (R(rnd, 10, HORIZON - 40)) | 0;
+        const r = R(rnd, 0.8, 2.6), a = R(rnd, 0.25, 0.85);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = STARC[(rnd() * STARC.length) | 0];
+        ctx.fillRect(x, y, Math.round(r), Math.round(r));
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- the chrome-banded SUN ----
+      drawSun(W / 2, HORIZON, 260);
+
+      // ---- PALM silhouettes flanking the sun ----
+      drawPalm(360, HORIZON, 0.95, false);
+      drawPalm(W - 360, HORIZON, 0.95, true);
+
+      // ---- the PERSPECTIVE GRID floor ----
+      ctx.save();
+      // converging vertical lines
+      const vpX = W / 2, spread = W * 1.6;
+      ctx.strokeStyle = 'rgba(255,46,151,0.55)';
+      ctx.lineWidth = 2;
+      const LINES = 24;
+      for (let i = -LINES; i <= LINES; i++) {
+        const bx = vpX + (i / LINES) * spread;
+        ctx.beginPath(); ctx.moveTo(vpX, HORIZON); ctx.lineTo(bx, H); ctx.stroke();
+      }
+      // horizontal rows bunched toward the horizon (perspective foreshortening)
+      ctx.strokeStyle = 'rgba(0,224,208,0.7)';
+      const ROWS = 16;
+      for (let i = 1; i <= ROWS; i++) {
+        const t = i / ROWS;
+        const y = Math.round(HORIZON + (H - HORIZON) * (t * t));
+        ctx.globalAlpha = Math.min(1, t * 1.4) * 0.85;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // ---- neon horizon RULE ----
+      ctx.save();
+      const hr = ctx.createLinearGradient(0, 0, W, 0);
+      hr.addColorStop(0, 'rgba(0,224,208,0)'); hr.addColorStop(0.12, TEAL);
+      hr.addColorStop(0.5, '#aafff7'); hr.addColorStop(0.88, TEAL);
+      hr.addColorStop(1, 'rgba(0,224,208,0)');
+      ctx.strokeStyle = hr; ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(0,224,208,0.8)'; ctx.shadowBlur = 22;
+      ctx.beginPath(); ctx.moveTo(0, HORIZON); ctx.lineTo(W, HORIZON); ctx.stroke();
+      ctx.restore();
+
+      // ---- VHS SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.62);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.74)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- corner CHROME brackets ----
+      const m = 56, bz = 110;
+      bracket(m, m, 1, 1, bz);
+      bracket(W - m, m, -1, 1, bz);
+      bracket(m, H - m, 1, -1, bz);
+      bracket(W - m, H - m, -1, -1, bz);
+
+      // ---- CH 88 · MIAMI DEAD-CHANNEL BADGE (top-left HUD) ----
+      ctx.save();
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      const badgeX = 92, badgeY = 86;
+      // rec dot (static — it blinks live, but a still image freezes it on)
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(badgeX, badgeY, 8, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.font = '600 26px "Courier New", monospace';
+      ctx.fillStyle = TEAL; ctx.shadowColor = 'rgba(0,224,208,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText('CH 88 · MIAMI', badgeX + 24, badgeY + 1);
+      ctx.shadowBlur = 0;
+      // top-right HUD
+      ctx.textAlign = 'right';
+      ctx.fillStyle = PINK; ctx.shadowColor = 'rgba(255,46,151,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText('SIGNAL // LOST', W - 92, badgeY + 1);
+      ctx.restore();
+
+      // ---- FROSTED "SIGNAL LOST" CARD (centre, on the horizon) ----
+      const cardW = 760, cardH = 250, rad = 22;
+      const cardX = W / 2 - cardW / 2, cardY = HORIZON - cardH / 2 - 4;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,224,208,0.22)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 18;
+      ctx.fillStyle = 'rgba(11,0,32,0.62)';
+      roundRect(cardX, cardY, cardW, cardH, rad); ctx.fill();
+      ctx.restore();
+      // hairline border
+      ctx.strokeStyle = 'rgba(0,224,208,0.30)'; ctx.lineWidth = 1.5;
+      roundRect(cardX, cardY, cardW, cardH, rad); ctx.stroke();
+
+      // kicker: ● BROADCAST (status dot + mono)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const kY = cardY + 52;
+      ctx.font = '600 22px "Courier New", monospace';
+      const kLabel = 'B R O A D C A S T';
+      const kw = ctx.measureText(kLabel).width;
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(W / 2 - kw / 2 - 18, kY, 7, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = CHROME2; ctx.fillText(kLabel, W / 2, kY);
+
+      // big chrome-italic title: OFFLINE (sunset-gradient fill + chrome lip)
+      ctx.font = 'italic 800 104px "Eurostile", "Bahnschrift", "Arial Narrow", system-ui, sans-serif';
+      const titleY = cardY + 128;
+      const tg = ctx.createLinearGradient(0, titleY - 90, 0, titleY + 14);
+      tg.addColorStop(0,    CHROME1);
+      tg.addColorStop(0.34, CHROME2);
+      tg.addColorStop(0.5,  YELLOW);
+      tg.addColorStop(0.74, ORANGE);
+      tg.addColorStop(1,    PINK);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(255,122,0,0.45)'; ctx.shadowBlur = 30;
+      ctx.fillText('OFFLINE', W / 2, titleY);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.strokeText('OFFLINE', W / 2, titleY);
+
+      // subtitle
+      ctx.font = '400 24px "Courier New", monospace';
+      ctx.fillStyle = DIM;
+      ctx.fillText('back on the strip soon — follow to get notified', W / 2, cardY + 196);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, mono) — reads ?handle ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 26px "Courier New", monospace';
+      ctx.fillStyle = TEAL; ctx.shadowColor = 'rgba(0,224,208,0.4)'; ctx.shadowBlur = 12;
+      ctx.fillText(handleAt, W - 92, H - 66);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 18px "Courier New", monospace'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean.toLowerCase(), W - 92, H - 40);
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

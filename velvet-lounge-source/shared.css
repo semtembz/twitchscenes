@@ -1,0 +1,146 @@
+/* ============================================================
+   VELVET LOUNGE — shared design system ("The Gilt Room")
+   Speakeasy / jazz-lounge art-deco luxury. A CENTERED brass
+   deco frame on deep plum velvet: thin brass linework, a hairline
+   double border with stepped corners, deco SUNBURST fans in every
+   corner, a refined deco serif title in brass with a soft glow, a
+   delicate underline rule, a single thin brass loading line, all
+   over a warm bokeh haze + gold dust + a slow gold light-sweep.
+   Bespoke to THIS theme — shares only engine conventions w/ others.
+   ============================================================ */
+:root{
+  /* palette */
+  --plum-black:#140A14; --plum-black2:#0C060C; --velvet:#3A1B33; --velvet2:#21102017;
+  --brass:#B5894E; --brass-lt:#E6C98C; --cream:#F2E9DC;
+  --dim:#A98E78;
+  /* derived */
+  --line:rgba(181,137,78,.55);        /* hairline brass */
+  --line-soft:rgba(181,137,78,.28);
+  --glow:rgba(230,201,140,.55);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--plum-black2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--cream);
+  font-family:"Didot","Bodoni MT","Bodoni 72","Playfair Display",Georgia,"Times New Roman",serif;
+  background:
+    radial-gradient(115% 80% at 50% 30%, rgba(58,27,51,.95), transparent 60%),
+    radial-gradient(80% 60% at 18% 88%, rgba(181,137,78,.10), transparent 60%),
+    radial-gradient(80% 60% at 84% 14%, rgba(230,201,140,.07), transparent 55%),
+    linear-gradient(165deg, #1d0f1c 0%, var(--plum-black) 48%, var(--plum-black2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
+
+/* velvet sheen + deep vignette overlays */
+.sheen{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;
+  background:repeating-linear-gradient(118deg, rgba(255,255,255,.04) 0 2px, transparent 2px 9px);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 360px rgba(10,4,10,.85), inset 0 0 120px rgba(10,4,10,.5);}
+
+/* a slow diagonal gold light-sweep across the whole frame */
+.sweep{position:absolute;inset:-20% -40%;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+  background:linear-gradient(115deg, transparent 38%, rgba(230,201,140,.16) 49%, rgba(242,233,220,.06) 51%, transparent 62%);
+  animation:sweep 9s linear infinite;}
+@keyframes sweep{0%{transform:translateX(-22%)}100%{transform:translateX(22%)}}
+
+/* ---- the CENTERED art-deco FRAME (the signature composition) ---- */
+.frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1180px;height:712px;padding:84px 96px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(58,27,51,.55), transparent 70%),
+    linear-gradient(180deg, rgba(20,10,20,.46), rgba(12,6,12,.30));
+  border:1px solid var(--line);
+  box-shadow:0 40px 120px rgba(0,0,0,.6), inset 0 0 90px rgba(20,10,20,.5);
+  /* stepped (ziggurat) corners */
+  clip-path:polygon(
+    0 22px,12px 22px,12px 12px,22px 12px,22px 0,
+    calc(100% - 22px) 0,calc(100% - 22px) 12px,calc(100% - 12px) 12px,calc(100% - 12px) 22px,100% 22px,
+    100% calc(100% - 22px),calc(100% - 12px) calc(100% - 22px),calc(100% - 12px) calc(100% - 12px),calc(100% - 22px) calc(100% - 12px),calc(100% - 22px) 100%,
+    22px 100%,22px calc(100% - 12px),12px calc(100% - 12px),12px calc(100% - 22px),0 calc(100% - 22px));
+  animation:framein 1s var(--ease) both .1s;}
+/* inner hairline double border */
+.frame::before{content:"";position:absolute;inset:14px;border:1px solid var(--line-soft);
+  clip-path:inherit;pointer-events:none;}
+/* faint thin deco rays glazing down inside the frame */
+.frame::after{content:"";position:absolute;inset:14px;pointer-events:none;opacity:.5;
+  background:
+    repeating-conic-gradient(from -90deg at 50% -40%, rgba(230,201,140,.05) 0 1.4deg, transparent 1.4deg 9deg);
+  clip-path:inherit;-webkit-mask:linear-gradient(180deg,rgba(0,0,0,.9),transparent 55%);
+          mask:linear-gradient(180deg,rgba(0,0,0,.9),transparent 55%);}
+@keyframes framein{from{opacity:0;transform:translate(-50%,-50%) scale(.965)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* deco SUNBURST / fan ornaments in every corner of the frame */
+.fan{position:absolute;width:150px;height:150px;pointer-events:none;opacity:.9;
+  animation:fanin 1.1s var(--ease) both .35s;}
+.fan svg{width:100%;height:100%;display:block;}
+.fan--tl{left:30px;top:30px;}
+.fan--tr{right:30px;top:30px;transform:scaleX(-1);}
+.fan--bl{left:30px;bottom:30px;transform:scaleY(-1);}
+.fan--br{right:30px;bottom:30px;transform:scale(-1,-1);}
+@keyframes fanin{from{opacity:0}to{opacity:.9}}
+
+/* a centered top deco diamond + double rule above the kicker */
+.crest{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:8px;}
+.crest .r{width:120px;height:1px;background:linear-gradient(90deg,transparent,var(--brass));}
+.crest .r--r{background:linear-gradient(90deg,var(--brass),transparent);}
+.crest .dia{width:12px;height:12px;border:1px solid var(--brass-lt);transform:rotate(45deg);
+  box-shadow:0 0 12px var(--glow);}
+
+/* kicker — spaced deco caps */
+.kicker{font-family:"Optima","Gill Sans","Futura","Century Gothic",system-ui,sans-serif;
+  letter-spacing:.62em;font-size:24px;font-weight:500;text-transform:uppercase;
+  color:var(--brass-lt);text-indent:.62em;text-shadow:0 0 18px rgba(230,201,140,.35);}
+
+/* the deco serif TITLE in brass with a soft glow */
+.title{margin:18px 0 6px;font-size:140px;line-height:.92;font-weight:600;letter-spacing:.01em;
+  text-transform:uppercase;
+  color:var(--cream);
+  text-shadow:0 2px 0 rgba(0,0,0,.3),0 0 60px rgba(230,201,140,.30);}
+.title .accent{display:block;
+  background:linear-gradient(180deg,var(--brass-lt) 0%,var(--brass) 58%,#8a6536 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 70px rgba(230,201,140,.5);filter:drop-shadow(0 2px 1px rgba(0,0,0,.4));}
+
+/* delicate thin underline rule below the title */
+.rule{width:300px;height:1px;margin:6px auto 0;position:relative;
+  background:linear-gradient(90deg,transparent,var(--brass) 22%,var(--brass-lt) 50%,var(--brass) 78%,transparent);}
+.rule::before,.rule::after{content:"";position:absolute;top:50%;width:7px;height:7px;
+  border:1px solid var(--brass-lt);transform:translateY(-50%) rotate(45deg);box-shadow:0 0 10px var(--glow);}
+.rule::before{left:-14px;} .rule::after{right:-14px;}
+
+/* subtitle — refined italic serif, generous space */
+.sub{margin-top:26px;font-style:italic;font-size:30px;letter-spacing:.06em;color:var(--dim);}
+
+/* loading = a single thin brass line that fills elegantly (no numbers) */
+.bar{margin-top:46px;width:520px;height:2px;background:rgba(181,137,78,.18);position:relative;}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg,var(--brass),var(--brass-lt));
+  box-shadow:0 0 14px rgba(230,201,140,.7);}
+.bar .fill::after{content:"";position:absolute;right:-3px;top:50%;width:7px;height:7px;
+  border:1px solid var(--brass-lt);transform:translateY(-50%) rotate(45deg);
+  background:var(--brass-lt);box-shadow:0 0 12px var(--glow);}
+
+/* corner monogram tags (outside the frame, on the velvet) */
+.mono{position:absolute;font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+  letter-spacing:.5em;font-size:20px;color:var(--brass);text-indent:.5em;opacity:.8;}
+.mono--tl{left:64px;top:54px;} .mono--tr{right:64px;top:54px;text-indent:0;}
+
+/* handle — brass, lower right on the velvet */
+.handle{position:absolute;right:64px;bottom:50px;
+  font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+  letter-spacing:.34em;font-size:26px;color:var(--brass-lt);text-indent:.34em;
+  text-shadow:0 0 16px rgba(230,201,140,.4);}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .frame,#stage.render .fan{animation:none!important;}
+#stage.render .sweep{animation:none;display:none;}
+#stage.render .frame{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#stage.render .fan{opacity:.9;}

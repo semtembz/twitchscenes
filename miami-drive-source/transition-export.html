@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Miami Drive Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the outrun grid / sunset-sun VHS wipe to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.3s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0B0020; color: #FFF0FB;
+      font-family: system-ui, "Segoe UI", sans-serif; }
+    h1 { font-size: 22px; color: #FF2E97; letter-spacing: 1.5px; margin: 0 0 10px;
+      text-shadow: 0 0 14px rgba(255,46,151,.5); }
+    p  { color: #B49BD8; line-height: 1.55; margin: 0 0 14px; max-width: 820px; }
+    code { color: #00E0D0; background: #160033; padding: 2px 6px; border-radius: 4px;
+      font-family: "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #FF2E97; color: #0B0020;
+      border: 2px solid #00E0D0; border-radius: 10px; cursor: pointer;
+      letter-spacing: 1.5px; font-weight: bold; }
+    button:hover:not(:disabled) { background: #00E0D0; color: #0B0020; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #FDF06A; font-family: "Courier New", monospace; }
+    .stage { background: #160033; border: 1px solid rgba(0,224,208,.22); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #0E0026;
+      background-image:
+        linear-gradient(45deg, #1E0A4A 25%, transparent 25%),
+        linear-gradient(-45deg, #1E0A4A 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1E0A4A 75%),
+        linear-gradient(-45deg, transparent 75%, #1E0A4A 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>EXPORT MIAMI DRIVE TRANSITION → .webm</h1>
+  <p>Records the outrun grid / sunset-sun VHS wipe to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 650 ms</strong>
+     (half the default 1300 ms — that's the full-cover flash moment when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1300;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const NIGHT = '#160033', NIGHT2 = '#1E0A4A', NIGHT3 = '#0B0020';
+    const PINK = '#FF2E97', TEAL = '#00E0D0', ORANGE = '#FF7A00', YELLOW = '#FDF06A';
+    const SUN_TOP = '#FDF06A', SUN_MID = '#FF7A00', SUN_BOT = '#FF2E97';
+    const CHROME = '#DCEBFF';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    let seed = 80808;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const N_STARS = 90;
+    const stars = Array.from({ length: N_STARS }, () => ({
+      x: (R(0, W)) | 0,
+      y: (R(0, H * 0.52)) | 0,
+      r: R(0.8, 2.4),
+      ph: R(0, 6.2832),
+      c: rnd() < 0.5 ? '#FFFFFF' : (rnd() < 0.5 ? YELLOW : CHROME),
+    }));
+
+    function drawSky(cover) {
+      if (cover <= 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.25);
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0.00, NIGHT3);
+      g.addColorStop(0.34, NIGHT);
+      g.addColorStop(0.52, NIGHT2);
+      g.addColorStop(0.62, '#3A0E5C');
+      g.addColorStop(0.74, NIGHT2);
+      g.addColorStop(1.00, NIGHT3);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      const bloom = ctx.createRadialGradient(W / 2, horizonY, 0, W / 2, horizonY, 760);
+      bloom.addColorStop(0.00, 'rgba(255,122,0,0.42)');
+      bloom.addColorStop(0.32, 'rgba(255,46,151,0.26)');
+      bloom.addColorStop(1.00, 'rgba(255,46,151,0)');
+      ctx.fillStyle = bloom;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    function drawStars(t, cover) {
+      if (cover <= 0.05) return;
+      ctx.save();
+      for (const s of stars) {
+        const tw = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 9 + s.ph));
+        ctx.globalAlpha = cover * tw;
+        ctx.fillStyle = s.c;
+        const r = Math.max(1, Math.round(s.r));
+        ctx.fillRect(s.x, s.y, r, r);
+      }
+      ctx.restore();
+    }
+
+    function drawSun(cover) {
+      if (cover <= 0.02) return;
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      const Rsun = 300;
+      const cx = W / 2;
+      const cy = horizonY - Rsun * 0.62;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.35);
+      const halo = ctx.createRadialGradient(cx, cy, Rsun * 0.5, cx, cy, Rsun * 1.7);
+      halo.addColorStop(0, 'rgba(255,122,0,0.45)');
+      halo.addColorStop(1, 'rgba(255,46,151,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(cx - Rsun * 1.8, cy - Rsun * 1.8, Rsun * 3.6, Rsun * 3.6);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, Rsun, 0, Math.PI * 2);
+      ctx.clip();
+      const sg = ctx.createLinearGradient(cx, cy - Rsun, cx, cy + Rsun);
+      sg.addColorStop(0.00, SUN_TOP);
+      sg.addColorStop(0.26, '#FFC23A');
+      sg.addColorStop(0.52, SUN_MID);
+      sg.addColorStop(0.76, '#FF4E7E');
+      sg.addColorStop(1.00, SUN_BOT);
+      ctx.fillStyle = sg;
+      ctx.fillRect(cx - Rsun, cy - Rsun, Rsun * 2, Rsun * 2);
+      const lit = ctx.createRadialGradient(cx, cy - Rsun * 0.5, 0, cx, cy - Rsun * 0.5, Rsun * 1.1);
+      lit.addColorStop(0, 'rgba(255,255,255,0.5)');
+      lit.addColorStop(0.6, 'rgba(255,255,255,0)');
+      ctx.fillStyle = lit;
+      ctx.fillRect(cx - Rsun, cy - Rsun, Rsun * 2, Rsun * 2);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000';
+      const stripes = [
+        [0.40, 6], [0.50, 8], [0.60, 10], [0.71, 13], [0.83, 18], [0.95, 24],
+      ];
+      for (const [fy, gh] of stripes) {
+        const yy = cy - Rsun + Rsun * 2 * fy;
+        ctx.fillRect(cx - Rsun, Math.round(yy), Rsun * 2, gh);
+      }
+      ctx.restore();
+      ctx.restore();
+    }
+
+    function drawGrid(t, cover) {
+      if (cover <= 0.02) return;
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      if (horizonY >= H) return;
+      const vpX = W / 2;
+      const floorH = H - horizonY;
+      const scroll = (t * 2.2) % 1;
+
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.4);
+      ctx.lineCap = 'round';
+
+      const LINES = 22;
+      const spread = W * 1.7;
+      ctx.lineWidth = 2;
+      for (let i = -LINES; i <= LINES; i++) {
+        const bx = vpX + (i / LINES) * spread;
+        ctx.strokeStyle = 'rgba(255,46,151,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(Math.round(vpX), Math.round(horizonY));
+        ctx.lineTo(Math.round(bx), H);
+        ctx.stroke();
+      }
+
+      const ROWS = 16;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < ROWS; i++) {
+        let rt = (i + scroll) / ROWS;
+        if (rt <= 0.001) continue;
+        const y = Math.round(horizonY + floorH * (rt * rt));
+        const a = Math.min(1, rt * 1.5) * 0.85;
+        ctx.strokeStyle = 'rgba(0,224,208,' + a.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = 'rgba(170,255,247,0.95)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = TEAL;
+      ctx.shadowBlur = 26;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(horizonY)); ctx.lineTo(W, Math.round(horizonY));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function rndPulse(i, t) {
+      const v = Math.sin((i * 12.9898 + t * 78.233) * 43758.5453);
+      return v - Math.floor(v);
+    }
+
+    function drawGlitch(t) {
+      const gx = Math.exp(-Math.pow((t - 0.5) / 0.085, 2));
+      if (gx < 0.02) return;
+
+      const off = 16 * gx;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.45 * gx;
+      try { ctx.drawImage(cv, -off, 0); } catch (e) {}
+      try { ctx.drawImage(cv, off, 0); } catch (e) {}
+      ctx.restore();
+
+      const bands = 8;
+      ctx.save();
+      for (let i = 0; i < bands; i++) {
+        if (rndPulse(i, t) > 0.55) continue;
+        const by = Math.floor(R(0, H));
+        const bh = Math.floor(R(8, 50));
+        const dx = (R(-1, 1)) * 70 * gx;
+        try { ctx.drawImage(cv, 0, by, W, bh, dx, by, W, bh); } catch (e) {}
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 0.26 * gx;
+      ctx.fillStyle = 'rgba(0,224,208,0.5)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.04, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 * flash;
+        const fg = ctx.createLinearGradient(0, 0, 0, H);
+        fg.addColorStop(0, 'rgba(253,240,106,0.9)');
+        fg.addColorStop(1, 'rgba(255,122,0,0.7)');
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      seed = 80808;
+      const cover = Math.sin(clamp01(t) * Math.PI);
+      drawSky(cover);
+      drawStars(t, cover);
+      drawSun(cover);
+      drawGrid(t, cover);
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.18, W / 2, H / 2, H * 0.9);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(11,0,32,' + (0.6 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      drawGlitch(t);
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

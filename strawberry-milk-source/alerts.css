@@ -1,0 +1,115 @@
+/* ============================================================
+   STRAWBERRY MILK — alert system ("Sticker Journal Cafe")
+   A cute "sticker card" that slides in from the LEFT, holds, then
+   slides out. Transparent background so it composites over gameplay /
+   the scene. Cohesive with shared.css tokens (cream/pink/rose/mint).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+  --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+  --ink:#7A4453; --ink-soft:#B07E8C; --bead:#C98AA0;
+  --card:#FFFFFF; --hair:rgba(255,143,171,.55);
+  --ease:cubic-bezier(.34,1.56,.64,1);          /* bouncy back-out */
+  --ease-soft:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  font-family:"Baloo 2","Quicksand","Varela Round","Trebuchet MS",system-ui,sans-serif;
+  background:transparent;}
+
+/* one canvas for the heart/boba burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left, slides in from off-screen left ---- */
+.alert{position:absolute;left:90px;bottom:130px;width:760px;padding:34px 40px;
+  background:var(--card);border-radius:42px;
+  box-shadow:0 30px 70px rgba(164,93,110,.30),
+    0 0 0 12px rgba(255,255,255,.55),
+    inset 0 -16px 36px rgba(255,179,198,.28),
+    inset 0 12px 24px rgba(255,255,255,.9);
+  display:grid;grid-template-columns:150px 1fr;gap:30px;align-items:center;
+  /* start off-screen to the left + hidden; .show animates it in */
+  opacity:0;transform:translateX(-940px);
+  will-change:transform,opacity;}
+/* dashed candy stitch just inside the card edge */
+.alert::before{content:"";position:absolute;inset:16px;border-radius:30px;
+  border:4px dashed var(--hair);pointer-events:none;}
+/* a soft pink seam down the left edge — the "sticker" accent */
+.alert .seam{content:"";position:absolute;left:0;top:24px;bottom:24px;width:8px;
+  border-radius:8px;background:linear-gradient(180deg,var(--hot),var(--pink));
+  box-shadow:0 0 18px rgba(255,143,171,.55);}
+
+/* entrance / exit driven by JS toggling .show */
+.alert.show{animation:alert-in .62s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease-soft) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateX(-940px);}
+  70%{opacity:1;transform:translateX(22px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateX(0);}
+  100%{opacity:0;transform:translateX(-940px);}
+}
+
+/* glossy boba-cup tile (per-event glyph) */
+.alert .art{width:150px;height:150px;border-radius:40px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg, var(--gloss) 0%, var(--milk) 46%, var(--pink) 100%);
+  box-shadow:inset 0 0 0 5px var(--gloss), inset 0 -12px 24px rgba(255,143,171,.35),
+    0 12px 26px rgba(164,93,110,.24);
+  display:flex;align-items:center;justify-content:center;}
+.alert .art .glyph{font-size:80px;line-height:1;
+  filter:drop-shadow(0 6px 8px rgba(164,93,110,.28));
+  animation:glyph-pop .7s var(--ease) both .18s;}
+/* gloss highlight on the tile */
+.alert .art::after{content:"";position:absolute;top:12px;left:16px;width:58px;height:34px;border-radius:50%;
+  background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,0));
+  transform:rotate(-22deg);pointer-events:none;}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.14)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+.alert .kick{display:inline-flex;align-items:center;gap:12px;
+  font-weight:800;letter-spacing:3px;font-size:21px;color:var(--rose);
+  background:var(--milk);padding:8px 18px;border-radius:24px;margin:0 0 10px;
+  box-shadow:inset 0 0 0 3px var(--gloss);max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:13px;height:13px;border-radius:50%;background:var(--hot);flex:none;
+  box-shadow:0 0 0 5px rgba(255,143,171,.25);
+  animation:beat 1.4s var(--ease-soft) infinite;}
+@keyframes beat{0%,100%{transform:scale(1)}30%{transform:scale(1.28)}}
+
+/* big NAME — clamped to one line so a long handle never breaks the card */
+.alert .name{font-size:66px;line-height:1.0;font-weight:800;letter-spacing:-1px;margin:2px 0 6px;
+  color:var(--ink);text-shadow:0 3px 0 var(--milk), 0 8px 18px rgba(164,93,110,.18);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (hot pink) — hidden unless .has-amount */
+.alert .amount{font-size:30px;color:var(--hot);font-weight:800;letter-spacing:.5px;
+  text-shadow:0 2px 0 #fff, 0 6px 14px rgba(255,143,171,.4);margin-bottom:4px;display:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* tiny sub line */
+.alert .sub{font-size:22px;color:var(--ink-soft);letter-spacing:.5px;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a little heart-bars motif top-right of the card for the cute "sticker" feel */
+.alert .sig{position:absolute;top:22px;right:26px;display:inline-flex;gap:4px;align-items:flex-end;height:18px;opacity:.85;}
+.alert .sig i{width:5px;background:var(--pink);border-radius:3px;}
+
+/* ============================================================
+   RENDER MODE — freeze entrances/idles to final state so the
+   headless pipeline captures deterministic frames. (JS drives
+   transform/opacity via __renderAdvance; CSS just stops anims.)
+   ============================================================ */
+#stage.render .alert{animation:none!important;}
+#stage.render .alert .art .glyph{animation:none!important;}
+#stage.render .alert .kick .dot{animation:none!important;transform:none!important;}

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Primetime Pro — Webcam Frame</title>
+  <!--
+    TRANSPARENT webcam frame overlay (1920x1080) that composites OVER your cam.
+    OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+    Place this overlay ABOVE your webcam source in OBS, sized to match — the
+    inside of the frame is fully transparent, so the camera shows through it.
+
+    Draws a chamfered ~16:9 broadcast "camera" frame: a brushed-steel + blue-glow
+    hairline border with angular notched corners, an orange "CAM 1" flag tab top-left,
+    a chamfered "@yourhandle" name-plate clipped to the bottom-left, a blinking LIVE
+    bug, and a thin blue sheen tracing the border. Inside stays transparent.
+
+    Optional URL params:
+      ?handle=@you   handle shown on the name-plate (default @yourhandle)
+      ?label=CAM%201 the corner flag tab label (default "CAM 1")
+      ?sparks=10     corner spark count (default 10)
+      ?pos=lower     frame position: center | lower (default center)
+      ?w=960&h=540   frame size in stage px (defaults 960x540, kept ~16:9)
+
+    Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage +
+    fit() + delta-clamped rAF. Exposes window.__draw() to render one canvas frame.
+  -->
+  <style>
+    :root{
+      --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+      --orange:#FF5A1F;
+      --steel-1:#3A4754; --steel-2:#5A6B79; --steel-3:#8595A3; --steel-hi:#C3CED8;
+      --ink:#F5F7FA; --dim:#8FA6BC;
+      --hair:rgba(22,184,255,0.30);
+      --ease:cubic-bezier(.18,.9,.16,1);
+    }
+    *{box-sizing:border-box;}
+    /* TRANSPARENT everywhere so the cam (under this overlay) shows through */
+    html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+    #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+      transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+      overflow:hidden;background:transparent;color:var(--ink);
+      font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;}
+
+    /* sparks are drawn around the frame corners only */
+    canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+    /* the cam frame wrapper — centered or lower-third */
+    .cam{position:absolute;left:50%;top:50%;width:960px;height:540px;
+      transform:translate(-50%,-50%);
+      animation:fadein .8s var(--ease) both .15s;}
+    .cam.lower{top:auto;bottom:90px;transform:translateX(-50%);}
+
+    /* chamfered glowing broadcast border; INSIDE stays transparent.
+       Built from a glow box-shadow + an angular clip-path ring (border layer). */
+    .frame{position:absolute;inset:0;background:transparent;
+      clip-path:polygon(26px 0,100% 0,100% calc(100% - 26px),calc(100% - 26px) 100%,0 100%,0 26px);
+      box-shadow:
+        0 0 0 2px rgba(22,184,255,.55),
+        0 0 22px rgba(22,184,255,.42),
+        0 0 60px rgba(22,184,255,.16),
+        inset 0 0 26px rgba(22,184,255,.14);}
+    /* outer steel hairline ring (a thicker chamfered border, transparent center) */
+    .frame::before{content:"";position:absolute;inset:-3px;pointer-events:none;
+      clip-path:polygon(29px 0,100% 0,100% calc(100% - 29px),calc(100% - 29px) 100%,0 100%,0 29px);
+      border:3px solid rgba(58,71,84,.0);
+      box-shadow:inset 0 0 0 3px rgba(133,149,163,.30), inset 0 0 0 1px rgba(22,184,255,.45);}
+    /* soft inner blue hairline (still transparent inside) */
+    .frame::after{content:"";position:absolute;inset:7px;pointer-events:none;
+      clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);
+      box-shadow:inset 0 0 0 1px rgba(22,184,255,.22);}
+
+    /* angular corner ticks: orange top-left, blue bottom-right */
+    .tick{position:absolute;width:34px;height:34px;pointer-events:none;}
+    .tick.tl{top:-2px;left:-2px;border-top:3px solid var(--orange);border-left:3px solid var(--orange);
+      box-shadow:0 0 12px rgba(255,90,31,.5);}
+    .tick.br{bottom:-2px;right:-2px;border-bottom:3px solid var(--blue);border-right:3px solid var(--blue);
+      box-shadow:0 0 12px rgba(22,184,255,.5);}
+
+    /* blue sheen tracing along the top border */
+    .sheen{position:absolute;left:0;right:0;top:0;height:3px;overflow:hidden;pointer-events:none;
+      clip-path:polygon(26px 0,100% 0,100% 100%,0 100%,0 0);}
+    .sheen::before{content:"";position:absolute;top:0;bottom:0;width:34%;left:-34%;
+      background:linear-gradient(90deg,transparent,var(--blue),var(--white),var(--blue),transparent);
+      box-shadow:0 0 12px rgba(22,184,255,.7);animation:trace 4.2s linear infinite;}
+    @keyframes trace{from{left:-34%}to{left:100%}}
+
+    /* orange "CAM 1" flag tab clipped to the top-left of the frame */
+    .flag{position:absolute;top:-16px;left:26px;display:flex;align-items:center;gap:9px;
+      padding:6px 20px 6px 16px;height:38px;
+      background:linear-gradient(160deg,#ff7a45,var(--orange) 55%,#d8430f);
+      clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%);
+      font-weight:800;letter-spacing:4px;font-size:18px;color:#1a0a02;
+      text-shadow:0 1px 0 rgba(255,255,255,.25);
+      box-shadow:0 8px 22px rgba(0,0,0,.45);}
+    .flag .dot{width:11px;height:11px;border-radius:50%;background:#1a0a02;
+      animation:blink 1.3s steps(1,end) infinite;}
+
+    /* chamfered name-plate clipped to bottom-left of the frame */
+    .plate{position:absolute;left:24px;bottom:-20px;display:flex;align-items:center;gap:12px;
+      padding:9px 26px 9px 20px;height:46px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), transparent 16%),
+        linear-gradient(160deg, rgba(22,184,255,.12), transparent 45%),
+        linear-gradient(180deg, var(--blue-deep) 0%, #0a2238 60%, var(--navy) 100%);
+      border-top:2px solid rgba(22,184,255,.6);border-bottom:2px solid rgba(0,0,0,.6);
+      clip-path:polygon(18px 0,100% 0,calc(100% - 18px) 100%,0 100%);
+      box-shadow:0 10px 28px rgba(0,0,0,.5), 0 0 22px rgba(22,184,255,.16);}
+    .plate .rec{width:12px;height:12px;border-radius:50%;background:var(--orange);
+      box-shadow:0 0 12px var(--orange);animation:blink 1.3s steps(1,end) infinite;}
+    .plate .hdl{font-weight:800;font-style:italic;letter-spacing:0;font-size:24px;color:var(--white);
+      text-shadow:0 0 16px rgba(22,184,255,.4);}
+
+    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
+    @keyframes fadein{from{opacity:0}to{opacity:1}}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true">
+        <span class="tick tl"></span>
+        <span class="tick br"></span>
+        <span class="sheen"></span>
+      </div>
+      <div class="flag" aria-hidden="true"><span class="dot"></span><span id="label">CAM 1</span></div>
+      <div class="plate"><span class="rec"></span><span class="hdl" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const $ = (s) => document.querySelector(s);
+    const $id = (id) => document.getElementById(id);
+
+    /* ---- fit the 1920x1080 stage to the window (defensive) ---- */
+    function fit() {
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw / 1920, ih / 1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + label + position + size ---- */
+    const handle = params.get("handle"), handleEl = $id("handle");
+    if (handle && handleEl) handleEl.textContent = handle;
+    const label = params.get("label"), labelEl = $id("label");
+    if (label && labelEl) labelEl.textContent = label;
+
+    const cam = $id("cam");
+    if (cam) {
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 960), fh = num("h", 540);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: soft sparks clustered around the frame corners ---- */
+    const cv = $(".bg");
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      if (!ctx) { window.__draw = function () {}; return; }
+      const W = cv.width || 1920, H = cv.height || 1080;
+      const COLS = ["22,184,255", "245,247,250", "255,90,31"];
+      const R = (a, b) => a + Math.random() * (b - a);
+      const SPARKS = Math.max(0, num("sparks", 10));
+
+      /* compute frame rect in stage coords so sparks hug its corners */
+      function frameRect() {
+        const fw = num("w", 960), fh = num("h", 540);
+        const lower = (params.get("pos") || "center").toLowerCase() === "lower";
+        const cx = W / 2;
+        const cy = lower ? (H - 90 - fh / 2) : (H / 2);
+        return { x: cx - fw / 2, y: cy - fh / 2, w: fw, h: fh };
+      }
+      let RECT = frameRect();
+      window.addEventListener("resize", () => { RECT = frameRect(); });
+
+      /* spawn a spark near one of the four frame corners, drifting gently up */
+      const mk = (initial) => {
+        const corners = [
+          { x: RECT.x, y: RECT.y }, { x: RECT.x + RECT.w, y: RECT.y },
+          { x: RECT.x, y: RECT.y + RECT.h }, { x: RECT.x + RECT.w, y: RECT.y + RECT.h },
+        ];
+        const c0 = corners[(Math.random() * 4) | 0];
+        return {
+          x: c0.x + R(-60, 60), y: (initial ? c0.y + R(-60, 60) : c0.y + R(20, 80)),
+          life: 0, ttl: R(3.5, 7), r: R(1, 2.6), vy: R(-20, -6) / 60,
+          vx: R(-4, 4) / 60, ph: R(0, 6.28), ps: R(0.6, 1.4), a: R(0.16, 0.4),
+          col: COLS[(Math.random() * COLS.length) | 0],
+        };
+      };
+      const sparks = Array.from({ length: SPARKS }, () => mk(true));
+
+      function frame(dt) {
+        const sec = (dt || 0) / 1000;
+        ctx.clearRect(0, 0, W, H);
+        for (let i = 0; i < sparks.length; i++) {
+          const p = sparks[i];
+          p.y += p.vy; p.x += p.vx + Math.sin(p.ph) * 0.3; p.ph += 0.04; p.life += sec;
+          if (p.life > p.ttl || p.y < -20) { sparks[i] = mk(false); continue; }
+          const tw = 0.5 + 0.5 * Math.sin(p.ph * 2);
+          ctx.globalAlpha = p.a * tw;
+          ctx.fillStyle = "rgba(" + p.col + ",1)";
+          ctx.beginPath(); ctx.arc(Math.round(p.x), Math.round(p.y), p.r, 0, 6.2832); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      window.__draw = () => frame(0); // rAF-independent verification hook
+      frame(0);
+
+      let last = null, since = 0; const MIN = 1000 / 30;
+      function loop(now) {
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        since += dt; if (since < MIN) return;
+        frame(since); since = 0;
+      }
+      requestAnimationFrame(loop);
+    } else {
+      window.__draw = function () {};
+    }
+  })();
+  </script>
+</body>
+</html>

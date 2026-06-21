@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Velvet Lounge — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Velvet Lounge "Gilt
+    Room" art-deco luxury language:
+        - a brass-framed plum velvet card with stepped (ziggurat) corners
+        - a hairline brass double border + a small deco sunburst fan ornament
+        - a thin brass deco line icon (heart, calendar, list, ...)
+        - the label in a refined deco serif, brass, with a soft gold glow
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Velvet Lounge "Gilt Room" palette ---- */
+    :root {
+      --plum-black:  #140A14;
+      --plum-black2: #0C060C;
+      --velvet:      #3A1B33;
+      --velvet2:     #21102017;
+      --brass:       #B5894E;
+      --brass-lt:    #E6C98C;
+      --cream:       #F2E9DC;
+      --dim:         #A98E78;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Optima", "Gill Sans", "Futura", system-ui, "Segoe UI", sans-serif;
+      color: var(--cream);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 500px at 18% -10%, rgba(181,137,78,0.14), transparent 60%),
+        radial-gradient(700px 480px at 100% 110%, rgba(58,27,51,0.55), transparent 60%),
+        linear-gradient(160deg, #1d0f1c, var(--plum-black2));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Optima", "Gill Sans", "Futura", system-ui, sans-serif;
+      letter-spacing: 6px; font-size: 12px;
+      color: var(--brass-lt); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 6px;
+    }
+    .dia { width: 9px; height: 9px; background: var(--brass-lt); transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(230,201,140,0.6); }
+    h1 { font-family: "Didot", "Bodoni MT", "Playfair Display", Georgia, serif;
+      font-weight: 600; font-size: 32px; letter-spacing: .5px; margin: 0 0 6px;
+      color: var(--cream); text-shadow: 0 0 28px rgba(230,201,140,0.30); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 720px; line-height: 1.6;
+      font-family: "Didot", "Bodoni MT", Georgia, serif; font-style: italic; font-size: 17px; }
+    code { font-family: "Courier New", monospace; color: var(--brass-lt);
+      background: rgba(230,201,140,0.08); padding: 2px 7px; border-radius: 3px; font-style: normal; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Optima", "Gill Sans", "Futura", system-ui, sans-serif; font-weight: 600;
+      font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+      padding: 12px 24px; cursor: pointer; color: var(--plum-black);
+      background: linear-gradient(180deg, var(--brass-lt), var(--brass));
+      border: 1px solid rgba(230,201,140,0.6); border-radius: 2px;
+      box-shadow: 0 6px 24px rgba(181,137,78,0.30);
+    }
+    button:hover { filter: brightness(1.08); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(20,10,20,0.55); padding: 16px; border-radius: 4px;
+      border: 1px solid rgba(181,137,78,0.28);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 3px; overflow: hidden; display: block;
+      background-color: #170d16;
+      background-image:
+        linear-gradient(45deg, #21142020 25%, transparent 25%),
+        linear-gradient(-45deg, #21142020 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #21142020 75%),
+        linear-gradient(-45deg, transparent 75%, #21142020 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: "Optima", "Gill Sans", system-ui, sans-serif; letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: "Optima", "Gill Sans", system-ui, sans-serif; letter-spacing: 1px;
+      color: var(--brass-lt); text-decoration: none;
+      border: 1px solid rgba(181,137,78,0.34); border-radius: 2px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(181,137,78,0.18); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>THE VELVET LOUNGE · PANELS</p>
+  <h1>Velvet Lounge — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the gilt-room art-deco style:
+    a brass-framed plum velvet card, stepped corners, a sunburst fan, and a thin deco line icon.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var PLUM_BLACK = '#140A14', VELVET = '#3A1B33';
+    var BRASS = '#B5894E', BRASS_LT = '#E6C98C';
+    var CREAM = '#F2E9DC', DIM = '#A98E78';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT ME',  icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'specs',     title: 'PC SPECS',  icon: 'monitor' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // stepped (ziggurat) deco corner path — the signature frame silhouette
+    function steppedPath(ctx, x, y, w, h, s, t) {
+      // s = outer step inset, t = step thickness
+      ctx.beginPath();
+      ctx.moveTo(x, y + s);
+      ctx.lineTo(x + t, y + s); ctx.lineTo(x + t, y + t); ctx.lineTo(x + s, y + t); ctx.lineTo(x + s, y);
+      ctx.lineTo(x + w - s, y); ctx.lineTo(x + w - s, y + t); ctx.lineTo(x + w - t, y + t); ctx.lineTo(x + w - t, y + s); ctx.lineTo(x + w, y + s);
+      ctx.lineTo(x + w, y + h - s); ctx.lineTo(x + w - t, y + h - s); ctx.lineTo(x + w - t, y + h - t); ctx.lineTo(x + w - s, y + h - t); ctx.lineTo(x + w - s, y + h);
+      ctx.lineTo(x + s, y + h); ctx.lineTo(x + s, y + h - t); ctx.lineTo(x + t, y + h - t); ctx.lineTo(x + t, y + h - s); ctx.lineTo(x, y + h - s);
+      ctx.closePath();
+    }
+
+    // soft brass bokeh bloom (blurred radial gradient)
+    function bloom(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(181,137,78,' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(181,137,78,' + (alpha * 0.35).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(181,137,78,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // a small deco sunburst fan (quarter-circle of rays), drawn from corner origin
+    function fan(ctx, ox, oy, R, flipX, flipY) {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.strokeStyle = 'rgba(181,137,78,0.55)';
+      ctx.lineWidth = 0.8;
+      ctx.lineCap = 'round';
+      for (var i = 0; i <= 6; i++) {
+        var a = (Math.PI / 2) * (i / 6);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+        ctx.stroke();
+      }
+      // tiny brass node at origin
+      ctx.fillStyle = BRASS_LT;
+      ctx.beginPath(); ctx.arc(0, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;                 // keep the card off the very edge
+      var sx = 4;                  // inner stage inset
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // frosted plum velvet card body, clipped to the stepped deco silhouette
+      ctx.save();
+      steppedPath(ctx, x, y, w, h, 12, 6);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(58,27,51,0.78)');
+      bg.addColorStop(1, 'rgba(20,10,20,0.90)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // warm brass blooms inside the card
+      bloom(ctx, 250, 12, 150, 0.20);
+      bloom(ctx, 56, 96, 120, 0.14);
+
+      // faint velvet sheen striping (soft diagonal)
+      ctx.fillStyle = 'rgba(242,233,220,0.03)';
+      for (var sy = y; sy < y + h; sy += 9) ctx.fillRect(0, sy, W, 2);
+
+      // faint deco ray glaze from top center
+      ctx.save();
+      ctx.translate(W / 2, -30);
+      ctx.fillStyle = 'rgba(230,201,140,0.04)';
+      for (var rr = -8; rr <= 8; rr++) {
+        ctx.save();
+        ctx.rotate(rr * 0.10);
+        ctx.fillRect(-1.2, 0, 2.4, H + 60);
+        ctx.restore();
+      }
+      ctx.restore();
+
+      // subtle vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(10,4,10,0.50)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // deco sunburst fans in the two left corners of the card
+      fan(ctx, x + 10, y + 10, 26, false, false);
+      fan(ctx, x + 10, y + h - 10, 26, false, true);
+
+      // brass accent rule down the left (a thin double hairline)
+      ctx.save();
+      var ruleX = x + 46;
+      ctx.strokeStyle = 'rgba(181,137,78,0.7)';
+      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(230,201,140,0.55)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(ruleX, y + 18); ctx.lineTo(ruleX, y + h - 18); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(181,137,78,0.30)';
+      ctx.beginPath(); ctx.moveTo(ruleX + 3, y + 24); ctx.lineTo(ruleX + 3, y + h - 24); ctx.stroke();
+      // tiny diamonds capping the rule
+      ctx.fillStyle = BRASS_LT;
+      [y + 18, y + h - 18].forEach(function (cy) {
+        ctx.save(); ctx.translate(ruleX, cy); ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-2, -2, 4, 4); ctx.restore();
+      });
+      ctx.restore();
+
+      // thin brass deco line icon
+      drawIcon(ctx, p.icon, 26, H / 2, 30);
+
+      // kicker above the title — spaced deco caps
+      ctx.save();
+      ctx.font = '600 9px "Optima","Gill Sans",system-ui,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = DIM;
+      // letter-spacing via manual draw
+      drawSpaced(ctx, 'THE VELVET LOUNGE', 60, 30, 2.2);
+      ctx.restore();
+
+      // label in refined deco serif (cream) with a soft gold glow
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      // shrink-to-fit so long labels (INSTAGRAM, SUBSCRIBE) stay inside
+      var size = 27;
+      var maxW = W - 60 - 24;
+      ctx.font = '600 ' + size + 'px "Didot","Bodoni MT","Playfair Display",Georgia,serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '600 ' + size + 'px "Didot","Bodoni MT","Playfair Display",Georgia,serif';
+      }
+      var ty = 68;
+      ctx.shadowColor = 'rgba(230,201,140,0.45)';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = CREAM;
+      ctx.fillText(label, 60, ty);
+      ctx.restore();
+
+      // delicate brass underline rule under the label (with end diamonds)
+      ctx.save();
+      var barX = 60, barY = 79, barW = W - 60 - 24;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(181,137,78,0)');
+      grad.addColorStop(0.18, BRASS);
+      grad.addColorStop(0.5, BRASS_LT);
+      grad.addColorStop(0.82, BRASS);
+      grad.addColorStop(1, 'rgba(181,137,78,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.fillStyle = BRASS_LT;
+      ctx.shadowColor = 'rgba(230,201,140,0.7)'; ctx.shadowBlur = 6;
+      [barX + barW * 0.5].forEach(function (cx) {
+        ctx.save(); ctx.translate(cx, barY); ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-2.2, -2.2, 4.4, 4.4); ctx.restore();
+      });
+      ctx.restore();
+
+      // the brass frame: stepped double border drawn ON TOP (not clipped)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(181,137,78,0.6)';
+      ctx.lineWidth = 1;
+      steppedPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 12, 6);
+      ctx.stroke();
+      // inner hairline
+      ctx.strokeStyle = 'rgba(181,137,78,0.28)';
+      steppedPath(ctx, x + 5.5, y + 5.5, w - 11, h - 11, 9, 5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent thin brass stroke, centred on (cx, cy),
+    // sized to roughly `s` px box. Stroke style is set up once here.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;                               // half box
+      ctx.strokeStyle = BRASS_LT;
+      ctx.fillStyle = BRASS_LT;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(230,201,140,0.5)';
+      ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);   // header rule
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5); // hangers
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          // day dots
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.save(); ctx.translate(-h * 0.78, ly); ctx.rotate(Math.PI / 4);
+            ctx.fillRect(-1.6, -1.6, 3.2, 3.2); ctx.restore();   // deco diamond bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '600 ' + Math.round(s * 0.56) + 'px "Didot",Georgia,serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          // rounded controller-ish blob with two eyes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // simple bird silhouette via strokes
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();   // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();  // lens
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();   // hole
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 5); ctx.stroke();    // screen
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);  // stand
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);  // foot
+          ctx.stroke();
+          // signal bars inside
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke(); // medal
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);                                    // ribbon tail L
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);                                     // ribbon tail R
+          ctx.stroke();
+          ctx.save(); ctx.translate(0, -h * 0.25); ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-2, -2, 4, 4); ctx.restore();                         // deco diamond center
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // local rounded-rect path helper for icons (separate so it doesn't
+    // disturb the panel-level path state)
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);   // sequential so the browser allows multi-download
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    // Fonts here are system serifs (no @font-face / CDN), so they are ready
+    // immediately. document.fonts.ready still guards any late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

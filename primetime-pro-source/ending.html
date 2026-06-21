@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Primetime Pro — Thanks For Watching</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you   (no timer / progress bar on this scene) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* ending: no bar timer — make the @handle the prominent call-to-action */
+    #stage .handle.handle--big{
+      right:62px;bottom:182px;font-size:64px;letter-spacing:4px;color:var(--white);
+      text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 36px rgba(22,184,255,.45);
+    }
+    #stage .handle.handle--big::before{
+      content:"FOLLOW";display:block;font-size:22px;letter-spacing:8px;color:var(--blue);
+      margin-bottom:6px;text-shadow:0 0 12px rgba(22,184,255,.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="field" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- SCORE-BUG chip, top-left -->
+    <div class="bug" aria-hidden="true">
+      <div class="bug__live"><span class="bug__dot"></span>FINAL</div>
+      <div class="bug__body">
+        <div class="bug__team"><span class="nm">HOME</span><span class="tag">STREAM</span></div>
+        <div class="bug__score">01</div>
+        <div class="bug__sep"></div>
+        <div class="bug__score">01</div>
+        <div class="bug__team"><span class="nm">CHAT</span><span class="tag">CREW</span></div>
+      </div>
+    </div>
+
+    <!-- top-right status plate -->
+    <div class="status" aria-hidden="true"><span class="net">PTP</span> · FINAL</div>
+
+    <!-- LOWER-THIRD bar stack -->
+    <div class="lower">
+      <div class="lower__rail" aria-hidden="true"></div>
+      <div class="bar">
+        <div class="bar__flag">
+          <div class="bar__kick">
+            <span class="lab" id="kicker" data-done="GG">FINAL</span>
+            <span class="liverow"><span class="dot"></span><span class="sub2">THAT'S A WRAP</span></span>
+          </div>
+        </div>
+        <div class="bar__plate">
+          <div class="bar__sup"><span class="chip">CH 01</span> POST-GAME WRAP</div>
+          <h1 class="title">THANKS FOR <b>WATCHING</b></h1>
+          <p class="bar__sub">that's the final whistle — catch the next broadcast soon</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- prominent follow CTA in place of the timer bar -->
+    <div class="handle handle--big" id="handle">@yourhandle</div>
+
+    <!-- TICKER strip along the very bottom (duplicated content for seamless loop) -->
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker__tag">FINAL</div>
+      <div class="ticker__win">
+        <div class="ticker__track">
+          <span><i></i>THANKS FOR RIDING WITH THE <b>PRIMETIME</b> CREW</span>
+          <span><i></i>HIT FOLLOW SO YOU NEVER MISS A KICKOFF</span>
+          <span><i></i>SAME TIME, SAME CHANNEL — NEXT BROADCAST SOON</span>
+          <span><i></i>SUBSCRIBE FOR <b>FRONT-ROW</b> SEATS ALL SEASON</span>
+          <span><i></i>THANKS FOR RIDING WITH THE <b>PRIMETIME</b> CREW</span>
+          <span><i></i>HIT FOLLOW SO YOU NEVER MISS A KICKOFF</span>
+          <span><i></i>SAME TIME, SAME CHANNEL — NEXT BROADCAST SOON</span>
+          <span><i></i>SUBSCRIBE FOR <b>FRONT-ROW</b> SEATS ALL SEASON</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

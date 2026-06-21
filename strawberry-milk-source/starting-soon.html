@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Strawberry Milk — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 (headless) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="gloss" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- hand-drawn corner doodle squiggles -->
+    <div class="doodle doodle--tl" aria-hidden="true">
+      <svg width="150" height="90" viewBox="0 0 150 90" fill="none" stroke-width="6" stroke-linecap="round">
+        <path d="M10 60 q20 -42 40 0 t40 0 t40 0" />
+        <circle cx="128" cy="20" r="6" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <div class="doodle doodle--tr" aria-hidden="true">
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none" stroke-width="6" stroke-linecap="round">
+        <path d="M60 14 l9 24 25 2 -19 17 6 25 -21 -14 -21 14 6 -25 -19 -17 25 -2 z"/>
+      </svg>
+    </div>
+    <div class="doodle doodle--bl" aria-hidden="true">
+      <svg width="130" height="80" viewBox="0 0 130 80" fill="none" stroke-width="6" stroke-linecap="round">
+        <path d="M14 40 c14 -34 40 34 54 0 s40 -34 48 0"/>
+      </svg>
+    </div>
+    <div class="doodle doodle--br" aria-hidden="true">
+      <svg width="110" height="110" viewBox="0 0 110 110" fill="none" stroke-width="6" stroke-linecap="round">
+        <path d="M55 92 C18 64 14 36 33 26 c12 -7 22 4 22 16 0 -12 10 -23 22 -16 19 10 15 38 -22 66 z"/>
+      </svg>
+    </div>
+
+    <!-- now-brewing badge -->
+    <div class="brew" aria-hidden="true">
+      <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16 2 12 2 8.5 2 5.4 4.4 3 7.5 3 9.3 3 11 4 12 5.5 13 4 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5 22 12 19 16 12 21z"/></svg>
+      <span>NOW BREWING</span>
+    </div>
+
+    <!-- the signature scalloped cloud card -->
+    <main class="card">
+      <div class="cloud" aria-hidden="true"></div>
+      <div class="cloudv cloudv--l" aria-hidden="true"></div>
+      <div class="cloudv cloudv--r" aria-hidden="true"></div>
+      <div class="stitch" aria-hidden="true"></div>
+
+      <div class="inner">
+        <div class="tile" aria-hidden="true"><span class="glyph">🧋</span></div>
+
+        <p class="kick"><span class="dot"></span> <span id="kicker" data-done="LIVE NOW">STREAM IS</span></p>
+        <h1 class="title">STARTING<span class="l2"><b>SOON</b></span></h1>
+        <p class="sub">grab a sip — we begin in a moment ♡</p>
+
+        <div class="glass" aria-hidden="true">
+          <div class="fill" id="fill">
+            <div class="pearls"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="straw"></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

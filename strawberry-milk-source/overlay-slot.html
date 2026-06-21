@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Strawberry Milk — In-Game Overlay (cafe slot)</title>
+  <!--
+    TRANSPARENT in-game overlay (1920x1080) that composites OVER gameplay.
+    OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+
+    Most of the screen stays transparent for the game. It draws:
+      - a slim glossy "now brewing" mini-card (a small boba-cup tile, "@yourhandle",
+        a sub line, and a thin pink milk seek bar with a sliding shimmer);
+      - a tiny "NOW BREWING" cafe badge top-right (beating heart dot);
+      - a FEW very subtle drifting boba pearls + hearts (low alpha).
+
+    Optional URL params:
+      ?handle=@you      handle shown on the card (default @yourhandle)
+      ?drift=7          drifting sweet count (default 7, kept low so the game shows)
+      ?now=cozy%20vibes sub line under the handle (default "cozy vibes · live ♡")
+      ?corner=bl        card corner: bl | br | tl | tr (default bl)
+
+    Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage + fit()
+    + delta-clamped rAF. Exposes window.__draw() to render one canvas frame on demand.
+  -->
+  <style>
+    :root{
+      --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+      --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+      --ink:#7A4453; --ink-soft:#B07E8C; --bead:#C98AA0;
+      --card:rgba(255,255,255,0.78); --hair:rgba(255,143,171,0.45);
+      --ease:cubic-bezier(.34,1.56,.64,1);
+      --ease-soft:cubic-bezier(.22,1,.36,1);
+    }
+    *{box-sizing:border-box;}
+    /* TRANSPARENT everywhere so gameplay shows through */
+    html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+    /* fixed design stage, scaled to fit viewport == OBS. Transparent. */
+    #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+      transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+      overflow:hidden;background:transparent;color:var(--ink);
+      font-family:"Baloo 2","Quicksand","Varela Round","Trebuchet MS",system-ui,sans-serif;}
+
+    canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+    /* top-right "now brewing" cafe badge */
+    .brew{position:absolute;top:40px;right:52px;display:flex;align-items:center;gap:12px;
+      font-weight:800;letter-spacing:3px;font-size:20px;color:var(--rose);
+      background:var(--gloss);border-radius:30px;padding:10px 22px;
+      box-shadow:0 10px 24px rgba(164,93,110,.18), inset 0 0 0 3px var(--milk);
+      animation:fade .8s var(--ease-soft) both .15s;}
+    .brew .heart{width:18px;height:18px;color:var(--hot);
+      animation:beat 1.4s var(--ease-soft) infinite;}
+    @keyframes beat{0%,100%{transform:scale(1)}30%{transform:scale(1.28)}}
+
+    /* slim glossy now-brewing mini-card (anchored via corner modifier) */
+    .slot{position:absolute;display:flex;align-items:center;gap:18px;
+      padding:16px 30px 16px 16px;min-width:400px;max-width:580px;
+      background:var(--card);border-radius:30px;
+      box-shadow:0 22px 50px rgba(164,93,110,.28),
+        inset 0 0 0 4px var(--gloss), inset 0 0 0 8px rgba(255,179,198,.40),
+        0 0 0 0 rgba(0,0,0,0);
+      backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+      animation:rise .85s var(--ease) both .2s;}
+    .slot.bl{left:64px;bottom:64px;}
+    .slot.br{right:64px;bottom:64px;}
+    .slot.tl{left:64px;top:64px;}
+    .slot.tr{right:64px;top:64px;}
+
+    /* small glossy boba-cup tile (the mascot, shrunk) */
+    .tile{flex:none;width:72px;height:72px;border-radius:20px;position:relative;overflow:hidden;
+      background:linear-gradient(150deg, var(--gloss) 0%, var(--milk) 46%, var(--pink) 100%);
+      box-shadow:inset 0 0 0 4px var(--gloss), inset 0 -8px 16px rgba(255,143,171,.35),
+        0 8px 18px rgba(164,93,110,.25);
+      display:flex;align-items:center;justify-content:center;
+      animation:bobble 3.4s var(--ease-soft) infinite;}
+    .tile::after{content:"";position:absolute;top:8px;left:11px;width:30px;height:18px;border-radius:50%;
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,0));
+      transform:rotate(-22deg);pointer-events:none;}
+    .tile .glyph{font-size:40px;line-height:1;filter:drop-shadow(0 4px 6px rgba(164,93,110,.28));}
+    @keyframes bobble{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
+
+    .info{min-width:0;display:flex;flex-direction:column;gap:6px;}
+    .kick{font-weight:800;letter-spacing:3px;font-size:14px;color:var(--rose);
+      display:flex;align-items:center;gap:9px;text-transform:uppercase;}
+    .kick .dot{width:11px;height:11px;border-radius:50%;background:var(--hot);
+      box-shadow:0 0 0 4px rgba(255,143,171,.25);animation:beat 1.4s var(--ease-soft) infinite;}
+    .hdl{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1;color:var(--ink);
+      text-shadow:0 2px 0 var(--milk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .hdl b{color:var(--hot);}
+    .now{font-size:15px;font-weight:600;color:var(--ink-soft);letter-spacing:.6px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    /* thin pink-milk seek bar (animated shimmer sliding along it) */
+    .accent{position:relative;height:6px;border-radius:6px;margin-top:5px;
+      background:rgba(255,179,198,.40);box-shadow:inset 0 0 0 2px var(--gloss);overflow:hidden;}
+    .accent::before{content:"";position:absolute;top:0;left:0;height:100%;width:42%;border-radius:6px;
+      background:linear-gradient(90deg, transparent, var(--hot), var(--gloss), var(--hot), transparent);
+      animation:slide 3.6s linear infinite;}
+    @keyframes slide{from{transform:translateX(-110%)}to{transform:translateX(360%)}}
+
+    @keyframes rise{from{opacity:0;transform:translateY(20px) scale(.96)}
+      60%{opacity:1;transform:translateY(-3px) scale(1.02)}
+      100%{opacity:1;transform:none}}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="brew" aria-hidden="true">
+      <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16 2 12 2 8.5 2 5.4 4.4 3 7.5 3 9.3 3 11 4 12 5.5 13 4 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5 22 12 19 16 12 21z"/></svg>
+      <span>NOW BREWING</span>
+    </div>
+
+    <div class="slot bl" id="slot">
+      <div class="tile" aria-hidden="true"><span class="glyph">&#129483;</span></div>
+      <div class="info">
+        <p class="kick"><span class="dot"></span> NOW BREWING</p>
+        <p class="hdl" id="handle">@yourhandle</p>
+        <p class="now" id="now">cozy vibes &middot; live &hearts;</p>
+        <div class="accent" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const $ = (s) => document.querySelector(s);
+    const $id = (id) => document.getElementById(id);
+
+    /* ---- fit the 1920x1080 stage to the window (defensive) ---- */
+    function fit() {
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw / 1920, ih / 1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional text params ---- */
+    const handle = params.get("handle"), handleEl = $id("handle");
+    if (handle && handleEl) handleEl.textContent = handle;
+    const now = params.get("now"), nowEl = $id("now");
+    if (now && nowEl) nowEl.textContent = now;
+
+    /* ---- card corner ---- */
+    const corner = (params.get("corner") || "bl").toLowerCase();
+    const slot = $id("slot");
+    if (slot && ["bl", "br", "tl", "tr"].includes(corner)) {
+      slot.classList.remove("bl"); slot.classList.add(corner);
+    }
+
+    /* ---- canvas field: a FEW very subtle drifting boba pearls + hearts (low alpha) ---- */
+    const cv = $(".bg");
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      if (!ctx) { window.__draw = function () {}; return; }
+      const W = cv.width || 1920, H = cv.height || 1080;
+      const HEART = ["#FF8FAB", "#FFB3C6", "#FFFFFF"];
+      const BEAD = ["#C98AA0", "#A45D6E", "#FFB3C6"];
+      const R = (a, b) => a + Math.random() * (b - a);
+      const N = Math.max(0, num("drift", 7));
+
+      // kind: 0 = boba pearl, 1 = heart (drift gently UP, low alpha)
+      const mk = (initial) => {
+        const kind = Math.random() < 0.55 ? 0 : 1;
+        return {
+          kind,
+          x: R(0, W),
+          y: initial ? R(0, H) : H + R(20, 120),
+          s: kind === 1 ? R(14, 26) : R(7, 14),
+          vy: R(14, 30) / 60, sway: R(0.4, 1.1), ph: R(0, 6.28), drift: R(-0.2, 0.2),
+          rot: R(0, 6.28), vr: R(-0.4, 0.4) / 60, a: R(0.10, 0.24),
+          c: kind === 1 ? HEART[(Math.random() * HEART.length) | 0] : BEAD[(Math.random() * BEAD.length) | 0],
+        };
+      };
+      const items = Array.from({ length: N }, () => mk(true));
+
+      function heart(p, x, y) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); ctx.globalAlpha = p.a; ctx.fillStyle = p.c;
+        const s = p.s;
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.34);
+        ctx.bezierCurveTo(s * 0.9, -s * 0.55, s * 0.55, -s * 1.05, 0, -s * 0.5);
+        ctx.bezierCurveTo(-s * 0.55, -s * 1.05, -s * 0.9, -s * 0.55, 0, s * 0.34);
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      function pearl(p, x, y) {
+        ctx.save(); ctx.globalAlpha = p.a; ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(x, y, p.s, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = p.a * 0.5; ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(x - p.s * 0.3, y - p.s * 0.3, p.s * 0.32, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, W, H);
+        for (const p of items) {
+          p.y -= p.vy; p.ph += 0.02; p.rot += p.vr; p.x += Math.sin(p.ph) * p.sway + p.drift;
+          if (p.y < -60 || p.x < -60 || p.x > W + 60) Object.assign(p, mk(false));
+          const x = Math.round(p.x), y = Math.round(p.y);
+          if (p.kind === 1) heart(p, x, y); else pearl(p, x, y);
+        }
+        ctx.globalAlpha = 1;
+      }
+      window.__draw = frame; // rAF-independent verification hook (OBS pauses rAF when hidden)
+      frame();
+
+      let last = null, since = 0; const MIN = 1000 / 30;
+      function loop(now2) {
+        requestAnimationFrame(loop);
+        if (last == null) last = now2;
+        let dt = now2 - last; last = now2; if (dt > 100) dt = 100;
+        since += dt; if (since < MIN) return; since = 0; frame();
+      }
+      requestAnimationFrame(loop);
+    } else {
+      window.__draw = function () {};
+    }
+  })();
+  </script>
+</body>
+</html>

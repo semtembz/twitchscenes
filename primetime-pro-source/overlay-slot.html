@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Primetime Pro — In-Game Overlay (broadcast lower-strip)</title>
+  <!--
+    TRANSPARENT in-game overlay (1920x1080) that composites OVER gameplay.
+    OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+
+    Most of the screen stays transparent for the game. It draws an ESPN-style
+    broadcast lower-strip bottom-left: an orange "LIVE" flag with a blinking
+    bug dot, a chamfered brushed-steel + blue-glass plate holding "@yourhandle"
+    + a small tag line, a thin orange->blue accent rail, and a blue sheen sweep.
+    Plus a small chamfered "CH 01 · PTP" score-bug badge top-right.
+
+    Optional URL params:
+      ?handle=@you      handle shown on the strip (default @yourhandle)
+      ?tag=ON%20AIR     small tag line under the handle (default "LIVE ON AIR")
+      ?corner=bl        strip corner: bl | br | tl | tr (default bl)
+
+    Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage +
+    fit() + delta-clamped rAF. Exposes window.__draw() to render one canvas
+    frame on demand (OBS pauses rAF when a source's scene is hidden).
+  -->
+  <style>
+    :root{
+      --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+      --orange:#FF5A1F;
+      --steel-1:#3A4754; --steel-2:#5A6B79; --steel-3:#8595A3; --steel-hi:#C3CED8;
+      --ink:#F5F7FA; --dim:#8FA6BC;
+      --hair:rgba(22,184,255,0.30);
+      --ease:cubic-bezier(.18,.9,.16,1);
+    }
+    *{box-sizing:border-box;}
+    /* TRANSPARENT everywhere so gameplay shows through */
+    html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+    /* fixed design stage, scaled to fit viewport == OBS. Transparent. */
+    #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+      transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+      overflow:hidden;background:transparent;color:var(--ink);
+      font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;}
+
+    canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+    /* top-right SCORE-BUG style channel badge */
+    .chan{position:absolute;top:44px;right:60px;display:flex;align-items:stretch;height:56px;
+      filter:drop-shadow(0 8px 20px rgba(0,0,0,.5));
+      animation:fadein .7s var(--ease) both .15s;}
+    .chan__live{display:flex;align-items:center;gap:10px;padding:0 18px;
+      background:linear-gradient(180deg,#ff7a45,var(--orange) 60%,#d8430f);
+      clip-path:polygon(0 0,100% 0,100% 100%,16px 100%,0 calc(100% - 16px));
+      font-weight:800;letter-spacing:4px;font-size:22px;color:#1a0a02;
+      text-shadow:0 1px 0 rgba(255,255,255,.25);}
+    .chan__dot{width:13px;height:13px;border-radius:50%;background:#fff;
+      box-shadow:0 0 12px #fff,0 0 4px #fff;animation:blink 1.3s steps(1,end) infinite;}
+    .chan__body{display:flex;align-items:center;gap:12px;padding:0 20px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.10), transparent 18%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, rgba(0,0,0,.05) 2px 4px),
+        linear-gradient(180deg, var(--steel-2), var(--steel-1) 55%, #2c3742);
+      border-top:2px solid rgba(22,184,255,.55);border-bottom:2px solid rgba(0,0,0,.5);
+      clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%);
+      font-weight:700;letter-spacing:4px;font-size:19px;color:var(--white);}
+    .chan__body .net{color:var(--blue);font-weight:800;text-shadow:0 0 10px rgba(22,184,255,.5);}
+    .chan__body .sep{opacity:.45;}
+
+    /* the broadcast lower-strip (anchored via corner modifier) */
+    .slot{position:absolute;display:flex;align-items:stretch;height:78px;max-width:680px;
+      filter:drop-shadow(0 16px 40px rgba(0,0,0,.55));
+      animation:slotin .7s var(--ease) both .2s;}
+    .slot.bl{left:60px;bottom:60px;}
+    .slot.br{right:60px;bottom:60px;}
+    .slot.tl{left:60px;top:60px;}
+    .slot.tr{right:60px;top:60px;}
+
+    /* left orange flag with the blinking LIVE bug */
+    .slot__flag{display:flex;align-items:center;gap:11px;padding:0 22px 0 20px;
+      background:linear-gradient(160deg,#ff7a45,var(--orange) 55%,#d8430f);
+      clip-path:polygon(0 0,100% 0,calc(100% - 22px) 100%,0 100%);}
+    .slot__flag .dot{width:13px;height:13px;border-radius:50%;background:#1a0a02;
+      animation:blink 1.3s steps(1,end) infinite;}
+    .slot__flag .lab{font-weight:800;letter-spacing:5px;font-size:24px;color:#1a0a02;
+      text-shadow:0 1px 0 rgba(255,255,255,.25);}
+
+    /* main glass + steel plate with the handle + tag */
+    .slot__plate{position:relative;display:flex;flex-direction:column;justify-content:center;
+      padding:10px 34px 10px 36px;margin-left:-18px;min-width:0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), transparent 16%),
+        linear-gradient(160deg, rgba(22,184,255,.10), transparent 40%),
+        linear-gradient(180deg, var(--blue-deep) 0%, #0a2238 60%, var(--navy) 100%);
+      border-top:3px solid rgba(22,184,255,.6);
+      border-bottom:3px solid rgba(0,0,0,.6);
+      clip-path:polygon(24px 0,100% 0,100% 100%,0 100%,0 24px);
+      overflow:hidden;}
+    /* thin accent bead on the leading edge */
+    .slot__plate::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+      background:linear-gradient(180deg,var(--blue),var(--orange));
+      box-shadow:0 0 14px rgba(22,184,255,.6);}
+    /* blue sheen sweeping the plate */
+    .slot__plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(115deg,transparent 30%,rgba(22,184,255,.16) 48%,transparent 62%);
+      background-size:280% 100%;animation:sheen 4.6s linear infinite;}
+
+    .slot__kick{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:4px;
+      font-size:13px;color:var(--blue);text-shadow:0 0 10px rgba(22,184,255,.5);margin-bottom:3px;
+      text-transform:uppercase;white-space:nowrap;}
+    .slot__kick .pip{width:8px;height:8px;background:var(--blue);transform:rotate(45deg);
+      box-shadow:0 0 9px rgba(22,184,255,.7);}
+    .slot__hdl{font-weight:800;font-style:italic;font-size:34px;line-height:.95;letter-spacing:-.5px;
+      color:var(--white);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 22px rgba(22,184,255,.3);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .slot__hdl b{color:var(--orange);font-style:italic;
+      text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 22px rgba(255,90,31,.4);}
+    .slot__tag{margin-top:2px;font-weight:600;letter-spacing:3px;font-size:14px;color:var(--dim);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
+    @keyframes slotin{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+    @keyframes fadein{from{opacity:0}to{opacity:1}}
+    @keyframes sheen{0%{background-position:140% 0}100%{background-position:-140% 0}}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="chan" aria-hidden="true">
+      <div class="chan__live"><span class="chan__dot"></span>LIVE</div>
+      <div class="chan__body"><span class="net">PTP</span><span class="sep">&middot;</span>CH&nbsp;01</div>
+    </div>
+
+    <div class="slot bl" id="slot">
+      <div class="slot__flag" aria-hidden="true">
+        <span class="dot"></span><span class="lab">LIVE</span>
+      </div>
+      <div class="slot__plate">
+        <p class="slot__kick"><span class="pip"></span> ON THE STREAM</p>
+        <p class="slot__hdl" id="handle">@yourhandle</p>
+        <p class="slot__tag" id="tag">LIVE ON AIR</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const $ = (s) => document.querySelector(s);
+    const $id = (id) => document.getElementById(id);
+
+    /* ---- fit the 1920x1080 stage to the window (defensive) ---- */
+    function fit() {
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw / 1920, ih / 1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional text params ---- */
+    const handle = params.get("handle"), handleEl = $id("handle");
+    if (handle && handleEl) handleEl.textContent = handle;
+    const tag = params.get("tag"), tagEl = $id("tag");
+    if (tag && tagEl) tagEl.textContent = tag;
+
+    /* ---- strip corner ---- */
+    const corner = (params.get("corner") || "bl").toLowerCase();
+    const slot = $id("slot");
+    if (slot && ["bl", "br", "tl", "tr"].includes(corner)) {
+      slot.classList.remove("bl"); slot.classList.add(corner);
+    }
+
+    /* ---- canvas field: a FEW very subtle rising sparks / dust motes (low alpha) ---- */
+    const cv = $(".bg");
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      if (!ctx) { window.__draw = function () {}; return; }
+      const W = cv.width || 1920, H = cv.height || 1080;
+      const R = (a, b) => a + Math.random() * (b - a);
+      const SPARKS = Math.max(0, num("sparks", 22));
+
+      const mk = (initial) => ({
+        x: R(0, W), y: initial ? R(0, H) : H + R(4, 20), r: R(1, 2.6),
+        vy: R(-22, -8) / 60, vx: R(-5, 5) / 60, ph: R(0, 6.28), ps: R(0.6, 1.4),
+        a: R(0.10, 0.30), col: Math.random() < 0.74 ? "245,247,250" : "22,184,255",
+      });
+      const sparks = Array.from({ length: SPARKS }, () => mk(true));
+
+      function frame() {
+        ctx.clearRect(0, 0, W, H);
+        for (const p of sparks) {
+          p.y += p.vy; p.x += p.vx + Math.sin(p.ph) * 0.4; p.ph += 0.04;
+          if (p.y < -10 || p.x < -10 || p.x > W + 10) Object.assign(p, mk(false));
+          const tw = 0.5 + 0.5 * Math.sin(p.ph * 2);
+          ctx.globalAlpha = p.a * tw;
+          ctx.fillStyle = "rgba(" + p.col + ",1)";
+          ctx.beginPath(); ctx.arc(Math.round(p.x), Math.round(p.y), p.r, 0, 6.2832); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      window.__draw = frame; // rAF-independent verification hook (OBS pauses rAF when hidden)
+      frame();
+
+      let last = null, since = 0; const MIN = 1000 / 30;
+      function loop(now) {
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        since += dt; if (since < MIN) return; since = 0; frame();
+      }
+      requestAnimationFrame(loop);
+    } else {
+      window.__draw = function () {};
+    }
+  })();
+  </script>
+</body>
+</html>

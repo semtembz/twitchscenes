@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Velvet Lounge — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="sweep" aria-hidden="true"></div>
+    <div class="sheen" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <div class="mono mono--tl" aria-hidden="true">EST. MMXXVI</div>
+    <div class="mono mono--tr" aria-hidden="true">THE VELVET LOUNGE</div>
+
+    <main class="frame">
+      <!-- deco sunburst / fan ornaments in every corner -->
+      <span class="fan fan--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#B5894E" stroke-width="1.4">
+            <path d="M2 2 L2 86 A84 84 0 0 1 86 2 Z" fill="rgba(181,137,78,0.06)" stroke="#E6C98C"/>
+            <line x1="2" y1="2" x2="2" y2="86"/>
+            <line x1="2" y1="2" x2="20" y2="84"/>
+            <line x1="2" y1="2" x2="40" y2="78"/>
+            <line x1="2" y1="2" x2="58" y2="66"/>
+            <line x1="2" y1="2" x2="72" y2="50"/>
+            <line x1="2" y1="2" x2="82" y2="32"/>
+            <line x1="2" y1="2" x2="86" y2="2"/>
+          </g>
+          <circle cx="2" cy="2" r="4" fill="#E6C98C"/>
+        </svg>
+      </span>
+      <span class="fan fan--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#B5894E" stroke-width="1.4">
+            <path d="M2 2 L2 86 A84 84 0 0 1 86 2 Z" fill="rgba(181,137,78,0.06)" stroke="#E6C98C"/>
+            <line x1="2" y1="2" x2="2" y2="86"/><line x1="2" y1="2" x2="20" y2="84"/>
+            <line x1="2" y1="2" x2="40" y2="78"/><line x1="2" y1="2" x2="58" y2="66"/>
+            <line x1="2" y1="2" x2="72" y2="50"/><line x1="2" y1="2" x2="82" y2="32"/>
+            <line x1="2" y1="2" x2="86" y2="2"/>
+          </g>
+          <circle cx="2" cy="2" r="4" fill="#E6C98C"/>
+        </svg>
+      </span>
+      <span class="fan fan--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#B5894E" stroke-width="1.4">
+            <path d="M2 2 L2 86 A84 84 0 0 1 86 2 Z" fill="rgba(181,137,78,0.06)" stroke="#E6C98C"/>
+            <line x1="2" y1="2" x2="2" y2="86"/><line x1="2" y1="2" x2="20" y2="84"/>
+            <line x1="2" y1="2" x2="40" y2="78"/><line x1="2" y1="2" x2="58" y2="66"/>
+            <line x1="2" y1="2" x2="72" y2="50"/><line x1="2" y1="2" x2="82" y2="32"/>
+            <line x1="2" y1="2" x2="86" y2="2"/>
+          </g>
+          <circle cx="2" cy="2" r="4" fill="#E6C98C"/>
+        </svg>
+      </span>
+      <span class="fan fan--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#B5894E" stroke-width="1.4">
+            <path d="M2 2 L2 86 A84 84 0 0 1 86 2 Z" fill="rgba(181,137,78,0.06)" stroke="#E6C98C"/>
+            <line x1="2" y1="2" x2="2" y2="86"/><line x1="2" y1="2" x2="20" y2="84"/>
+            <line x1="2" y1="2" x2="40" y2="78"/><line x1="2" y1="2" x2="58" y2="66"/>
+            <line x1="2" y1="2" x2="72" y2="50"/><line x1="2" y1="2" x2="82" y2="32"/>
+            <line x1="2" y1="2" x2="86" y2="2"/>
+          </g>
+          <circle cx="2" cy="2" r="4" fill="#E6C98C"/>
+        </svg>
+      </span>
+
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span><span class="dia"></span><span class="r r--r"></span>
+      </div>
+      <p class="kicker" id="kicker" data-done="BACK NOW">Away</p>
+      <h1 class="title">BE RIGHT<span class="accent">BACK</span></h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub">step into the lounge — the show resumes in a moment</p>
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

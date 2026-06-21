@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Velvet Lounge (PNG generator)</title>
+  <!--
+    VELVET LOUNGE · "Gilt Room" art-deco PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = a deco tagline. The centre is decorative only — a faint brass deco arch +
+    bokeh — so the player can sit over it without hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the bokeh / dust scatter is
+    identical on every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --plum-black:#140A14; --plum-black2:#0C060C; --velvet:#3A1B33;
+      --brass:#B5894E; --brass-lt:#E6C98C; --cream:#F2E9DC; --dim:#A98E78;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+      background:var(--plum-black2);color:var(--cream);padding:32px;}
+    h1{font-family:"Didot","Bodoni MT","Playfair Display",Georgia,serif;font-weight:600;
+      font-size:28px;color:var(--cream);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(230,201,140,.30);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:"Didot","Bodoni MT",Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;letter-spacing:6px;
+      font-size:13px;color:var(--brass-lt);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;font-weight:600;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--plum-black);
+      background:linear-gradient(180deg,var(--brass-lt),var(--brass));border:1px solid rgba(230,201,140,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(181,137,78,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#160c15;padding:14px;border:1px solid #3a2433;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits so you
+       can confirm the L/R blocks stay clear. It is NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(230,201,140,0.45);
+      background:rgba(20,12,20,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(242,233,220,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Optima","Gill Sans",system-ui,sans-serif;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--brass-lt);background:#1a0f19;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">THE VELVET LOUNGE · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the gilt-room art-deco style — seeded so the
+    bokeh and gold dust are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const PLUM_BLACK = '#140A14', PLUM_BLACK2 = '#0C060C', VELVET = '#3A1B33';
+    const BRASS = '#B5894E', BRASS_LT = '#E6C98C', CREAM = '#F2E9DC', DIM = '#A98E78';
+    const HAZE = [VELVET, BRASS, '#5A2C4C', BRASS_LT];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- faint brass deco ARCH (centre, behind the player) ----
+    function drawArch(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = 'rgba(181,137,78,0.6)'; ctx.lineWidth = 3;
+      ctx.shadowColor = BRASS; ctx.shadowBlur = 22;
+      // a deco semi-arch with stepped shoulders + two pilasters
+      ctx.beginPath();
+      ctx.moveTo(-92, 80);
+      ctx.lineTo(-92, -34);
+      ctx.lineTo(-64, -34);
+      ctx.lineTo(-64, -62);
+      ctx.arc(0, -62, 64, Math.PI, 0, false);
+      ctx.lineTo(64, -34);
+      ctx.lineTo(92, -34);
+      ctx.lineTo(92, 80);
+      ctx.stroke();
+      // inner hairline arch
+      ctx.strokeStyle = 'rgba(230,201,140,0.45)'; ctx.lineWidth = 1.4; ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(-74, 80);
+      ctx.lineTo(-74, -42);
+      ctx.arc(0, -42, 46, Math.PI, 0, false);
+      ctx.lineTo(74, 80);
+      ctx.stroke();
+      // keystone diamond at the apex
+      ctx.shadowBlur = 12; ctx.fillStyle = BRASS_LT;
+      ctx.save(); ctx.translate(0, -106); ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-9, -9, 18, 18); ctx.restore();
+      // sunburst rays rising inside the arch
+      ctx.strokeStyle = 'rgba(230,201,140,0.18)'; ctx.lineWidth = 1; ctx.shadowBlur = 0;
+      for (let i = -4; i <= 4; i++) {
+        ctx.beginPath(); ctx.moveTo(0, -52);
+        ctx.lineTo(i * 14, 70); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred branding block: dot + deco kicker, big serif title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with a flanking diamond, spaced caps
+      ctx.font = '500 22px "Optima","Gill Sans","Futura",system-ui,sans-serif';
+      ctx.fillStyle = BRASS_LT;
+      ctx.shadowColor = 'rgba(230,201,140,0.35)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 132, 9);
+      // flanking deco diamonds
+      const kw = spacedWidth(kickerLabel, 9);
+      ctx.shadowColor = 'rgba(230,201,140,0.6)'; ctx.shadowBlur = 10; ctx.fillStyle = BRASS_LT;
+      [cx - kw / 2 - 20, cx + kw / 2 + 20].forEach(dx => {
+        ctx.save(); ctx.translate(dx, 132); ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+
+      // title — deco serif, brass-gradient fill, soft gold glow
+      ctx.font = '600 ' + titleSize + 'px "Didot","Bodoni MT","Playfair Display",Georgia,serif';
+      const tg = ctx.createLinearGradient(0, 200 - titleSize / 2, 0, 200 + titleSize / 2);
+      tg.addColorStop(0, BRASS_LT); tg.addColorStop(0.58, BRASS); tg.addColorStop(1, '#8a6536');
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(230,201,140,0.45)'; ctx.shadowBlur = 34;
+      ctx.fillText(titleText, cx, 232);
+      ctx.shadowBlur = 0;
+
+      // thin brass rule + diamonds under the title
+      const ruW = Math.min(360, titleSize * 4);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(181,137,78,0)'); ug.addColorStop(0.22, BRASS);
+      ug.addColorStop(0.5, BRASS_LT); ug.addColorStop(0.78, BRASS); ug.addColorStop(1, 'rgba(181,137,78,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 296); ctx.lineTo(cx + ruW / 2, 296); ctx.stroke();
+
+      // subtitle — refined italic serif
+      ctx.font = 'italic 400 22px "Didot","Bodoni MT",Georgia,serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 338);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x5A2C4C); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: plum velvet gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#1d0f1c'); grad.addColorStop(0.6, PLUM_BLACK); grad.addColorStop(1, PLUM_BLACK2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // warm velvet glow behind the centre + brass glows flanking
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(58,27,51,0.55)', 1);
+      bloom(W / 2, H / 2, 520, 'rgba(181,137,78,0.18)', 1);
+      bloom(W * 0.16, H * 0.30, 360, 'rgba(58,27,51,0.55)', 1);
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(58,27,51,0.55)', 1);
+
+      // ---- SEEDED BOKEH HAZE ----
+      for (let i = 0; i < 12; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), r = R(rnd, 80, 220);
+        const c = HAZE[(rnd() * HAZE.length) | 0], a = R(rnd, 0.05, 0.13);
+        bloom(x, y, r, c, a);
+      }
+
+      // ---- faint deco arch centre ----
+      drawArch(W / 2, H / 2 + 30, 1.15);
+
+      // ---- SEEDED GOLD DUST scattered into the LEFT and RIGHT thirds ----
+      ctx.save();
+      ctx.fillStyle = BRASS_LT; ctx.shadowColor = BRASS_LT;
+      for (let i = 0; i < 56; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 620) : R(rnd, W - 620, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.5, 1.6), a = R(rnd, 0.3, 0.85);
+        ctx.globalAlpha = a; ctx.shadowBlur = 6 * z;
+        const sp = Math.max(1, Math.round(z * 1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- velvet sheen striping ----
+      ctx.save();
+      ctx.globalAlpha = 0.4; ctx.fillStyle = 'rgba(242,233,220,0.03)';
+      for (let y = 0; y < H; y += 9) ctx.fillRect(0, y, W, 2);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(10,4,10,0.66)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 76, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, 'THE VELVET LOUNGE', 'JAZZ & PLAY', 76, 'after-hours, every night');
+
+      // accent dash rails flanking the centre clear-zone (deco ticks)
+      ctx.fillStyle = 'rgba(181,137,78,0.45)';
+      for (let yy = 96; yy < H - 70; yy += 16) { ctx.fillRect(672, yy, 3, 7); ctx.fillRect(1245, yy, 3, 7); }
+      // a small deco diamond capping each rail
+      ctx.fillStyle = BRASS_LT; ctx.shadowColor = 'rgba(230,201,140,0.6)'; ctx.shadowBlur = 8;
+      [[673, 80], [1246, 80], [673, H - 70], [1246, H - 70]].forEach(([x, y]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

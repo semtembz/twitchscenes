@@ -1,0 +1,186 @@
+/* ============================================================
+   STRAWBERRY MILK — shared design system ("Sticker Journal Cafe")
+   The cutest pastel bestseller: a big CENTERED rounded card with a
+   SCALLOPED cloud border, a glossy album tile mascot (boba cup),
+   chunky friendly headline, and a CUTE progress styled as a glass
+   FILLING with pink milk. Bubblegum, jiggly, adorable.
+   Bespoke to THIS theme — shares only engine conventions with others.
+   ============================================================ */
+:root{
+  /* palette */
+  --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+  --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+  --ink:#7A4453;                 /* soft rose-brown text (never hard black) */
+  --ink-soft:#B07E8C;
+  --cloud:#FFFFFF;               /* the scalloped card body */
+  --bead:#C98AA0;                /* boba pearl tone */
+  --ease:cubic-bezier(.34,1.56,.64,1);   /* bouncy back-out */
+  --ease-soft:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--milk);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  font-family:"Baloo 2","Quicksand","Varela Round","Trebuchet MS",system-ui,sans-serif;
+  background:
+    radial-gradient(95% 70% at 18% 14%, rgba(255,255,255,.85), transparent 55%),
+    radial-gradient(80% 70% at 85% 18%, rgba(191,234,214,.45), transparent 60%),
+    radial-gradient(90% 80% at 82% 92%, rgba(255,143,171,.30), transparent 60%),
+    linear-gradient(160deg, var(--cream) 0%, var(--milk) 48%, var(--pink) 120%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
+
+/* soft top gloss + gentle vignette to seat the card */
+.gloss{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.5), transparent 60%);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 220px rgba(164,93,110,.16);}
+
+/* hand-drawn doodle squiggles in the corners (SVG strokes) */
+.doodle{position:absolute;pointer-events:none;opacity:.85;}
+.doodle svg{display:block;}
+.doodle--tl{top:46px;left:54px;}
+.doodle--tr{top:60px;right:70px;}
+.doodle--bl{bottom:70px;left:80px;}
+.doodle--br{bottom:54px;right:64px;}
+.doodle path,.doodle circle,.doodle line{stroke:var(--hot);}
+
+/* cute corner badge ("now brewing") */
+.brew{position:absolute;top:54px;left:64px;display:flex;align-items:center;gap:14px;
+  font-weight:800;letter-spacing:2px;font-size:24px;color:var(--rose);
+  background:var(--gloss);padding:12px 24px 12px 18px;border-radius:40px;
+  box-shadow:0 10px 24px rgba(164,93,110,.18), inset 0 0 0 3px var(--milk);}
+.brew .heart{width:20px;height:20px;color:var(--hot);
+  animation:beat 1.4s var(--ease-soft) infinite;}
+@keyframes beat{0%,100%{transform:scale(1)}30%{transform:scale(1.28)}}
+
+/* ============================================================
+   THE SCALLOPED CLOUD CARD — the signature composition
+   A rounded card whose border is a ring of soft bumps (cloud/scallop),
+   built from a radial-gradient mask so it reads as puffy, not boxed.
+   ============================================================ */
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1080px;padding:78px 96px 70px;text-align:center;
+  animation:pop .85s var(--ease) both .12s;}
+
+/* the puffy cloud body (scalloped edge via repeating radial bumps) */
+.card .cloud{position:absolute;inset:0;z-index:0;
+  background:var(--cloud);
+  border-radius:64px;
+  box-shadow:0 40px 90px rgba(164,93,110,.28),
+    0 0 0 14px rgba(255,255,255,.55),
+    inset 0 -22px 50px rgba(255,179,198,.35),
+    inset 0 14px 30px rgba(255,255,255,.9);}
+/* scallop bumps along the top & bottom edges */
+.card .cloud::before,.card .cloud::after{content:"";position:absolute;left:34px;right:34px;height:48px;
+  background:
+    radial-gradient(circle at 24px 24px, var(--cloud) 23px, transparent 24px);
+  background-size:48px 48px;background-repeat:repeat-x;}
+.card .cloud::before{top:-24px;}
+.card .cloud::after{bottom:-24px;transform:scaleY(-1);}
+/* scallop bumps along the left & right edges */
+.card .cloudv{position:absolute;top:34px;bottom:34px;width:48px;z-index:0;}
+.card .cloudv::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(circle at 24px 24px, var(--cloud) 23px, transparent 24px);
+  background-size:48px 48px;background-repeat:repeat-y;}
+.card .cloudv--l{left:-24px;} .card .cloudv--r{right:-24px;}
+/* dashed candy stitch just inside the cloud */
+.card .stitch{position:absolute;inset:26px;z-index:1;border-radius:46px;
+  border:4px dashed rgba(255,143,171,.55);pointer-events:none;}
+
+.card .inner{position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:center;}
+
+/* glossy ALBUM TILE — the boba-cup / strawberry-milk mascot */
+.tile{width:230px;height:230px;border-radius:44px;position:relative;margin:-2px 0 26px;
+  background:linear-gradient(150deg, var(--gloss) 0%, var(--milk) 46%, var(--pink) 100%);
+  box-shadow:0 22px 44px rgba(164,93,110,.28),
+    inset 0 0 0 6px var(--gloss), inset 0 -14px 28px rgba(255,143,171,.35);
+  display:flex;align-items:center;justify-content:center;
+  animation:bobble 3.4s var(--ease-soft) infinite;}
+.tile::after{content:"";position:absolute;top:16px;left:20px;width:78px;height:46px;border-radius:50%;
+  background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,0));
+  transform:rotate(-22deg);pointer-events:none;}   /* gloss highlight */
+.tile .glyph{font-size:128px;line-height:1;filter:drop-shadow(0 8px 10px rgba(164,93,110,.28));}
+@keyframes bobble{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-12px) rotate(2deg)}}
+
+/* kicker pill */
+.kick{display:inline-flex;align-items:center;gap:12px;
+  font-weight:800;letter-spacing:3px;font-size:24px;color:var(--rose);
+  background:var(--milk);padding:10px 24px;border-radius:30px;margin-bottom:14px;
+  box-shadow:inset 0 0 0 3px var(--gloss);}
+.kick .dot{width:14px;height:14px;border-radius:50%;background:var(--hot);
+  box-shadow:0 0 0 5px rgba(255,143,171,.25);animation:beat 1.4s var(--ease-soft) infinite;}
+
+/* chunky friendly headline with an accent word */
+.title{font-size:128px;line-height:.92;font-weight:800;letter-spacing:-1px;margin:4px 0 0;
+  color:var(--ink);text-shadow:0 4px 0 var(--milk), 0 10px 24px rgba(164,93,110,.18);}
+.title b{display:inline-block;color:var(--hot);
+  text-shadow:0 4px 0 #fff, 0 10px 22px rgba(255,143,171,.45);}
+.title .l2{display:block;}
+
+.sub{margin-top:16px;font-size:30px;font-weight:600;letter-spacing:.5px;color:var(--ink-soft);}
+
+/* ============================================================
+   CUTE PROGRESS — a GLASS filling up with pink strawberry MILK
+   (no numbers; the hidden timer drives --p 0..1 via .fill height)
+   ============================================================ */
+.glass{position:relative;width:560px;height:104px;margin:34px auto 6px;
+  border-radius:30px 30px 36px 36px;
+  background:rgba(255,255,255,.6);
+  box-shadow:inset 0 0 0 6px var(--gloss), inset 0 0 0 10px rgba(255,179,198,.45),
+    0 16px 30px rgba(164,93,110,.20);
+  overflow:hidden;}
+.glass .fill{position:absolute;left:0;right:0;bottom:0;height:0%;
+  background:linear-gradient(180deg, var(--hot) 0%, var(--pink) 60%, var(--milk) 100%);
+  box-shadow:inset 0 8px 18px rgba(255,255,255,.5);
+  transition:height .25s linear;}
+/* wavy milk surface + a couple of sitting boba pearls */
+.glass .fill::before{content:"";position:absolute;left:-10%;right:-10%;top:-14px;height:28px;
+  border-radius:50%;background:var(--gloss);opacity:.55;
+  animation:slosh 2.6s var(--ease-soft) infinite;}
+.glass .pearls{position:absolute;left:0;right:0;bottom:8px;height:30px;pointer-events:none;
+  display:flex;justify-content:center;gap:14px;opacity:.9;}
+.glass .pearls i{width:22px;height:22px;border-radius:50%;background:var(--bead);
+  box-shadow:inset 0 -4px 6px rgba(0,0,0,.18), inset 4px 4px 6px rgba(255,255,255,.4);}
+@keyframes slosh{0%,100%{transform:translateX(-6px)}50%{transform:translateX(6px)}}
+/* glass rim gloss highlight */
+.glass::after{content:"";position:absolute;top:12px;left:18px;width:46px;height:60px;border-radius:24px;
+  background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0));
+  pointer-events:none;}
+/* straw poking out of the glass */
+.straw{position:absolute;right:64px;top:-30px;width:18px;height:150px;border-radius:10px;
+  background:repeating-linear-gradient(135deg, var(--hot) 0 12px, var(--gloss) 12px 24px);
+  transform:rotate(12deg);transform-origin:bottom center;z-index:3;
+  box-shadow:0 6px 12px rgba(164,93,110,.25);}
+
+.handle{position:absolute;right:60px;bottom:48px;
+  font-weight:800;letter-spacing:2px;font-size:30px;color:var(--rose);
+  background:var(--gloss);padding:12px 28px;border-radius:40px;
+  box-shadow:0 12px 26px rgba(164,93,110,.20), inset 0 0 0 3px var(--milk);}
+/* ending: prominent, centered inside the card (not pinned to a corner) */
+.handle.handle--big{position:static;margin-top:30px;font-size:48px;letter-spacing:4px;
+  padding:16px 40px;color:var(--hot);
+  box-shadow:0 16px 30px rgba(164,93,110,.22), inset 0 0 0 4px var(--milk);
+  animation:bobble 3.4s var(--ease-soft) infinite;}
+
+/* ============================================================
+   RENDER MODE — freeze entrances/idles to final state so the
+   headless pipeline captures deterministic frames.
+   ============================================================ */
+#stage.render .card{animation:none!important;opacity:1!important;transform:translate(-50%,-50%)!important;}
+#stage.render .tile{animation:none!important;transform:none!important;}
+#stage.render .brew .heart,#stage.render .kick .dot{animation:none!important;transform:none!important;}
+#stage.render .glass .fill::before{animation:none!important;}
+#stage.render .glass .fill{transition:none!important;}
+#stage.render .handle--big{animation:none!important;transform:none!important;}
+
+@keyframes pop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}
+  78%{transform:translate(-50%,-50%) scale(.97)}
+  100%{transform:translate(-50%,-50%) scale(1)}
+}

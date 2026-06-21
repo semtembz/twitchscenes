@@ -1,0 +1,144 @@
+/* ============================================================
+   PRIMETIME PRO — alert system ("network sports broadcast")
+   A chamfered LOWER-THIRD broadcast chip that slides in from the
+   LEFT, snaps/locks, holds, then slides out. Transparent background
+   so it composites over gameplay / the scene. Cohesive with
+   shared.css tokens: orange kicker flag, brushed-steel + glass plate
+   with a thin blue sheen, a blinking LIVE dot, an event glyph tile,
+   a big broadcast NAME line, an optional orange amount, and field
+   scanlines over the plate.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+  --orange:#FF5A1F;
+  --steel-1:#3A4754; --steel-2:#5A6B79; --steel-3:#8595A3; --steel-hi:#C3CED8;
+  --ink:#F5F7FA; --dim:#8FA6BC;
+  --glass:rgba(14,44,74,0.62); --hair:rgba(22,184,255,0.30);
+  --ease:cubic-bezier(.18,.9,.16,1); /* snap-in */
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;}
+
+/* one canvas for the spark burst, sits behind the chip, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert chip: anchored bottom-left, slides in from off-screen left ---- */
+.alert{position:absolute;left:80px;bottom:120px;width:820px;height:188px;
+  display:flex;align-items:stretch;
+  filter:drop-shadow(0 22px 50px rgba(0,0,0,.55));
+  /* start off-screen to the left + hidden; .show animates it in */
+  opacity:0;transform:translateX(-960px);
+  will-change:transform,opacity;}
+
+/* thin accent rail riding the top edge — snaps in with the chip */
+.alert .rail{position:absolute;left:0;right:0;top:-12px;height:7px;
+  background:linear-gradient(90deg,var(--orange),var(--blue) 60%,transparent);
+  box-shadow:0 0 18px rgba(22,184,255,.6);}
+
+/* entrance / exit driven by JS toggling .show */
+.alert.show{animation:alert-in .62s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateX(-960px);}
+  70%{opacity:1;transform:translateX(22px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateX(0);}
+  100%{opacity:0;transform:translateX(-960px);}
+}
+
+/* ---- LEFT orange flag holding the event glyph tile ---- */
+.alert .art{position:relative;flex:none;width:188px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#ff7a45,var(--orange) 55%,#d8430f);
+  clip-path:polygon(0 0,100% 0,calc(100% - 30px) 100%,0 100%);
+  border-top:3px solid rgba(255,255,255,.25);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);overflow:hidden;}
+.alert .art .glyph{position:relative;display:flex;align-items:center;justify-content:center;
+  font-size:82px;color:#1a0a02;line-height:1;
+  text-shadow:0 1px 0 rgba(255,255,255,.30),0 0 18px rgba(255,255,255,.25);
+  animation:glyph-pop .7s var(--ease) both .18s;}
+/* field scanlines over the orange flag */
+.alert .art::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 4px);}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* ---- MAIN brushed-steel + glass plate with the broadcast text ---- */
+.alert .plate{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;
+  padding:22px 40px 22px 50px;margin-left:-22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), transparent 16%),
+    linear-gradient(160deg, rgba(22,184,255,.10), transparent 40%),
+    linear-gradient(180deg, var(--blue-deep) 0%, #0a2238 60%, var(--navy) 100%);
+  border-top:3px solid rgba(22,184,255,.6);
+  border-bottom:3px solid rgba(0,0,0,.6);
+  clip-path:polygon(30px 0,100% 0,100% 100%,0 100%,0 30px);
+  overflow:hidden;}
+/* thin blue sheen sweeping the plate */
+.alert .plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,rgba(22,184,255,.16) 48%,transparent 62%);
+  background-size:280% 100%;animation:sheen 4.6s linear infinite;}
+/* blue→orange edge bar where flag meets plate */
+.alert .plate::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:linear-gradient(180deg,var(--blue),var(--orange));
+  box-shadow:0 0 16px rgba(22,184,255,.6);}
+
+/* meta column lives above the sheen */
+.alert .meta{position:relative;z-index:1;min-width:0;}
+
+/* mono kicker line (CH 03 · NEW FOLLOWER) with a blinking LIVE dot */
+.alert .kick{display:flex;align-items:center;gap:12px;margin-bottom:6px;white-space:nowrap;
+  font-weight:800;letter-spacing:5px;font-size:21px;color:var(--blue);text-transform:uppercase;
+  text-shadow:0 0 12px rgba(22,184,255,.5);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:13px;height:13px;border-radius:50%;background:var(--orange);flex:none;
+  box-shadow:0 0 12px var(--orange);
+  animation:blink 1.3s steps(1,end) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
+
+/* big NAME — broadcast italic, clamped to one line so a long handle never breaks the chip */
+.alert .name{font-size:64px;line-height:.96;font-weight:800;font-style:italic;letter-spacing:-1px;margin:0 0 4px;
+  text-transform:uppercase;color:var(--white);
+  text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 32px rgba(22,184,255,.28);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (orange) — hidden unless .has-amount */
+.alert .amount{font-size:30px;color:var(--orange);font-weight:800;letter-spacing:1px;
+  text-shadow:0 0 16px rgba(255,90,31,.55);margin-bottom:2px;display:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--blue);text-shadow:0 0 16px rgba(22,184,255,.5);}
+
+/* tiny sub line */
+.alert .sub{font-weight:600;letter-spacing:3px;font-size:21px;color:var(--dim);text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* mono HUD tag top-right of the plate (network/channel readout) */
+.alert .tagid{position:absolute;top:14px;right:24px;z-index:2;
+  font-weight:700;letter-spacing:4px;font-size:15px;color:var(--blue);opacity:.8;
+  text-shadow:0 0 10px rgba(22,184,255,.5);}
+.alert .tagid b{color:var(--orange);font-weight:800;}
+
+/* signal-bars motif under the tag for the broadcast feel */
+.alert .sig{position:absolute;top:40px;right:24px;z-index:2;display:inline-flex;gap:3px;align-items:flex-end;height:14px;opacity:.75;}
+.alert .sig i{width:4px;background:var(--blue);box-shadow:0 0 6px rgba(22,184,255,.6);}
+
+/* field scanline veil over the plate */
+.alert .scanveil{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.4;mix-blend-mode:soft-light;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 4px);}
+
+@keyframes sheen{0%{background-position:140% 0}100%{background-position:-140% 0}}
+
+/* render mode: freeze CSS-driven motion (JS drives transform/opacity deterministically) */
+#stage.render .alert,#stage.render .alert.show,#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .plate::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .kick .dot{animation:none!important;opacity:1;}

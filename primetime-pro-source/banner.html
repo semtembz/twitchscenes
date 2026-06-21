@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Primetime Pro (PNG generator)</title>
+  <!--
+    PRIMETIME PRO · "network sports broadcast" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = PRIMETIME / NETWORK tagline. The centre is decorative only — a faint
+    stadium-arch glow + light sweeps — so the player can sit over it without hiding
+    anything important.
+
+    ?handle=@you customises the left identity block.
+
+    Everything is drawn from a SEEDED LCG, so the spark / chevron scatter is identical
+    on every render (Math.random is never used) — re-running gives the same banner.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally append ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+      --orange:#FF5A1F; --steel-3:#8595A3; --dim:#8FA6BC;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;
+      font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;
+      background:linear-gradient(160deg,#07131f,var(--navy));
+      color:var(--white);padding:32px;}
+    h1{font-weight:800;font-style:italic;font-size:28px;color:var(--white);letter-spacing:-.5px;
+      text-transform:uppercase;margin:0 0 6px;text-shadow:0 0 18px rgba(22,184,255,.4);}
+    h1 b{color:var(--orange);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.55;}
+    .kicker{font-weight:700;letter-spacing:5px;font-size:13px;color:var(--blue);
+      margin:0 0 14px;text-transform:uppercase;}
+    button{font-weight:800;font-size:14px;letter-spacing:3px;text-transform:uppercase;
+      padding:14px 26px;color:#1a0a02;
+      background:linear-gradient(180deg,#ff7a45,var(--orange) 60%,#d8430f);
+      border:1px solid rgba(255,209,180,.5);cursor:pointer;
+      clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+      box-shadow:0 0 30px rgba(255,90,31,.25);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:var(--blue-deep);padding:14px;border:1px solid #1c3c5a;
+      border-radius:8px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: roughly where Twitch's offline player sits. NOT in the PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(255,255,255,0.45);
+      background:rgba(10,27,42,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(255,255,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--blue);background:#0a1622;
+      padding:2px 6px;border-radius:4px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">CH 01 · PRIMETIME · PROFILE BANNER</p>
+  <h1>PROFILE BANNER <b>GENERATOR</b></h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the Primetime Pro network-sports style — seeded so
+    the spark and chevron scatter is reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player can
+    sit over it. Pass <code>?handle=@you</code> to set the name. Upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const NAVY = '#0A1B2A', BLUE_DEEP = '#0E2C4A', BLUE = '#16B8FF', WHITE = '#F5F7FA';
+    const ORANGE = '#FF5A1F';
+    const STEEL1 = '#3A4754', STEEL2 = '#5A6B79', DIM = '#8FA6BC';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // a soft stadium light beam (broad cone from above)
+    function beam(x, w, col, alpha) {
+      const g = ctx.createLinearGradient(x, -40, x, H);
+      g.addColorStop(0, 'rgba(' + col + ',' + alpha + ')');
+      g.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x - 50, -40); ctx.lineTo(x + 50, -40);
+      ctx.lineTo(x + w, H); ctx.lineTo(x - w, H);
+      ctx.closePath(); ctx.fill();
+    }
+
+    function chamferRect(x, y, w, h, cut) {
+      ctx.beginPath();
+      ctx.moveTo(x + cut, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h - cut);
+      ctx.lineTo(x + w - cut, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x, y + cut);
+      ctx.closePath();
+    }
+
+    // ---- faint stadium arch (centre, behind the player) ----
+    function drawArch(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = 'rgba(22,184,255,0.5)';
+      ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.shadowColor = BLUE; ctx.shadowBlur = 28;
+      // big broadcast arch
+      ctx.beginPath();
+      ctx.arc(0, 70, 150, Math.PI, 0, false);
+      ctx.stroke();
+      // pillars
+      ctx.beginPath(); ctx.moveTo(-150, 70); ctx.lineTo(-150, 150); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(150, 70); ctx.lineTo(150, 150); ctx.stroke();
+      // inner arch (orange)
+      ctx.strokeStyle = 'rgba(255,90,31,0.4)'; ctx.shadowColor = ORANGE; ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 70, 110, Math.PI, 0, false);
+      ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred broadcast branding block: chip kicker, big italic title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with leading tally chip
+      ctx.font = '700 22px "Bahnschrift", system-ui, sans-serif';
+      const kw = ctx.measureText(kickerLabel).width;
+      ctx.fillStyle = ORANGE; ctx.shadowColor = ORANGE; ctx.shadowBlur = 12;
+      ctx.fillRect(cx - kw / 2 - 22, 112, 8, 16);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = BLUE;
+      ctx.fillText(kickerLabel, cx + 4, 120);
+      // title — bold italic broadcast caps, blue glow + drop shadow
+      ctx.font = '800 italic ' + titleSize + 'px "Bahnschrift", "Arial Narrow", system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillText(titleText, cx + 3, 238);
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(22,184,255,0.45)'; ctx.shadowBlur = 30;
+      ctx.fillText(titleText, cx, 235);
+      ctx.shadowBlur = 0;
+      // subtitle — mono
+      ctx.font = '600 20px "Consolas", "Courier New", monospace';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 332);
+    }
+
+    async function draw() {
+      if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+      const rnd = makeRand(0x5A47A); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: stadium night gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#103a5e'); grad.addColorStop(0.36, BLUE_DEEP);
+      grad.addColorStop(0.82, NAVY); grad.addColorStop(1, '#07131f');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // central blue glow + side orange embers
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(22,184,255,0.22)', 1);
+      bloom(W * 0.16, H * 0.30, 360, 'rgba(255,90,31,0.16)', 1);
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(22,184,255,0.16)', 1);
+
+      // ---- SEEDED STADIUM LIGHT BEAMS ----
+      for (let i = 0; i < 5; i++) {
+        const x = R(rnd, 120, W - 120), w = R(rnd, 120, 300);
+        const col = (i % 2 === 0) ? '22,184,255' : '255,90,31';
+        beam(x, w, col, R(rnd, 0.04, 0.09));
+      }
+
+      // ---- SEEDED SPARKS / DUST MOTES (left + right thirds) ----
+      for (let i = 0; i < 40; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 620) : R(rnd, W - 620, W - 40);
+        const y = R(rnd, 24, H - 24);
+        const r = R(rnd, 1, 3.4);
+        ctx.globalAlpha = R(rnd, 0.2, 0.6);
+        ctx.fillStyle = rnd() < 0.78 ? WHITE : BLUE;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- faint stadium arch centre ----
+      drawArch(W / 2, H / 2 - 30, 1.0);
+
+      // ---- FIELD SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- chevron accent rails flanking the centre clear-zone ----
+      function chevronRail(x) {
+        ctx.save();
+        for (let yy = 96; yy < H - 80; yy += 22) {
+          ctx.fillStyle = (yy % 44 === 0) ? 'rgba(255,90,31,0.5)' : 'rgba(22,184,255,0.5)';
+          ctx.beginPath();
+          ctx.moveTo(x, yy); ctx.lineTo(x + 10, yy + 7); ctx.lineTo(x, yy + 14);
+          ctx.lineTo(x - 4, yy + 14); ctx.lineTo(x + 6, yy + 7); ctx.lineTo(x - 4, yy);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+      chevronRail(656);
+      chevronRail(W - 656);
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.62)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      let handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, 'CH 01 · PRIMETIME', 'GO LIVE', 90, 'coverage every night');
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

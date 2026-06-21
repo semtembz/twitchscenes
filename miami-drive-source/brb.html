@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Miami Drive — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 (headless) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- animated field: perspective grid + stars + sun glow -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- horizon furniture -->
+    <div class="horizon" aria-hidden="true"></div>
+    <div class="sun" aria-hidden="true"></div>
+
+    <!-- palm-tree silhouettes flanking the sun -->
+    <div class="palm palm--l" aria-hidden="true">
+      <svg viewBox="0 0 230 340" xmlns="http://www.w3.org/2000/svg">
+        <path fill="currentColor" d="M118 340c-4-70-6-150-8-196-14 4-30 14-46 30 12-22 30-37 45-44-18-6-40-4-66 8 22-20 47-26 66-23-14-12-33-19-58-19 26-9 50-5 64 6-3-19-14-36-33-50 26 10 39 30 41 50 6-20 22-39 49-49-17 16-26 34-27 52 16-12 38-18 65-15-25 6-45 17-56 31 19-2 41 3 62 19-26-11-49-12-65-5 16 9 31 25 41 47-15-15-31-26-44-31-1 47-2 116-4 161z"/>
+      </svg>
+    </div>
+    <div class="palm palm--r" aria-hidden="true">
+      <svg viewBox="0 0 230 340" xmlns="http://www.w3.org/2000/svg">
+        <path fill="currentColor" d="M118 340c-4-70-6-150-8-196-14 4-30 14-46 30 12-22 30-37 45-44-18-6-40-4-66 8 22-20 47-26 66-23-14-12-33-19-58-19 26-9 50-5 64 6-3-19-14-36-33-50 26 10 39 30 41 50 6-20 22-39 49-49-17 16-26 34-27 52 16-12 38-18 65-15-25 6-45 17-56 31 19-2 41 3 62 19-26-11-49-12-65-5 16 9 31 25 41 47-15-15-31-26-44-31-1 47-2 116-4 161z"/>
+      </svg>
+    </div>
+
+    <!-- corner chrome brackets -->
+    <div class="bracket bk-tl" aria-hidden="true"></div>
+    <div class="bracket bk-tr" aria-hidden="true"></div>
+    <div class="bracket bk-bl" aria-hidden="true"></div>
+    <div class="bracket bk-br" aria-hidden="true"></div>
+
+    <!-- HUD tags -->
+    <div class="hud" aria-hidden="true"><span class="blip"></span> CH&nbsp;88 · AWAY MODE</div>
+    <div class="hud hud--tr" aria-hidden="true">SIGNAL // PAUSED</div>
+
+    <!-- HERO: chrome italic title centered on the horizon -->
+    <main class="hero">
+      <p class="kick"><span class="star"></span> STREAM <span id="kicker" data-done="BACK NOW">AWAY</span></p>
+      <h1 class="title">BE RIGHT<span class="l2"><b>BACK</b></span></h1>
+      <p class="sub">pit stop — back on the road in a moment</p>
+    </main>
+
+    <!-- neon loading strip along the horizon (no numbers) -->
+    <div class="bar" aria-hidden="true">
+      <div class="fill" id="fill"></div>
+      <div class="glow"></div>
+    </div>
+
+    <div class="handle" id="handle">@yourhandle</div>
+
+    <!-- VHS overlays -->
+    <div class="scan" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

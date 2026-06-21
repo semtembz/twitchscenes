@@ -1,0 +1,204 @@
+/* ============================================================
+   PRIMETIME PRO — shared design system ("network sports broadcast")
+   ESPN-style LOWER-THIRD bar system: chamfered/angular broadcast bars,
+   a corner SCORE-BUG chip, a scrolling TICKER strip, brushed-steel +
+   glass plates with a thin blue sheen, a blinking LIVE bug, a stadium
+   gradient with moving light sweeps + faint field scanlines.
+   Bespoke to THIS theme — shares only engine conventions with others.
+   ============================================================ */
+:root{
+  /* palette */
+  --navy:#0A1B2A; --blue-deep:#0E2C4A; --blue:#16B8FF; --white:#F5F7FA;
+  --orange:#FF5A1F;
+  --steel-1:#3A4754; --steel-2:#5A6B79; --steel-3:#8595A3; --steel-hi:#C3CED8;
+  --ink:#F5F7FA; --dim:#8FA6BC;
+  --glass:rgba(14,44,74,0.62); --hair:rgba(22,184,255,0.30);
+  --ease:cubic-bezier(.18,.9,.16,1); /* snap-in */
+  /* the angular chamfer used across plates */
+  --chamfer:22px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--navy);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  font-family:"Bahnschrift","DIN Condensed","Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(22,184,255,.22), transparent 55%),
+    radial-gradient(80% 60% at 18% 8%, rgba(255,90,31,.10), transparent 60%),
+    linear-gradient(180deg, #103a5e 0%, var(--blue-deep) 34%, var(--navy) 78%, #07131f 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
+
+/* faint field/scanline texture + broadcast vignette */
+.field{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(22,184,255,.05) 0 2px, transparent 2px 120px);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 360px rgba(0,0,0,.66), inset 0 0 110px rgba(0,0,0,.34);}
+
+/* ---- brushed-steel surface utility (used by plates) ---- */
+.steel{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.10), transparent 18%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, rgba(0,0,0,.05) 2px 4px),
+    linear-gradient(180deg, var(--steel-2), var(--steel-1) 55%, #2c3742);}
+
+/* =========================================================
+   SCORE-BUG chip (top-left corner) — the broadcast bug
+   ========================================================= */
+.bug{position:absolute;top:46px;left:60px;display:flex;align-items:stretch;height:74px;
+  filter:drop-shadow(0 10px 26px rgba(0,0,0,.5));
+  animation:bugin .7s var(--ease) both .15s;}
+.bug__live{display:flex;align-items:center;gap:12px;padding:0 22px;
+  background:linear-gradient(180deg,#ff7a45,var(--orange) 60%,#d8430f);
+  clip-path:polygon(0 0,100% 0,100% 100%,18px 100%,0 calc(100% - 18px));
+  font-weight:800;letter-spacing:4px;font-size:30px;color:#1a0a02;
+  text-shadow:0 1px 0 rgba(255,255,255,.25);}
+.bug__dot{width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 0 12px #fff,0 0 4px #fff;animation:blink 1.3s steps(1,end) infinite;}
+.bug__body{display:flex;align-items:center;gap:18px;padding:0 26px 0 24px;
+  background:linear-gradient(180deg, rgba(255,255,255,.10), transparent 18%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, rgba(0,0,0,.05) 2px 4px),
+    linear-gradient(180deg, var(--steel-2), var(--steel-1) 55%, #2c3742);
+  border-top:2px solid rgba(22,184,255,.55);border-bottom:2px solid rgba(0,0,0,.5);
+  clip-path:polygon(0 0,100% 0,calc(100% - 18px) 100%,0 100%);}
+.bug__team{display:flex;flex-direction:column;line-height:1;}
+.bug__team .nm{font-weight:800;letter-spacing:2px;font-size:24px;color:var(--white);}
+.bug__team .tag{font-size:13px;letter-spacing:3px;color:var(--blue);margin-top:3px;}
+.bug__score{font-weight:800;font-size:38px;color:var(--white);letter-spacing:1px;
+  text-shadow:0 0 18px rgba(22,184,255,.4);}
+.bug__sep{width:2px;align-self:stretch;margin:14px 0;background:rgba(22,184,255,.4);}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
+@keyframes bugin{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+
+/* top-right clock/status plate */
+.status{position:absolute;top:52px;right:60px;display:flex;align-items:center;gap:14px;
+  padding:12px 22px;font-family:"Bahnschrift",system-ui,sans-serif;
+  font-weight:700;letter-spacing:5px;font-size:22px;color:var(--blue);
+  background:linear-gradient(180deg, rgba(14,44,74,.85), rgba(10,27,42,.85));
+  border:1px solid rgba(22,184,255,.35);
+  clip-path:polygon(16px 0,100% 0,100% 100%,0 100%,0 16px);
+  text-shadow:0 0 12px rgba(22,184,255,.5);
+  animation:bugin .7s var(--ease) both .25s;}
+.status .net{color:var(--orange);font-weight:800;}
+
+/* =========================================================
+   The LOWER-THIRD bar stack (the signature composition)
+   ========================================================= */
+.lower{position:absolute;left:0;right:0;bottom:96px;padding:0 60px;}
+
+/* thin accent rail that snaps in first */
+.lower__rail{height:8px;width:0;margin:0 0 0 0;
+  background:linear-gradient(90deg,var(--orange),var(--blue) 60%,transparent);
+  box-shadow:0 0 18px rgba(22,184,255,.6);
+  animation:railgrow .55s var(--ease) both .1s;}
+
+/* the main chamfered bar holding kicker + title */
+.bar{position:relative;display:flex;align-items:stretch;margin-top:14px;height:172px;
+  filter:drop-shadow(0 22px 50px rgba(0,0,0,.55));}
+
+/* left orange flag with the kicker / LIVE label */
+.bar__flag{display:flex;align-items:center;justify-content:center;min-width:230px;padding:0 30px;
+  background:linear-gradient(160deg,#ff7a45,var(--orange) 55%,#d8430f);
+  clip-path:polygon(0 0,100% 0,calc(100% - 34px) 100%,0 100%);
+  animation:flagin .6s var(--ease) both .22s;}
+.bar__kick{display:flex;flex-direction:column;align-items:flex-start;line-height:1;}
+.bar__kick .lab{font-weight:800;letter-spacing:6px;font-size:30px;color:#1a0a02;
+  text-shadow:0 1px 0 rgba(255,255,255,.25);}
+.bar__kick .liverow{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.bar__kick .liverow .dot{width:13px;height:13px;border-radius:50%;background:#1a0a02;
+  animation:blink 1.3s steps(1,end) infinite;}
+.bar__kick .liverow .sub2{font-weight:700;letter-spacing:3px;font-size:16px;color:rgba(26,10,2,.8);}
+
+/* main glass+steel plate with the broadcast title */
+.bar__plate{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:18px 46px 18px 54px;margin-left:-26px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), transparent 16%),
+    linear-gradient(160deg, rgba(22,184,255,.10), transparent 40%),
+    linear-gradient(180deg, var(--blue-deep) 0%, #0a2238 60%, var(--navy) 100%);
+  border-top:3px solid rgba(22,184,255,.6);
+  border-bottom:3px solid rgba(0,0,0,.6);
+  clip-path:polygon(34px 0,100% 0,100% 100%,0 100%,0 34px);
+  animation:platein .6s var(--ease) both .3s;}
+/* thin blue sheen sweeping the plate */
+.bar__plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,rgba(22,184,255,.16) 48%,transparent 62%);
+  background-size:280% 100%;animation:sheen 4.6s linear infinite;}
+.bar__plate::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:linear-gradient(180deg,var(--blue),var(--orange));box-shadow:0 0 16px rgba(22,184,255,.6);}
+
+.bar__sup{display:flex;align-items:center;gap:16px;font-weight:700;letter-spacing:6px;
+  font-size:24px;color:var(--blue);text-shadow:0 0 12px rgba(22,184,255,.5);margin-bottom:6px;}
+.bar__sup .chip{padding:2px 12px;background:rgba(22,184,255,.16);
+  border:1px solid rgba(22,184,255,.4);font-size:18px;letter-spacing:3px;color:var(--white);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);}
+
+.title{font-weight:800;font-style:italic;font-size:96px;line-height:.9;letter-spacing:-1px;
+  text-transform:uppercase;color:var(--white);
+  text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 36px rgba(22,184,255,.28);}
+.title b{color:var(--orange);text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 36px rgba(255,90,31,.4);}
+
+.bar__sub{margin-top:8px;font-weight:600;letter-spacing:3px;font-size:24px;color:var(--dim);}
+
+/* broadcast progress chip (the hidden 60s timer, NO numbers) */
+.prog{position:relative;display:flex;align-items:center;gap:16px;margin-top:16px;}
+.prog__label{font-weight:800;letter-spacing:4px;font-size:18px;color:var(--blue);
+  text-shadow:0 0 10px rgba(22,184,255,.5);}
+.prog__track{position:relative;flex:1;max-width:560px;height:16px;
+  background:linear-gradient(180deg,#0a2034,#06121e);
+  border:1px solid rgba(22,184,255,.3);
+  clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);overflow:hidden;}
+.prog__fill{position:absolute;left:0;top:0;bottom:0;width:0;
+  background:linear-gradient(90deg,var(--orange),var(--blue));
+  box-shadow:0 0 18px rgba(22,184,255,.7);}
+.prog__fill::after{content:"";position:absolute;top:0;right:0;bottom:0;width:3px;background:var(--white);
+  box-shadow:0 0 12px var(--white);}
+
+/* =========================================================
+   TICKER strip scrolling along the very bottom
+   ========================================================= */
+.ticker{position:absolute;left:0;right:0;bottom:0;height:54px;display:flex;align-items:center;
+  background:linear-gradient(180deg,#0a2238,#06121e);
+  border-top:2px solid rgba(22,184,255,.5);overflow:hidden;
+  animation:bugin .7s var(--ease) both .35s;}
+.ticker__tag{flex:none;display:flex;align-items:center;height:100%;padding:0 26px;z-index:2;
+  background:linear-gradient(180deg,#ff7a45,var(--orange) 60%,#d8430f);
+  clip-path:polygon(0 0,100% 0,calc(100% - 22px) 100%,0 100%);
+  font-weight:800;letter-spacing:4px;font-size:22px;color:#1a0a02;}
+.ticker__win{position:relative;flex:1;height:100%;overflow:hidden;}
+.ticker__track{position:absolute;top:0;left:0;height:100%;display:flex;align-items:center;
+  white-space:nowrap;will-change:transform;
+  animation:tickscroll 26s linear infinite;}
+.ticker__track span{display:inline-flex;align-items:center;font-weight:700;letter-spacing:2px;
+  font-size:21px;color:var(--white);padding:0 30px;}
+.ticker__track span i{font-style:normal;width:9px;height:9px;margin-right:18px;
+  background:var(--blue);transform:rotate(45deg);box-shadow:0 0 10px rgba(22,184,255,.6);}
+.ticker__track span b{color:var(--orange);font-style:normal;}
+@keyframes tickscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* the @handle, parked above the ticker on the right */
+.handle{position:absolute;right:62px;bottom:74px;font-weight:800;letter-spacing:3px;
+  font-size:26px;color:var(--blue);text-shadow:0 0 14px rgba(22,184,255,.5);
+  animation:bugin .7s var(--ease) both .4s;}
+
+/* =========================================================
+   keyframes — bars SLIDE + LOCK with a snap
+   ========================================================= */
+@keyframes railgrow{from{width:0;opacity:0}to{width:100%;opacity:1}}
+@keyframes flagin{from{opacity:0;transform:translateX(-90px)}60%{transform:translateX(8px)}to{opacity:1;transform:none}}
+@keyframes platein{from{opacity:0;transform:translateX(120px)}60%{transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes sheen{0%{background-position:140% 0}100%{background-position:-140% 0}}
+
+/* render mode: freeze entrances to final state for deterministic webm capture */
+#stage.render .bug,#stage.render .status,#stage.render .lower__rail,
+#stage.render .bar__flag,#stage.render .bar__plate,#stage.render .ticker,
+#stage.render .handle{animation:none!important;}
+#stage.render .lower__rail{width:100%;opacity:1;}
+#stage.render .bar__plate::after{animation:none;display:none;}
+#stage.render .ticker__track{animation:none;}
+#stage.render .bug__dot,#stage.render .bar__kick .liverow .dot{animation:none;opacity:1;}

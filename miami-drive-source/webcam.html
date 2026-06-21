@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Miami Drive — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one ~16:9 webcam frame. Place your camera BEHIND
+       this overlay; the inside of the frame is fully transparent so the cam
+       shows through. Chrome/neon double-stroke border + corner brackets +
+       a chrome/italic @yourhandle tag + a few faint corner dot-stars.
+       Optional URL params:
+         ?handle=@you   handle shown on the tag (default @yourhandle)
+         ?pos=lower     frame position: center | lower (default center)
+         ?w=1120&h=630  frame size in stage px (defaults 1120x630, ~16:9)
+         ?render=1      headless render mode -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint corner dot-stars only (no grid floor) */
+    canvas.bg{opacity:.7;pointer-events:none;}
+
+    /* the cam frame wrapper — ~16:9, centered or lower-third */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);
+      animation:camin .7s var(--ease) both .12s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* glowing teal/chrome border; INSIDE stays fully transparent (ring only) */
+    .frame{position:absolute;inset:0;border-radius:22px;background:transparent;
+      border:2px solid rgba(0,224,208,.85);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.18),
+        0 0 26px rgba(0,224,208,.50),
+        0 0 64px rgba(0,224,208,.20),
+        inset 0 0 26px rgba(255,46,151,.14),
+        inset 0 0 0 1px rgba(255,209,235,.28);}
+    /* inner hot-pink hairline ring, inset -> reads as a chrome double-stroke */
+    .frame::after{content:"";position:absolute;inset:7px;border-radius:16px;
+      border:1px solid rgba(255,46,151,.45);pointer-events:none;
+      box-shadow:inset 0 0 18px rgba(255,46,151,.16);}
+
+    /* corner chrome brackets (teal TL/BR, pink TR/BL for the outrun two-tone) */
+    .tick{position:absolute;width:34px;height:34px;pointer-events:none;}
+    .tick.tl{top:-3px;left:-3px;border-top:3px solid var(--teal);border-left:3px solid var(--teal);
+      border-top-left-radius:20px;box-shadow:0 0 12px rgba(0,224,208,.6);}
+    .tick.tr{top:-3px;right:-3px;border-top:3px solid var(--pink);border-right:3px solid var(--pink);
+      border-top-right-radius:20px;box-shadow:0 0 12px rgba(255,46,151,.6);}
+    .tick.bl{bottom:-3px;left:-3px;border-bottom:3px solid var(--pink);border-left:3px solid var(--pink);
+      border-bottom-left-radius:20px;box-shadow:0 0 12px rgba(255,46,151,.6);}
+    .tick.br{bottom:-3px;right:-3px;border-bottom:3px solid var(--teal);border-right:3px solid var(--teal);
+      border-bottom-right-radius:20px;box-shadow:0 0 12px rgba(0,224,208,.6);}
+
+    /* tiny mono HUD cap — top-left, above the frame */
+    .cap{position:absolute;left:24px;top:-44px;
+      font-family:"Courier New",monospace;letter-spacing:5px;font-size:19px;color:var(--teal);
+      text-shadow:0 0 12px rgba(0,224,208,.5);opacity:.85;}
+    .cap .sq{display:inline-block;width:10px;height:10px;background:var(--pink);
+      box-shadow:0 0 12px var(--pink);transform:rotate(45deg);margin-right:9px;vertical-align:middle;}
+
+    /* handle tag — frosted pill clipped to the bottom-left of the frame */
+    .tag{position:absolute;left:18px;bottom:-20px;display:flex;align-items:center;gap:11px;
+      padding:8px 18px;border-radius:10px;
+      background:linear-gradient(120deg, rgba(30,10,74,.92), rgba(11,0,32,.86));
+      border:1px solid rgba(0,224,208,.6);
+      box-shadow:0 10px 30px rgba(0,0,0,.5), 0 0 22px rgba(0,224,208,.18);}
+    .tag .rec{width:11px;height:11px;border-radius:50%;background:var(--pink);
+      box-shadow:0 0 12px var(--pink);animation:blip 1.6s steps(1,end) infinite;}
+    /* chrome/italic handle text with a sunset gradient fill */
+    .tag .who{font-family:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+      font-weight:800;font-style:italic;letter-spacing:1px;font-size:24px;line-height:1;
+      background:linear-gradient(180deg,#FFFFFF 0%, #DCEBFF 30%, var(--sun-top) 56%, var(--orange) 84%, var(--pink) 100%);
+      -webkit-background-clip:text;background-clip:text;
+      -webkit-text-fill-color:transparent;color:transparent;
+      filter:drop-shadow(0 0 14px rgba(255,122,0,.32)) drop-shadow(0 0 22px rgba(255,46,151,.26));}
+
+    /* big faded outrun "DRIVE" kana-ish accent — top-right, outside the live area */
+    .accent{position:absolute;right:6px;top:-50px;
+      font-family:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+      font-weight:800;font-style:italic;letter-spacing:6px;font-size:40px;
+      color:transparent;-webkit-text-stroke:2px rgba(255,46,151,.45);
+      text-shadow:0 0 18px rgba(255,46,151,.22);user-select:none;line-height:1;}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrance + ambient loops to a deterministic final state */
+    #stage.render .cam{animation:none!important;}
+    #stage.render .cam.lower{transform:translateX(-50%)!important;}
+    #stage.render .tag .rec{animation:none!important;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- a few faint corner dot-stars -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <span class="tick tl" aria-hidden="true"></span>
+      <span class="tick tr" aria-hidden="true"></span>
+      <span class="tick bl" aria-hidden="true"></span>
+      <span class="tick br" aria-hidden="true"></span>
+
+      <span class="cap" aria-hidden="true"><span class="sq"></span>CAM // CH&nbsp;88</span>
+      <span class="accent" aria-hidden="true">DRIVE</span>
+      <span class="tag"><span class="rec"></span><span class="who" id="handle">@yourhandle</span></span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (defensive) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam) {
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 80) cam.style.width = fw + "px";
+      if (fh > 80) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: a few faint dot-stars clustered around the frame corners ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = 1920, H = 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    let twinkle = 0;
+
+    function frameRect() {
+      const fw = num("w", 1120), fh = num("h", 630);
+      const lower = (params.get("pos") || "center").toLowerCase() === "lower";
+      const cx = W / 2;
+      const cy = lower ? (H - 96 - fh / 2) : (H / 2);
+      return { x: cx - fw / 2, y: cy - fh / 2, w: fw, h: fh };
+    }
+    let RECT = frameRect();
+    window.addEventListener("resize", () => { RECT = frameRect(); });
+
+    const COLORS = ["#00E0D0", "#FF2E97", "#FDF06A"];
+    const mk = () => {
+      const corners = [
+        { x: RECT.x, y: RECT.y }, { x: RECT.x + RECT.w, y: RECT.y },
+        { x: RECT.x, y: RECT.y + RECT.h }, { x: RECT.x + RECT.w, y: RECT.y + RECT.h },
+      ];
+      const c0 = corners[(Math.random() * 4) | 0];
+      return {
+        x: (c0.x + R(-90, 90)) | 0, y: (c0.y + R(-90, 90)) | 0,
+        r: R(0.6, 1.8), ph: R(0, 6.28), sp: R(0.6, 1.7),
+        c: COLORS[(Math.random() * COLORS.length) | 0],
+      };
+    };
+    const stars = ctx ? Array.from({ length: Math.max(0, num("stars", 40)) }, mk) : [];
+
+    function draw(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      twinkle += dt;
+      for (const s of stars){
+        const a = 0.16 + 0.30 * (0.5 + 0.5 * Math.sin(twinkle * s.sp + s.ph));
+        ctx.globalAlpha = a; ctx.fillStyle = s.c;
+        const r = Math.max(1, Math.round(s.r));
+        ctx.fillRect(s.x, s.y, r, r);
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__miamiDraw = draw; // rAF-independent verification hook
+    draw(0);
+
+    /* ---- render mode: deterministic frame stepping (1 frame = 1/30s) ---- */
+    if (render) {
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; twinkle = 0; draw(0); };
+      window.__renderAdvance = function(){ draw(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        draw(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

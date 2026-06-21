@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Outrun Grid / Sunset-Sun VHS Wipe (Miami Drive)</title>
+  <!--
+    MIAMI DRIVE stinger ("Outrun Sunset Highway"). A neon perspective GRID floor
+    floods UP from the horizon while a chrome-banded sunset SUN rises through the
+    middle of the screen; the night sky washes magenta->violet behind it. At the
+    mid (full-cover) point a VHS RGB-split + scanline TEAR + sun-yellow flash hits,
+    then the grid retracts back down and the screen clears.
+    Transparent before & after, deterministic, ~1300ms.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover flash).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (miami drive) ---- */
+    const NIGHT = '#160033', NIGHT2 = '#1E0A4A', NIGHT3 = '#0B0020';
+    const PINK = '#FF2E97', TEAL = '#00E0D0', ORANGE = '#FF7A00', YELLOW = '#FDF06A';
+    const SUN_TOP = '#FDF06A', SUN_MID = '#FF7A00', SUN_BOT = '#FF2E97';
+    const CHROME = '#DCEBFF';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };   // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded rng so the look is stable + matches the export ---- */
+    let seed = 80808;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* ---- a fixed dot-star field high in the night sky; positions seeded so they are
+           stable frame-to-frame and in the export. They twinkle off the cover. ---- */
+    const N_STARS = 90;
+    const stars = Array.from({ length: N_STARS }, () => ({
+      x: (R(0, W)) | 0,
+      y: (R(0, H * 0.52)) | 0,
+      r: R(0.8, 2.4),
+      ph: R(0, 6.2832),
+      c: rnd() < 0.5 ? '#FFFFFF' : (rnd() < 0.5 ? YELLOW : CHROME),
+    }));
+
+    /* ===========================================================
+       The flood is driven by `cover` (0 -> 1 -> 0, full at t=0.5).
+       The grid horizon LIFTS up the screen as cover grows (the floor
+       eats the frame from the bottom), the sky wash fades in behind it,
+       and the chrome sun rises through the middle.
+       =========================================================== */
+
+    // night-sky wash that fills behind the rising grid
+    function drawSky(cover) {
+      if (cover <= 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.25);
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0.00, NIGHT3);
+      g.addColorStop(0.34, NIGHT);
+      g.addColorStop(0.52, NIGHT2);
+      g.addColorStop(0.62, '#3A0E5C');
+      g.addColorStop(0.74, NIGHT2);
+      g.addColorStop(1.00, NIGHT3);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      // hot sunset wash blooming on the horizon line
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      const bloom = ctx.createRadialGradient(W / 2, horizonY, 0, W / 2, horizonY, 760);
+      bloom.addColorStop(0.00, 'rgba(255,122,0,0.42)');
+      bloom.addColorStop(0.32, 'rgba(255,46,151,0.26)');
+      bloom.addColorStop(1.00, 'rgba(255,46,151,0)');
+      ctx.fillStyle = bloom;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    // twinkling dot-stars (only read once the sky has flooded in)
+    function drawStars(t, cover) {
+      if (cover <= 0.05) return;
+      ctx.save();
+      for (const s of stars) {
+        const tw = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 9 + s.ph));
+        ctx.globalAlpha = cover * tw;
+        ctx.fillStyle = s.c;
+        const r = Math.max(1, Math.round(s.r));
+        ctx.fillRect(s.x, s.y, r, r);
+      }
+      ctx.restore();
+    }
+
+    // the chrome-banded sunset SUN, rising through the middle of the frame
+    function drawSun(cover) {
+      if (cover <= 0.02) return;
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      const Rsun = 300;
+      const cx = W / 2;
+      // disc rests on the horizon and rises with it
+      const cy = horizonY - Rsun * 0.62;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.35);
+      // outer bloom
+      const halo = ctx.createRadialGradient(cx, cy, Rsun * 0.5, cx, cy, Rsun * 1.7);
+      halo.addColorStop(0, 'rgba(255,122,0,0.45)');
+      halo.addColorStop(1, 'rgba(255,46,151,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(cx - Rsun * 1.8, cy - Rsun * 1.8, Rsun * 3.6, Rsun * 3.6);
+
+      // the disc — clip to a circle, paint the sunset stack
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, Rsun, 0, Math.PI * 2);
+      ctx.clip();
+      const sg = ctx.createLinearGradient(cx, cy - Rsun, cx, cy + Rsun);
+      sg.addColorStop(0.00, SUN_TOP);
+      sg.addColorStop(0.26, '#FFC23A');
+      sg.addColorStop(0.52, SUN_MID);
+      sg.addColorStop(0.76, '#FF4E7E');
+      sg.addColorStop(1.00, SUN_BOT);
+      ctx.fillStyle = sg;
+      ctx.fillRect(cx - Rsun, cy - Rsun, Rsun * 2, Rsun * 2);
+      // top-light bloom on the disc
+      const lit = ctx.createRadialGradient(cx, cy - Rsun * 0.5, 0, cx, cy - Rsun * 0.5, Rsun * 1.1);
+      lit.addColorStop(0, 'rgba(255,255,255,0.5)');
+      lit.addColorStop(0.6, 'rgba(255,255,255,0)');
+      ctx.fillStyle = lit;
+      ctx.fillRect(cx - Rsun, cy - Rsun, Rsun * 2, Rsun * 2);
+      // chrome gap stripes — bands of night cut across the lower half (retrosun)
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000';
+      const stripes = [
+        [0.40, 6], [0.50, 8], [0.60, 10], [0.71, 13], [0.83, 18], [0.95, 24],
+      ];
+      for (const [fy, gh] of stripes) {
+        const yy = cy - Rsun + Rsun * 2 * fy;
+        ctx.fillRect(cx - Rsun, Math.round(yy), Rsun * 2, gh);
+      }
+      ctx.restore();   // un-clip
+      ctx.restore();   // alpha
+    }
+
+    /* ---- the OUTRUN perspective GRID floor, flooding up from the horizon ---- */
+    function drawGrid(t, cover) {
+      if (cover <= 0.02) return;
+      const horizonY = lerp(H + 120, H * 0.46, smooth(cover));
+      if (horizonY >= H) return;
+      const vpX = W / 2;
+      const floorH = H - horizonY;
+      const scroll = (t * 2.2) % 1;     // forward motion of the rows
+
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, cover * 1.4);
+      ctx.lineCap = 'round';
+
+      // converging vertical lines fanning out from the vanishing point
+      const LINES = 22;
+      const spread = W * 1.7;
+      ctx.lineWidth = 2;
+      for (let i = -LINES; i <= LINES; i++) {
+        const bx = vpX + (i / LINES) * spread;
+        ctx.strokeStyle = 'rgba(255,46,151,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(Math.round(vpX), Math.round(horizonY));
+        ctx.lineTo(Math.round(bx), H);
+        ctx.stroke();
+      }
+
+      // horizontal rows sweeping toward the viewer (foreshortened near the horizon)
+      const ROWS = 16;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < ROWS; i++) {
+        let rt = (i + scroll) / ROWS;        // 0 (far) .. 1 (near)
+        if (rt <= 0.001) continue;
+        const y = Math.round(horizonY + floorH * (rt * rt));
+        const a = Math.min(1, rt * 1.5) * 0.85;
+        ctx.strokeStyle = 'rgba(0,224,208,' + a.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+
+      // bright neon horizon RULE where grid meets sky
+      ctx.strokeStyle = 'rgba(170,255,247,0.95)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = TEAL;
+      ctx.shadowBlur = 26;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(horizonY)); ctx.lineTo(W, Math.round(horizonY));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---- VHS RGB-split + scanline tear + sun-yellow flash, peaking at full cover ---- */
+    function drawGlitch(t) {
+      const gx = Math.exp(-Math.pow((t - 0.5) / 0.085, 2));   // gaussian pulse at mid
+      if (gx < 0.02) return;
+
+      // RGB split: smear the already-drawn frame sideways in screen-blend pink/cyan
+      const off = 16 * gx;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.45 * gx;
+      try { ctx.drawImage(cv, -off, 0); } catch (e) {}
+      try { ctx.drawImage(cv, off, 0); } catch (e) {}
+      ctx.restore();
+
+      // torn horizontal slices: shift random bands of the frame sideways
+      const bands = 8;
+      ctx.save();
+      for (let i = 0; i < bands; i++) {
+        if (rndPulse(i, t) > 0.55) continue;          // only some bands tear
+        const by = Math.floor(R(0, H));
+        const bh = Math.floor(R(8, 50));
+        const dx = (R(-1, 1)) * 70 * gx;
+        try { ctx.drawImage(cv, 0, by, W, bh, dx, by, W, bh); } catch (e) {}
+      }
+      ctx.restore();
+
+      // scanlines
+      ctx.save();
+      ctx.globalAlpha = 0.26 * gx;
+      ctx.fillStyle = 'rgba(0,224,208,0.5)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+
+      // a quick sun-yellow flash at the very peak
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.04, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 * flash;
+        const fg = ctx.createLinearGradient(0, 0, 0, H);
+        fg.addColorStop(0, 'rgba(253,240,106,0.9)');
+        fg.addColorStop(1, 'rgba(255,122,0,0.7)');
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    // tiny deterministic per-band noise so tears flicker but stay reproducible
+    function rndPulse(i, t) {
+      const v = Math.sin((i * 12.9898 + t * 78.233) * 43758.5453);
+      return v - Math.floor(v);
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      seed = 80808;                              // reset rng each frame -> deterministic
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full at t=0.5
+
+      drawSky(cover);
+      drawStars(t, cover);
+      drawSun(cover);
+      drawGrid(t, cover);
+
+      // gentle vignette over the flood so it reads as a moody outrun night
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.18, W / 2, H / 2, H * 0.9);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(11,0,32,' + (0.6 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawGlitch(t);
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step can render any frame (t in 0..1) on demand.
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }         // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }    // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

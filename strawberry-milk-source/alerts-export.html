@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Strawberry Milk Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.4s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #fff1f4; color: #7a4453;
+      font-family: "Baloo 2","Quicksand","Varela Round","Trebuchet MS",system-ui,sans-serif; }
+    h1 { font-size: 24px; color: #a45d6e; letter-spacing: 1px; margin: 0 0 10px; font-weight: 800; }
+    p  { color: #b07e8c; line-height: 1.55; margin: 0 0 14px; max-width: 860px; }
+    code { color: #a45d6e; background: #ffe3ec; padding: 2px 6px; border-radius: 6px; }
+    label { color: #a45d6e; letter-spacing: 1px; margin-right: 8px; font-weight: 700; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #fff; color: #7a4453;
+      border: 2px solid #ffb3c6; border-radius: 12px; margin-right: 16px; }
+    input { width: 150px; }
+    button { font-size: 16px; padding: 13px 26px; background: #ff8fab; color: #fff;
+      border: 3px solid #ffe3ec; cursor: pointer; letter-spacing: 1.5px; font-weight: 800; border-radius: 30px;
+      box-shadow: 0 10px 22px rgba(164,93,110,.22); }
+    button:hover:not(:disabled) { background: #ff6f91; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #a45d6e; font-weight: 700; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 3px solid #ffd9e3; border-radius: 16px; }
+    .checker {
+      background-color: #ffe7ef;
+      background-image:
+        linear-gradient(45deg, #ffd2e0 25%, transparent 25%),
+        linear-gradient(-45deg, #ffd2e0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ffd2e0 75%),
+        linear-gradient(-45deg, transparent 75%, #ffd2e0 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <h1>EXPORT STRAWBERRY MILK ALERTS → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" value="NewFriend" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" value="5" /></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css / shared.css)
+    const CREAM = '#FFF1F4', MILK = '#FFE3EC', PINK = '#FFB3C6', HOT = '#FF8FAB',
+          ROSE = '#A45D6E', INK = '#7A4453', INK_SOFT = '#B07E8C', GLOSS = '#FFFFFF';
+    const HEART_COLS = ['#FF8FAB', '#FFB3C6', '#FFFFFF', '#FF6F91'];
+    const BEAD_COLS = ['#C98AA0', '#A45D6E', '#7A4453'];
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"🍓", line:"NEW FOLLOWER",  sub:"welcome to the cafe",     burst:14, amount:false },
+      subscriber: { glyph:"🧁", line:"NEW SUB",       sub:"thank you for subbing",   burst:18, amount:false },
+      member:     { glyph:"🎀", line:"NEW MEMBER",    sub:"welcome, member",         burst:18, amount:false },
+      cheer:      { glyph:"🫧", line:"CHEER",         sub:"bits dropped",            burst:22, amount:true,  amtPre:"", amtSuf:" bits" },
+      donation:   { glyph:"💖", line:"DONATION",      sub:"thank you so much",       burst:24, amount:true,  amtPre:"$" },
+      host:       { glyph:"🍮", line:"NOW HOSTING",   sub:"incoming friends",        burst:30, amount:true,  amtPre:"", amtSuf:" viewers" },
+      raid:       { glyph:"🍰", line:"RAID INCOMING", sub:"brace for the cuddles",   burst:40, amount:true,  amtPre:"", amtSuf:" raiders" },
+      like:       { glyph:"❤️", line:"NEW LIKE",      sub:"appreciated",             burst:12, amount:false },
+      share:      { glyph:"🍡", line:"SHARED",        sub:"thanks for spreading it", burst:16, amount:false },
+      star:       { glyph:"⭐", line:"NEW STAR",      sub:"shining bright",          burst:20, amount:true,  amtPre:"", amtSuf:" stars" },
+      superchat:  { glyph:"🍩", line:"SUPER CHAT",    sub:"message pinned",          burst:26, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"🧋", line:"NEW SUPPORTER", sub:"you keep this going",     burst:22, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== rounded-rect helper =====
+    function rr(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ===== card geometry (matches alerts.css: left 90, bottom 130, 760 wide) =====
+    const CARD_W = 760, CARD_H = 218;
+    const CARD_X0 = 90;                 // resting left
+    const CARD_Y = H - 130 - CARD_H;    // bottom:130 -> top y
+    const OFF_X = -940;                 // off-screen start offset
+
+    // easing to mirror the bouncy back-out closely enough
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    function drawHeart(p) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, p.a); ctx.fillStyle = p.c;
+      ctx.shadowColor = 'rgba(255,143,171,.55)'; ctx.shadowBlur = 10;
+      const s = p.s;
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.34);
+      ctx.bezierCurveTo(s * 0.9, -s * 0.55, s * 0.55, -s * 1.05, 0, -s * 0.5);
+      ctx.bezierCurveTo(-s * 0.55, -s * 1.05, -s * 0.9, -s * 0.55, 0, s * 0.34);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    function drawPearl(p) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.a); ctx.fillStyle = p.c;
+      ctx.shadowColor = 'rgba(164,93,110,.4)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = Math.max(0, p.a) * 0.5; ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.arc(p.x - p.s * 0.3, p.y - p.s * 0.3, p.s * 0.32, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+    function drawSpark(p) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, p.a); ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 12;
+      const r = p.s;
+      ctx.beginPath();
+      ctx.moveTo(0, -r); ctx.lineTo(r * 0.3, -r * 0.3); ctx.lineTo(r, 0);
+      ctx.lineTo(r * 0.3, r * 0.3); ctx.lineTo(0, r); ctx.lineTo(-r * 0.3, r * 0.3);
+      ctx.lineTo(-r, 0); ctx.lineTo(-r * 0.3, -r * 0.3);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): in .62 | hold to 4820 | out .5  => ~5320ms total
+    const T_IN = 620, T_HOLD_END = 4820, T_OUT = 500;
+    const DUR = T_HOLD_END + T_OUT; // 5320
+
+    function clipState(type, name, amountStr) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const burst = [];
+      let spawned1 = false, spawned2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n) {
+        const ox = CARD_X0 + 150, oy = CARD_Y + CARD_H - 60;
+        for (let i = 0; i < n; i++) {
+          const kind = Math.random() < 0.55 ? 0 : (Math.random() < 0.6 ? 1 : 2);
+          burst.push({
+            kind,
+            x: ox + R(-40, 90), y: oy + R(-50, 40),
+            vx: R(20, 180)/60, vy: R(-150, -40)/60, g: R(80,150)/3600,
+            s: kind === 0 ? R(14, 28) : R(8, 16), rot: R(0, 6.28), vr: R(-2.4, 2.4)/60, a: 1, life: R(1.6, 2.8),
+            c: kind === 1 ? BEAD_COLS[(Math.random()*BEAD_COLS.length)|0] : HEART_COLS[(Math.random()*HEART_COLS.length)|0],
+          });
+        }
+      }
+      // step the burst physics by ~one 30fps frame
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      return function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // card slide position + opacity
+        let dx, op;
+        if (ms < T_IN) { const t = easeOut(ms / T_IN); dx = OFF_X * (1 - t); op = Math.min(1, t * 1.4); }
+        else if (ms < T_HOLD_END) { dx = 0; op = 1; }
+        else { const t = Math.min(1, (ms - T_HOLD_END) / T_OUT); dx = OFF_X * t; op = 1 - t; }
+
+        // spawn bursts (staggered like the live JS)
+        if (!spawned1 && ms >= T_IN + 220) { spawn(cfg.burst); spawned1 = true; }
+        if (!spawned2 && cfg.burst >= 26 && ms >= T_IN + 620) { spawn(Math.round(cfg.burst * 0.6)); spawned2 = true; }
+        stepBurst();
+
+        // draw candies behind the card while it's visible
+        if (op > 0.01) for (const p of burst) {
+          if (p.kind === 0) drawHeart(p); else if (p.kind === 1) drawPearl(p); else drawSpark(p);
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+        if (op <= 0.01) return;
+
+        ctx.save();
+        ctx.globalAlpha = op;
+        const x = CARD_X0 + dx, y = CARD_Y;
+
+        // card body (white sticker + soft pink ring + glow)
+        ctx.shadowColor = 'rgba(164,93,110,0.30)'; ctx.shadowBlur = 60;
+        rr(x, y, CARD_W, CARD_H, 42);
+        ctx.fillStyle = GLOSS; ctx.fill();
+        ctx.shadowBlur = 0;
+        // soft white outer ring
+        ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        rr(x - 6, y - 6, CARD_W + 12, CARD_H + 12, 48); ctx.stroke();
+        // dashed candy stitch
+        ctx.save(); ctx.setLineDash([14, 12]); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,143,171,0.55)';
+        rr(x + 16, y + 16, CARD_W - 32, CARD_H - 32, 30); ctx.stroke(); ctx.restore();
+
+        // left pink seam
+        const seam = ctx.createLinearGradient(0, y + 24, 0, y + CARD_H - 24);
+        seam.addColorStop(0, HOT); seam.addColorStop(1, PINK);
+        ctx.fillStyle = seam; rr(x, y + 24, 8, CARD_H - 48, 4); ctx.fill();
+
+        // boba-cup icon tile
+        const tx = x + 40, ty = y + 34, ts = 150;
+        const tg = ctx.createLinearGradient(tx, ty, tx + ts, ty + ts);
+        tg.addColorStop(0, GLOSS); tg.addColorStop(0.46, MILK); tg.addColorStop(1, PINK);
+        rr(tx, ty, ts, ts, 40); ctx.fillStyle = tg; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 5; rr(tx + 2.5, ty + 2.5, ts - 5, ts - 5, 38); ctx.stroke();
+        ctx.font = '80px "Segoe UI Emoji", "Apple Color Emoji", system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.glyph, tx + ts / 2, ty + ts / 2 + 6);
+
+        // meta column
+        const mx = x + 40 + ts + 30;
+        ctx.textAlign = 'left';
+
+        // kicker pill (milk bg, rose text)
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = '800 21px "Baloo 2", system-ui, sans-serif';
+        const kw = ctx.measureText(cfg.line).width;
+        const pillX = mx, pillY = y + 32, pillH = 36, pillW = kw + 56;
+        rr(pillX, pillY, pillW, pillH, 18); ctx.fillStyle = MILK; ctx.fill();
+        ctx.fillStyle = HOT; ctx.beginPath(); ctx.arc(pillX + 20, pillY + pillH / 2, 6, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = ROSE; ctx.fillText(cfg.line, pillX + 36, pillY + pillH / 2 + 7);
+
+        // name (bold, ink) — drop shadow uses milk
+        ctx.fillStyle = INK; ctx.shadowColor = 'rgba(164,93,110,0.18)'; ctx.shadowBlur = 18;
+        ctx.font = '800 62px "Baloo 2", system-ui, sans-serif';
+        ctx.fillText(clampText(name, CARD_W - (ts + 70) - 50), mx, y + 138);
+        ctx.shadowBlur = 0;
+
+        // amount (hot pink) OR sub depending
+        let subY = y + 178;
+        if (showAmount) {
+          ctx.fillStyle = HOT; ctx.shadowColor = 'rgba(255,143,171,0.4)'; ctx.shadowBlur = 14;
+          ctx.font = '800 30px "Baloo 2", system-ui, sans-serif';
+          ctx.fillText(amountStr, mx, y + 176); ctx.shadowBlur = 0;
+          subY = y + 206;
+        }
+        // sub (soft ink)
+        ctx.fillStyle = INK_SOFT; ctx.font = '600 22px "Baloo 2", system-ui, sans-serif';
+        ctx.fillText(cfg.sub, mx, subY);
+
+        ctx.restore();
+      };
+    }
+
+    // clamp a string to a pixel width with the current name font
+    function clampText(str, maxW) {
+      ctx.save(); ctx.font = '800 62px "Baloo 2", system-ui, sans-serif';
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== preview a static frame so you see the look before recording =====
+    function preview() {
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr);
+      r(1600); // mid-hold frame
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      // start on a clear (transparent) frame
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          // pad a few clear frames so the final transparency lands cleanly
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

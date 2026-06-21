@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Strawberry Milk (PNG generator)</title>
+  <!--
+    STRAWBERRY MILK · "Sticker Journal Cafe" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the cozy cafe look (cream->milk->pink gradient, soft pink
+    blooms, drifting boba pearls + strawberry slices + hearts, a glossy scalloped
+    cloud card with a boba-cup tile, and a hand-drawn corner doodle) onto a
+    <canvas> and downloads it as a PNG.
+
+    Everything is drawn from a SEEDED LCG, so the bloom / sweet scatter is identical
+    on every render (Math.random is never used) — re-running gives the same frame.
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --cream:#FFF1F4; --milk:#FFE3EC; --pink:#FFB3C6; --hot:#FF8FAB;
+      --rose:#A45D6E; --mint:#BFEAD6; --gloss:#FFFFFF;
+      --ink:#7A4453; --ink-soft:#B07E8C; --bead:#C98AA0;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Baloo 2","Quicksand","Varela Round","Trebuchet MS",system-ui,sans-serif;
+      color:var(--ink);padding:32px;
+      background:
+        radial-gradient(900px 520px at 18% -8%, rgba(255,255,255,0.85), transparent 58%),
+        radial-gradient(820px 600px at 86% 104%, rgba(255,143,171,0.20), transparent 60%),
+        linear-gradient(160deg, var(--cream) 0%, var(--milk) 52%, var(--pink) 135%);
+      min-height:100vh;}
+    h1{font-weight:800;font-size:28px;color:var(--ink);letter-spacing:.3px;margin:0 0 6px;
+      text-shadow:0 3px 0 var(--gloss), 0 8px 18px rgba(164,93,110,.16);}
+    h1 b{color:var(--hot);}
+    p.lead{color:var(--ink-soft);margin:0 0 22px;max-width:800px;line-height:1.55;font-weight:600;}
+    .kicker{font-weight:800;letter-spacing:3px;font-size:13px;color:var(--hot);
+      margin:0 0 14px;text-transform:uppercase;}
+    button{font-family:inherit;font-weight:800;font-size:14px;letter-spacing:2px;
+      padding:14px 26px;background:linear-gradient(180deg,var(--hot),#ED6F8E);color:var(--gloss);
+      border:none;border-radius:30px;cursor:pointer;
+      box-shadow:0 10px 26px rgba(255,143,171,.40), inset 0 0 0 3px rgba(255,255,255,.55);}
+    button:hover{filter:brightness(1.05);}
+    .preview{margin-top:22px;background:rgba(255,255,255,0.6);padding:14px;
+      border:1px solid rgba(255,143,171,0.35);border-radius:18px;display:inline-block;
+      box-shadow:0 14px 30px rgba(164,93,110,.14);}
+    canvas{display:block;width:960px;height:540px;border-radius:10px;}
+    code{font-weight:700;color:var(--rose);background:rgba(255,143,171,0.16);
+      padding:2px 8px;border-radius:8px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">SWEET SHOP · OFFLINE SCREEN</p>
+  <h1>Offline Screen <b>Generator</b></h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the strawberry-milk cafe style — seeded so
+    the blooms and drifting sweets are reproducible. Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+    Optional <code>?handle=@you</code> customises the handle.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const W = 1920, H = 1080;
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const CREAM = '#FFF1F4', MILK = '#FFE3EC', PINK = '#FFB3C6', HOT = '#FF8FAB';
+    const ROSE = '#A45D6E', MINT = '#BFEAD6', GLOSS = '#FFFFFF';
+    const INK = '#7A4453', INK_SOFT = '#B07E8C', BEAD = '#C98AA0';
+    const PINKS = [HOT, PINK, '#FFC8D6', MILK];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft pink bloom (blurred radial gradient) ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- sweets that match shared.js (heart / strawberry / boba pearl) ----
+    function heart(x, y, s, rot, color, alpha) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+      ctx.globalAlpha = alpha; ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.34);
+      ctx.bezierCurveTo(s * 0.9, -s * 0.55, s * 0.55, -s * 1.05, 0, -s * 0.5);
+      ctx.bezierCurveTo(-s * 0.55, -s * 1.05, -s * 0.9, -s * 0.55, 0, s * 0.34);
+      ctx.closePath(); ctx.fill();
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    function strawberry(x, y, s, rot, alpha) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = alpha;
+      ctx.fillStyle = HOT;
+      ctx.beginPath(); ctx.arc(0, 0, s, 0, 6.2832); ctx.fill();
+      ctx.lineWidth = Math.max(2, s * 0.18); ctx.strokeStyle = MILK;
+      ctx.beginPath(); ctx.arc(0, 0, s - ctx.lineWidth * 0.5, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = CREAM;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * 6.2832, rr = s * 0.55;
+        ctx.beginPath(); ctx.arc(Math.round(Math.cos(ang) * rr), Math.round(Math.sin(ang) * rr), Math.max(1, s * 0.09), 0, 6.2832); ctx.fill();
+      }
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    function pearl(x, y, s, alpha, color) {
+      ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = alpha * 0.5; ctx.fillStyle = GLOSS;
+      ctx.beginPath(); ctx.arc(x - s * 0.3, y - s * 0.3, s * 0.32, 0, 6.2832); ctx.fill();
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+
+    // ---- rounded rectangle path ----
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- a scalloped (cloud) rounded card: rect body + bumps on every edge ----
+    function scallopCard(x, y, w, h, r, bump) {
+      roundRect(x, y, w, h, r);
+      const bx = bump, n = (len) => Math.max(2, Math.round(len / (bx * 2)));
+      // top & bottom
+      let nx = n(w - r * 2);
+      for (let i = 0; i <= nx; i++) {
+        const px = x + r + (w - r * 2) * (i / nx);
+        ctx.moveTo(px + bx, y);     ctx.arc(px, y, bx, 0, Math.PI * 2);
+        ctx.moveTo(px + bx, y + h); ctx.arc(px, y + h, bx, 0, Math.PI * 2);
+      }
+      // left & right
+      let ny = n(h - r * 2);
+      for (let i = 0; i <= ny; i++) {
+        const py = y + r + (h - r * 2) * (i / ny);
+        ctx.moveTo(x + bx, py);     ctx.arc(x, py, bx, 0, Math.PI * 2);
+        ctx.moveTo(x + w + bx, py); ctx.arc(x + w, py, bx, 0, Math.PI * 2);
+      }
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x57A4B); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: cozy cream->milk->pink gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, CREAM); grad.addColorStop(0.5, MILK); grad.addColorStop(1, PINK);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // big soft glows (the stage radial set)
+      bloom(W * 0.18, H * 0.14, W * 0.55, 'rgba(255,255,255,0.85)', 1);
+      bloom(W * 0.85, H * 0.18, W * 0.45, 'rgba(191,234,214,0.45)', 1);
+      bloom(W * 0.82, H * 0.92, W * 0.50, 'rgba(255,143,171,0.30)', 1);
+
+      // ---- SEEDED soft blooms ----
+      for (let i = 0; i < 16; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), r = R(rnd, 90, 260);
+        const c = PINKS[(rnd() * PINKS.length) | 0], a = R(rnd, 0.05, 0.14);
+        bloom(x, y, r, c, a);
+      }
+
+      // ---- SEEDED scattered sweets (pearls / strawberries / hearts) ----
+      for (let i = 0; i < 30; i++) {
+        const x = R(rnd, 30, W - 30), y = R(rnd, 30, H - 30);
+        const kind = rnd();
+        const rot = R(rnd, 0, 6.28), a = R(rnd, 0.30, 0.7);
+        if (kind < 0.4) {
+          pearl(x, y, R(rnd, 8, 18), a, [BEAD, ROSE, INK][(rnd() * 3) | 0]);
+        } else if (kind < 0.7) {
+          strawberry(x, y, R(rnd, 16, 34), rot, a);
+        } else {
+          heart(x, y, R(rnd, 18, 36), rot, rnd() < 0.5 ? HOT : PINK, a);
+        }
+      }
+
+      // ---- soft vignette to seat the card ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.62);
+      vig.addColorStop(0, 'rgba(164,93,110,0)'); vig.addColorStop(1, 'rgba(164,93,110,0.20)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- hand-drawn corner doodle (top-left squiggle + dot) ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,143,171,0.65)'; ctx.lineWidth = 7;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(96, 150);
+      ctx.quadraticCurveTo(140, 92, 184, 150);
+      ctx.quadraticCurveTo(228, 208, 272, 150);
+      ctx.quadraticCurveTo(316, 92, 360, 150);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,143,171,0.65)';
+      ctx.beginPath(); ctx.arc(404, 116, 8, 0, 6.2832); ctx.fill();
+      ctx.restore();
+
+      // ---- THE SCALLOPED CLOUD CARD (centred) ----
+      const cardW = 980, cardH = 470;
+      const cardX = (W - cardW) / 2, cardY = (H - cardH) / 2 + 8, rad = 52, bump = 26;
+
+      // outer soft shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(164,93,110,0.30)'; ctx.shadowBlur = 70; ctx.shadowOffsetY = 30;
+      ctx.fillStyle = GLOSS;
+      scallopCard(cardX, cardY, cardW, cardH, rad, bump); ctx.fill();
+      ctx.restore();
+
+      // cream->milk gradient inside
+      ctx.save();
+      scallopCard(cardX, cardY, cardW, cardH, rad, bump); ctx.clip();
+      const cg = ctx.createLinearGradient(0, cardY, 0, cardY + cardH);
+      cg.addColorStop(0, '#FFFFFF'); cg.addColorStop(1, '#FFF1F5');
+      ctx.fillStyle = cg; ctx.fillRect(cardX - bump, cardY - bump, cardW + bump * 2, cardH + bump * 2);
+      // inner bottom milk glow
+      const ig = ctx.createLinearGradient(0, cardY + cardH - 140, 0, cardY + cardH);
+      ig.addColorStop(0, 'rgba(255,179,198,0)'); ig.addColorStop(1, 'rgba(255,179,198,0.35)');
+      ctx.fillStyle = ig; ctx.fillRect(cardX, cardY + cardH - 140, cardW, 140);
+      ctx.restore();
+
+      // candy stitch dashed border just inside the card
+      ctx.save();
+      ctx.setLineDash([13, 12]); ctx.strokeStyle = 'rgba(255,143,171,0.55)'; ctx.lineWidth = 4;
+      roundRect(cardX + 30, cardY + 30, cardW - 60, cardH - 60, rad - 24); ctx.stroke();
+      ctx.restore();
+
+      // ---- glossy boba-cup TILE near the top of the card ----
+      const tileS = 168, tileX = W / 2 - tileS / 2, tileY = cardY + 50;
+      const tg = ctx.createLinearGradient(tileX, tileY, tileX + tileS, tileY + tileS);
+      tg.addColorStop(0, GLOSS); tg.addColorStop(0.46, MILK); tg.addColorStop(1, PINK);
+      ctx.save();
+      ctx.shadowColor = 'rgba(164,93,110,0.28)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 14;
+      ctx.fillStyle = tg; roundRect(tileX, tileY, tileS, tileS, 34); ctx.fill();
+      ctx.restore();
+      // inner gloss ring
+      ctx.save();
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      roundRect(tileX + 5, tileY + 5, tileS - 10, tileS - 10, 30); ctx.stroke();
+      ctx.restore();
+      // boba cup glyph
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '96px "Segoe UI Emoji", "Apple Color Emoji", system-ui, sans-serif';
+      ctx.fillText('🧋', tileX + tileS / 2, tileY + tileS / 2 + 4);
+      ctx.restore();
+      // gloss highlight on the tile
+      ctx.save(); ctx.globalAlpha = 0.85;
+      const hl = ctx.createLinearGradient(0, tileY + 14, 0, tileY + 56);
+      hl.addColorStop(0, 'rgba(255,255,255,0.95)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hl; roundRect(tileX + 18, tileY + 14, 64, 40, 20); ctx.fill();
+      ctx.restore();
+
+      // ---- kicker pill: ♥ STREAM IS ----
+      const kY = tileY + tileS + 52;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 26px "Baloo 2", system-ui, sans-serif';
+      const kLabel = 'STREAM IS';
+      const kw = ctx.measureText(kLabel).width;
+      // pill bg
+      const pillW = kw + 78, pillH = 46, pillX = W / 2 - pillW / 2, pillY = kY - pillH / 2;
+      ctx.fillStyle = MILK; roundRect(pillX, pillY, pillW, pillH, pillH / 2); ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = GLOSS; roundRect(pillX, pillY, pillW, pillH, pillH / 2); ctx.stroke();
+      // heart dot
+      drawHeart(pillX + 30, kY, 9, HOT);
+      ctx.fillStyle = ROSE; ctx.textAlign = 'left';
+      ctx.fillText(kLabel, pillX + 46, kY + 1);
+      ctx.textAlign = 'center';
+
+      // ---- big title: OFFLINE ----
+      ctx.font = '800 120px "Baloo 2", system-ui, sans-serif';
+      const titleY = kY + 104;
+      ctx.fillStyle = MILK; ctx.fillText('OFFLINE', W / 2, titleY + 5);   // soft drop
+      ctx.fillStyle = INK;  ctx.fillText('OFFLINE', W / 2, titleY);
+
+      // ---- subtitle ----
+      ctx.font = '600 30px "Baloo 2", system-ui, sans-serif';
+      ctx.fillStyle = INK_SOFT;
+      ctx.fillText('be back soon — follow for a fresh cup ♡', W / 2, titleY + 78);
+
+      // ---- glass "milk fill" bar (the cute progress styling, frozen) ----
+      const gW = 560, gH = 30, gX = W / 2 - gW / 2, gY = titleY + 128;
+      ctx.fillStyle = 'rgba(255,143,171,0.22)'; roundRect(gX, gY, gW, gH, gH / 2); ctx.fill();
+      const gFill = gW * 0.5;
+      const fg = ctx.createLinearGradient(gX, 0, gX + gFill, 0);
+      fg.addColorStop(0, HOT); fg.addColorStop(1, PINK);
+      ctx.fillStyle = fg; roundRect(gX, gY, gFill, gH, gH / 2); ctx.fill();
+      // pearls sitting in the fill
+      ctx.fillStyle = BEAD;
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(gX + 40 + i * 34, gY + gH / 2, 7, 0, 6.2832); ctx.fill(); }
+      // glossy playhead
+      ctx.fillStyle = GLOSS; ctx.shadowColor = 'rgba(255,143,171,0.7)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(gX + gFill, gY + gH / 2, 11, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+
+      // ---- HANDLE (bottom-right) ----
+      const handleRaw = params.get('handle') || '@yourhandle';
+      const handle = handleRaw.startsWith('@') ? handleRaw : '@' + handleRaw;
+      const handleClean = handleRaw.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '800 30px "Baloo 2", system-ui, sans-serif';
+      ctx.fillStyle = ROSE;
+      ctx.fillText(handle, W - 70, H - 64);
+      ctx.font = '600 20px "Baloo 2", system-ui, sans-serif'; ctx.fillStyle = INK_SOFT;
+      ctx.fillText('twitch.tv/' + handleClean.toLowerCase(), W - 70, H - 36);
+    }
+
+    // solid heart helper (kicker dot)
+    function drawHeart(x, y, s, color) {
+      ctx.save(); ctx.translate(x, y); ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.34);
+      ctx.bezierCurveTo(s * 0.9, -s * 0.55, s * 0.55, -s * 1.05, 0, -s * 0.5);
+      ctx.bezierCurveTo(-s * 0.55, -s * 1.05, -s * 0.9, -s * 0.55, 0, s * 0.34);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

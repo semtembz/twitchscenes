@@ -1,0 +1,146 @@
+/* ============================================================
+   MIAMI DRIVE — alert system ("Outrun Sunset Highway")
+   A chrome/neon HUD card that slides in from the LEFT, holds,
+   then slides out. Transparent background so it composites over
+   gameplay / the scene. Cohesive with shared.css tokens:
+   sunset-gradient glyph tile, teal mono kicker, chrome-italic
+   NAME line, an optional sunset amount, VHS scanline veil, and a
+   teal/pink neon burst on a transparent canvas.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --night:#160033; --night-2:#1E0A4A; --night-3:#0B0020;
+  --pink:#FF2E97; --teal:#00E0D0; --orange:#FF7A00; --yellow:#FDF06A;
+  --chrome-1:#FFFFFF; --chrome-2:#CFE9FF; --chrome-3:#8FA8D8;
+  --ink:#FFF0FB; --dim:#B49BD8;
+  --sun-top:#FDF06A; --sun-mid:#FF7A00; --sun-bot:#FF2E97;
+  --card:rgba(11,0,32,.74); --card-2:rgba(30,10,74,.66);
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:"Eurostile","Bahnschrift","DIN Condensed","Arial Narrow",system-ui,sans-serif;}
+
+/* one canvas for the neon burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left, slides in from off-screen left ---- */
+.alert{position:absolute;left:90px;bottom:130px;width:780px;padding:32px 40px 32px 44px;
+  background:linear-gradient(150deg, var(--card), var(--card-2));
+  border:2px solid rgba(0,224,208,.55);border-radius:18px;
+  box-shadow:0 0 0 4px rgba(11,0,32,.55), 0 24px 70px rgba(0,0,0,.55),
+    0 0 54px rgba(255,46,151,.18), inset 0 0 60px rgba(255,122,0,.08);
+  display:grid;grid-template-columns:150px 1fr;gap:30px;align-items:center;
+  /* start off-screen to the left + hidden; .show animates it in */
+  opacity:0;transform:translateX(-980px);
+  will-change:transform,opacity;}
+/* inner pink hairline echo */
+.alert::before{content:"";position:absolute;inset:7px;border:1px solid rgba(255,46,151,.40);
+  border-radius:12px;pointer-events:none;}
+/* a teal hologram scan sweep travelling down the card */
+.alert::after{content:"";position:absolute;left:0;right:0;height:90px;top:-90px;pointer-events:none;
+  background:linear-gradient(180deg, transparent, rgba(0,224,208,.16), transparent);
+  border-radius:18px;
+  animation:alert-sweep 2.6s linear infinite;}
+@keyframes alert-sweep{0%{top:-90px}100%{top:100%}}
+
+/* a thin teal->pink seam down the left edge — the "signal" accent */
+.alert .seam{position:absolute;left:7px;top:22px;bottom:22px;width:5px;border-radius:5px;
+  background:linear-gradient(180deg,var(--teal),var(--pink));
+  box-shadow:0 0 16px rgba(0,224,208,.75);}
+
+/* entrance / exit driven by JS toggling .show */
+.alert.show{animation:alert-in .62s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateX(-980px);}
+  70%{opacity:1;transform:translateX(22px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateX(0);}
+  100%{opacity:0;transform:translateX(-980px);}
+}
+
+/* event glyph tile — chrome-banded sunset disc plate with scanlines */
+.alert .art{width:150px;height:150px;position:relative;overflow:hidden;border-radius:16px;
+  background:linear-gradient(180deg,
+    var(--sun-top) 0%, #FFC23A 26%, var(--sun-mid) 52%, #FF4E7E 76%, var(--sun-bot) 100%);
+  border:2px solid rgba(0,224,208,.55);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 8px 24px rgba(0,0,0,.45),
+    0 0 22px rgba(255,122,0,.35);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:80px;color:rgba(11,0,32,.92);
+  text-shadow:0 1px 0 rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.35);
+  animation:glyph-pop .7s var(--ease) both .18s;}
+/* chrome gap stripes echoing the retro-sun on the tile */
+.alert .art::before{content:"";position:absolute;left:-4%;right:-4%;bottom:0;height:60%;pointer-events:none;
+  background:repeating-linear-gradient(180deg,
+    transparent 0 9px, rgba(11,0,32,.55) 9px 13px,
+    transparent 13px 26px, rgba(11,0,32,.55) 26px 29px,
+    transparent 29px 52px, rgba(11,0,32,.55) 52px 55px);}
+.alert .art::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 3px);}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+/* mono kicker line (teal) */
+.alert .kick{font-family:"Courier New",monospace;letter-spacing:6px;font-size:21px;color:var(--teal);
+  display:flex;align-items:center;gap:12px;margin-bottom:8px;white-space:nowrap;
+  text-shadow:0 0 12px rgba(0,224,208,.55);
+  overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
+.alert .kick .sq{width:13px;height:13px;background:var(--pink);transform:rotate(45deg);
+  box-shadow:0 0 12px var(--pink);flex:none;
+  animation:sqblink 1.4s steps(1,end) infinite;}
+@keyframes sqblink{0%,60%{opacity:1}61%,100%{opacity:.2}}
+
+/* big NAME — chrome top / sunset bottom gradient fill (clamped to one line) */
+.alert .name{font-size:66px;line-height:1.0;font-weight:800;font-style:italic;letter-spacing:1px;
+  margin:2px 0 6px;text-transform:uppercase;
+  -webkit-text-stroke:1.5px rgba(255,255,255,.7);
+  background:linear-gradient(180deg,
+    #FFFFFF 0%, #DCEBFF 26%, #9FC0F0 42%, var(--sun-top) 54%,
+    var(--sun-mid) 74%, var(--sun-bot) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.4)) drop-shadow(0 0 30px rgba(255,46,151,.35));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (sunset pink) — hidden unless .has-amount */
+.alert .amount{font-size:30px;color:var(--pink);font-weight:800;letter-spacing:1px;
+  text-shadow:0 0 16px rgba(255,46,151,.6);margin-bottom:4px;display:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--yellow);text-shadow:0 0 16px rgba(253,240,106,.5);}
+
+/* tiny mono sub line */
+.alert .sub{font-size:21px;color:var(--dim);letter-spacing:2px;
+  font-family:"Courier New",monospace;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* mono HUD tag top-right of the card (channel/sector readout) */
+.alert .tagid{position:absolute;top:14px;right:24px;font-family:"Courier New",monospace;
+  font-size:15px;letter-spacing:3px;color:var(--teal);opacity:.75;
+  text-shadow:0 0 10px rgba(0,224,208,.5);}
+
+/* signal bars motif under the tag */
+.alert .sig{position:absolute;top:38px;right:24px;display:inline-flex;gap:3px;align-items:flex-end;height:14px;opacity:.7;}
+.alert .sig i{width:4px;background:var(--teal);box-shadow:0 0 6px var(--teal);border-radius:1px;}
+
+/* VHS scanline veil over the whole card */
+.alert .scanveil{position:absolute;inset:0;pointer-events:none;opacity:.4;mix-blend-mode:overlay;
+  border-radius:18px;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px);}
+
+/* render mode: freeze CSS-driven motion (JS drives transform/opacity deterministically) */
+#stage.render .alert,#stage.render .alert.show,#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .sq,#stage.render .alert .kick .sq{animation:none!important;}

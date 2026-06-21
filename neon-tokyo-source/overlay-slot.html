@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Neon Tokyo — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD strip. Optional URL param: ?handle=@you
+       Most of the screen is transparent; composites over gameplay. -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no page chrome, no city background */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* slim angular holographic strip, lower area, left-anchored */
+    .slot{position:absolute;left:60px;bottom:54px;height:64px;
+      display:flex;align-items:center;gap:22px;padding:0 34px 0 28px;
+      background:linear-gradient(120deg, rgba(18,18,34,.74), rgba(10,10,20,.58));
+      border:2px solid rgba(0,224,255,.55);
+      box-shadow:0 0 0 4px rgba(10,10,20,.4), 0 0 34px rgba(0,224,255,.18),
+        inset 0 0 30px rgba(122,60,255,.12);
+      clip-path:polygon(0 16px,16px 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 16px));
+      animation:slotin .7s var(--ease) both .15s;}
+    .slot::before{content:"";position:absolute;inset:5px;border:1px solid rgba(255,45,149,.32);
+      clip-path:inherit;pointer-events:none;}
+    /* cyan scan sweep travels along the strip */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:90px;left:-90px;pointer-events:none;
+      background:linear-gradient(90deg, transparent, rgba(0,224,255,.18), transparent);
+      animation:slotsweep 4.6s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-90px}100%{left:100%}}
+
+    .slot .live{display:flex;align-items:center;gap:11px;
+      font-family:"Courier New",monospace;letter-spacing:5px;font-size:21px;color:var(--mag);
+      text-shadow:0 0 12px rgba(255,45,149,.55);}
+    .slot .live .dot{width:12px;height:12px;background:var(--mag);box-shadow:0 0 14px var(--mag);
+      transform:rotate(45deg);animation:blip 1.4s steps(1,end) infinite;}
+    .slot .div{width:2px;height:30px;background:linear-gradient(180deg,transparent,rgba(0,224,255,.6),transparent);}
+    .slot .who{font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;font-weight:700;
+      letter-spacing:3px;font-size:30px;color:var(--cyan);text-transform:none;
+      text-shadow:2px 0 rgba(255,45,149,.5), -2px 0 rgba(0,224,255,.5), 0 0 18px rgba(0,224,255,.3);}
+
+    /* tiny HUD tag top-right */
+    .tag-tr{position:absolute;top:46px;right:60px;
+      font-family:"Courier New",monospace;letter-spacing:5px;font-size:20px;color:var(--cyan);
+      text-shadow:0 0 12px rgba(0,224,255,.55);opacity:.85;}
+    .tag-tr .sq{display:inline-block;width:11px;height:11px;background:var(--mag);
+      box-shadow:0 0 12px var(--mag);transform:rotate(45deg);margin-right:10px;vertical-align:middle;}
+
+    /* a couple of faint rain streaks (no full canvas storm) */
+    .rain{position:absolute;inset:0;pointer-events:none;opacity:.5;}
+
+    #stage.render .slot{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .live .dot{animation:none;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="rain" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="tag-tr" aria-hidden="true"><span class="sq"></span>区03</div>
+
+    <div class="slot">
+      <span class="live"><span class="dot"></span>LIVE</span>
+      <span class="div"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const stage = document.getElementById("stage");
+    if (params.get("render") === "1") stage.classList.add("render");
+
+    // fit the 1920x1080 stage to the window
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    // handle
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    // a couple of faint rain streaks
+    const cv = document.querySelector(".rain");
+    const ctx = cv.getContext("2d");
+    const W = 1920, H = 1080;
+    const R = (a,b) => a + Math.random()*(b-a);
+    const drops = Array.from({length: 26}, () => ({
+      x: R(0,W), y: R(0,H), len: R(20,52), v: R(700,1200)/60, sk: R(1.6,3.0),
+    }));
+    function draw(dt){
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle = "rgba(120,200,255,0.22)"; ctx.lineWidth = 2; ctx.lineCap = "round";
+      ctx.beginPath();
+      for (const d of drops){
+        d.y += d.v*dt; d.x += d.sk*dt*0.4;
+        if (d.y > H){ d.y = -20; d.x = Math.random()*W; }
+        ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.sk, d.y - d.len);
+      }
+      ctx.stroke();
+    }
+
+    if (stage.classList.contains("render")) {
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; draw(0); };
+      window.__renderAdvance = function(){ draw(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        draw(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

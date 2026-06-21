@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Neon Tokyo — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one angular 16:9 webcam frame. Place your camera
+       BEHIND this overlay; the inside of the frame is fully transparent.
+       Optional URL param: ?handle=@you -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* angular clip-path webcam frame, ~16:9, centered */
+    .cam{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:1120px;height:630px;            /* 16:9 */
+      animation:camin .7s var(--ease) both .1s;}
+
+    /* glowing cyan/magenta double-stroke border via two clipped layers.
+       inside stays fully transparent (only the ring is painted). */
+    .cam .ring{position:absolute;inset:0;
+      background:rgba(0,224,255,.85);
+      box-shadow:0 0 34px rgba(0,224,255,.55), 0 0 70px rgba(0,224,255,.25);
+      clip-path:polygon(
+        0 34px,34px 0, calc(100% - 70px) 0, 100% 70px, 100% 100%, 70px 100%, 0 calc(100% - 34px),
+        0 34px,
+        4px 36px, 0 36px, 0 calc(100% - 28px), 64px calc(100% - 4px), calc(100% - 4px) calc(100% - 4px),
+        calc(100% - 4px) 72px, calc(100% - 64px) 4px, 38px 4px, 4px 36px);}
+    /* inner magenta stroke, inset, leaves a transparent gap = double stroke */
+    .cam .ring2{position:absolute;inset:7px;
+      background:rgba(255,45,149,.8);
+      box-shadow:inset 0 0 22px rgba(255,45,149,.35);
+      clip-path:polygon(
+        0 30px,30px 0, calc(100% - 62px) 0, 100% 62px, 100% 100%, 62px 100%, 0 calc(100% - 30px),
+        0 30px,
+        3px 32px, 0 32px, 0 calc(100% - 25px), 58px calc(100% - 3px), calc(100% - 3px) calc(100% - 3px),
+        calc(100% - 3px) 64px, calc(100% - 58px) 3px, 33px 3px, 3px 32px);}
+
+    /* corner HUD ticks */
+    .cam .tick{position:absolute;width:30px;height:30px;pointer-events:none;}
+    .cam .tick.tl{left:-6px;top:30px;border-left:3px solid var(--cyan);border-top:3px solid var(--cyan);
+      box-shadow:0 0 12px rgba(0,224,255,.6);}
+    .cam .tick.tr{right:30px;top:-6px;border-right:3px solid var(--mag);border-top:3px solid var(--mag);
+      box-shadow:0 0 12px rgba(255,45,149,.6);}
+    .cam .tick.bl{left:-6px;bottom:30px;border-left:3px solid var(--mag);border-bottom:3px solid var(--mag);
+      box-shadow:0 0 12px rgba(255,45,149,.6);}
+    .cam .tick.br{right:-6px;bottom:-6px;border-right:3px solid var(--cyan);border-bottom:3px solid var(--cyan);
+      box-shadow:0 0 12px rgba(0,224,255,.6);}
+
+    /* handle tag — clipped into the bottom-left corner cut */
+    .cam .handle-tag{position:absolute;left:14px;bottom:-19px;
+      padding:6px 18px;background:linear-gradient(120deg,rgba(18,18,34,.95),rgba(10,10,20,.9));
+      border:2px solid rgba(0,224,255,.6);
+      clip-path:polygon(0 0, calc(100% - 14px) 0, 100% 100%, 14px 100%);
+      font-family:"Courier New",monospace;letter-spacing:3px;font-size:22px;color:var(--cyan);
+      text-shadow:0 0 12px rgba(0,224,255,.5);}
+
+    /* small kana mark — top-right, outside the live area */
+    .cam .kana{position:absolute;right:8px;top:-46px;
+      font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;font-weight:700;
+      letter-spacing:10px;font-size:38px;color:transparent;
+      -webkit-text-stroke:2px rgba(255,45,149,.6);text-shadow:0 0 18px rgba(255,45,149,.35);
+      animation:flicker 5s steps(1,end) infinite;}
+
+    /* tiny mono HUD tag — top-left, above the frame */
+    .cam .cap{position:absolute;left:30px;top:-42px;
+      font-family:"Courier New",monospace;letter-spacing:5px;font-size:19px;color:var(--cyan);
+      text-shadow:0 0 12px rgba(0,224,255,.5);opacity:.85;}
+    .cam .cap .sq{display:inline-block;width:10px;height:10px;background:var(--mag);
+      box-shadow:0 0 12px var(--mag);transform:rotate(45deg);margin-right:9px;vertical-align:middle;}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    #stage.render .cam{animation:none!important;}
+    #stage.render .cam .kana{animation:none!important;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div class="cam">
+      <div class="ring" aria-hidden="true"></div>
+      <div class="ring2" aria-hidden="true"></div>
+
+      <span class="tick tl" aria-hidden="true"></span>
+      <span class="tick tr" aria-hidden="true"></span>
+      <span class="tick bl" aria-hidden="true"></span>
+      <span class="tick br" aria-hidden="true"></span>
+
+      <span class="cap" aria-hidden="true"><span class="sq"></span>CAM // 区03</span>
+      <span class="kana" aria-hidden="true">電脳</span>
+      <span class="handle-tag" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const stage = document.getElementById("stage");
+    if (params.get("render") === "1") stage.classList.add("render");
+
+    // fit the 1920x1080 stage to the window
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    // handle
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    // deterministic hooks for the headless pipeline (static scene — nothing to advance)
+    if (stage.classList.contains("render")) {
+      window.__renderPlay = function(){};
+      let rf = 0;
+      window.__renderAdvance = function(){ rf++; return rf*(1000/30); };
+    }
+  })();
+  </script>
+</body>
+</html>

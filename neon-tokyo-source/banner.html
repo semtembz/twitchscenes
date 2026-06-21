@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Neon Tokyo (PNG generator)</title>
+  <!--
+    NEON TOKYO · "Midnight Akihabara" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = a tagline. The centre is decorative only — a faint torii-style neon gate +
+    skyline + bokeh — so the player can sit over it without hiding anything important.
+
+    Everything is drawn from a SEEDED LCG, so the skyline / rain / neon scatter is
+    identical on every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --bg:#0A0A14; --bg2:#12121F; --bg3:#05050C;
+      --mag:#FF2D95; --cyan:#00E0FF; --violet:#7A3CFF; --yellow:#FFD400;
+      --ink:#EAF6FF; --dim:#8A93B2;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;background:var(--bg3);
+      color:var(--ink);padding:32px;}
+    h1{font-weight:700;font-size:28px;color:var(--ink);letter-spacing:1px;margin:0 0 6px;text-transform:uppercase;
+      text-shadow:3px 0 var(--mag), -3px 0 var(--cyan), 0 0 30px rgba(0,224,255,.3);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.55;font-family:system-ui,"Segoe UI",sans-serif;}
+    .kicker{font-family:"Courier New",monospace;letter-spacing:5px;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 12px rgba(0,224,255,.5);}
+    button{font-family:"Courier New",monospace;font-weight:700;font-size:14px;letter-spacing:3px;
+      padding:13px 26px;background:linear-gradient(180deg,var(--violet),var(--mag));color:var(--ink);
+      border:1px solid rgba(0,224,255,.5);cursor:pointer;box-shadow:0 0 30px rgba(255,45,149,.25);
+      clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+    button:hover{filter:brightness(1.14);}
+    .preview{margin-top:22px;background:var(--bg2);padding:14px;border:1px solid #1d2440;
+      display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;}
+    /* PREVIEW-ONLY ghost: roughly where Twitch's offline player sits so you can
+       confirm the L/R blocks stay clear. NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(0,224,255,0.45);
+      background:rgba(10,10,20,0.40);pointer-events:none;
+      color:rgba(0,224,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Courier New",monospace;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--cyan);background:#101424;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">区03 · AKIHABARA · PROFILE BANNER</p>
+  <h1>Profile Banner Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the Neon-Tokyo Midnight-Akihabara style — seeded so
+    the skyline and rain are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Click Download then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const BG = '#0A0A14', BG2 = '#12121F', BG3 = '#05050C';
+    const MAG = '#FF2D95', CYAN = '#00E0FF', VIOLET = '#7A3CFF', YELLOW = '#FFD400';
+    const INK = '#EAF6FF', DIM = '#8A93B2';
+    const NEON = [CYAN, MAG, YELLOW, VIOLET];
+
+    const params = new URLSearchParams(location.search);
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function rgbOf(c) {
+      return c === CYAN ? '0,224,255' : c === MAG ? '255,45,149' : c === YELLOW ? '255,212,0' : '122,60,255';
+    }
+
+    // ---- faint neon torii gate (centre, behind the player) ----
+    function drawTorii(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = 'rgba(0,224,255,0.6)'; ctx.lineWidth = 6 / scale;
+      ctx.shadowColor = CYAN; ctx.shadowBlur = 26;
+      ctx.lineCap = 'square';
+      // upper roof bar (kasagi) — angular
+      ctx.beginPath();
+      ctx.moveTo(-130, -64); ctx.lineTo(130, -64);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-104, -42); ctx.lineTo(104, -42); // tie bar
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-72, -12); ctx.lineTo(72, -12);   // crossbeam (nuki)
+      ctx.stroke();
+      // pillars
+      ctx.strokeStyle = 'rgba(255,45,149,0.55)'; ctx.shadowColor = MAG;
+      ctx.beginPath(); ctx.moveTo(-60, -64); ctx.lineTo(-60, 70); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(60, -64);  ctx.lineTo(60, 70);  ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred branding block: square marker + mono kicker, glitch title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with leading square marker
+      ctx.font = '600 22px "Courier New", monospace';
+      const kw = ctx.measureText(kickerLabel).width;
+      ctx.fillStyle = MAG; ctx.shadowColor = MAG; ctx.shadowBlur = 12;
+      ctx.save(); ctx.translate(cx - kw / 2 - 18, 116); ctx.rotate(Math.PI / 4); ctx.fillRect(-6, -6, 12, 12); ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 10;
+      ctx.fillText(kickerLabel, cx, 116);
+      ctx.shadowBlur = 0;
+      // title — glitch RGB split
+      ctx.font = '700 ' + titleSize + 'px "Bahnschrift","Arial Narrow",system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(255,45,149,0.85)'; ctx.fillText(titleText, cx + 3, 232);
+      ctx.fillStyle = 'rgba(0,224,255,0.85)'; ctx.fillText(titleText, cx - 3, 232);
+      ctx.fillStyle = INK; ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 30;
+      ctx.fillText(titleText, cx, 232);
+      ctx.shadowBlur = 0;
+      // subtitle — mono
+      ctx.font = '400 20px "Courier New", monospace';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 326);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x5A47A); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: night gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#111122'); grad.addColorStop(0.55, BG); grad.addColorStop(1, BG3);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // warm glow behind the centre + violet glows in the thirds
+      bloom(W / 2, H / 2 + 20, 760, 'rgba(255,45,149,0.26)', 1);
+      bloom(W * 0.16, H * 0.30, 380, 'rgba(122,60,255,0.40)', 1);
+      bloom(W * 0.84, H * 0.32, 380, 'rgba(0,224,255,0.20)', 1);
+
+      // ---- SEEDED NEON BLOOMS ----
+      for (let i = 0; i < 12; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H * 0.7), r = R(rnd, 60, 180);
+        const c = NEON[(rnd() * NEON.length) | 0];
+        bloom(x, y, r, 'rgba(' + rgbOf(c) + ',1)', R(rnd, 0.05, 0.13));
+      }
+
+      // ---- PARALLAX SKYLINE along the bottom (seeded) ----
+      function skyline(baseY, maxH, col, winAlpha) {
+        let x = -40;
+        while (x < W + 40) {
+          const bw = R(rnd, 60, 160), bh = R(rnd, maxH * 0.4, maxH);
+          const by = baseY - bh;
+          ctx.fillStyle = col;
+          ctx.fillRect(Math.round(x), Math.round(by), Math.ceil(bw), Math.ceil(bh + 4));
+          for (let wy = by + 12; wy < baseY - 6; wy += 22) {
+            for (let wx = x + 10; wx < x + bw - 8; wx += 22) {
+              if (rnd() < 0.4) {
+                ctx.fillStyle = NEON[(rnd() * NEON.length) | 0];
+                ctx.globalAlpha = winAlpha; ctx.fillRect(Math.round(wx), Math.round(wy), 6, 6); ctx.globalAlpha = 1;
+              }
+            }
+          }
+          x += bw + R(rnd, 6, 24);
+        }
+      }
+      skyline(H, 150, 'rgba(20,18,40,0.92)', 0.45);
+      skyline(H, 220, 'rgba(10,8,24,0.96)', 0.55);
+
+      // ---- faint neon torii centre ----
+      drawTorii(W / 2, H / 2 - 10, 1.05);
+
+      // ---- FALLING RAIN (seeded) ----
+      ctx.strokeStyle = 'rgba(120,200,255,0.26)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < 120; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), len = R(rnd, 14, 40), sk = R(rnd, 1.5, 3.0);
+        ctx.moveTo(x, y); ctx.lineTo(x - sk * 4, y - len);
+      }
+      ctx.stroke();
+
+      // ---- CRT SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(0,224,255,0.05)';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.68)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 76, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, '区03 · AKIHABARA', 'NEON', 100, 'all-night ranked grind');
+
+      // accent dash rails flanking the centre clear-zone
+      ctx.fillStyle = 'rgba(0,224,255,0.40)';
+      for (let yy = 100; yy < H - 60; yy += 14) { ctx.fillRect(648, yy, 3, 7); ctx.fillRect(1269, yy, 3, 7); }
+
+      // ---- VERTICAL 電脳 KANA, faint, just inside the right rail ----
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 46px "Bahnschrift", system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(0,224,255,0.10)';
+      let lky = H / 2 - 52;
+      for (const ch of ['電', '脳']) { ctx.fillText(ch, 700, lky); lky += 64; }
+      ctx.restore();
+
+      // ---- NEON HORIZON LINE ----
+      ctx.save();
+      ctx.strokeStyle = CYAN; ctx.lineWidth = 2.5; ctx.shadowColor = CYAN; ctx.shadowBlur = 20;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(0, H - 2); ctx.lineTo(W, H - 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

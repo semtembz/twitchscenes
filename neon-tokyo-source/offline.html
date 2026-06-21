@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Neon Tokyo (PNG generator)</title>
+  <!--
+    NEON TOKYO · "Midnight Akihabara" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the Midnight-Akihabara look (rain-slick night gradient, parallax
+    city skyline silhouette with neon windows, falling rain, CRT scanlines + vignette,
+    a holographic corner-clipped signboard reading "SIGNAL LOST // OFFLINE", a neon
+    horizon line, vertical 東京/電脳 kana signs, and a mono HUD tag) onto a <canvas>
+    and downloads it as a PNG.
+
+    Everything is drawn from a SEEDED LCG, so the skyline / rain / neon scatter is
+    identical on every render (Math.random is never used) — re-running gives the same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --bg:#0A0A14; --bg2:#12121F; --bg3:#05050C;
+      --mag:#FF2D95; --cyan:#00E0FF; --violet:#7A3CFF; --yellow:#FFD400;
+      --ink:#EAF6FF; --dim:#8A93B2;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;background:var(--bg3);
+      color:var(--ink);padding:32px;}
+    h1{font-weight:700;font-size:28px;color:var(--ink);letter-spacing:1px;margin:0 0 6px;text-transform:uppercase;
+      text-shadow:3px 0 var(--mag), -3px 0 var(--cyan), 0 0 30px rgba(0,224,255,.3);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:800px;line-height:1.55;font-family:system-ui,"Segoe UI",sans-serif;}
+    .kicker{font-family:"Courier New",monospace;letter-spacing:5px;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 12px rgba(0,224,255,.5);}
+    button{font-family:"Courier New",monospace;font-weight:700;font-size:14px;letter-spacing:3px;
+      padding:13px 26px;background:linear-gradient(180deg,var(--violet),var(--mag));color:var(--ink);
+      border:1px solid rgba(0,224,255,.5);cursor:pointer;box-shadow:0 0 30px rgba(255,45,149,.25);
+      clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+    button:hover{filter:brightness(1.14);}
+    .preview{margin-top:22px;background:var(--bg2);padding:14px;border:1px solid #1d2440;
+      display:inline-block;}
+    canvas{display:block;width:960px;height:540px;}
+    code{font-family:"Courier New",monospace;color:var(--cyan);background:#101424;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">区03 · AKIHABARA · OFFLINE SCREEN</p>
+  <h1>Offline Screen Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the Neon-Tokyo Midnight-Akihabara style — seeded so
+    the skyline, rain and neon windows are reproducible. Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const BG = '#0A0A14', BG2 = '#12121F', BG3 = '#05050C';
+    const MAG = '#FF2D95', CYAN = '#00E0FF', VIOLET = '#7A3CFF', YELLOW = '#FFD400';
+    const INK = '#EAF6FF', DIM = '#8A93B2';
+    const NEON = [CYAN, MAG, YELLOW, VIOLET];
+
+    const params = new URLSearchParams(location.search);
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // angular corner-clipped signboard path (matches .board clip-path look)
+    function boardPath(x, y, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 26);
+      ctx.lineTo(x + 26, y);
+      ctx.lineTo(x + w - 60, y);
+      ctx.lineTo(x + w, y + 60);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + 60, y + h);
+      ctx.lineTo(x, y + h - 26);
+      ctx.closePath();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x70C70); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: rain-slick night gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#111122'); grad.addColorStop(0.42, BG); grad.addColorStop(1, BG3);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // big violet glow upper-right + magenta glow lower-left (the stage radial set)
+      bloom(W * 0.82, H * 0.12, W * 0.62, 'rgba(122,60,255,0.30)', 1);
+      bloom(W * 0.14, H * 0.88, W * 0.52, 'rgba(255,45,149,0.18)', 1);
+
+      // ---- SEEDED NEON BLOOMS ----
+      for (let i = 0; i < 14; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H * 0.7), r = R(rnd, 80, 240);
+        const c = NEON[(rnd() * NEON.length) | 0];
+        const rgb = c === CYAN ? '0,224,255' : c === MAG ? '255,45,149' : c === YELLOW ? '255,212,0' : '122,60,255';
+        bloom(x, y, r, 'rgba(' + rgb + ',1)', R(rnd, 0.05, 0.14));
+      }
+
+      // ---- PARALLAX CITY SKYLINE (two seeded bands, back to front) ----
+      function skyline(baseY, maxH, col, winAlpha) {
+        let x = -40;
+        while (x < W + 40) {
+          const bw = R(rnd, 70, 200), bh = R(rnd, maxH * 0.4, maxH);
+          const by = baseY - bh;
+          ctx.fillStyle = col;
+          ctx.fillRect(Math.round(x), Math.round(by), Math.ceil(bw), Math.ceil(bh + 4));
+          // sparse neon windows
+          for (let wy = by + 14; wy < baseY - 8; wy += 26) {
+            for (let wx = x + 12; wx < x + bw - 10; wx += 24) {
+              if (rnd() < 0.45) {
+                ctx.fillStyle = NEON[(rnd() * NEON.length) | 0];
+                ctx.globalAlpha = winAlpha; ctx.fillRect(Math.round(wx), Math.round(wy), 7, 7); ctx.globalAlpha = 1;
+              }
+            }
+          }
+          x += bw + R(rnd, 8, 30);
+        }
+      }
+      skyline(H, 300, 'rgba(20,18,40,0.95)', 0.5);
+      skyline(H, 460, 'rgba(10,8,24,0.98)', 0.6);
+
+      // ---- FALLING RAIN ----
+      ctx.strokeStyle = 'rgba(120,200,255,0.28)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < 220; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), len = R(rnd, 16, 48), sk = R(rnd, 1.5, 3.2);
+        ctx.moveTo(x, y); ctx.lineTo(x - sk * 4, y - len);
+      }
+      ctx.stroke();
+
+      // ---- CRT SCANLINES ----
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(0,224,255,0.05)';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.62);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- VERTICAL KANA SIGNS (left 東京 / right 電脳) ----
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 110px "Bahnschrift", system-ui, sans-serif';
+      function vsign(chars, x, strokeColor) {
+        ctx.lineWidth = 2.5; ctx.strokeStyle = strokeColor;
+        ctx.shadowColor = strokeColor; ctx.shadowBlur = 22;
+        let y = H / 2 - 110;
+        for (const ch of chars) { ctx.strokeText(ch, x, y); y += 124; }
+        ctx.shadowBlur = 0;
+      }
+      vsign(['東', '京'], 88, 'rgba(0,224,255,0.5)');
+      vsign(['電', '脳'], W - 88, 'rgba(255,45,149,0.5)');
+      ctx.restore();
+
+      // ---- TOP-LEFT mono HUD tag ----
+      ctx.save();
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.fillStyle = MAG; ctx.shadowColor = MAG; ctx.shadowBlur = 14;
+      ctx.save(); ctx.translate(74, 70); ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.font = '600 26px "Courier New", monospace';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,224,255,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText('区03 · AKIHABARA', 100, 70);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- TOP-RIGHT signal status ----
+      ctx.save();
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+      ctx.font = '600 26px "Courier New", monospace';
+      ctx.fillStyle = MAG; ctx.shadowColor = 'rgba(255,45,149,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText('SIGNAL // LOST', W - 64, 70);
+      ctx.shadowBlur = 0;
+      // signal bars (faded — no signal)
+      const sigX = W - 360, sigH = [10, 18, 26, 16];
+      for (let i = 0; i < sigH.length; i++) {
+        ctx.fillStyle = i < 1 ? 'rgba(255,45,149,0.8)' : 'rgba(138,147,178,0.35)';
+        ctx.fillRect(sigX + i * 9, 70 + 14 - sigH[i], 6, sigH[i]);
+      }
+      ctx.restore();
+
+      // ---- HOLOGRAPHIC SIGNBOARD (centre) "SIGNAL LOST // OFFLINE" ----
+      const bw = 1080, bh = 360, bx = (W - bw) / 2, by = (H - bh) / 2 - 30;
+
+      // outer glow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,224,255,0.25)'; ctx.shadowBlur = 70;
+      boardPath(bx, by, bw, bh);
+      const bg = ctx.createLinearGradient(bx, by, bx, by + bh);
+      bg.addColorStop(0, 'rgba(18,18,34,0.85)'); bg.addColorStop(1, 'rgba(10,10,20,0.78)');
+      ctx.fillStyle = bg; ctx.fill();
+      ctx.restore();
+
+      // double angular border
+      ctx.save();
+      boardPath(bx, by, bw, bh);
+      ctx.strokeStyle = 'rgba(0,224,255,0.55)'; ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 20; ctx.stroke();
+      ctx.shadowBlur = 0;
+      boardPath(bx + 8, by + 8, bw - 16, bh - 16);
+      ctx.strokeStyle = 'rgba(255,45,149,0.35)'; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.restore();
+
+      // inner content
+      ctx.save();
+      const ix = bx + 88, cyBoard = by + bh / 2;
+      // tag line
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = MAG; ctx.shadowColor = MAG; ctx.shadowBlur = 14;
+      ctx.save(); ctx.translate(ix + 7, by + 70); ctx.rotate(Math.PI / 4); ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.font = '600 26px "Courier New", monospace';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,224,255,0.5)'; ctx.shadowBlur = 12;
+      ctx.fillText('STREAM // SIGNAL LOST', ix + 30, by + 70);
+      ctx.shadowBlur = 0;
+
+      // big glitch title "OFFLINE" (RGB split)
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 168px "Bahnschrift","Arial Narrow",system-ui,sans-serif';
+      const titleY = cyBoard + 56;
+      ctx.fillStyle = 'rgba(255,45,149,0.85)'; ctx.fillText('OFFLINE', ix + 4, titleY);
+      ctx.fillStyle = 'rgba(0,224,255,0.85)'; ctx.fillText('OFFLINE', ix - 4, titleY);
+      ctx.fillStyle = INK; ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 40;
+      ctx.fillText('OFFLINE', ix, titleY);
+      ctx.shadowBlur = 0;
+
+      // sub line
+      ctx.font = '400 28px "Courier New", monospace';
+      ctx.fillStyle = DIM;
+      ctx.fillText('reconnecting soon // follow to get the next signal', ix, by + bh - 52);
+
+      // segmented neon bar (mostly empty — disconnected)
+      const sbX = bx + bw - 360, sbY = by + 72, segN = 14, gap = 6;
+      const segW = (320 - gap * (segN - 1)) / segN;
+      for (let i = 0; i < segN; i++) {
+        const sx = sbX + i * (segW + gap);
+        ctx.beginPath();
+        ctx.moveTo(sx + 5, sbY); ctx.lineTo(sx + segW, sbY);
+        ctx.lineTo(sx + segW - 5, sbY + 20); ctx.lineTo(sx, sbY + 20); ctx.closePath();
+        if (i < 3) {
+          const fg = ctx.createLinearGradient(sx, 0, sx + segW, 0);
+          fg.addColorStop(0, VIOLET); fg.addColorStop(1, MAG);
+          ctx.fillStyle = fg; ctx.shadowColor = 'rgba(255,45,149,0.7)'; ctx.shadowBlur = 8;
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.shadowBlur = 0;
+        }
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ---- NEON HORIZON LINE ----
+      ctx.save();
+      ctx.strokeStyle = CYAN; ctx.lineWidth = 3; ctx.shadowColor = CYAN; ctx.shadowBlur = 24;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(0, H - 2); ctx.lineTo(W, H - 2); ctx.stroke();
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, mono) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleClean = handle.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 28px "Courier New", monospace';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 12;
+      ctx.fillText(handle.startsWith('@') ? handle : '@' + handle, W - 64, H - 64);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 18px "Courier New", monospace'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 38);
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

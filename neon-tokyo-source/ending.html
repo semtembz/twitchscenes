@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Neon Tokyo — Ending</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="scan" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <div class="hud" aria-hidden="true"><span class="blip"></span> 区03 · SESSION END</div>
+    <div class="hud hud--tr" aria-hidden="true">SIGNAL // OFFLINE</div>
+    <div class="sign sign--l" aria-hidden="true">完了</div>
+    <div class="sign sign--r" aria-hidden="true">感謝</div>
+
+    <main class="board">
+      <p class="tag"><span class="sq"></span> STREAM // <span id="kicker" data-done="OFFLINE">SIGNING OFF</span></p>
+      <h1 class="title">THANKS FOR<span class="l2"><b>WATCHING</b></span></h1>
+      <p class="sub">see you in the next run</p>
+    </main>
+
+    <div class="ground" aria-hidden="true"></div>
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

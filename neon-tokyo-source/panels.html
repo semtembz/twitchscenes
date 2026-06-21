@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Neon Tokyo — Twitch Panels (generator)</title>
+  <!--
+    NEON TOKYO · "Midnight Akihabara" PANEL generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Midnight-Akihabara
+    visual language:
+        - hard angular dark HUD tile (corner-clipped, double cyan/magenta stroke)
+        - a cyan corner-cut accent + a magenta accent rail down the left edge
+        - a cyan neon LINE icon (heart, calendar, list, ...)
+        - the label in condensed bold UPPERCASE sans with a magenta glow
+        - a mono HUD tag + a segmented neon mini-bar
+
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Neon Tokyo "Midnight Akihabara" palette ---- */
+    :root {
+      --bg:#0A0A14; --bg2:#12121F; --bg3:#05050C;
+      --mag:#FF2D95; --cyan:#00E0FF; --violet:#7A3CFF; --yellow:#FFD400;
+      --ink:#EAF6FF; --dim:#8A93B2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Bahnschrift","DIN Condensed","Arial Narrow",system-ui,sans-serif;
+      color: var(--ink);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(1000px 560px at 80% -10%, rgba(122,60,255,0.28), transparent 58%),
+        radial-gradient(760px 520px at 8% 110%, rgba(255,45,149,0.18), transparent 60%),
+        linear-gradient(180deg, #111122 0%, var(--bg) 44%, var(--bg3) 100%);
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Courier New", monospace; letter-spacing: 5px; font-size: 12px;
+      color: var(--cyan); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 10px; text-shadow: 0 0 12px rgba(0,224,255,0.5);
+    }
+    .blip { width: 11px; height: 11px; background: var(--mag);
+      box-shadow: 0 0 12px var(--mag); transform: rotate(45deg);
+      animation: blink 1.4s steps(1) infinite; }
+    @keyframes blink { 0%,60% { opacity: 1; } 61%,100% { opacity: .2; } }
+    h1 { font-weight: 700; font-size: 32px; letter-spacing: 1px; margin: 0 0 6px; text-transform: uppercase;
+      color: var(--ink); text-shadow: 3px 0 var(--mag), -3px 0 var(--cyan), 0 0 34px rgba(0,224,255,0.3); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 740px; line-height: 1.55;
+      font-family: system-ui, "Segoe UI", sans-serif; }
+    code { font-family: "Courier New", monospace; color: var(--cyan);
+      background: rgba(0,224,255,0.08); padding: 2px 7px; border-radius: 3px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Courier New", monospace; font-weight: 700; font-size: 13px;
+      letter-spacing: 3px; text-transform: uppercase;
+      padding: 12px 24px; cursor: pointer; color: var(--ink);
+      background: linear-gradient(180deg, var(--violet), var(--mag));
+      border: 1px solid rgba(0,224,255,0.5);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      box-shadow: 0 6px 26px rgba(255,45,149,0.3);
+    }
+    button:hover { filter: brightness(1.14); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(18,18,31,0.6); padding: 16px;
+      border: 1px solid rgba(0,224,255,0.16);
+      clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+      backdrop-filter: blur(6px);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      overflow: hidden; display: block;
+      background-color: #0c0c16;
+      background-image:
+        linear-gradient(45deg, #15152400 25%, transparent 25%),
+        linear-gradient(-45deg, #161628 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #161628 75%),
+        linear-gradient(-45deg, transparent 75%, #161628 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: "Courier New", monospace; letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: "Courier New", monospace; letter-spacing: 1px;
+      color: var(--cyan); text-decoration: none;
+      border: 1px solid rgba(0,224,255,0.28); padding: 5px 12px; }
+    .card-row a:hover { background: rgba(0,224,255,0.15); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="blip"></span>区03 · AKIHABARA · PANELS</p>
+  <h1>Neon Tokyo — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the Midnight-Akihabara style:
+    an angular dark HUD tile, a cyan corner-cut + magenta accent rail, and a cyan neon line icon.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var BG = '#0A0A14', BG2 = '#12121F', BG3 = '#05050C';
+    var MAG = '#FF2D95', CYAN = '#00E0FF', VIOLET = '#7A3CFF', YELLOW = '#FFD400';
+    var INK = '#EAF6FF', DIM = '#8A93B2';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'specs',     title: 'PC SPECS',  icon: 'monitor' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    // Hard angular corner-clipped panel path (matches the .board clip-path look)
+    function clipPanelPath(ctx, x, y, w, h, cut) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + cut);
+      ctx.lineTo(x + cut, y);
+      ctx.lineTo(x + w - cut * 1.8, y);
+      ctx.lineTo(x + w, y + cut * 1.8);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + cut * 1.8, y + h);
+      ctx.lineTo(x, y + h - cut * 1.8);
+      ctx.closePath();
+    }
+
+    // neon glow bloom (blurred radial gradient)
+    function bloom(ctx, cx, cy, rad, rgb, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(' + rgb + ',' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(' + rgb + ',' + (alpha * 0.35).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(' + rgb + ',0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var cut = 13;
+
+      // angular dark HUD tile body
+      ctx.save();
+      clipPanelPath(ctx, pad, pad, W - pad * 2, H - pad * 2, cut);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(18,18,34,0.86)');
+      bg.addColorStop(1, 'rgba(8,8,18,0.92)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // neon blooms inside the tile
+      bloom(ctx, 260, 8, 150, '122,60,255', 0.26);
+      bloom(ctx, 40, 96, 130, '255,45,149', 0.18);
+
+      // CRT scanlines
+      ctx.fillStyle = 'rgba(0,224,255,0.05)';
+      for (var sy = pad; sy < H - pad; sy += 3) ctx.fillRect(0, sy, W, 1);
+
+      // faint mono dot grid on the text field
+      ctx.fillStyle = 'rgba(0,224,255,0.05)';
+      for (var dy = 10; dy < H; dy += 13) {
+        for (var dx = 80; dx < W; dx += 13) ctx.fillRect(dx, dy, 1.5, 1.5);
+      }
+
+      // vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 210);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(5,5,12,0.5)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // magenta accent rail down the left (skewed segments)
+      ctx.save();
+      var railX = pad + 10;
+      ctx.fillStyle = MAG;
+      ctx.shadowColor = 'rgba(255,45,149,0.7)';
+      ctx.shadowBlur = 12;
+      for (var ry = pad + 16; ry < H - pad - 14; ry += 11) {
+        ctx.beginPath();
+        ctx.moveTo(railX + 2, ry);
+        ctx.lineTo(railX + 7, ry);
+        ctx.lineTo(railX + 5, ry + 8);
+        ctx.lineTo(railX, ry + 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // vertical 電脳 kana accent (faint, right edge)
+      ctx.save();
+      ctx.font = '700 13px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(0,224,255,0.16)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var kana = ['電', '脳'];
+      for (var k = 0; k < kana.length; k++) ctx.fillText(kana[k], W - 15, 30 + k * 19);
+      ctx.restore();
+
+      // cyan neon line icon
+      drawIcon(ctx, p.icon, 42, H / 2 + 2, 32);
+
+      // mono HUD tag above the title
+      ctx.save();
+      ctx.font = '700 9px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = MAG;
+      ctx.shadowColor = 'rgba(255,45,149,0.8)'; ctx.shadowBlur = 8;
+      ctx.fillRect(80, 26, 5, 5);                 // tiny square marker
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN;
+      ctx.fillText('区03 // AKIHABARA', 92, 31);
+      ctx.restore();
+
+      // label — condensed bold UPPERCASE with RGB-split glow
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 28;
+      var maxW = W - 80 - 26;
+      function setLabelFont(px) {
+        ctx.font = '700 ' + px + 'px "Bahnschrift","Arial Narrow",system-ui,sans-serif';
+      }
+      setLabelFont(size);
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        setLabelFont(size);
+      }
+      var ty = 70;
+      // magenta/cyan RGB split
+      ctx.fillStyle = 'rgba(255,45,149,0.9)';
+      ctx.fillText(label, 80 + 2, ty);
+      ctx.fillStyle = 'rgba(0,224,255,0.9)';
+      ctx.fillText(label, 80 - 2, ty);
+      ctx.shadowColor = 'rgba(0,224,255,0.4)';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = INK;
+      ctx.fillText(label, 80, ty);
+      ctx.restore();
+
+      // segmented neon mini-bar under the label
+      ctx.save();
+      var barX = 80, barY = 80, barW = W - 80 - 26, segN = 10, gap = 3;
+      var segW = (barW - gap * (segN - 1)) / segN;
+      var onCount = 7;
+      for (var i = 0; i < segN; i++) {
+        var bx = barX + i * (segW + gap);
+        // skew via a parallelogram
+        ctx.beginPath();
+        ctx.moveTo(bx + 2, barY);
+        ctx.lineTo(bx + segW, barY);
+        ctx.lineTo(bx + segW - 2, barY + 4);
+        ctx.lineTo(bx, barY + 4);
+        ctx.closePath();
+        if (i < onCount) {
+          var fg = ctx.createLinearGradient(bx, 0, bx + segW, 0);
+          fg.addColorStop(0, VIOLET); fg.addColorStop(1, MAG);
+          ctx.fillStyle = fg;
+          ctx.shadowColor = 'rgba(255,45,149,0.7)'; ctx.shadowBlur = 6;
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.08)';
+          ctx.shadowBlur = 0;
+        }
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // double hairline angular border (cyan outer, magenta inner)
+      ctx.save();
+      clipPanelPath(ctx, pad + 0.5, pad + 0.5, W - pad * 2 - 1, H - pad * 2 - 1, cut);
+      ctx.strokeStyle = 'rgba(0,224,255,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = 'rgba(0,224,255,0.4)'; ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      clipPanelPath(ctx, pad + 4, pad + 4, W - pad * 2 - 8, H - pad * 2 - 8, cut - 3);
+      ctx.strokeStyle = 'rgba(255,45,149,0.32)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent cyan neon stroke, centred on (cx, cy),
+    // sized to roughly `s` px box.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = CYAN;
+      ctx.fillStyle = CYAN;
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,224,255,0.7)';
+      ctx.shadowBlur = 9;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.4;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.fillRect(-h * 0.86, ly - 1.6, 3.2, 3.2);   // square bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.62) + 'px "Bahnschrift", system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // X mark (cyber X / twitter-x)
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.82, -h * 0.82); ctx.lineTo(h * 0.82, h * 0.82);
+          ctx.moveTo(h * 0.82, -h * 0.82); ctx.lineTo(-h * 0.82, h * 0.82);
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 4); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 4); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 4); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);
+          ctx.stroke();
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr, Y = Math.sin(ang) * rr;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

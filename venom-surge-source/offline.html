@@ -320,7 +320,7 @@
       ctx.font = '700 24px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = ACID;
       ctx.shadowColor = 'rgba(198,255,0,0.5)'; ctx.shadowBlur = 14;
-      drawSpacedCentered('SIGNAL OFFLINE', cx + 16, kY, 8);
+      drawSpacedCentered('[ your text here ]', cx + 16, kY, 8);
       ctx.restore(); ctx.shadowBlur = 0;
 
       // big heavy black italic TITLE: OFFLINE (venom->acid->cyan + outline)
@@ -348,16 +348,16 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '600 30px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
       ctx.fillStyle = DIM;
-      drawSpacedCentered('THE ARENA IS DARK — FOLLOW FOR THE NEXT SURGE', cx, fy + 470, 3);
+      drawSpacedCentered('[ your text here ]', cx, fy + 470, 3);
       ctx.restore();
 
       // ---- corner void tags on the toxic field (outside the slab) ----
       ctx.save();
       ctx.font = '700 22px "Consolas",ui-monospace,monospace'; ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = VENOM; ctx.shadowColor = 'rgba(0,255,102,0.5)'; ctx.shadowBlur = 12;
-      ctx.textAlign = 'left';  drawSpaced('SYS // SURGE', 64, 70, 8);
+      ctx.textAlign = 'left';  drawSpaced('[ your text here ]', 64, 70, 8);
       ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(10,224,255,0.5)';
-      ctx.textAlign = 'right'; drawSpacedRight('VOLT 100%', W - 64, 70, 8);
+      ctx.textAlign = 'right'; drawSpacedRight('[ your text here ]', W - 64, 70, 8);
       ctx.restore(); ctx.shadowBlur = 0;
 
       // ---- HANDLE (bottom-right, acid hazard tab) ----

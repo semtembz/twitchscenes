@@ -190,6 +190,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 /* subtitle — relaxed, lowercase, warm and calm */
 .sub{margin-top:24px;font-size:31px;font-weight:500;letter-spacing:.04em;color:var(--coffee);opacity:.92;}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ---- loading = a "now brewing" warm rounded fill (no numbers) ---- */
 .bar{margin:42px auto 8px;width:560px;height:16px;border-radius:999px;
   background:rgba(140,106,86,.22);box-shadow:inset 0 2px 5px rgba(60,40,28,.28);

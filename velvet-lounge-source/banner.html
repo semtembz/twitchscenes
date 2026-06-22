@@ -240,8 +240,8 @@
       const handleClean = handle.replace(/^@/, '');
       block(400, 'STREAMER', handleAt.toUpperCase(), 76, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'THE VELVET LOUNGE', 'JAZZ & PLAY', 76, 'after-hours, every night');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — all editable placeholders ----
+      block(1520, '[ your text here ]', '[ your text ]', 76, '[ your text here ]');
 
       // accent dash rails flanking the centre clear-zone (deco ticks)
       ctx.fillStyle = 'rgba(181,137,78,0.45)';

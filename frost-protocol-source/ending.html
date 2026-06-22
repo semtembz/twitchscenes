@@ -25,10 +25,13 @@
     <span class="frame-tick ft--bl" aria-hidden="true"></span>
     <span class="frame-tick ft--br" aria-hidden="true"></span>
 
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&tag3=...&kicker=...&sub=... at render time; use =- to remove one.) -->
     <!-- corner labels on the void -->
-    <div class="tag tag--tl" aria-hidden="true">PROTOCOL</div>
-    <div class="tag tag--bl" aria-hidden="true">CLEAN ROOM</div>
-    <div class="tag tag--note" aria-hidden="true">THERMAL -18.0&deg;C / SEALED</div>
+    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
+    <div class="tag tag--bl is-slot" data-slot="tag2">[ your text here ]</div>
+    <div class="tag tag--note is-slot" data-slot="tag3">[ your text here ]</div>
 
     <!-- the frosted-glass console card -->
     <main class="card">
@@ -48,14 +51,14 @@
         <span>LAT 47.61 / LON -122.33</span>
       </p>
 
-      <p class="kicker" id="kicker" data-done="FEED CLOSED">SIGNAL ENDING</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <h1 class="title">
-        <span class="line">END OF</span>
-        <span class="accent">TRANSMISSION</span>
+        <span class="line">THANKS FOR</span>
+        <span class="accent">WATCHING</span>
       </h1>
 
-      <p class="sub">thanks for watching the feed</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
       <div class="bar" aria-hidden="true">
         <div class="fill" id="fill"></div>

@@ -76,6 +76,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 .title b{color:var(--mag);}
 .sub{font-size:24px;color:var(--dim);letter-spacing:1px;margin-bottom:22px;}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* lo-fi seek bar (the hidden 60s timer, no numbers) */
 .seek{position:relative;height:10px;border-radius:6px;background:rgba(255,255,255,.10);}
 .seek .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:6px;

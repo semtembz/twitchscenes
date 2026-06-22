@@ -130,6 +130,14 @@ Event-fired, not load-fired. Shared `alerts.js` exposes `play({name, amount})` +
 ### 2.10 Accessibility / performance
 Cap FPS to source FPS. **Clamp delta-time:** `dt=Math.min(now-last, 1/30s)` and advance state by clamped `dt`, so a hidden→shown OBS scene never teleports particles. Modest, `?`-configurable particle counts. Round canvas coords to integers. `pointer-events:none` on particle layers. Legible contrast: `--text` over `--green-deep`; glow must not wash the headline.
 
+### 2.11 Copy standard — NO cringe flavor text (added 2026-06)
+Real streamers do not want cheesy themed taglines. Hard rules for ALL screens + overlays:
+- **Titles** are clean + universal: `STARTING SOON` / `BE RIGHT BACK` / `SHORT BREAK` (or `INTERMISSION`) / `THANKS FOR WATCHING`. Never themed-cringe ("QUICK RINSE", "THANKS FOR SPLASHING BY", "DRAINING THE TUB").
+- **Every flavor text position** (themed kicker, subtitle, tagline, corner brand tag, offline/banner blurb) is an **editable slot**: an element with `class="is-slot" data-slot="<name>"` whose visible text is `[ your text here ]`; multiple slots per screen where the design has them. CSS: `.is-slot{opacity:.5;font-style:italic;}`. `shared.js` loops `[data-slot]` (after the handle block): `?name=Text` fills it (and un-dims), `?name=-`/empty/`none`/`off` removes it. There is **no** themed kicker status-flip (supersedes §2.7 for the kicker text).
+- **Alert sub-lines** ship EMPTY (`sub:""` in the EVENTS table + the alerts-export mirror + an empty baked `<p id="sub"></p>`); keep the functional event headline + viewer name + amount. Buyers re-add via the EVENTS table.
+- offline/banner draw text on canvas → use a literal `[ your text here ]` placeholder STRING for taglines; keep functional labels (OFFLINE, @handle, twitch.tv). Don't break `__exportAssets`.
+- Reference implementation: `bubble-bath-source/`. Memory: `overlay-copy-no-cringe`.
+
 ---
 
 ## 3. PER-THEME PARAMETER BLOCK (fill one per approved theme)

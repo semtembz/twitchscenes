@@ -17,7 +17,7 @@
     Optional URL params:
       ?handle=@you     handle shown on the card (default @yourhandle)
       ?petals=6        petal count (default 6, kept low so the game shows through)
-      ?now=Lo-Fi%20Mix sub/now-playing line under the handle (default "lo-fi beats · live")
+      ?now=Lo-Fi%20Mix sub/now-playing line under the handle (default "[ your text here ]")
       ?corner=bl       card corner: bl | br | tl | tr (default bl)
 
     Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage + fit()
@@ -115,7 +115,7 @@
       <div class="info">
         <p class="kick"><span class="dot"></span> NOW PLAYING</p>
         <p class="hdl" id="handle">@yourhandle</p>
-        <p class="now" id="now">lo-fi beats · live</p>
+        <p class="now" id="now">[ your text here ]</p>
         <div class="accent" aria-hidden="true"></div>
       </div>
     </div>

@@ -190,6 +190,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
   animation:rise .7s var(--ease) both .9s;}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ---- the charging ENERGY BAR (no numbers) ---- */
 .bar{position:relative;margin:42px auto 0;width:680px;height:18px;
   background:rgba(0,255,102,.08);

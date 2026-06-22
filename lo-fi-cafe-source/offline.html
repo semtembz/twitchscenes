@@ -329,7 +329,7 @@
       ctx.save();
       ctx.translate(cx, cardY); ctx.rotate(-1.5 * Math.PI / 180);
       ctx.font = '700 24px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
-      const tabLabel = 'CLOSED FOR NOW';
+      const tabLabel = 'CLOSED';
       const tabW = spacedWidth(tabLabel, 8) + 52;
       roundRect(-tabW / 2, -26, tabW, 50, 16);
       ctx.fillStyle = AMBER;
@@ -349,7 +349,7 @@
       ctx.shadowBlur = 0;
       ctx.font = '600 26px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      drawSpaced('THE CAFE IS', cx - 110, cardY + 110, 9);
+      drawSpaced('[ your text here ]', cx - 110, cardY + 110, 9);
       ctx.restore();
 
       // big rounded title (2 lines), last line amber accent
@@ -373,7 +373,7 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '500 31px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
       ctx.fillStyle = COFFEE;
-      ctx.fillText('the cafe is closed — follow for the next brew', cx, cardY + 480);
+      ctx.fillText('[ your text here ]', cx, cardY + 480);
       ctx.restore();
 
       // ============================================================

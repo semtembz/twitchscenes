@@ -35,15 +35,18 @@
     <div class="bracket bk-bl" aria-hidden="true"></div>
     <div class="bracket bk-br" aria-hidden="true"></div>
 
-    <!-- HUD tags -->
-    <div class="hud" aria-hidden="true"><span class="blip"></span> CH&nbsp;88 · SESSION END</div>
-    <div class="hud hud--tr" aria-hidden="true">SIGNAL // OFFLINE</div>
+    <!-- HUD tags = editable slots -->
+    <div class="hud" aria-hidden="true"><span class="blip"></span> <span class="is-slot" data-slot="tag">[ your text here ]</span></div>
+    <div class="hud hud--tr is-slot" aria-hidden="true" data-slot="tag2">[ your text here ]</div>
 
     <!-- HERO: chrome italic title centered on the horizon (no bar) -->
     <main class="hero">
-      <p class="kick"><span class="star"></span> STREAM <span id="kicker" data-done="OFFLINE">SIGNING OFF</span></p>
+      <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+           type your own text in, or delete the whole line to remove it. (Or set
+           ?kicker=...&sub=...&tag=...&tag2=... at render time; use =- to remove one.) -->
+      <p class="kick"><span class="star"></span> <span class="is-slot" id="kicker" data-slot="kicker">[ your text here ]</span></p>
       <h1 class="title">THANKS FOR<span class="l2"><b>WATCHING</b></span></h1>
-      <p class="sub">drive safe — catch the next ride</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
     </main>
 
     <!-- prominent centered handle (no loading bar on the ending screen) -->

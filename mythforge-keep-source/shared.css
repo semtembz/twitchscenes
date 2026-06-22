@@ -188,6 +188,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .sub{margin-top:24px;font-family:Georgia,"Times New Roman",serif;
   font-style:italic;font-size:29px;letter-spacing:.04em;color:var(--ink-soft);}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ---- loading = FORGED IRON bar charging with gold (no numbers) ---- */
 .bar{margin-top:42px;width:540px;height:18px;position:relative;
   background:linear-gradient(180deg,#1a1714,#0d0b09 60%,#000 100%);

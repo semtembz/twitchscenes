@@ -249,8 +249,8 @@
       const handleClean = handle.replace(/^@/, '');
       block(400, 'STREAMER', handleAt.toUpperCase(), 64, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'LO-FI CAFE', 'COZY & CALM', 64, 'study beats, every night');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholder copy ----
+      block(1520, '[ your text here ]', '[ YOUR TEXT ]', 64, '[ your text here ]');
 
       // ---- velvet/paper sheen striping (very soft) ----
       ctx.save();

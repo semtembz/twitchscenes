@@ -30,10 +30,13 @@
       <i class="cy0">Y:0000</i><i class="cy1">EL +07.2&deg;</i><i class="cy2">Y:1080</i>
     </div>
 
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&tag3=...&kicker=...&sub=... at render time; use =- to remove one.) -->
     <!-- corner HUD labels on the void -->
-    <div class="tag tag--tl" aria-hidden="true">HOLOGRID OPS</div>
-    <div class="tag tag--bl" aria-hidden="true">PROJECTION DECK</div>
-    <div class="tag tag--note" aria-hidden="true">SYS // GRID-07 &middot; <span id="status" data-done="POWERED DOWN">SHUTTING DOWN</span></div>
+    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
+    <div class="tag tag--bl is-slot" data-slot="tag2">[ your text here ]</div>
+    <div class="tag tag--note is-slot" data-slot="tag3">[ your text here ]</div>
 
     <!-- the HOLO PANEL holding the message -->
     <main class="panel">
@@ -42,18 +45,18 @@
       <span class="bracket bracket--bl" aria-hidden="true"></span>
       <span class="bracket bracket--br" aria-hidden="true"></span>
 
-      <p class="kicker" id="kicker" data-done="GRID OFFLINE"><span class="led" aria-hidden="true"></span>POWERING DOWN GRID</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="led" aria-hidden="true"></span>[ your text here ]</p>
 
-      <!-- HEADLINE = the MESSAGE ("POWERING DOWN"), never the theme name -->
+      <!-- HEADLINE = the standard scene message, never the theme name -->
       <h1 class="title">
         <span class="line">THANKS</span>
-        <span class="line">POWERING</span>
-        <span class="accent" data-t="DOWN">DOWN</span>
+        <span class="line">FOR</span>
+        <span class="accent" data-t="WATCHING">WATCHING</span>
       </h1>
 
       <div class="underline" aria-hidden="true"></div>
 
-      <p class="sub">spinning down the holo-deck</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
       <div class="bar" aria-hidden="true">
         <div class="fill" id="fill"></div>

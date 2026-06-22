@@ -44,9 +44,12 @@
 
     <!-- the menu card holds the message -->
     <main class="card">
-      <span class="tab" aria-hidden="true">TODAY'S SPECIAL</span>
+      <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+           placeholder — type your own text in, or delete the whole line to remove it.
+           (Or set ?tag=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+      <span class="tab is-slot" data-slot="tag">[ your text here ]</span>
 
-      <p class="kicker" id="kicker" data-done="FRESH &amp; READY">NOW BREWING</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <!-- HEADLINE = the message, NEVER the theme name -->
       <h1 class="title">BE RIGHT<span class="accent">BACK</span></h1>
@@ -55,7 +58,7 @@
         <path d="M4 9 C 60 2, 110 16, 170 8 S 280 2, 336 10" />
       </svg>
 
-      <p class="sub">stretching my legs, back in a moment</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
       <div class="bar" aria-hidden="true">
         <div class="fill" id="fill"><span class="bean"></span></div>

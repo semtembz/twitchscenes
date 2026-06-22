@@ -289,8 +289,8 @@
       const handleClean = handle.replace(/^@/, '');
       block(400, 'STREAMER', handleAt.toUpperCase(), 80, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'FROST PROTOCOL', 'SUB ZERO', 80, 'broadcast-grade, sealed & cold');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable buyer text ----
+      block(1520, '[ your text here ]', '[ TAGLINE ]', 80, '[ your text here ]');
 
       // ---- accent registration rails flanking the centre clear-zone ----
       ctx.save();

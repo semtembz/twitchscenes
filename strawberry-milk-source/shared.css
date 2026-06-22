@@ -124,6 +124,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 
 .sub{margin-top:16px;font-size:30px;font-weight:600;letter-spacing:.5px;color:var(--ink-soft);}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ============================================================
    CUTE PROGRESS — a GLASS filling up with pink strawberry MILK
    (no numbers; the hidden timer drives --p 0..1 via .fill height)

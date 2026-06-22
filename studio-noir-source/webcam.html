@@ -126,8 +126,9 @@
       <div class="crn crn--bl" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
       <div class="crn crn--br" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
 
-      <span class="cap" aria-hidden="true"><span class="dot"></span>ON CAMERA</span>
-      <span class="station" aria-hidden="true"><span class="bar"></span>STUDIO NOIR</span>
+      <!-- caption + station mark = editable slots (type your text, or delete) -->
+      <span class="cap"><span class="dot" aria-hidden="true"></span><span class="is-slot" data-slot="tag2">[ your text here ]</span></span>
+      <span class="station"><span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag">[ your text here ]</span></span>
 
       <!-- charcoal nameplate slab with @handle -->
       <div class="plate"><span class="dot" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
@@ -155,6 +156,17 @@
     /* ---- optional handle + position + size (null-guarded) ---- */
     const h = params.get("handle"), el = document.getElementById("handle");
     if (h && el) el.textContent = h;
+
+    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+       placeholder the buyer edits or deletes. ?slotname=Text sets it at render
+       time; ?slotname=- (or empty/none/off) removes it entirely. ---- */
+    document.querySelectorAll("[data-slot]").forEach((sl) => {
+      const v = params.get(sl.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { sl.remove(); return; }
+      sl.textContent = v;
+      sl.classList.remove("is-slot");
+    });
 
     const cam = document.getElementById("cam");
     if (cam){

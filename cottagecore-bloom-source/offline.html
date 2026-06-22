@@ -331,17 +331,17 @@
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.font = '600 30px "Optima","Gill Sans","Segoe UI",system-ui,sans-serif';
       ctx.fillStyle = LEAF_DEEP;
-      drawSpacedCentered('GONE WANDERING', cx, fy+208, 12);
+      drawSpacedCentered('OFFLINE', cx, fy+208, 12);
       ctx.restore();
 
-      // TITLE: graceful old-style serif "GARDEN'S / RESTING" with rose accent
+      // TITLE: graceful old-style serif "CURRENTLY / OFFLINE" with rose accent
       ctx.save();
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.font = '600 150px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
       ctx.fillStyle = INK;
-      ctx.fillText('GARDEN’S', cx, fy+318);
+      ctx.fillText('CURRENTLY', cx, fy+318);
       ctx.fillStyle = ROSE;
-      ctx.fillText('RESTING', cx, fy+456);
+      ctx.fillText('OFFLINE', cx, fy+456);
       ctx.restore();
 
       // botanical divider (vine + rose center) under the title
@@ -367,15 +367,15 @@
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.font = 'italic 400 33px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
       ctx.fillStyle = 'rgba(90,74,58,0.62)';
-      ctx.fillText('back when the flowers open again — follow along', cx, fy+580);
+      ctx.fillText('[ your text here ]', cx, fy+580);
       ctx.restore();
 
       // ---- corner journal tags on the meadow (outside the card) ----
       ctx.save();
       ctx.font = '600 22px "Optima","Gill Sans","Segoe UI",system-ui,sans-serif';
       ctx.fillStyle = LEAF_DEEP; ctx.globalAlpha = 0.85; ctx.textBaseline='alphabetic';
-      ctx.textAlign='left'; drawSpaced('HERBARIUM', 72, 76, 8);
-      ctx.textAlign='right'; drawSpacedRight('EST. MMXXVI', W-72, 76, 8);
+      ctx.textAlign='left'; drawSpaced('[ your text here ]', 72, 76, 8);
+      ctx.textAlign='right'; drawSpacedRight('[ your text here ]', W-72, 76, 8);
       ctx.restore();
       ctx.globalAlpha = 1;
 
@@ -388,7 +388,7 @@
       ctx.globalAlpha = 1;
       ctx.font = '600 22px "Optima","Gill Sans","Segoe UI",system-ui,sans-serif';
       ctx.fillStyle = LEAF_DEEP; ctx.textAlign='left'; ctx.textBaseline='middle';
-      drawSpaced('RESTING', 104, H-69, 6);
+      drawSpaced('OFFLINE', 104, H-69, 6);
       ctx.restore();
 
       // ---- HANDLE (bottom-right, warm ink) ----

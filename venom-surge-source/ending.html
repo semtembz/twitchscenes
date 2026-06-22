@@ -29,22 +29,23 @@
       <span class="claw claw--3"></span>
     </div>
 
-    <!-- corner labels on the toxic void -->
-    <div class="tag tag--tl" aria-hidden="true">SYS // SURGE</div>
-    <div class="tag tag--tr" aria-hidden="true">VOLT 100%</div>
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it.
+         (Or set ?kicker=...&sub=...&tag=...&tag2=...&tag3=... at render time; use =- to remove one.) -->
+    <!-- corner labels on the toxic void (editable slots) -->
+    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
+    <div class="tag tag--tr is-slot" data-slot="tag2">[ your text here ]</div>
 
     <!-- the slashed slab panel holding the message -->
     <main class="slab">
       <span class="bracket bracket--tl" aria-hidden="true"></span>
       <span class="bracket bracket--br" aria-hidden="true"></span>
 
-      <p class="kicker" id="kicker" data-done="OFFLINE">
-        <span class="dot" aria-hidden="true"></span>SIGNING OFF
-      </p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <!-- HEADLINE = the MESSAGE. Never the theme name. -->
       <h1 class="title">
-        <span class="line line--1">GG &#8212; THANKS FOR</span>
+        <span class="line line--1">THANKS FOR</span>
         <span class="accent">WATCHING</span>
       </h1>
 
@@ -54,13 +55,11 @@
         <span class="seg seg--b"></span>
       </div>
 
-      <p class="sub">power down — catch the next surge...</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
     </main>
 
-    <!-- status pill, lower-left (no charge on the outro) -->
-    <div class="status" id="status">
-      <span class="led" aria-hidden="true"></span>OFFLINE
-    </div>
+    <!-- status pill, lower-left (editable slot) -->
+    <div class="status is-slot" id="status" data-slot="tag3">[ your text here ]</div>
 
     <div class="handle" id="handle">@yourhandle</div>
   </div>

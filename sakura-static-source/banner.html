@@ -8,7 +8,7 @@
 
     Twitch overlays its offline video player over the CENTRE of the banner, so the
     branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
-    right = LO-FI / VIBES tagline. The centre is decorative only — a faint torii gate +
+    right = an editable tagline block. The centre is decorative only — a faint torii gate +
     bokeh — so the player can sit over it without hiding anything important.
 
     Everything is drawn from a SEEDED LCG, so the bokeh / petal scatter is identical on
@@ -195,10 +195,10 @@
       // ---- LEFT BLOCK: identity (centre ~ x=400) ----
       block(400, 'STREAMER', '@YOURHANDLE', 76, 'twitch.tv/yourname');
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'CH 03 · LO-FI', 'VIBES', 96, 'whenever it feels right');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholder copy ----
+      block(1520, 'CH 03 · LO-FI', '[ your text here ]', 76, '[ your text here ]');
 
-      // small "LO-FI" kicker above VIBES, plus vertical accent dashes flanking centre
+      // small "LO-FI" kicker above the tagline, plus vertical accent dashes flanking centre
       ctx.fillStyle = 'rgba(255,209,230,0.40)';
       for (let yy = 110; yy < H - 70; yy += 14) { ctx.fillRect(648, yy, 3, 6); ctx.fillRect(1269, yy, 3, 6); }
 

@@ -14,15 +14,19 @@
     <div class="scan" aria-hidden="true"></div>
     <div class="vign" aria-hidden="true"></div>
 
-    <div class="hud" aria-hidden="true"><span class="blip"></span> 区03 · AWAY MODE</div>
-    <div class="hud hud--tr" aria-hidden="true">SIGNAL // PAUSED</div>
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?kicker=...&sub=...&tag=...&tag2=... at render time; use =- to remove one.) -->
+    <div class="hud" aria-hidden="true"><span class="blip"></span> <span class="is-slot" data-slot="tag">[ your text here ]</span></div>
+    <div class="hud hud--tr is-slot" data-slot="tag2">[ your text here ]</div>
     <div class="sign sign--l" aria-hidden="true">離席</div>
     <div class="sign sign--r" aria-hidden="true">電脳</div>
 
     <main class="board">
-      <p class="tag"><span class="sq"></span> STREAM // <span id="kicker" data-done="BACK NOW">AFK</span></p>
+      <p class="tag"><span class="sq"></span> <span class="is-slot" id="kicker" data-slot="kicker">[ your text here ]</span></p>
+      <!-- HEADLINE = the standard scene message, never the theme name -->
       <h1 class="title">BE RIGHT<span class="l2"><b>BACK</b></span></h1>
-      <p class="sub">grabbing supplies // back in a moment</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
       <div class="bar" aria-hidden="true"></div>
     </main>
 

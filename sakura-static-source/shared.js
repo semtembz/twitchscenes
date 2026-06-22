@@ -23,6 +23,17 @@
   const handle = params.get("handle"), handleEl = $id("handle");
   if (handle && handleEl) handleEl.textContent = handle;
 
+  /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+     placeholder the buyer edits or deletes. ?slotname=Text sets it at render
+     time; ?slotname=- (or empty/none/off) removes it entirely. ---- */
+  document.querySelectorAll("[data-slot]").forEach((el) => {
+    const v = params.get(el.dataset.slot);
+    if (v == null) return;
+    if (v === "-" || v === "" || v === "none" || v === "off") { el.remove(); return; }
+    el.textContent = v;
+    el.classList.remove("is-slot");
+  });
+
   /* ---- decorative waveform behind the seek bar (if present) ---- */
   const wave = $id("wave");
   if (wave) {

@@ -186,6 +186,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   font-size:26px;color:var(--blue);text-shadow:0 0 14px rgba(22,184,255,.5);
   animation:bugin .7s var(--ease) both .4s;}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* =========================================================
    keyframes — bars SLIDE + LOCK with a snap
    ========================================================= */

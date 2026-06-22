@@ -39,18 +39,18 @@
      amount : true => emphasize the amount line (cheer/donation/superchat)
      amtPre : text shown before a bare numeric amount ($, bits, etc.) */
   const EVENTS = {
-    follower:   { glyph: "▲", kicker: "NEW FOLLOWER",  sub: "joined the lineup",     sparks: 16, amount: false },
-    subscriber: { glyph: "★", kicker: "NEW SUB",        sub: "signed to the roster",  sparks: 20, amount: false },
-    member:     { glyph: "◆", kicker: "NEW MEMBER",     sub: "added to the squad",    sparks: 20, amount: false },
-    cheer:      { glyph: "✦", kicker: "CHEER",          sub: "bits on the board",     sparks: 24, amount: true,  amtPre: "", amtSuf: " bits" },
-    donation:   { glyph: "❤", kicker: "DONATION",       sub: "points on the board",   sparks: 26, amount: true,  amtPre: "$" },
-    host:       { glyph: "⛨", kicker: "NOW HOSTING",    sub: "crowd inbound",         sparks: 34, amount: true,  amtPre: "", amtSuf: " viewers" },
-    raid:       { glyph: "⚑", kicker: "RAID INCOMING",  sub: "brace for the rush",    sparks: 46, amount: true,  amtPre: "", amtSuf: " raiders" },
-    like:       { glyph: "♥", kicker: "NEW LIKE",       sub: "play of the game",      sparks: 14, amount: false },
-    share:      { glyph: "➤", kicker: "SHARED",         sub: "broadcast amplified",   sparks: 18, amount: false },
-    star:       { glyph: "✪", kicker: "NEW STAR",       sub: "MVP locked in",         sparks: 22, amount: true,  amtPre: "", amtSuf: " stars" },
-    superchat:  { glyph: "✸", kicker: "SUPER CHAT",     sub: "message on the wire",   sparks: 28, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "⬢", kicker: "NEW SUPPORTER",  sub: "you keep us on air",    sparks: 24, amount: false },
+    follower:   { glyph: "▲", kicker: "NEW FOLLOWER",  sub: "",     sparks: 16, amount: false },
+    subscriber: { glyph: "★", kicker: "NEW SUB",        sub: "",  sparks: 20, amount: false },
+    member:     { glyph: "◆", kicker: "NEW MEMBER",     sub: "",    sparks: 20, amount: false },
+    cheer:      { glyph: "✦", kicker: "CHEER",          sub: "",     sparks: 24, amount: true,  amtPre: "", amtSuf: " bits" },
+    donation:   { glyph: "❤", kicker: "DONATION",       sub: "",   sparks: 26, amount: true,  amtPre: "$" },
+    host:       { glyph: "⛨", kicker: "NOW HOSTING",    sub: "",         sparks: 34, amount: true,  amtPre: "", amtSuf: " viewers" },
+    raid:       { glyph: "⚑", kicker: "RAID INCOMING",  sub: "",    sparks: 46, amount: true,  amtPre: "", amtSuf: " raiders" },
+    like:       { glyph: "♥", kicker: "NEW LIKE",       sub: "",      sparks: 14, amount: false },
+    share:      { glyph: "➤", kicker: "SHARED",         sub: "",   sparks: 18, amount: false },
+    star:       { glyph: "✪", kicker: "NEW STAR",       sub: "",         sparks: 22, amount: true,  amtPre: "", amtSuf: " stars" },
+    superchat:  { glyph: "✸", kicker: "SUPER CHAT",     sub: "",   sparks: 28, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "⬢", kicker: "NEW SUPPORTER",  sub: "",    sparks: 24, amount: false },
   };
   const DEFAULT = EVENTS.follower;
 

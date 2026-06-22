@@ -161,6 +161,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   animation:fadeup .8s var(--ease) both 1s;}
 @keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ============================================================
    TICKER / STRAP near the bottom — clean broadcast lower strap
    ============================================================ */

@@ -44,19 +44,21 @@
 
     <!-- the menu card holds the message -->
     <main class="card">
-      <span class="tab" aria-hidden="true">TODAY'S SPECIAL</span>
+      <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+           placeholder — type your own text in, or delete the whole line to remove it.
+           (Or set ?tag=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+      <span class="tab is-slot" data-slot="tag">[ your text here ]</span>
 
-      <!-- ending: bar pre-completes; kicker rests on its "done" copy -->
-      <p class="kicker" id="kicker" data-done="FRESH &amp; READY">LAST CALL</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <!-- HEADLINE = the message, NEVER the theme name -->
-      <h1 class="title">THANKS FOR<span class="accent">HANGING OUT</span></h1>
+      <h1 class="title">THANKS FOR<span class="accent">WATCHING</span></h1>
 
       <svg class="doodle" viewBox="0 0 340 16" aria-hidden="true">
         <path d="M4 9 C 60 2, 110 16, 170 8 S 280 2, 336 10" />
       </svg>
 
-      <p class="sub">see you next cup &mdash; take care</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
       <div class="bar" aria-hidden="true">
         <div class="fill" id="fill"><span class="bean"></span></div>

@@ -32,6 +32,18 @@
   fit(); window.addEventListener("resize", fit);
   let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
 
+  /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+     placeholder the buyer edits or deletes. ?slotname=Text sets it at render
+     time; ?slotname=- (or empty/none/off) removes it entirely. (The #sub line
+     is driven by the per-event table instead, so it is not a data-slot.) ---- */
+  document.querySelectorAll("[data-slot]").forEach((sl) => {
+    const v = params.get(sl.dataset.slot);
+    if (v == null) return;
+    if (v === "-" || v === "" || v === "none" || v === "off") { sl.remove(); return; }
+    sl.textContent = v;
+    sl.classList.remove("is-slot");
+  });
+
   /* ---- per-event choreography table ----
      glyph  : condensed-grotesque mark in the left chip
      kicker : small steel caps event line (also the noname headline)
@@ -41,19 +53,21 @@
      motes  : how many key-light dust motes the burst spits (raid/host bigger)
      amount : true => emphasize the amount line (cheer/donation/superchat)
      amtPre/amtSuf : decoration around a bare numeric amount */
+  // kicker = the FUNCTIONAL event headline (kept). sub = an editable flavor slot:
+  // ships a neutral "[ your text here ]" placeholder the buyer edits or removes.
   const EVENTS = {
-    follower:   { glyph:"+",  kicker:"NEW FOLLOWER",  sub:"welcome to the broadcast",   motion:"follower",   motes:18, amount:false },
-    subscriber: { glyph:"▲", kicker:"NEW SUBSCRIBER", sub:"thanks for subscribing", motion:"subscriber", motes:22, amount:false },
-    member:     { glyph:"◈", kicker:"NEW MEMBER", sub:"welcome to the crew",        motion:"member",     motes:22, amount:false },
-    cheer:      { glyph:"◆", kicker:"CHEER",      sub:"thanks for the bits",        motion:"cheer",      motes:26, amount:true,  amtPre:"", amtSuf:" BITS" },
-    donation:   { glyph:"■", kicker:"DONATION",   sub:"most generous of you",       motion:"donation",   motes:28, amount:true,  amtPre:"$" },
-    host:       { glyph:"▶", kicker:"NOW HOSTING", sub:"we are on the air",         motion:"host",       motes:34, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
-    raid:       { glyph:"»", kicker:"INCOMING RAID", sub:"the studio fills at once", motion:"raid",      motes:48, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
-    like:       { glyph:"♥", kicker:"NEW LIKE",   sub:"much appreciated",           motion:"like",       motes:14, amount:false },
-    share:      { glyph:"↗", kicker:"SHARED",     sub:"word goes out live",         motion:"share",      motes:18, amount:false },
-    star:       { glyph:"★", kicker:"NEW STAR",   sub:"top of the rundown",         motion:"star",       motes:24, amount:true,  amtPre:"", amtSuf:" STARS" },
-    superchat:  { glyph:"◉", kicker:"SUPER CHAT", sub:"a note for the desk",        motion:"superchat",  motes:30, amount:true,  amtPre:"$" },
-    supporter:  { glyph:"❖", kicker:"NEW SUPPORTER", sub:"you keep us on the air",  motion:"supporter",  motes:24, amount:false },
+    follower:   { glyph:"+",  kicker:"NEW FOLLOWER",  sub:"[ your text here ]",   motion:"follower",   motes:18, amount:false },
+    subscriber: { glyph:"▲", kicker:"NEW SUBSCRIBER", sub:"[ your text here ]", motion:"subscriber", motes:22, amount:false },
+    member:     { glyph:"◈", kicker:"NEW MEMBER", sub:"[ your text here ]",        motion:"member",     motes:22, amount:false },
+    cheer:      { glyph:"◆", kicker:"CHEER",      sub:"[ your text here ]",        motion:"cheer",      motes:26, amount:true,  amtPre:"", amtSuf:" BITS" },
+    donation:   { glyph:"■", kicker:"DONATION",   sub:"[ your text here ]",       motion:"donation",   motes:28, amount:true,  amtPre:"$" },
+    host:       { glyph:"▶", kicker:"NOW HOSTING", sub:"[ your text here ]",         motion:"host",       motes:34, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+    raid:       { glyph:"»", kicker:"INCOMING RAID", sub:"[ your text here ]", motion:"raid",      motes:48, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+    like:       { glyph:"♥", kicker:"NEW LIKE",   sub:"[ your text here ]",           motion:"like",       motes:14, amount:false },
+    share:      { glyph:"↗", kicker:"SHARED",     sub:"[ your text here ]",         motion:"share",      motes:18, amount:false },
+    star:       { glyph:"★", kicker:"NEW STAR",   sub:"[ your text here ]",         motion:"star",       motes:24, amount:true,  amtPre:"", amtSuf:" STARS" },
+    superchat:  { glyph:"◉", kicker:"SUPER CHAT", sub:"[ your text here ]",        motion:"superchat",  motes:30, amount:true,  amtPre:"$" },
+    supporter:  { glyph:"❖", kicker:"NEW SUPPORTER", sub:"[ your text here ]",  motion:"supporter",  motes:24, amount:false },
   };
   const DEFAULT = EVENTS.follower;
   const ALL_MOTIONS = Object.keys(EVENTS).map((k) => "m-" + EVENTS[k].motion);

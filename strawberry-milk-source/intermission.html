@@ -37,10 +37,10 @@
       </svg>
     </div>
 
-    <!-- corner badge -->
-    <div class="brew" aria-hidden="true">
+    <!-- corner badge = editable slot (type your text, or delete the line) -->
+    <div class="brew">
       <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16 2 12 2 8.5 2 5.4 4.4 3 7.5 3 9.3 3 11 4 12 5.5 13 4 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5 22 12 19 16 12 21z"/></svg>
-      <span>SHORT BREAK</span>
+      <span class="is-slot" data-slot="tag">[ your text here ]</span>
     </div>
 
     <!-- the signature scalloped cloud card -->
@@ -53,9 +53,12 @@
       <div class="inner">
         <div class="tile" aria-hidden="true"><span class="glyph">🍰</span></div>
 
-        <p class="kick"><span class="dot"></span> <span id="kicker" data-done="BACK SOON">INTERMISSION</span></p>
-        <h1 class="title">BACK<span class="l2"><b>SOON</b></span></h1>
-        <p class="sub">stretch &amp; hydrate ♡ we'll resume shortly</p>
+        <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+             placeholder — type your own text in, or delete the whole line to remove it.
+             (Or set ?kicker=...&sub=...&tag=... at render time; use =- to remove one.) -->
+        <p class="kick"><span class="dot"></span> <span class="is-slot" id="kicker" data-slot="kicker">[ your text here ]</span></p>
+        <h1 class="title">SHORT<span class="l2"><b>BREAK</b></span></h1>
+        <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
         <div class="glass" aria-hidden="true">
           <div class="fill" id="fill">

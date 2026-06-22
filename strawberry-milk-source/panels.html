@@ -229,7 +229,7 @@
       // cute white line icon on the tab
       drawIcon(ctx, p.icon, tabX + tabW / 2, H / 2, 30);
 
-      // little "SWEET" badge kicker above the title
+      // little editable badge kicker above the title (neutral placeholder)
       ctx.save();
       ctx.font = '800 9px "Baloo 2", system-ui, sans-serif';
       ctx.textAlign = 'left';
@@ -237,7 +237,7 @@
       // tiny heart dot
       heartMark(ctx, 84, 28, 4, HOT);
       ctx.fillStyle = INK_SOFT;
-      ctx.fillText('S W E E T   S H O P', 94, 31);
+      ctx.fillText('[ your text here ]', 94, 31);
       ctx.restore();
 
       // label in chunky friendly sans (deep rose ink)

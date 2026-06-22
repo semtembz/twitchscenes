@@ -20,23 +20,27 @@
     <div class="frameline frameline--t" aria-hidden="true"></div>
     <div class="frameline frameline--b" aria-hidden="true"></div>
 
-    <!-- ON AIR tally, top-left, pulsing amber dot (paused for the intermission) -->
+    <!-- ON AIR tally, top-left, pulsing amber dot.
+         label = editable slot (type your text, or delete the line) -->
     <div class="tally">
       <span class="dot" aria-hidden="true"></span>
-      <span class="label" id="status" data-done="RESUMING">PAUSED</span>
+      <span class="label is-slot" id="status" data-slot="tag2">[ your text here ]</span>
     </div>
 
-    <!-- station mark, top-right on the steel frame -->
-    <div class="station" aria-hidden="true">
-      <span class="bar"></span>STUDIO NOIR
+    <!-- station mark, top-right on the steel frame = editable slot -->
+    <div class="station">
+      <span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag">[ your text here ]</span>
     </div>
 
     <!-- THE LOWER-THIRD BAR SYSTEM (signature composition) -->
     <section class="lower">
-      <!-- kicker tab (amber slab) — flips on completion -->
-      <p class="kicker" id="kicker" data-done="RESUMING">INTERMISSION</p>
+      <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+           placeholder — type your own text in, or delete the whole line to remove it.
+           (Or set ?kicker=...&sub=...&tag=...&tag2=...&tag3=...&ticker=... at render
+           time; use =- to remove one.) -->
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
-      <!-- charcoal title slab with thin amber accent rule -->
+      <!-- HEADLINE = the standard scene message, never the theme name -->
       <div class="titlewrap">
         <h1 class="title">
           <span class="line"><span>SHORT</span></span>
@@ -45,7 +49,7 @@
       </div>
 
       <!-- subtitle -->
-      <p class="sub">we will return after this short pause</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
     </section>
 
     <!-- sleek amber broadcast loading strap (no numbers) -->
@@ -54,13 +58,14 @@
     <!-- handle, lower-right -->
     <div class="handle" id="handle">@yourhandle</div>
 
-    <!-- clean ticker / strap near the bottom -->
-    <div class="ticker" aria-hidden="true">
-      <span class="tag">PAUSED</span>
+    <!-- clean ticker / strap near the bottom — tag cell + scrolling line are
+         editable slots (both scroll copies fill identically for the loop) -->
+    <div class="ticker">
+      <span class="tag is-slot" data-slot="tag3">[ your text here ]</span>
       <div class="track">
         <div class="scroll">
-          <span>Taking a short break<span class="sep"> // </span>The program continues in a few minutes<span class="sep"> // </span>Stay tuned for the next segment<span class="sep"> // </span>Thanks for your patience</span>
-          <span>Taking a short break<span class="sep"> // </span>The program continues in a few minutes<span class="sep"> // </span>Stay tuned for the next segment<span class="sep"> // </span>Thanks for your patience</span>
+          <span class="is-slot" data-slot="ticker">[ your text here ]</span>
+          <span class="is-slot" data-slot="ticker">[ your text here ]</span>
         </div>
       </div>
     </div>

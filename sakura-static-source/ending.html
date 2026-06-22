@@ -23,9 +23,13 @@
 
     <main class="card card--center card--noart" style="text-align:center;">
       <div class="meta">
-        <p class="kick" style="justify-content:center;"><span class="dot"></span> <span id="kicker">THANKS FOR</span></p>
-        <h1 class="title">WATCHING<br><b>&#9825;</b></h1>
-        <p class="sub">see you next stream — take care of yourselves</p>
+        <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+             placeholder — type your own text in, or delete the whole line to remove it.
+             (Or set ?kicker=...&sub=... at render time; use =- to remove one.) -->
+        <p class="kick" style="justify-content:center;"><span class="dot"></span> <span class="is-slot" id="kicker" data-slot="kicker">[ your text here ]</span></p>
+        <!-- HEADLINE = the standard scene message, never the theme name -->
+        <h1 class="title">THANKS FOR<br><b>WATCHING</b></h1>
+        <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
         <p class="handle handle--big" id="handle" style="position:static;margin-top:10px;letter-spacing:4px;">@yourhandle</p>
       </div>
     </main>

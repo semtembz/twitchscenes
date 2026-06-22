@@ -96,18 +96,18 @@
 
     // ===== per-event table (mirror of alerts.js EVENTS) =====
     const EVENTS = {
-      follower:   { glyph:"leaf",   kicker:"NEW SPROUT",      sub:"welcome to the garden",    motion:"grow",    motes:18, burst:"seed",   amount:false },
-      subscriber: { glyph:"rose",   kicker:"NEW BLOOM",       sub:"a flower that returns",    motion:"bloom",   motes:24, burst:"petal",  amount:false },
-      member:     { glyph:"daisy",  kicker:"NEW SEEDLING",    sub:"planted in the patch",     motion:"pot",     motes:22, burst:"mix",    amount:false },
-      cheer:      { glyph:"bee",    kicker:"CHEER",           sub:"a busy little buzz",       motion:"flutter", motes:26, burst:"pollen", amount:true,  amtPre:"", amtSuf:" bits" },
-      donation:   { glyph:"heart",  kicker:"A GIFT",          sub:"so very kind of you",      motion:"gift",    motes:28, burst:"petal",  amount:true,  amtPre:"$" },
-      host:       { glyph:"wreath", kicker:"NOW HOSTING",     sub:"the gate swings open",     motion:"sweep",   motes:34, burst:"mix",    amount:true,  amtPre:"", amtSuf:" guests" },
-      raid:       { glyph:"posy",   kicker:"WILDFLOWER RAID", sub:"the meadow fills at once", motion:"gust",    motes:48, burst:"mix",    amount:true,  amtPre:"", amtSuf:" arriving" },
-      like:       { glyph:"heart",  kicker:"A LITTLE LOVE",   sub:"much obliged",             motion:"pop",     motes:14, burst:"petal",  amount:false },
-      share:      { glyph:"seed",   kicker:"SEEDS SPREAD",    sub:"word drifts on the wind",  motion:"carry",   motes:20, burst:"seed",   amount:false },
-      star:       { glyph:"star",   kicker:"NEW STAR",        sub:"the meadow shines",        motion:"twinkle", motes:24, burst:"pollen", amount:true,  amtPre:"", amtSuf:" stars" },
-      superchat:  { glyph:"note",   kicker:"PRESSED NOTE",    sub:"a note for the journal",   motion:"unfold",  motes:30, burst:"petal",  amount:true,  amtPre:"$" },
-      supporter:  { glyph:"sun",    kicker:"NEW GARDENER",    sub:"you help it all grow",     motion:"nestle",  motes:24, burst:"mix",    amount:false },
+      follower:   { glyph:"leaf",   kicker:"NEW SPROUT",      sub:"",   motion:"grow",    motes:18, burst:"seed",   amount:false },
+      subscriber: { glyph:"rose",   kicker:"NEW BLOOM",       sub:"",   motion:"bloom",   motes:24, burst:"petal",  amount:false },
+      member:     { glyph:"daisy",  kicker:"NEW SEEDLING",    sub:"",   motion:"pot",     motes:22, burst:"mix",    amount:false },
+      cheer:      { glyph:"bee",    kicker:"CHEER",           sub:"",   motion:"flutter", motes:26, burst:"pollen", amount:true,  amtPre:"", amtSuf:" bits" },
+      donation:   { glyph:"heart",  kicker:"A GIFT",          sub:"",   motion:"gift",    motes:28, burst:"petal",  amount:true,  amtPre:"$" },
+      host:       { glyph:"wreath", kicker:"NOW HOSTING",     sub:"",   motion:"sweep",   motes:34, burst:"mix",    amount:true,  amtPre:"", amtSuf:" guests" },
+      raid:       { glyph:"posy",   kicker:"WILDFLOWER RAID", sub:"",   motion:"gust",    motes:48, burst:"mix",    amount:true,  amtPre:"", amtSuf:" arriving" },
+      like:       { glyph:"heart",  kicker:"A LITTLE LOVE",   sub:"",   motion:"pop",     motes:14, burst:"petal",  amount:false },
+      share:      { glyph:"seed",   kicker:"SEEDS SPREAD",    sub:"",   motion:"carry",   motes:20, burst:"seed",   amount:false },
+      star:       { glyph:"star",   kicker:"NEW STAR",        sub:"",   motion:"twinkle", motes:24, burst:"pollen", amount:true,  amtPre:"", amtSuf:" stars" },
+      superchat:  { glyph:"note",   kicker:"PRESSED NOTE",    sub:"",   motion:"unfold",  motes:30, burst:"petal",  amount:true,  amtPre:"$" },
+      supporter:  { glyph:"sun",    kicker:"NEW GARDENER",    sub:"",   motion:"nestle",  motes:24, burst:"mix",    amount:false },
     };
     const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
 
@@ -419,7 +419,7 @@
       ctx.arc(0, 0, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       if (!noname) {
         ctx.fillStyle = LEAF_DEEP; ctx.font = '600 18px "Optima","Gill Sans","Segoe UI",Candara,system-ui,sans-serif';
-        ctx.fillText(spacedCaps('THE GARDEN · ' + cfg.kicker), mx + 22, y + 50);
+        ctx.fillText(spacedCaps(cfg.kicker), mx + 22, y + 50);
       }
 
       // big NAME (or event headline in noname) — old-style serif in warm ink
@@ -446,7 +446,7 @@
       ctx.fillStyle = LEAF_DEEP; ctx.globalAlpha = Math.max(0, st.op) * 0.7;
       ctx.font = '13px "Optima","Gill Sans","Segoe UI",Candara,system-ui,sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(spacedCaps('HERBARIUM'), x + CARD_W - 30, y + 30);
+      ctx.fillText(spacedCaps(''), x + CARD_W - 30, y + 30);
       ctx.globalAlpha = Math.max(0, st.op);
       // tag rule
       ctx.strokeStyle = 'rgba(125,164,83,0.6)'; ctx.lineWidth = 2; ctx.beginPath();

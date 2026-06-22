@@ -9,15 +9,15 @@
     OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
 
     Most of the screen stays transparent for the game. It draws:
-      - a slim glossy "now brewing" mini-card (a small boba-cup tile, "@yourhandle",
-        a sub line, and a thin pink milk seek bar with a sliding shimmer);
-      - a tiny "NOW BREWING" cafe badge top-right (beating heart dot);
+      - a slim glossy mini-card (a small boba-cup tile, "@yourhandle", an editable
+        kick + sub line, and a thin pink milk seek bar with a sliding shimmer);
+      - a tiny cafe badge top-right (beating heart dot, editable label);
       - a FEW very subtle drifting boba pearls + hearts (low alpha).
 
     Optional URL params:
       ?handle=@you      handle shown on the card (default @yourhandle)
       ?drift=7          drifting sweet count (default 7, kept low so the game shows)
-      ?now=cozy%20vibes sub line under the handle (default "cozy vibes · live ♡")
+      ?now=Your%20text  sub line under the handle (default "[ your text here ]")
       ?corner=bl        card corner: bl | br | tl | tr (default bl)
 
     Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage + fit()
@@ -110,17 +110,19 @@
   <div id="stage">
     <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
 
+    <!-- corner badge text = editable placeholder (type your own, or clear it) -->
     <div class="brew" aria-hidden="true">
       <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16 2 12 2 8.5 2 5.4 4.4 3 7.5 3 9.3 3 11 4 12 5.5 13 4 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5 22 12 19 16 12 21z"/></svg>
-      <span>NOW BREWING</span>
+      <span>[ your text here ]</span>
     </div>
 
+    <!-- handle is functional (keep); the kick + sub lines are editable placeholders -->
     <div class="slot bl" id="slot">
       <div class="tile" aria-hidden="true"><span class="glyph">&#129483;</span></div>
       <div class="info">
-        <p class="kick"><span class="dot"></span> NOW BREWING</p>
+        <p class="kick"><span class="dot"></span> [ your text here ]</p>
         <p class="hdl" id="handle">@yourhandle</p>
-        <p class="now" id="now">cozy vibes &middot; live &hearts;</p>
+        <p class="now" id="now">[ your text here ]</p>
         <div class="accent" aria-hidden="true"></div>
       </div>
     </div>

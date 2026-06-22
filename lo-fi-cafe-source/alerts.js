@@ -43,19 +43,22 @@
      amtPre : text shown before a bare numeric amount ($, bits, etc.)
      The DISTINCT entrance MOTION per event is set in alerts.css via
      body[data-event]; render mode replays each one through MOTION below. */
+  /* sub: cheesy flavor sub-lines are intentionally EMPTY ("" = no baked copy).
+     The static markup ships a muted "[ your text here ]" placeholder slot the
+     buyer edits; an empty sub here leaves that placeholder untouched (see play). */
   const EVENTS = {
-    follower:   { glyph: "☕", kicker: "NEW REGULAR",   sub: "pull up a chair",          motes: 16, amount: false },
-    subscriber: { glyph: "🥐", kicker: "NEW SUB",       sub: "the usual, then?",         motes: 20, amount: false },
-    member:     { glyph: "🍪", kicker: "NEW MEMBER",    sub: "one of the regulars now",  motes: 20, amount: false },
-    cheer:      { glyph: "✨", kicker: "CHEER",         sub: "extra foam on the house",  motes: 24, amount: true,  amtPre: "", amtSuf: " bits" },
-    donation:   { glyph: "🧁", kicker: "TIP JAR",       sub: "kindest of you",           motes: 26, amount: true,  amtPre: "$" },
-    host:       { glyph: "🫖", kicker: "NOW HOSTING",   sub: "the booth fills up",       motes: 34, amount: true,  amtPre: "", amtSuf: " guests" },
-    raid:       { glyph: "🌧", kicker: "RAID INCOMING", sub: "the whole cafe spills in", motes: 46, amount: true,  amtPre: "", amtSuf: " arriving" },
-    like:       { glyph: "♡", kicker: "NEW LIKE",      sub: "much appreciated",         motes: 14, amount: false },
-    share:      { glyph: "🍃", kicker: "SHARED",        sub: "word gets around",         motes: 18, amount: false },
-    star:       { glyph: "★", kicker: "NEW STAR",      sub: "the playlist shines",      motes: 22, amount: true,  amtPre: "", amtSuf: " stars" },
-    superchat:  { glyph: "💬", kicker: "SUPER CHAT",    sub: "a note for the table",     motes: 28, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "🤎", kicker: "NEW SUPPORTER", sub: "you keep it cozy",         motes: 24, amount: false },
+    follower:   { glyph: "☕", kicker: "NEW FOLLOWER",  sub: "", motes: 16, amount: false },
+    subscriber: { glyph: "🥐", kicker: "NEW SUB",       sub: "", motes: 20, amount: false },
+    member:     { glyph: "🍪", kicker: "NEW MEMBER",    sub: "", motes: 20, amount: false },
+    cheer:      { glyph: "✨", kicker: "CHEER",         sub: "", motes: 24, amount: true,  amtPre: "", amtSuf: " bits" },
+    donation:   { glyph: "🧁", kicker: "DONATION",      sub: "", motes: 26, amount: true,  amtPre: "$" },
+    host:       { glyph: "🫖", kicker: "NOW HOSTING",   sub: "", motes: 34, amount: true,  amtPre: "", amtSuf: " guests" },
+    raid:       { glyph: "🌧", kicker: "RAID INCOMING", sub: "", motes: 46, amount: true,  amtPre: "", amtSuf: " arriving" },
+    like:       { glyph: "♡", kicker: "NEW LIKE",      sub: "", motes: 14, amount: false },
+    share:      { glyph: "🍃", kicker: "SHARED",        sub: "", motes: 18, amount: false },
+    star:       { glyph: "★", kicker: "NEW STAR",      sub: "", motes: 22, amount: true,  amtPre: "", amtSuf: " stars" },
+    superchat:  { glyph: "💬", kicker: "SUPER CHAT",    sub: "", motes: 28, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "🤎", kicker: "NEW SUPPORTER", sub: "", motes: 24, amount: false },
   };
   const DEFAULT = EVENTS.follower;
 
@@ -213,7 +216,9 @@
       if (kickEl) kickEl.textContent = cfg.kicker;
       if (nameEl) nameEl.textContent = name;
     }
-    if (subEl) subEl.textContent = cfg.sub;
+    // sub is an editable slot: only overwrite when a non-empty flavor line is
+    // configured; an empty cfg.sub leaves the markup's placeholder slot intact.
+    if (subEl && cfg.sub) { subEl.textContent = cfg.sub; subEl.classList.remove("is-slot"); }
     if (amountEl) amountEl.textContent = amountStr;
     card.classList.toggle("has-amount", !!(cfg.amount && amountStr));
 
@@ -270,7 +275,7 @@
     const kickLine = card.querySelector(".kick");
     if (noname) { if (kickLine) kickLine.style.display = "none"; if (nameEl) nameEl.textContent = _cfg.kicker; }
     else { if (kickLine) kickLine.style.display = ""; if (kickEl) kickEl.textContent = _cfg.kicker; if (nameEl) nameEl.textContent = name; }
-    if (subEl) subEl.textContent = _cfg.sub;
+    if (subEl && _cfg.sub) { subEl.textContent = _cfg.sub; subEl.classList.remove("is-slot"); }
     if (amountEl) amountEl.textContent = amountStr;
     card.classList.toggle("has-amount", !!(_cfg.amount && amountStr));
     card.classList.remove("show", "hide");

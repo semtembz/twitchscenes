@@ -264,7 +264,7 @@
       ctx.shadowBlur = 0;
       ctx.font = '600 26px "Courier New", monospace';
       ctx.fillStyle = TEAL; ctx.shadowColor = 'rgba(0,224,208,0.5)'; ctx.shadowBlur = 12;
-      ctx.fillText('CH 88 · MIAMI', badgeX + 24, badgeY + 1);
+      ctx.fillText('OFFLINE', badgeX + 24, badgeY + 1);
       ctx.shadowBlur = 0;
       // top-right HUD
       ctx.textAlign = 'right';
@@ -310,10 +310,10 @@
       ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
       ctx.strokeText('OFFLINE', W / 2, titleY);
 
-      // subtitle
+      // subtitle — neutral editable blurb (no baked-in flavor)
       ctx.font = '400 24px "Courier New", monospace';
       ctx.fillStyle = DIM;
-      ctx.fillText('back on the strip soon — follow to get notified', W / 2, cardY + 196);
+      ctx.fillText('[ your text here ]', W / 2, cardY + 196);
       ctx.restore();
 
       // ---- HANDLE (bottom-right, mono) — reads ?handle ----

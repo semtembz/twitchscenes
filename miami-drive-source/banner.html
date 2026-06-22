@@ -252,8 +252,9 @@
       const handleClean = handle.replace(/^@/, '');
       block(400, 'STREAMER', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'CH 88 · MIAMI', 'DRIVE', 92, 'cruising the neon strip');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — neutral editable placeholders
+      //      (swap 'YOUR TAGLINE' / the sub for your own wordmark + line) ----
+      block(1520, 'CHANNEL', 'YOUR TAGLINE', 64, '[ your text here ]');
 
       // vertical accent dashes flanking the centre clear-zone
       ctx.fillStyle = 'rgba(0,224,208,0.40)';

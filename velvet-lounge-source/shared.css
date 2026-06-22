@@ -116,6 +116,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 /* subtitle — refined italic serif, generous space */
 .sub{margin-top:26px;font-style:italic;font-size:30px;letter-spacing:.06em;color:var(--dim);}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* loading = a single thin brass line that fills elegantly (no numbers) */
 .bar{margin-top:46px;width:520px;height:2px;background:rgba(181,137,78,.18);position:relative;}
 .bar .fill{position:absolute;left:0;top:0;height:100%;width:0;

@@ -33,19 +33,21 @@
      petals : how many petals the burst spits (raid/host bigger)
      amount : true => emphasize the amount line (cheer/donation/superchat)
      amtPre : text shown before a bare numeric amount ($, bits, etc.) */
+  // sub: editable flavor SUB-LINE — ships as a "[ your text here ]" placeholder the
+  // streamer types over (the kicker / name / amount stay functional, never touched).
   const EVENTS = {
-    follower:   { glyph: "❀", kicker: "NEW FOLLOWER",   sub: "welcome to the garden", petals: 14, amount: false },
-    subscriber: { glyph: "✿", kicker: "NEW SUB",          sub: "thank you for subbing", petals: 18, amount: false },
-    member:     { glyph: "✦", kicker: "NEW MEMBER",       sub: "welcome, member",        petals: 18, amount: false },
-    cheer:      { glyph: "✧", kicker: "CHEER",            sub: "bits dropped",          petals: 22, amount: true,  amtPre: "" , amtSuf: " bits" },
-    donation:   { glyph: "♥", kicker: "DONATION",         sub: "thank you so much",     petals: 24, amount: true,  amtPre: "$" },
-    host:       { glyph: "⛩", kicker: "NOW HOSTING",      sub: "incoming friends",      petals: 30, amount: true,  amtPre: "", amtSuf: " viewers" },
-    raid:       { glyph: "⛩", kicker: "RAID INCOMING",    sub: "brace for the wave",    petals: 40, amount: true,  amtPre: "", amtSuf: " raiders" },
-    like:       { glyph: "❤", kicker: "NEW LIKE",         sub: "appreciated",           petals: 12, amount: false },
-    share:      { glyph: "➤", kicker: "SHARED",           sub: "thanks for spreading it", petals: 16, amount: false },
-    star:       { glyph: "★", kicker: "NEW STAR",         sub: "shining bright",        petals: 20, amount: true,  amtPre: "", amtSuf: " stars" },
-    superchat:  { glyph: "✸", kicker: "SUPER CHAT",       sub: "message pinned",        petals: 26, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "✪", kicker: "NEW SUPPORTER",    sub: "you keep this going",   petals: 22, amount: false },
+    follower:   { glyph: "❀", kicker: "NEW FOLLOWER",   sub: "[ your text here ]", petals: 14, amount: false },
+    subscriber: { glyph: "✿", kicker: "NEW SUB",          sub: "[ your text here ]", petals: 18, amount: false },
+    member:     { glyph: "✦", kicker: "NEW MEMBER",       sub: "[ your text here ]", petals: 18, amount: false },
+    cheer:      { glyph: "✧", kicker: "CHEER",            sub: "[ your text here ]", petals: 22, amount: true,  amtPre: "" , amtSuf: " bits" },
+    donation:   { glyph: "♥", kicker: "DONATION",         sub: "[ your text here ]", petals: 24, amount: true,  amtPre: "$" },
+    host:       { glyph: "⛩", kicker: "NOW HOSTING",      sub: "[ your text here ]", petals: 30, amount: true,  amtPre: "", amtSuf: " viewers" },
+    raid:       { glyph: "⛩", kicker: "RAID INCOMING",    sub: "[ your text here ]", petals: 40, amount: true,  amtPre: "", amtSuf: " raiders" },
+    like:       { glyph: "❤", kicker: "NEW LIKE",         sub: "[ your text here ]", petals: 12, amount: false },
+    share:      { glyph: "➤", kicker: "SHARED",           sub: "[ your text here ]", petals: 16, amount: false },
+    star:       { glyph: "★", kicker: "NEW STAR",         sub: "[ your text here ]", petals: 20, amount: true,  amtPre: "", amtSuf: " stars" },
+    superchat:  { glyph: "✸", kicker: "SUPER CHAT",       sub: "[ your text here ]", petals: 26, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "✪", kicker: "NEW SUPPORTER",    sub: "[ your text here ]", petals: 22, amount: false },
   };
   const DEFAULT = EVENTS.follower;
 

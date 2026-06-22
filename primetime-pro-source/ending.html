@@ -37,8 +37,8 @@
       </div>
     </div>
 
-    <!-- top-right status plate -->
-    <div class="status" aria-hidden="true"><span class="net">PTP</span> · FINAL</div>
+    <!-- top-right status plate (label after PTP = editable slot) -->
+    <div class="status" aria-hidden="true"><span class="net">PTP</span> · <span class="is-slot" data-slot="tag">[ your text here ]</span></div>
 
     <!-- LOWER-THIRD bar stack -->
     <div class="lower">
@@ -46,14 +46,18 @@
       <div class="bar">
         <div class="bar__flag">
           <div class="bar__kick">
-            <span class="lab" id="kicker" data-done="GG">FINAL</span>
-            <span class="liverow"><span class="dot"></span><span class="sub2">THAT'S A WRAP</span></span>
+            <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+                 placeholder — type your own text in, or delete the line to remove it.
+                 (Or set ?kicker=...&sub=...&sup=...&tag=... at render time; use =- to remove one.) -->
+            <span class="lab is-slot" id="kicker" data-slot="kicker">[ your text here ]</span>
+            <span class="liverow"><span class="dot"></span><span class="sub2 is-slot" data-slot="sub2">[ your text here ]</span></span>
           </div>
         </div>
         <div class="bar__plate">
-          <div class="bar__sup"><span class="chip">CH 01</span> POST-GAME WRAP</div>
+          <div class="bar__sup"><span class="chip">CH 01</span> <span class="is-slot" data-slot="sup">[ your text here ]</span></div>
+          <!-- HEADLINE = the standard scene message, never the theme name -->
           <h1 class="title">THANKS FOR <b>WATCHING</b></h1>
-          <p class="bar__sub">that's the final whistle — catch the next broadcast soon</p>
+          <p class="bar__sub is-slot" data-slot="sub">[ your text here ]</p>
         </div>
       </div>
     </div>
@@ -61,19 +65,20 @@
     <!-- prominent follow CTA in place of the timer bar -->
     <div class="handle handle--big" id="handle">@yourhandle</div>
 
-    <!-- TICKER strip along the very bottom (duplicated content for seamless loop) -->
+    <!-- TICKER strip along the very bottom (duplicated content for seamless loop).
+         Each item is an editable slot — type your own headlines, or delete a line. -->
     <div class="ticker" aria-hidden="true">
       <div class="ticker__tag">FINAL</div>
       <div class="ticker__win">
         <div class="ticker__track">
-          <span><i></i>THANKS FOR RIDING WITH THE <b>PRIMETIME</b> CREW</span>
-          <span><i></i>HIT FOLLOW SO YOU NEVER MISS A KICKOFF</span>
-          <span><i></i>SAME TIME, SAME CHANNEL — NEXT BROADCAST SOON</span>
-          <span><i></i>SUBSCRIBE FOR <b>FRONT-ROW</b> SEATS ALL SEASON</span>
-          <span><i></i>THANKS FOR RIDING WITH THE <b>PRIMETIME</b> CREW</span>
-          <span><i></i>HIT FOLLOW SO YOU NEVER MISS A KICKOFF</span>
-          <span><i></i>SAME TIME, SAME CHANNEL — NEXT BROADCAST SOON</span>
-          <span><i></i>SUBSCRIBE FOR <b>FRONT-ROW</b> SEATS ALL SEASON</span>
+          <span><i></i><span class="is-slot" data-slot="tick1">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick2">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick3">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick4">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick1">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick2">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick3">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick4">[ your text here ]</span></span>
         </div>
       </div>
     </div>

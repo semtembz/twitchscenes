@@ -132,6 +132,10 @@ canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .alert .sub{font-size:22px;font-style:italic;color:var(--coffee);opacity:.92;letter-spacing:.02em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
+/* editable text slots — a muted "[ your text here ]" placeholder the buyer
+   types over (the sub-line ships empty so no cheesy copy is baked in). */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* tiny corner stamp top-right of the card (cozy doodle) */
 .alert .stamp{position:absolute;top:18px;right:24px;font-size:26px;opacity:.5;color:var(--coffee);
   animation:stamp-bob 4.6s ease-in-out infinite;}

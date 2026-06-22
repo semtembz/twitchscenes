@@ -43,19 +43,22 @@
      amount  : true => emphasize the amount line (cheer/donation/superchat)
      amtPre  : text shown before a bare numeric amount ($, etc.)
      amtSuf  : text shown after a bare numeric amount (bits, raiders, etc.) */
+  // NOTE: `sub` is an OPTIONAL flavor line under the event/name. It ships EMPTY
+  // (no cheesy tagline); set ?sub=Your%20text to add your own, or leave blank.
+  const SUB = params.get("sub");
   const EVENTS = {
-    follower:   { glyph: "›",  kicker: "NEW FOLLOWER",    sub: "locked into the surge",   motes: 18, bolts: 2, amount: false },
-    subscriber: { glyph: "★",  kicker: "NEW SUBSCRIBER",  sub: "powered up — welcome",    motes: 24, bolts: 3, amount: false },
-    member:     { glyph: "◆",  kicker: "NEW MEMBER",      sub: "joined the squad",        motes: 24, bolts: 3, amount: false },
-    cheer:      { glyph: "⚡", kicker: "CHEER",           sub: "voltage incoming",        motes: 30, bolts: 4, amount: true,  amtPre: "", amtSuf: " BITS" },
-    donation:   { glyph: "$",  kicker: "DONATION",        sub: "fueling the stream",      motes: 32, bolts: 4, amount: true,  amtPre: "$" },
-    host:       { glyph: "»",  kicker: "NOW HOSTING",     sub: "the gates swing open",    motes: 36, bolts: 4, amount: true,  amtPre: "", amtSuf: " VIEWERS" },
-    raid:       { glyph: "⚔", kicker: "RAID INCOMING",   sub: "the arena floods",        motes: 48, bolts: 6, amount: true,  amtPre: "", amtSuf: " RAIDERS" },
-    like:       { glyph: "▲",  kicker: "NEW LIKE",        sub: "charge it up",            motes: 14, bolts: 1, amount: false },
-    share:      { glyph: "➤",  kicker: "SHARED",          sub: "the surge spreads",       motes: 20, bolts: 2, amount: false },
-    star:       { glyph: "✦",  kicker: "NEW STAR",        sub: "the arena lights up",     motes: 26, bolts: 3, amount: true,  amtPre: "", amtSuf: " STARS" },
-    superchat:  { glyph: "✸",  kicker: "SUPER CHAT",      sub: "high-voltage message",    motes: 30, bolts: 4, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "❖",  kicker: "NEW SUPPORTER",   sub: "keeping the power on",     motes: 26, bolts: 3, amount: false },
+    follower:   { glyph: "›",  kicker: "NEW FOLLOWER",    sub: SUB || "",   motes: 18, bolts: 2, amount: false },
+    subscriber: { glyph: "★",  kicker: "NEW SUBSCRIBER",  sub: SUB || "",   motes: 24, bolts: 3, amount: false },
+    member:     { glyph: "◆",  kicker: "NEW MEMBER",      sub: SUB || "",   motes: 24, bolts: 3, amount: false },
+    cheer:      { glyph: "⚡", kicker: "CHEER",           sub: SUB || "",   motes: 30, bolts: 4, amount: true,  amtPre: "", amtSuf: " BITS" },
+    donation:   { glyph: "$",  kicker: "DONATION",        sub: SUB || "",   motes: 32, bolts: 4, amount: true,  amtPre: "$" },
+    host:       { glyph: "»",  kicker: "NOW HOSTING",     sub: SUB || "",   motes: 36, bolts: 4, amount: true,  amtPre: "", amtSuf: " VIEWERS" },
+    raid:       { glyph: "⚔", kicker: "RAID INCOMING",   sub: SUB || "",   motes: 48, bolts: 6, amount: true,  amtPre: "", amtSuf: " RAIDERS" },
+    like:       { glyph: "▲",  kicker: "NEW LIKE",        sub: SUB || "",   motes: 14, bolts: 1, amount: false },
+    share:      { glyph: "➤",  kicker: "SHARED",          sub: SUB || "",   motes: 20, bolts: 2, amount: false },
+    star:       { glyph: "✦",  kicker: "NEW STAR",        sub: SUB || "",   motes: 26, bolts: 3, amount: true,  amtPre: "", amtSuf: " STARS" },
+    superchat:  { glyph: "✸",  kicker: "SUPER CHAT",      sub: SUB || "",   motes: 30, bolts: 4, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "❖",  kicker: "NEW SUPPORTER",   sub: SUB || "",   motes: 26, bolts: 3, amount: false },
   };
   const DEFAULT = EVENTS.follower;
   const TYPES = Object.keys(EVENTS);

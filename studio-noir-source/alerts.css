@@ -133,6 +133,11 @@ canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .alert .tagrule{position:absolute;top:32px;right:24px;width:84px;height:1px;opacity:.6;
   background:linear-gradient(90deg,transparent,var(--steel) 30%,var(--amber) 90%);}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* ============================================================
    ENTRANCE / EXIT — JS adds .show + ONE per-event motion class, then
    .hide near the end. The shared exit is a clean broadcast cut-out.

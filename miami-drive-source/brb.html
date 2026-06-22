@@ -35,15 +35,18 @@
     <div class="bracket bk-bl" aria-hidden="true"></div>
     <div class="bracket bk-br" aria-hidden="true"></div>
 
-    <!-- HUD tags -->
-    <div class="hud" aria-hidden="true"><span class="blip"></span> CH&nbsp;88 · AWAY MODE</div>
-    <div class="hud hud--tr" aria-hidden="true">SIGNAL // PAUSED</div>
+    <!-- HUD tags = editable slots -->
+    <div class="hud" aria-hidden="true"><span class="blip"></span> <span class="is-slot" data-slot="tag">[ your text here ]</span></div>
+    <div class="hud hud--tr is-slot" aria-hidden="true" data-slot="tag2">[ your text here ]</div>
 
     <!-- HERO: chrome italic title centered on the horizon -->
     <main class="hero">
-      <p class="kick"><span class="star"></span> STREAM <span id="kicker" data-done="BACK NOW">AWAY</span></p>
+      <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+           type your own text in, or delete the whole line to remove it. (Or set
+           ?kicker=...&sub=...&tag=...&tag2=... at render time; use =- to remove one.) -->
+      <p class="kick"><span class="star"></span> <span class="is-slot" id="kicker" data-slot="kicker">[ your text here ]</span></p>
       <h1 class="title">BE RIGHT<span class="l2"><b>BACK</b></span></h1>
-      <p class="sub">pit stop — back on the road in a moment</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
     </main>
 
     <!-- neon loading strip along the horizon (no numbers) -->

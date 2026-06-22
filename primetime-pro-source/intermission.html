@@ -26,8 +26,8 @@
       </div>
     </div>
 
-    <!-- top-right status plate -->
-    <div class="status" aria-hidden="true"><span class="net">PTP</span> · HALFTIME</div>
+    <!-- top-right status plate (label after PTP = editable slot) -->
+    <div class="status" aria-hidden="true"><span class="net">PTP</span> · <span class="is-slot" data-slot="tag">[ your text here ]</span></div>
 
     <!-- LOWER-THIRD bar stack -->
     <div class="lower">
@@ -35,14 +35,18 @@
       <div class="bar">
         <div class="bar__flag">
           <div class="bar__kick">
-            <span class="lab" id="kicker" data-done="BACK SOON">INTERMISSION</span>
-            <span class="liverow"><span class="dot"></span><span class="sub2">HALFTIME REPORT</span></span>
+            <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+                 placeholder — type your own text in, or delete the line to remove it.
+                 (Or set ?kicker=...&sub=...&sup=...&tag=... at render time; use =- to remove one.) -->
+            <span class="lab is-slot" id="kicker" data-slot="kicker">[ your text here ]</span>
+            <span class="liverow"><span class="dot"></span><span class="sub2 is-slot" data-slot="sub2">[ your text here ]</span></span>
           </div>
         </div>
         <div class="bar__plate">
-          <div class="bar__sup"><span class="chip">CH 01</span> HALFTIME SHOW</div>
+          <div class="bar__sup"><span class="chip">CH 01</span> <span class="is-slot" data-slot="sup">[ your text here ]</span></div>
+          <!-- HEADLINE = the standard scene message (INTERMISSION is the clean standard) -->
           <h1 class="title">INTER<b>MISSION</b></h1>
-          <p class="bar__sub">catch your breath — second half coming up</p>
+          <p class="bar__sub is-slot" data-slot="sub">[ your text here ]</p>
           <div class="prog" aria-hidden="true">
             <span class="prog__label">HALFTIME</span>
             <div class="prog__track"><div class="prog__fill" id="fill"></div></div>
@@ -53,19 +57,20 @@
 
     <div class="handle" id="handle">@yourhandle</div>
 
-    <!-- TICKER strip along the very bottom (duplicated content for seamless loop) -->
+    <!-- TICKER strip along the very bottom (duplicated content for seamless loop).
+         Each item is an editable slot — type your own headlines, or delete a line. -->
     <div class="ticker" aria-hidden="true">
       <div class="ticker__tag">HALF</div>
       <div class="ticker__win">
         <div class="ticker__track">
-          <span><i></i>WE'RE AT THE <b>HALF</b> — GRAB A REFILL</span>
-          <span><i></i>SECOND HALF STARTS WHEN THE CLOCK RESETS</span>
-          <span><i></i>FOLLOW NOW SO YOU DON'T MISS THE KICKOFF</span>
-          <span><i></i>STAY TUNED FOR THE <b>SECOND-HALF</b> SHOW</span>
-          <span><i></i>WE'RE AT THE <b>HALF</b> — GRAB A REFILL</span>
-          <span><i></i>SECOND HALF STARTS WHEN THE CLOCK RESETS</span>
-          <span><i></i>FOLLOW NOW SO YOU DON'T MISS THE KICKOFF</span>
-          <span><i></i>STAY TUNED FOR THE <b>SECOND-HALF</b> SHOW</span>
+          <span><i></i><span class="is-slot" data-slot="tick1">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick2">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick3">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick4">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick1">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick2">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick3">[ your text here ]</span></span>
+          <span><i></i><span class="is-slot" data-slot="tick4">[ your text here ]</span></span>
         </div>
       </div>
     </div>

@@ -254,8 +254,8 @@
       // CENTER MESSAGE: GAME OVER style title (this screen = OFFLINE)
       // ============================================================
       var cxc = W / 2;
-      // blinking arcade kicker (static on the still)
-      pixelText('GAME OVER', cxc, 392, 56, COIN, 'center');
+      // editable kicker line (neutral placeholder — type your own)
+      pixelText('[ your text here ]', cxc, 392, 56, COIN, 'center');
 
       // giant blocky 2-line title with HARD layered offset shadow + NES double-print accent
       ctx.save();
@@ -295,8 +295,8 @@
       pixelText(handleAt.toLowerCase(), cxc, 884, 44, COIN, 'center');
       pixelText('twitch.tv/' + handleClean.toLowerCase(), cxc, 930, 26, WHITE, 'center');
 
-      // decorative corner tag
-      pixelText('CARTRIDGE 8', W - 56, H - 44, 28, WHITE, 'right');
+      // decorative corner tag (neutral placeholder — type your own)
+      pixelText('[ your text here ]', W - 56, H - 44, 28, WHITE, 'right');
     }
 
     function download() {

@@ -105,7 +105,8 @@
   <div id="stage">
     <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
 
-    <div class="mono-tr" aria-hidden="true"><span class="dia"></span>MYTHFORGE KEEP</div>
+    <!-- flavor label = editable slot (type your text, or delete the line) -->
+    <div class="mono-tr" aria-hidden="true"><span class="dia"></span><span class="is-slot" data-slot="brand">[ your text here ]</span></div>
 
     <div class="slot">
       <span class="rivet rivet--l" aria-hidden="true"></span>
@@ -127,7 +128,7 @@
         </svg>
       </span>
 
-      <span class="tag"><span class="dia"></span>SUMMONING</span>
+      <span class="tag"><span class="dia"></span><span class="is-slot" data-slot="tag">[ your text here ]</span></span>
       <span class="div" aria-hidden="true"></span>
       <span class="who" id="handle">@yourhandle</span>
     </div>
@@ -151,11 +152,20 @@
     fit(); window.addEventListener("resize", fit);
     let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
 
-    /* ---- optional handle + status tag ---- */
+    /* ---- optional handle ---- */
     const h = params.get("handle"), el = document.getElementById("handle");
     if (h && el) el.textContent = h;
-    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
-    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+       placeholder the buyer edits or deletes. ?slotname=Text sets it; ?slotname=-
+       (or empty/none/off) removes it. (?tag= still fills the status slot.) ---- */
+    document.querySelectorAll("[data-slot]").forEach((slotEl) => {
+      const v = params.get(slotEl.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { slotEl.remove(); return; }
+      slotEl.textContent = v;
+      slotEl.classList.remove("is-slot");
+    });
 
     /* ---- canvas: a few warm embers + cooler grey ash rising near the strip ---- */
     const cv = document.querySelector(".bg");

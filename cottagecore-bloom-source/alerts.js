@@ -40,19 +40,21 @@
      burst  : which particle flavor the burst spits ('petal'|'seed'|'pollen'|'mix')
      amount : true => show + emphasize the amount line (cheer/donation/superchat …)
      amtPre / amtSuf : decoration around a bare numeric amount */
+  /* sub: cheesy flavor sub-line NEUTRALIZED — left empty so nothing themed bakes
+     in. The buyer can set their own per-event line via ?sub=... if they want one. */
   const EVENTS = {
-    follower:   { glyph:"leaf",   kicker:"NEW SPROUT",      sub:"welcome to the garden",   motion:"m-grow",    motes:18, burst:"seed",   amount:false },
-    subscriber: { glyph:"rose",   kicker:"NEW BLOOM",       sub:"a flower that returns",   motion:"m-bloom",   motes:24, burst:"petal",  amount:false },
-    member:     { glyph:"daisy",  kicker:"NEW SEEDLING",    sub:"planted in the patch",    motion:"m-pot",     motes:22, burst:"mix",    amount:false },
-    cheer:      { glyph:"bee",    kicker:"CHEER",           sub:"a busy little buzz",      motion:"m-flutter", motes:26, burst:"pollen", amount:true,  amtPre:"", amtSuf:" bits" },
-    donation:   { glyph:"heart",  kicker:"A GIFT",          sub:"so very kind of you",     motion:"m-gift",    motes:28, burst:"petal",  amount:true,  amtPre:"$" },
-    host:       { glyph:"wreath", kicker:"NOW HOSTING",     sub:"the gate swings open",    motion:"m-sweep",   motes:34, burst:"mix",    amount:true,  amtPre:"", amtSuf:" guests" },
-    raid:       { glyph:"posy",   kicker:"WILDFLOWER RAID", sub:"the meadow fills at once", motion:"m-gust",    motes:48, burst:"mix",    amount:true,  amtPre:"", amtSuf:" arriving" },
-    like:       { glyph:"heart",  kicker:"A LITTLE LOVE",   sub:"much obliged",            motion:"m-pop",     motes:14, burst:"petal",  amount:false },
-    share:      { glyph:"seed",   kicker:"SEEDS SPREAD",    sub:"word drifts on the wind", motion:"m-carry",   motes:20, burst:"seed",   amount:false },
-    star:       { glyph:"star",   kicker:"NEW STAR",        sub:"the meadow shines",       motion:"m-twinkle", motes:24, burst:"pollen", amount:true,  amtPre:"", amtSuf:" stars" },
-    superchat:  { glyph:"note",   kicker:"PRESSED NOTE",    sub:"a note for the journal",  motion:"m-unfold",  motes:30, burst:"petal",  amount:true,  amtPre:"$" },
-    supporter:  { glyph:"sun",    kicker:"NEW GARDENER",    sub:"you help it all grow",    motion:"m-nestle",  motes:24, burst:"mix",    amount:false },
+    follower:   { glyph:"leaf",   kicker:"NEW SPROUT",      sub:"",   motion:"m-grow",    motes:18, burst:"seed",   amount:false },
+    subscriber: { glyph:"rose",   kicker:"NEW BLOOM",       sub:"",   motion:"m-bloom",   motes:24, burst:"petal",  amount:false },
+    member:     { glyph:"daisy",  kicker:"NEW SEEDLING",    sub:"",   motion:"m-pot",     motes:22, burst:"mix",    amount:false },
+    cheer:      { glyph:"bee",    kicker:"CHEER",           sub:"",   motion:"m-flutter", motes:26, burst:"pollen", amount:true,  amtPre:"", amtSuf:" bits" },
+    donation:   { glyph:"heart",  kicker:"A GIFT",          sub:"",   motion:"m-gift",    motes:28, burst:"petal",  amount:true,  amtPre:"$" },
+    host:       { glyph:"wreath", kicker:"NOW HOSTING",     sub:"",   motion:"m-sweep",   motes:34, burst:"mix",    amount:true,  amtPre:"", amtSuf:" guests" },
+    raid:       { glyph:"posy",   kicker:"WILDFLOWER RAID", sub:"",   motion:"m-gust",    motes:48, burst:"mix",    amount:true,  amtPre:"", amtSuf:" arriving" },
+    like:       { glyph:"heart",  kicker:"A LITTLE LOVE",   sub:"",   motion:"m-pop",     motes:14, burst:"petal",  amount:false },
+    share:      { glyph:"seed",   kicker:"SEEDS SPREAD",    sub:"",   motion:"m-carry",   motes:20, burst:"seed",   amount:false },
+    star:       { glyph:"star",   kicker:"NEW STAR",        sub:"",   motion:"m-twinkle", motes:24, burst:"pollen", amount:true,  amtPre:"", amtSuf:" stars" },
+    superchat:  { glyph:"note",   kicker:"PRESSED NOTE",    sub:"",   motion:"m-unfold",  motes:30, burst:"petal",  amount:true,  amtPre:"$" },
+    supporter:  { glyph:"sun",    kicker:"NEW GARDENER",    sub:"",   motion:"m-nestle",  motes:24, burst:"mix",    amount:false },
   };
   const DEFAULT = EVENTS.follower;
   const ORDER = ["follower","subscriber","member","cheer","donation","host","raid","like","share","star","superchat","supporter"];
@@ -265,7 +267,8 @@
       if (kickEl) kickEl.textContent = cfg.kicker;
       if (nameEl) nameEl.textContent = name;
     }
-    if (subEl) subEl.textContent = cfg.sub;
+    // sub-line: neutralized by default (cfg.sub === ""); buyer may supply ?sub=Text
+    if (subEl) { const s = params.get("sub"); subEl.textContent = (s != null) ? s : cfg.sub; }
     if (amountEl) amountEl.textContent = amountStr;
     if (card) {
       card.classList.toggle("has-amount", !!(cfg.amount && amountStr));

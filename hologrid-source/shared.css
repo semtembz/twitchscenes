@@ -152,6 +152,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .sub{margin:24px 0 0;font-family:var(--mono);font-size:23px;letter-spacing:.16em;
   text-transform:lowercase;color:var(--dim);}
 
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
 /* loading = a SEGMENTED HOLO CHARGE METER (no numbers) */
 .bar{margin-top:40px;width:580px;height:14px;position:relative;
   border:1px solid var(--hair-soft);

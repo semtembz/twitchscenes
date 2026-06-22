@@ -15,8 +15,11 @@
     <div class="dapple" aria-hidden="true"></div>
     <div class="vign" aria-hidden="true"></div>
 
-    <div class="tag tag--tl" aria-hidden="true">HERBARIUM</div>
-    <div class="tag tag--tr" aria-hidden="true">EST. MMXXVI</div>
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=...&tag3=... at render time; use =- to remove one.) -->
+    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
+    <div class="tag tag--tr is-slot" data-slot="tag2">[ your text here ]</div>
 
     <main class="card">
       <!-- hand-drawn ivy / pressed-flower sprigs in every corner -->
@@ -181,7 +184,7 @@
         <span class="r r--r"></span>
       </div>
 
-      <p class="kicker" id="kicker" data-done="COME ON IN">Gathering Wildflowers</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <h1 class="title">
         <span class="line l1">STARTING</span>
@@ -205,7 +208,7 @@
         </svg>
       </div>
 
-      <p class="sub">picking a few flowers first</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
       <!-- loading = a growing VINE: a stem that fills, leaf at the tip -->
       <div class="bar" aria-hidden="true">
@@ -220,8 +223,8 @@
       </div>
     </main>
 
-    <div class="status" id="status" data-done="READY" aria-hidden="true">
-      <span class="dot"></span>GATHERING
+    <div class="status" id="status" aria-hidden="true">
+      <span class="dot"></span><span class="is-slot" data-slot="tag3">[ your text here ]</span>
     </div>
     <div class="handle" id="handle">@yourhandle</div>
   </div>

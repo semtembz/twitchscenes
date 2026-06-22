@@ -37,19 +37,23 @@
      burst  : how many candies the burst spits (raid/host bigger)
      amount : true => emphasize the amount line (cheer/donation/superchat)
      amtPre : text shown before a bare numeric amount ($, bits, etc.) */
+  // NOTE: `kicker` is the FUNCTIONAL event headline (keep). `sub` is an editable
+  // flavor line — shipped as a neutral "[ your text here ]" placeholder the buyer
+  // edits per event (or set ?sub= to override at render time).
+  const SUB = "[ your text here ]";
   const EVENTS = {
-    follower:   { glyph: "🍓", kicker: "NEW FOLLOWER",   sub: "welcome to the cafe",   burst: 14, amount: false },
-    subscriber: { glyph: "🧁", kicker: "NEW SUB",         sub: "thank you for subbing",  burst: 18, amount: false },
-    member:     { glyph: "🎀", kicker: "NEW MEMBER",      sub: "welcome, member",        burst: 18, amount: false },
-    cheer:      { glyph: "🫧", kicker: "CHEER",           sub: "bits dropped",          burst: 22, amount: true,  amtPre: "" , amtSuf: " bits" },
-    donation:   { glyph: "💖", kicker: "DONATION",        sub: "thank you so much",     burst: 24, amount: true,  amtPre: "$" },
-    host:       { glyph: "🍮", kicker: "NOW HOSTING",     sub: "incoming friends",      burst: 30, amount: true,  amtPre: "", amtSuf: " viewers" },
-    raid:       { glyph: "🍰", kicker: "RAID INCOMING",   sub: "brace for the cuddles", burst: 40, amount: true,  amtPre: "", amtSuf: " raiders" },
-    like:       { glyph: "❤️", kicker: "NEW LIKE",        sub: "appreciated",           burst: 12, amount: false },
-    share:      { glyph: "🍡", kicker: "SHARED",          sub: "thanks for spreading it", burst: 16, amount: false },
-    star:       { glyph: "⭐", kicker: "NEW STAR",        sub: "shining bright",        burst: 20, amount: true,  amtPre: "", amtSuf: " stars" },
-    superchat:  { glyph: "🍩", kicker: "SUPER CHAT",      sub: "message pinned",        burst: 26, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "🧋", kicker: "NEW SUPPORTER",   sub: "you keep this going",   burst: 22, amount: false },
+    follower:   { glyph: "🍓", kicker: "NEW FOLLOWER",   sub: SUB, burst: 14, amount: false },
+    subscriber: { glyph: "🧁", kicker: "NEW SUB",         sub: SUB, burst: 18, amount: false },
+    member:     { glyph: "🎀", kicker: "NEW MEMBER",      sub: SUB, burst: 18, amount: false },
+    cheer:      { glyph: "🫧", kicker: "CHEER",           sub: SUB, burst: 22, amount: true,  amtPre: "" , amtSuf: " bits" },
+    donation:   { glyph: "💖", kicker: "DONATION",        sub: SUB, burst: 24, amount: true,  amtPre: "$" },
+    host:       { glyph: "🍮", kicker: "NOW HOSTING",     sub: SUB, burst: 30, amount: true,  amtPre: "", amtSuf: " viewers" },
+    raid:       { glyph: "🍰", kicker: "RAID INCOMING",   sub: SUB, burst: 40, amount: true,  amtPre: "", amtSuf: " raiders" },
+    like:       { glyph: "❤️", kicker: "NEW LIKE",        sub: SUB, burst: 12, amount: false },
+    share:      { glyph: "🍡", kicker: "SHARED",          sub: SUB, burst: 16, amount: false },
+    star:       { glyph: "⭐", kicker: "NEW STAR",        sub: SUB, burst: 20, amount: true,  amtPre: "", amtSuf: " stars" },
+    superchat:  { glyph: "🍩", kicker: "SUPER CHAT",      sub: SUB, burst: 26, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "🧋", kicker: "NEW SUPPORTER",   sub: SUB, burst: 22, amount: false },
   };
   const DEFAULT = EVENTS.follower;
 
@@ -198,7 +202,9 @@
       if (kickEl) kickEl.textContent = cfg.kicker;
       if (nameEl) nameEl.textContent = name;
     }
-    if (subEl) subEl.textContent = cfg.sub.replace("{name}", noname ? "" : name);
+    const subOverride = params.get("sub");
+    const subText = (subOverride != null ? subOverride : cfg.sub).replace("{name}", noname ? "" : name);
+    if (subEl) subEl.textContent = subText;
     if (amountEl) amountEl.textContent = amountStr;
     card.classList.toggle("has-amount", !!(cfg.amount && amountStr));
 
@@ -255,7 +261,8 @@
     const kickLine = card.querySelector(".kick");
     if (noname) { if (kickLine) kickLine.style.display = "none"; if (nameEl) nameEl.textContent = _cfg.kicker; }
     else { if (kickLine) kickLine.style.display = ""; if (kickEl) kickEl.textContent = _cfg.kicker; if (nameEl) nameEl.textContent = name; }
-    if (subEl) subEl.textContent = _cfg.sub.replace("{name}", noname ? "" : name);
+    const subOverride = params.get("sub");
+    if (subEl) subEl.textContent = (subOverride != null ? subOverride : _cfg.sub).replace("{name}", noname ? "" : name);
     if (amountEl) amountEl.textContent = amountStr;
     card.classList.toggle("has-amount", !!(_cfg.amount && amountStr));
     card.classList.remove("show", "hide");

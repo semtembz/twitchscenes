@@ -16,7 +16,8 @@
 
     Optional URL params:
       ?handle=@you      handle shown on the strip (default @yourhandle)
-      ?tag=ON%20AIR     small tag line under the handle (default "LIVE ON AIR")
+      ?kick=ON%20AIR    small kicker label above the handle (editable flavor slot)
+      ?tag=ON%20AIR     small tag line under the handle (editable flavor slot)
       ?corner=bl        strip corner: bl | br | tl | tr (default bl)
 
     Self-contained + offline: no CDN, no remote fonts/scripts. Scaled #stage +
@@ -137,9 +138,10 @@
         <span class="dot"></span><span class="lab">LIVE</span>
       </div>
       <div class="slot__plate">
-        <p class="slot__kick"><span class="pip"></span> ON THE STREAM</p>
+        <!-- kicker + tag are flavor labels — edit the text here, or pass ?tag=... -->
+        <p class="slot__kick"><span class="pip"></span> <span id="kick">[ your text here ]</span></p>
         <p class="slot__hdl" id="handle">@yourhandle</p>
-        <p class="slot__tag" id="tag">LIVE ON AIR</p>
+        <p class="slot__tag" id="tag">[ your text here ]</p>
       </div>
     </div>
   </div>
@@ -166,6 +168,8 @@
     if (handle && handleEl) handleEl.textContent = handle;
     const tag = params.get("tag"), tagEl = $id("tag");
     if (tag && tagEl) tagEl.textContent = tag;
+    const kick = params.get("kick"), kickEl = $id("kick");
+    if (kick && kickEl) kickEl.textContent = kick;
 
     /* ---- strip corner ---- */
     const corner = (params.get("corner") || "bl").toLowerCase();

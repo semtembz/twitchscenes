@@ -11,7 +11,7 @@
     downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
     alert overlay (or feed it to your alert box).
 
-    Tick "no name (shipping)" to bake the EVENT label (e.g. NEW REGULAR) and hide
+    Tick "no name (shipping)" to bake the EVENT label (e.g. NEW FOLLOWER) and hide
     the viewer name — this is how the clips ship; your alert platform overlays the
     live name on top.
 
@@ -95,18 +95,18 @@
 
     // ===== per-event table (mirror of alerts.js EVENTS) =====
     const EVENTS = {
-      follower:   { glyph:"☕", kicker:"NEW REGULAR",   sub:"pull up a chair",          motes:16, amount:false, stamp:"♪" },
-      subscriber: { glyph:"🥐", kicker:"NEW SUB",       sub:"the usual, then?",         motes:20, amount:false, stamp:"✿" },
-      member:     { glyph:"🍪", kicker:"NEW MEMBER",    sub:"one of the regulars now",  motes:20, amount:false, stamp:"☀" },
-      cheer:      { glyph:"✨", kicker:"CHEER",         sub:"extra foam on the house",  motes:24, amount:true,  amtPre:"", amtSuf:" bits", stamp:"♪" },
-      donation:   { glyph:"🧁", kicker:"TIP JAR",       sub:"kindest of you",           motes:26, amount:true,  amtPre:"$", stamp:"♥" },
-      host:       { glyph:"🫖", kicker:"NOW HOSTING",   sub:"the booth fills up",       motes:34, amount:true,  amtPre:"", amtSuf:" guests", stamp:"✿" },
-      raid:       { glyph:"🌧", kicker:"RAID INCOMING", sub:"the whole cafe spills in", motes:46, amount:true,  amtPre:"", amtSuf:" arriving", stamp:"☂" },
-      like:       { glyph:"♡", kicker:"NEW LIKE",      sub:"much appreciated",         motes:14, amount:false, stamp:"♡" },
-      share:      { glyph:"🍃", kicker:"SHARED",        sub:"word gets around",         motes:18, amount:false, stamp:"✦" },
-      star:       { glyph:"★", kicker:"NEW STAR",      sub:"the playlist shines",      motes:22, amount:true,  amtPre:"", amtSuf:" stars", stamp:"☆" },
-      superchat:  { glyph:"💬", kicker:"SUPER CHAT",    sub:"a note for the table",     motes:28, amount:true,  amtPre:"$", stamp:"✎" },
-      supporter:  { glyph:"🤎", kicker:"NEW SUPPORTER", sub:"you keep it cozy",         motes:24, amount:false, stamp:"♥" },
+      follower:   { glyph:"☕", kicker:"NEW FOLLOWER",  sub:"[ your text here ]", motes:16, amount:false, stamp:"♪" },
+      subscriber: { glyph:"🥐", kicker:"NEW SUB",       sub:"[ your text here ]", motes:20, amount:false, stamp:"✿" },
+      member:     { glyph:"🍪", kicker:"NEW MEMBER",    sub:"[ your text here ]", motes:20, amount:false, stamp:"☀" },
+      cheer:      { glyph:"✨", kicker:"CHEER",         sub:"[ your text here ]", motes:24, amount:true,  amtPre:"", amtSuf:" bits", stamp:"♪" },
+      donation:   { glyph:"🧁", kicker:"DONATION",      sub:"[ your text here ]", motes:26, amount:true,  amtPre:"$", stamp:"♥" },
+      host:       { glyph:"🫖", kicker:"NOW HOSTING",   sub:"[ your text here ]", motes:34, amount:true,  amtPre:"", amtSuf:" guests", stamp:"✿" },
+      raid:       { glyph:"🌧", kicker:"RAID INCOMING", sub:"[ your text here ]", motes:46, amount:true,  amtPre:"", amtSuf:" arriving", stamp:"☂" },
+      like:       { glyph:"♡", kicker:"NEW LIKE",      sub:"[ your text here ]", motes:14, amount:false, stamp:"♡" },
+      share:      { glyph:"🍃", kicker:"SHARED",        sub:"[ your text here ]", motes:18, amount:false, stamp:"✦" },
+      star:       { glyph:"★", kicker:"NEW STAR",      sub:"[ your text here ]", motes:22, amount:true,  amtPre:"", amtSuf:" stars", stamp:"☆" },
+      superchat:  { glyph:"💬", kicker:"SUPER CHAT",    sub:"[ your text here ]", motes:28, amount:true,  amtPre:"$", stamp:"✎" },
+      supporter:  { glyph:"🤎", kicker:"NEW SUPPORTER", sub:"[ your text here ]", motes:24, amount:false, stamp:"♥" },
     };
     const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
 

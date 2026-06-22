@@ -41,18 +41,18 @@
      amtPre/amtSuf : decoration for a bare numeric amount
      motion : CSS class suffix .ev-<type> + the deterministic render transform key */
   const EVENTS = {
-    follower:   { glyph:"+",  kicker:"NEW FOLLOWER",   sub:"node linked to the feed",      shards:10, amount:false },
-    subscriber: { glyph:"❄",  kicker:"NEW SUBSCRIBER", sub:"channel access granted",       shards:14, amount:false },
-    member:     { glyph:"◈",  kicker:"NEW MEMBER",     sub:"clearance level raised",        shards:14, amount:false },
-    cheer:      { glyph:"≋",  kicker:"CHEER",          sub:"signal boost received",         shards:18, amount:true,  amtPre:"", amtSuf:" BITS" },
-    donation:   { glyph:"◆",  kicker:"DONATION",       sub:"resources allocated",           shards:20, amount:true,  amtPre:"$" },
-    host:       { glyph:"⇉",  kicker:"INCOMING HOST",  sub:"external feed bridged",         shards:24, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
-    raid:       { glyph:"⏃",  kicker:"RAID INBOUND",   sub:"mass transfer detected",        shards:34, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
-    like:       { glyph:"♡",  kicker:"NEW LIKE",       sub:"acknowledgement logged",        shards:10, amount:false },
-    share:      { glyph:"↗",  kicker:"SHARED",         sub:"packet relayed onward",         shards:12, amount:false },
-    star:       { glyph:"✶",  kicker:"NEW STAR",       sub:"marker pinned to grid",         shards:16, amount:true,  amtPre:"", amtSuf:" STARS" },
-    superchat:  { glyph:"⌘",  kicker:"SUPER CHAT",     sub:"priority message queued",       shards:22, amount:true,  amtPre:"$" },
-    supporter:  { glyph:"⬡",  kicker:"NEW SUPPORTER",  sub:"sustained power detected",      shards:16, amount:false },
+    follower:   { glyph:"+",  kicker:"NEW FOLLOWER",   sub:"",      shards:10, amount:false },
+    subscriber: { glyph:"❄",  kicker:"NEW SUBSCRIBER", sub:"",       shards:14, amount:false },
+    member:     { glyph:"◈",  kicker:"NEW MEMBER",     sub:"",        shards:14, amount:false },
+    cheer:      { glyph:"≋",  kicker:"CHEER",          sub:"",         shards:18, amount:true,  amtPre:"", amtSuf:" BITS" },
+    donation:   { glyph:"◆",  kicker:"DONATION",       sub:"",           shards:20, amount:true,  amtPre:"$" },
+    host:       { glyph:"⇉",  kicker:"INCOMING HOST",  sub:"",         shards:24, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+    raid:       { glyph:"⏃",  kicker:"RAID INBOUND",   sub:"",        shards:34, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+    like:       { glyph:"♡",  kicker:"NEW LIKE",       sub:"",        shards:10, amount:false },
+    share:      { glyph:"↗",  kicker:"SHARED",         sub:"",         shards:12, amount:false },
+    star:       { glyph:"✶",  kicker:"NEW STAR",       sub:"",         shards:16, amount:true,  amtPre:"", amtSuf:" STARS" },
+    superchat:  { glyph:"⌘",  kicker:"SUPER CHAT",     sub:"",       shards:22, amount:true,  amtPre:"$" },
+    supporter:  { glyph:"⬡",  kicker:"NEW SUPPORTER",  sub:"",      shards:16, amount:false },
   };
   const ORDER = ["follower","subscriber","member","cheer","donation","host","raid","like","share","star","superchat","supporter"];
   const DEFAULT = EVENTS.follower;

@@ -44,18 +44,18 @@
      col    : burst tint pick (cyan/violet/mint accent for the event)
      anim   : the distinct entrance keyword (also set as data-anim for CSS) */
   const EVENTS = {
-    follower:   { glyph:"⬡", kicker:"NEW FOLLOWER",   sub:"node linked to the grid",     motes:18, amount:false, anim:"follower",   col:"cyan"   },
-    subscriber: { glyph:"❖", kicker:"NEW SUBSCRIBER", sub:"channel access granted",      motes:24, amount:false, anim:"subscriber", col:"mint"   },
-    member:     { glyph:"◈", kicker:"NEW MEMBER",     sub:"credentials authorized",      motes:22, amount:false, anim:"member",     col:"violet" },
-    cheer:      { glyph:"✦", kicker:"CHEER",          sub:"energy cells received",       motes:30, amount:true,  anim:"cheer",      col:"cyan",   amtPre:"", amtSuf:" bits" },
-    donation:   { glyph:"◆", kicker:"DONATION",       sub:"power surge incoming",        motes:34, amount:true,  anim:"donation",   col:"mint",   amtPre:"$" },
-    host:       { glyph:"⊞", kicker:"NOW HOSTING",    sub:"channel relay opened",        motes:36, amount:true,  anim:"host",       col:"cyan",   amtPre:"", amtSuf:" viewers" },
-    raid:       { glyph:"⟁", kicker:"INCOMING RAID",  sub:"fleet inbound to the deck",   motes:52, amount:true,  anim:"raid",       col:"violet", amtPre:"", amtSuf:" inbound" },
-    like:       { glyph:"♥", kicker:"NEW LIKE",       sub:"signal acknowledged",         motes:14, amount:false, anim:"like",       col:"violet" },
-    share:      { glyph:"⇗", kicker:"SHARED",         sub:"broadcast propagated",        motes:20, amount:false, anim:"share",      col:"mint"   },
-    star:       { glyph:"★", kicker:"NEW STAR",       sub:"beacon registered",           motes:26, amount:true,  anim:"star",       col:"cyan",   amtPre:"", amtSuf:" stars" },
-    superchat:  { glyph:"✷", kicker:"SUPER CHAT",     sub:"priority transmission",       motes:32, amount:true,  anim:"superchat",  col:"mint",   amtPre:"$" },
-    supporter:  { glyph:"⬢", kicker:"NEW SUPPORTER",  sub:"grid power sustained",        motes:26, amount:false, anim:"supporter",  col:"violet" },
+    follower:   { glyph:"⬡", kicker:"NEW FOLLOWER",   sub:"",     motes:18, amount:false, anim:"follower",   col:"cyan"   },
+    subscriber: { glyph:"❖", kicker:"NEW SUBSCRIBER", sub:"",      motes:24, amount:false, anim:"subscriber", col:"mint"   },
+    member:     { glyph:"◈", kicker:"NEW MEMBER",     sub:"",      motes:22, amount:false, anim:"member",     col:"violet" },
+    cheer:      { glyph:"✦", kicker:"CHEER",          sub:"",       motes:30, amount:true,  anim:"cheer",      col:"cyan",   amtPre:"", amtSuf:" bits" },
+    donation:   { glyph:"◆", kicker:"DONATION",       sub:"",        motes:34, amount:true,  anim:"donation",   col:"mint",   amtPre:"$" },
+    host:       { glyph:"⊞", kicker:"NOW HOSTING",    sub:"",        motes:36, amount:true,  anim:"host",       col:"cyan",   amtPre:"", amtSuf:" viewers" },
+    raid:       { glyph:"⟁", kicker:"INCOMING RAID",  sub:"",   motes:52, amount:true,  anim:"raid",       col:"violet", amtPre:"", amtSuf:" inbound" },
+    like:       { glyph:"♥", kicker:"NEW LIKE",       sub:"",         motes:14, amount:false, anim:"like",       col:"violet" },
+    share:      { glyph:"⇗", kicker:"SHARED",         sub:"",         motes:20, amount:false, anim:"share",      col:"mint"   },
+    star:       { glyph:"★", kicker:"NEW STAR",       sub:"",           motes:26, amount:true,  anim:"star",       col:"cyan",   amtPre:"", amtSuf:" stars" },
+    superchat:  { glyph:"✷", kicker:"SUPER CHAT",     sub:"",       motes:32, amount:true,  anim:"superchat",  col:"mint",   amtPre:"$" },
+    supporter:  { glyph:"⬢", kicker:"NEW SUPPORTER",  sub:"",        motes:26, amount:false, anim:"supporter",  col:"violet" },
   };
   const DEFAULT = EVENTS.follower;
   const TINT = { cyan:"#36C2FF", mint:"#5BFFD0", violet:"#B66BFF" };

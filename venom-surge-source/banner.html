@@ -439,13 +439,14 @@
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
       // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      // handle + twitch.tv URL are FUNCTIONAL (kept); the kicker is an editable label.
       const handle = params.get('handle') || '@YOURHANDLE';
       const handleAt = handle.startsWith('@') ? handle : '@' + handle;
       const handleClean = handle.replace(/^@/, '');
-      block(400, 'STREAMER', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
+      block(400, '[ your text here ]', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'VENOM SURGE', 'POWER UP', 70, 'adrenaline · voltage · surge');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[ your text here ]', '[ TITLE ]', 70, '[ your text here ]');
 
       // ---- accent hazard rails flanking the centre clear-zone ----
       ctx.save();

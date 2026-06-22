@@ -32,8 +32,11 @@
     <div class="dapple" aria-hidden="true"></div>
     <div class="vign" aria-hidden="true"></div>
 
-    <div class="tag tag--tl" aria-hidden="true">HERBARIUM</div>
-    <div class="tag tag--tr" aria-hidden="true">EST. MMXXVI</div>
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=...&sub2=...&tag3=... at render time; use =- to remove one.) -->
+    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
+    <div class="tag tag--tr is-slot" data-slot="tag2">[ your text here ]</div>
 
     <main class="card ending">
       <!-- hand-drawn ivy / pressed-flower sprigs in every corner -->
@@ -198,11 +201,11 @@
         <span class="r r--r"></span>
       </div>
 
-      <p class="kicker" id="kicker">That's a Wrap</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
 
       <h1 class="title">
         <span class="line l1">THANKS FOR</span>
-        <span class="accent">VISITING</span>
+        <span class="accent">WATCHING</span>
       </h1>
 
       <!-- delicate botanical underline / divider (a little sprig) -->
@@ -222,15 +225,15 @@
         </svg>
       </div>
 
-      <p class="sub">thank you for sharing the meadow today</p>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
 
-      <!-- ending has no loading bar — the @handle is the hero -->
+      <!-- ending has no loading bar — the @handle is the hero (functional, keep) -->
       <div class="handle-hero" id="handle">@yourhandle</div>
-      <p class="handle-tag" aria-hidden="true">follow · come back & bloom again</p>
+      <p class="handle-tag is-slot" data-slot="sub2">[ your text here ]</p>
     </main>
 
     <div class="status" id="status" aria-hidden="true">
-      <span class="dot"></span>UNTIL NEXT TIME
+      <span class="dot"></span><span class="is-slot" data-slot="tag3">[ your text here ]</span>
     </div>
   </div>
   <script src="shared.js"></script>

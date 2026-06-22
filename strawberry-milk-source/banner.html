@@ -250,8 +250,8 @@
       const handleClean = handleRaw.replace(/^@/, '');
       block(400, 'STREAMER', handle.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
-      block(1520, 'COZY · KAWAII', 'VIBES', 92, 'sip, relax, stay a while ♡');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — all editable placeholders ----
+      block(1520, '[ kicker ]', '[ TAGLINE ]', 92, '[ your text here ]');
 
       // ---- vertical candy-dash accent flanking the centre ----
       ctx.fillStyle = 'rgba(255,143,171,0.40)';

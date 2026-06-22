@@ -41,19 +41,22 @@
      kind   : burst sprite kind ("coin" gold coins, "heart" red blocks,
               "star" yellow stars, "block" mixed bricks) — bespoke per event
      cls    : per-event entrance class on .alert (maps to a CSS keyframe) */
+  // NOTE: each event's `sub` is an OPTIONAL flavor line, left blank so it ships
+  // neutral. The streamer can fill it via their alert platform / by editing here.
+  // The event `kicker`, the viewer name, and the amount are FUNCTIONAL — kept.
   const EVENTS = {
-    follower:   { glyph: "+",  kicker: "NEW FOLLOWER",   sub: "PLAYER 2 JOINED",     motes: 16, amount: false, kind: "coin",  cls: "ev-follower" },
-    subscriber: { glyph: "$",  kicker: "NEW SUBSCRIBER", sub: "CONTINUE? YES",       motes: 22, amount: false, kind: "coin",  cls: "ev-subscriber" },
-    member:     { glyph: "M",  kicker: "NEW MEMBER",     sub: "WARP UNLOCKED",       motes: 20, amount: false, kind: "block", cls: "ev-member" },
-    cheer:      { glyph: "C",  kicker: "CHEER",          sub: "COINS COLLECTED",     motes: 26, amount: true,  amtPre: "", amtSuf: " BITS", kind: "coin",  cls: "ev-cheer" },
-    donation:   { glyph: "1",  kicker: "DONATION",       sub: "EXTRA LIFE",          motes: 26, amount: true,  amtPre: "$", kind: "heart", cls: "ev-donation" },
-    host:       { glyph: ">",  kicker: "NOW HOSTING",    sub: "PIPE CONNECTED",      motes: 32, amount: true,  amtPre: "", amtSuf: " GUESTS",  kind: "block", cls: "ev-host" },
-    raid:       { glyph: "R",  kicker: "RAID INCOMING",  sub: "STAMPEDE!",           motes: 46, amount: true,  amtPre: "", amtSuf: " RAIDERS", kind: "block", cls: "ev-raid" },
-    like:       { glyph: "<",  kicker: "NEW LIKE",       sub: "+1 HP",               motes: 14, amount: false, kind: "heart", cls: "ev-like" },
-    share:      { glyph: "S",  kicker: "SHARED",         sub: "SIGNAL BOOSTED",      motes: 18, amount: false, kind: "block", cls: "ev-share" },
-    star:       { glyph: "*",  kicker: "NEW STAR",       sub: "INVINCIBLE!",         motes: 24, amount: true,  amtPre: "", amtSuf: " STARS",   kind: "star",  cls: "ev-star" },
-    superchat:  { glyph: "!",  kicker: "SUPER CHAT",     sub: "MESSAGE GET!",        motes: 28, amount: true,  amtPre: "$", kind: "star",  cls: "ev-superchat" },
-    supporter:  { glyph: "&",  kicker: "NEW SUPPORTER",  sub: "POWER-UP!",           motes: 24, amount: false, kind: "coin",  cls: "ev-supporter" },
+    follower:   { glyph: "+",  kicker: "NEW FOLLOWER",   sub: "",     motes: 16, amount: false, kind: "coin",  cls: "ev-follower" },
+    subscriber: { glyph: "$",  kicker: "NEW SUBSCRIBER", sub: "",       motes: 22, amount: false, kind: "coin",  cls: "ev-subscriber" },
+    member:     { glyph: "M",  kicker: "NEW MEMBER",     sub: "",       motes: 20, amount: false, kind: "block", cls: "ev-member" },
+    cheer:      { glyph: "C",  kicker: "CHEER",          sub: "",     motes: 26, amount: true,  amtPre: "", amtSuf: " BITS", kind: "coin",  cls: "ev-cheer" },
+    donation:   { glyph: "1",  kicker: "DONATION",       sub: "",          motes: 26, amount: true,  amtPre: "$", kind: "heart", cls: "ev-donation" },
+    host:       { glyph: ">",  kicker: "NOW HOSTING",    sub: "",      motes: 32, amount: true,  amtPre: "", amtSuf: " GUESTS",  kind: "block", cls: "ev-host" },
+    raid:       { glyph: "R",  kicker: "RAID INCOMING",  sub: "",           motes: 46, amount: true,  amtPre: "", amtSuf: " RAIDERS", kind: "block", cls: "ev-raid" },
+    like:       { glyph: "<",  kicker: "NEW LIKE",       sub: "",               motes: 14, amount: false, kind: "heart", cls: "ev-like" },
+    share:      { glyph: "S",  kicker: "SHARED",         sub: "",      motes: 18, amount: false, kind: "block", cls: "ev-share" },
+    star:       { glyph: "*",  kicker: "NEW STAR",       sub: "",         motes: 24, amount: true,  amtPre: "", amtSuf: " STARS",   kind: "star",  cls: "ev-star" },
+    superchat:  { glyph: "!",  kicker: "SUPER CHAT",     sub: "",        motes: 28, amount: true,  amtPre: "$", kind: "star",  cls: "ev-superchat" },
+    supporter:  { glyph: "&",  kicker: "NEW SUPPORTER",  sub: "",         motes: 24, amount: false, kind: "coin",  cls: "ev-supporter" },
   };
   const DEFAULT = EVENTS.follower;
   const ALL_CLS = Object.keys(EVENTS).map((k) => EVENTS[k].cls);

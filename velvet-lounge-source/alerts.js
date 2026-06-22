@@ -38,19 +38,22 @@
      motes  : how many gold-dust motes the burst spits (raid/host bigger)
      amount : true => emphasize the amount line (cheer/donation/superchat)
      amtPre : text shown before a bare numeric amount ($, bits, etc.) */
+  // NOTE: `kicker` is the FUNCTIONAL event label (kept). The flavor `sub` line is
+  // neutralized to "" so the card ships clean — the streamer can fill it via their
+  // alert platform's text layer if they want a sub-line.
   const EVENTS = {
-    follower:   { glyph: "❧", kicker: "NEW PATRON",     sub: "welcome to the lounge",    motes: 16, amount: false },
-    subscriber: { glyph: "✦", kicker: "NEW SUBSCRIBER", sub: "a standing reservation",   motes: 20, amount: false },
-    member:     { glyph: "❖", kicker: "NEW MEMBER",     sub: "welcome to the club",      motes: 20, amount: false },
-    cheer:      { glyph: "✧", kicker: "CHEER",          sub: "a toast in your honor",    motes: 24, amount: true,  amtPre: "", amtSuf: " bits" },
-    donation:   { glyph: "♥", kicker: "GRATUITY",       sub: "most generous of you",     motes: 26, amount: true,  amtPre: "$" },
-    host:       { glyph: "♛", kicker: "NOW HOSTING",    sub: "the doors swing open",     motes: 34, amount: true,  amtPre: "", amtSuf: " guests" },
-    raid:       { glyph: "♜", kicker: "RAID ARRIVING",  sub: "the room fills at once",   motes: 46, amount: true,  amtPre: "", amtSuf: " arriving" },
-    like:       { glyph: "❤", kicker: "NEW ADMIRER",    sub: "much obliged",             motes: 14, amount: false },
-    share:      { glyph: "➤", kicker: "SHARED",         sub: "word travels well",        motes: 18, amount: false },
-    star:       { glyph: "★", kicker: "NEW STAR",       sub: "the marquee shines",       motes: 22, amount: true,  amtPre: "", amtSuf: " stars" },
-    superchat:  { glyph: "✸", kicker: "SUPER CHAT",     sub: "a note for the house",     motes: 28, amount: true,  amtPre: "$" },
-    supporter:  { glyph: "✪", kicker: "NEW SUPPORTER",  sub: "you keep the lights low",  motes: 24, amount: false },
+    follower:   { glyph: "❧", kicker: "NEW PATRON",     sub: "",  motes: 16, amount: false },
+    subscriber: { glyph: "✦", kicker: "NEW SUBSCRIBER", sub: "",  motes: 20, amount: false },
+    member:     { glyph: "❖", kicker: "NEW MEMBER",     sub: "",  motes: 20, amount: false },
+    cheer:      { glyph: "✧", kicker: "CHEER",          sub: "",  motes: 24, amount: true,  amtPre: "", amtSuf: " bits" },
+    donation:   { glyph: "♥", kicker: "GRATUITY",       sub: "",  motes: 26, amount: true,  amtPre: "$" },
+    host:       { glyph: "♛", kicker: "NOW HOSTING",    sub: "",  motes: 34, amount: true,  amtPre: "", amtSuf: " guests" },
+    raid:       { glyph: "♜", kicker: "RAID ARRIVING",  sub: "",  motes: 46, amount: true,  amtPre: "", amtSuf: " arriving" },
+    like:       { glyph: "❤", kicker: "NEW ADMIRER",    sub: "",  motes: 14, amount: false },
+    share:      { glyph: "➤", kicker: "SHARED",         sub: "",  motes: 18, amount: false },
+    star:       { glyph: "★", kicker: "NEW STAR",       sub: "",  motes: 22, amount: true,  amtPre: "", amtSuf: " stars" },
+    superchat:  { glyph: "✸", kicker: "SUPER CHAT",     sub: "",  motes: 28, amount: true,  amtPre: "$" },
+    supporter:  { glyph: "✪", kicker: "NEW SUPPORTER",  sub: "",  motes: 24, amount: false },
   };
   const DEFAULT = EVENTS.follower;
 

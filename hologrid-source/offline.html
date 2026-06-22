@@ -402,7 +402,7 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '600 24px ' + MONO; ctx.fillStyle = CYAN;
       ctx.shadowColor = 'rgba(54,194,255,0.4)'; ctx.shadowBlur = 16;
-      drawSpacedCentered('[ your text here ]', cx + 12, fy + 150, 11);
+      drawSpacedCentered('[21] your text here', cx + 12, fy + 150, 11);
       ctx.restore();
 
       // big geometric-sans TITLE: OFFLINE (cyan->mint->violet + RGB-split)
@@ -434,7 +434,7 @@
       ctx.save();
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '400 30px ' + MONO; ctx.fillStyle = DIM;
-      ctx.fillText('[ your text here ]', cx, fy + 490);
+      ctx.fillText('[22] your text here', cx, fy + 490);
       ctx.restore();
 
       // segmented charge-meter tick rail (empty) inside the panel
@@ -452,9 +452,9 @@
       ctx.save();
       ctx.font = '500 20px ' + MONO; ctx.fillStyle = CYAN; ctx.textBaseline = 'alphabetic';
       ctx.globalAlpha = 0.78;
-      ctx.textAlign = 'left';  drawSpaced('[ your text here ]', 64, 72, 8);
+      ctx.textAlign = 'left';  drawSpaced('[23] your text here', 64, 72, 8);
       ctx.fillStyle = DIM;
-      ctx.textAlign = 'right'; drawSpacedRight('[ your text here ]', W - 64, 72, 8);
+      ctx.textAlign = 'right'; drawSpacedRight('[24] your text here', W - 64, 72, 8);
       ctx.restore();
 
       // edge coordinate readouts

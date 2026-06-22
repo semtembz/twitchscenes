@@ -36,10 +36,10 @@
     <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
          placeholder — type your own text in, or delete the whole line to remove it.
          (Or set ?tag=...&tag2=...&tag3=...&tag4=...&kicker=...&sub=... at render time; use =- to remove one.) -->
-    <div class="desig is-slot" data-slot="tag"><span class="dot"></span>[ your text here ]</div>
-    <div class="stencil stencil--tl is-slot" data-slot="tag2">[ your text here ]</div>
-    <div class="stencil stencil--tr is-slot" data-slot="tag3">[ your text here ]</div>
-    <div class="stencil stencil--bl is-slot" data-slot="tag4">[ your text here ]</div>
+    <div class="desig is-slot" data-slot="tag"><span class="dot"></span><span class="slot-no">19</span><span class="slot-txt">your text here</span></div>
+    <div class="stencil stencil--tl is-slot" data-slot="tag2"><span class="slot-no">20</span><span class="slot-txt">your text here</span></div>
+    <div class="stencil stencil--tr is-slot" data-slot="tag3"><span class="slot-no">21</span><span class="slot-txt">your text here</span></div>
+    <div class="stencil stencil--bl is-slot" data-slot="tag4"><span class="slot-no">22</span><span class="slot-txt">your text here</span></div>
 
     <!-- central BLAST-DOOR / bay — the signature element -->
     <main class="bay">
@@ -57,7 +57,7 @@
               <rect x="15.6" y="22.4" width="2.8" height="2.8" rx="1" fill="#F5A623"/>
             </svg>
           </span>
-          <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+          <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">23</span><span class="slot-txt">your text here</span></p>
         </div>
 
         <!-- the headline: the MESSAGE, not the theme name -->
@@ -66,7 +66,7 @@
           <span class="line accent">WATCHING</span>
         </h1>
 
-        <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+        <p class="sub is-slot" data-slot="sub"><span class="slot-no">24</span><span class="slot-txt">your text here</span></p>
 
         <!-- telemetry readout block + hazard charge gauge (no numbers) -->
         <div class="telemetry">

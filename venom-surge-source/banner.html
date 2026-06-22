@@ -443,10 +443,10 @@
       const handle = params.get('handle') || '@YOURHANDLE';
       const handleAt = handle.startsWith('@') ? handle : '@' + handle;
       const handleClean = handle.replace(/^@/, '');
-      block(400, '[ your text here ]', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
+      block(400, '[24] your text here', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
 
       // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
-      block(1520, '[ your text here ]', '[ TITLE ]', 70, '[ your text here ]');
+      block(1520, '[25] your text here', '[ TITLE ]', 70, '[26] your text here');
 
       // ---- accent hazard rails flanking the centre clear-zone ----
       ctx.save();

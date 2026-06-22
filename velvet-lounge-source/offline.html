@@ -278,7 +278,7 @@
       ctx.font = '500 26px "Optima","Gill Sans","Futura",system-ui,sans-serif';
       ctx.fillStyle = BRASS_LT;
       ctx.shadowColor = 'rgba(230,201,140,0.35)'; ctx.shadowBlur = 18;
-      drawSpacedCentered('[ your text here ]', cx, fy + 226, 14);
+      drawSpacedCentered('[18] your text here', cx, fy + 226, 14);
       ctx.shadowBlur = 0;
       ctx.restore();
 
@@ -313,15 +313,15 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'italic 400 32px "Didot","Bodoni MT","Playfair Display",Georgia,serif';
       ctx.fillStyle = DIM;
-      ctx.fillText('[ your text here ]', cx, fy + 500);
+      ctx.fillText('[19] your text here', cx, fy + 500);
       ctx.restore();
 
       // ---- corner monogram tags on the velvet (outside the frame) ----
       ctx.save();
       ctx.font = '500 20px "Optima","Gill Sans","Futura",system-ui,sans-serif';
       ctx.fillStyle = BRASS; ctx.textBaseline = 'alphabetic';
-      ctx.textAlign = 'left';  drawSpaced('[ your text here ]', 64, 64, 9);
-      ctx.textAlign = 'right'; drawSpacedRight('[ your text here ]', W - 64, 64, 9);
+      ctx.textAlign = 'left';  drawSpaced('[20] your text here', 64, 64, 9);
+      ctx.textAlign = 'right'; drawSpacedRight('[21] your text here', W - 64, 64, 9);
       ctx.restore();
 
       // ---- HANDLE (bottom-right, brass) ----

@@ -106,7 +106,7 @@
     <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
 
     <!-- flavor label = editable slot (type your text, or delete the line) -->
-    <div class="mono-tr" aria-hidden="true"><span class="dia"></span><span class="is-slot" data-slot="brand">[ your text here ]</span></div>
+    <div class="mono-tr" aria-hidden="true"><span class="dia"></span><span class="is-slot" data-slot="brand"><span class="slot-no">19</span><span class="slot-txt">your text here</span></span></div>
 
     <div class="slot">
       <span class="rivet rivet--l" aria-hidden="true"></span>
@@ -128,7 +128,7 @@
         </svg>
       </span>
 
-      <span class="tag"><span class="dia"></span><span class="is-slot" data-slot="tag">[ your text here ]</span></span>
+      <span class="tag"><span class="dia"></span><span class="is-slot" data-slot="tag"><span class="slot-no">20</span><span class="slot-txt">your text here</span></span></span>
       <span class="div" aria-hidden="true"></span>
       <span class="who" id="handle">@yourhandle</span>
     </div>
@@ -156,7 +156,7 @@
     const h = params.get("handle"), el = document.getElementById("handle");
     if (h && el) el.textContent = h;
 
-    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+    /* ---- editable text slots: any [data-slot] ships a muted "[21] your text here"
        placeholder the buyer edits or deletes. ?slotname=Text sets it; ?slotname=-
        (or empty/none/off) removes it. (?tag= still fills the status slot.) ---- */
     document.querySelectorAll("[data-slot]").forEach((slotEl) => {

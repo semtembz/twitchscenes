@@ -40,7 +40,7 @@
   // NOTE: `kicker` is the FUNCTIONAL event headline (keep). `sub` is an editable
   // flavor line — shipped as a neutral "[ your text here ]" placeholder the buyer
   // edits per event (or set ?sub= to override at render time).
-  const SUB = "[ your text here ]";
+  const SUB = "";
   const EVENTS = {
     follower:   { glyph: "🍓", kicker: "NEW FOLLOWER",   sub: SUB, burst: 14, amount: false },
     subscriber: { glyph: "🧁", kicker: "NEW SUB",         sub: SUB, burst: 18, amount: false },

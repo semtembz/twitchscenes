@@ -157,7 +157,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 /* editable text slots — every .is-slot ships a muted "[ your text here ]"
    placeholder the buyer types over (or deletes the line to remove it). At
    render time ?slotname=Text fills it; ?slotname=- removes it. */
-.is-slot{opacity:.5;font-style:italic;}
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.3em;padding:0 .26em;margin:0 .4em 0 0;
+  border:2px solid currentColor;border-radius:.3em;font-weight:800;font-style:normal;
+  text-align:center;line-height:1.35;}
+.is-slot .slot-txt{opacity:.5;}
 
 /* ============================================================
    LOADING = a GROWING VINE: a thin stem that fills, with a little

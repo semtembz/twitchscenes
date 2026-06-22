@@ -93,7 +93,7 @@
 
     <!-- EDITABLE TEXT SLOT: the corner tab ships a "[ your text here ]" placeholder —
          type your own text in, or delete this whole line to remove it. -->
-    <div class="tab-tr is-slot" data-slot="tag2"><span class="note" aria-hidden="true">&#9834;</span>[ your text here ]</div>
+    <div class="tab-tr is-slot" data-slot="tag2"><span class="note" aria-hidden="true">&#9834;</span><span class="slot-no">17</span><span class="slot-txt">your text here</span></div>
 
     <div class="slot">
       <span class="tag"><span class="dot"></span>ON AIR</span>
@@ -130,7 +130,7 @@
     const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
     if (tag && tagEl) tagEl.lastChild.textContent = tag;
 
-    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+    /* ---- editable text slots: any [data-slot] ships a muted "[18] your text here"
        placeholder. ?slotname=Text fills it; ?slotname=- (or empty/none/off) removes it. ---- */
     document.querySelectorAll("[data-slot]").forEach((node) => {
       const v = params.get(node.dataset.slot);

@@ -332,11 +332,11 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '700 22px "Bahnschrift","DIN Condensed","Impact",sans-serif';
       ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.75;
-      drawSpacedCentered('[ your text here ]', W / 2 + 12, fy - 56, 7);
+      drawSpacedCentered('[25] your text here', W / 2 + 12, fy - 56, 7);
       // blinking red dot (drawn solid for the still)
       ctx.globalAlpha = 1; ctx.fillStyle = RED;
       ctx.shadowColor = 'rgba(255,77,46,0.5)'; ctx.shadowBlur = 12;
-      ctx.beginPath(); ctx.arc(W / 2 - spacedWidth('[ your text here ]', 7) / 2 - 10, fy - 56, 5, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(W / 2 - spacedWidth('[26] your text here', 7) / 2 - 10, fy - 56, 5, 0, 6.2832); ctx.fill();
       ctx.shadowBlur = 0;
       ctx.restore();
 
@@ -347,7 +347,7 @@
       ctx.save();
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.font = '700 28px "Bahnschrift","DIN Condensed","Impact",sans-serif';
-      const kicker = '[ your text here ]';
+      const kicker = '[27] your text here';
       const kw = spacedWidth(kicker, 9);
       const triW = 36, gap = 18;
       const rowW = triW + gap + kw;
@@ -415,7 +415,7 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '22px "Consolas","SFMono-Regular",monospace';
       ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.7;
-      drawSpacedCentered('[ your text here ]', cx, fy + 530, 4);
+      drawSpacedCentered('[28] your text here', cx, fy + 530, 4);
       ctx.globalAlpha = 1;
       ctx.restore();
 
@@ -424,12 +424,12 @@
       ctx.font = '700 22px "Bahnschrift","DIN Condensed","Impact",sans-serif';
       ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = 'rgba(245,166,35,0.78)'; ctx.textAlign = 'left';
-      drawSpaced('[ your text here ]', 132, 130, 7);
+      drawSpaced('[29] your text here', 132, 130, 7);
       ctx.fillStyle = 'rgba(200,210,217,0.6)'; ctx.textAlign = 'right';
-      drawSpacedRight('[ your text here ]', W - 132, 130, 7);
+      drawSpacedRight('[30] your text here', W - 132, 130, 7);
       ctx.font = '700 16px "Bahnschrift","DIN Condensed","Impact",sans-serif';
       ctx.fillStyle = 'rgba(200,210,217,0.5)'; ctx.textAlign = 'left';
-      drawSpaced('[ your text here ]', 132, H - 116, 5);
+      drawSpaced('[31] your text here', 132, H - 116, 5);
       ctx.restore();
 
       // ---- HANDLE (bottom-right, amber mono) ----

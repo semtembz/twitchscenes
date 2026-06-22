@@ -17,8 +17,8 @@
     <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
          type your own text in, or delete the whole line to remove it. (Or set
          ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.) -->
-    <div class="tag tag--tl is-slot" data-slot="tag">[ your text here ]</div>
-    <div class="tag tag--tr is-slot" data-slot="tag2">[ your text here ]</div>
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">1</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-no">2</span><span class="slot-txt">your text here</span></div>
 
     <main class="scroll">
       <div class="runeframe" aria-hidden="true"></div>
@@ -90,10 +90,10 @@
         </svg>
       </div>
 
-      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">3</span><span class="slot-txt">your text here</span></p>
       <h1 class="title">STARTING<span class="accent">SOON</span></h1>
       <div class="rule" aria-hidden="true"></div>
-      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">4</span><span class="slot-txt">your text here</span></p>
       <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
 
       <!-- blood-red wax seal at the foot -->

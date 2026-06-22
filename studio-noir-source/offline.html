@@ -212,8 +212,8 @@
       ctx.font = '700 26px ' + DISPLAY;
       ctx.fillStyle = STEEL; ctx.globalAlpha = 0.9;
       const stationY = 116;
-      drawSpacedRight('[ your text here ]', W - 64, stationY, 6);
-      const sw = spacedWidth('[ your text here ]', 6);
+      drawSpacedRight('[29] your text here', W - 64, stationY, 6);
+      const sw = spacedWidth('[30] your text here', 6);
       ctx.globalAlpha = 1;
       ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 10;
       ctx.fillRect(W - 64 - sw - 50, stationY - 1.5, 38, 3);
@@ -228,7 +228,7 @@
       // --- kicker tab (amber slab) ---
       ctx.save();
       ctx.font = '700 36px ' + DISPLAY;
-      const kText = '[ your text here ]';
+      const kText = '[31] your text here';
       const kPadX = 30, kPadY = 16;
       const kTextW = spacedWidth(kText, 8);
       const kW = kTextW + kPadX * 2, kH = 64;
@@ -290,7 +290,7 @@
       ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       ctx.font = '400 32px ' + BODY;
       ctx.fillStyle = DIM;
-      drawSpaced('[ your text here ]', lx, slabY + slabH + 56, 3);
+      drawSpaced('[32] your text here', lx, slabY + slabH + 56, 3);
       ctx.restore();
 
       // ============================================================
@@ -316,7 +316,7 @@
       ctx.save();
       ctx.font = '500 24px ' + BODY;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      const items = ['[ your text here ]', '[ your text here ]'];
+      const items = ['[33] your text here', '[34] your text here'];
       let cx2 = tagW + 44;
       const tcy = tkY + tkH / 2 + 1;
       for (let k = 0; k < items.length; k++) {

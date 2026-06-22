@@ -252,11 +252,11 @@
       ctx.save();
       ctx.font = '400 26px ' + MONO; ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = 'rgba(127,180,214,0.78)';
-      ctx.textAlign = 'left';  drawSpaced('[ your text here ]', 130, 150, 9);
+      ctx.textAlign = 'left';  drawSpaced('[21] your text here', 130, 150, 9);
       ctx.fillStyle = 'rgba(207,230,242,0.55)';
-      drawSpaced('[ your text here ]', 130, H - 150, 9);
+      drawSpaced('[22] your text here', 130, H - 150, 9);
       ctx.font = '400 20px ' + MONO; ctx.fillStyle = 'rgba(127,180,214,0.4)';
-      drawSpaced('[ your text here ]', 130, H - 118, 4);
+      drawSpaced('[23] your text here', 130, H - 118, 4);
       ctx.restore();
 
       // ============================================================
@@ -324,7 +324,7 @@
       ctx.font = '600 24px ' + MONO; ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = ICE; ctx.globalAlpha = 0.7; ctx.fillText('//', px, fy + 168);
       ctx.globalAlpha = 1; ctx.fillStyle = ACCENT;
-      drawSpaced('[ your text here ]', px + 44, fy + 168, 8);
+      drawSpaced('[24] your text here', px + 44, fy + 168, 8);
       ctx.restore();
 
       // big condensed TITLE: OFFLINE (etched + ice-light gradient)
@@ -344,7 +344,7 @@
       // sub — quiet mono telemetry
       ctx.save();
       ctx.font = '400 24px ' + MONO; ctx.fillStyle = 'rgba(207,230,242,0.55)';
-      drawSpaced('[ your text here ]', px, fy + 380, 3);
+      drawSpaced('[25] your text here', px, fy + 380, 3);
       ctx.restore();
 
       // segmented calibration meter (full, idle) under the sub

@@ -367,15 +367,15 @@
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.font = 'italic 400 33px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
       ctx.fillStyle = 'rgba(90,74,58,0.62)';
-      ctx.fillText('[ your text here ]', cx, fy+580);
+      ctx.fillText('[22] your text here', cx, fy+580);
       ctx.restore();
 
       // ---- corner journal tags on the meadow (outside the card) ----
       ctx.save();
       ctx.font = '600 22px "Optima","Gill Sans","Segoe UI",system-ui,sans-serif';
       ctx.fillStyle = LEAF_DEEP; ctx.globalAlpha = 0.85; ctx.textBaseline='alphabetic';
-      ctx.textAlign='left'; drawSpaced('[ your text here ]', 72, 76, 8);
-      ctx.textAlign='right'; drawSpacedRight('[ your text here ]', W-72, 76, 8);
+      ctx.textAlign='left'; drawSpaced('[23] your text here', 72, 76, 8);
+      ctx.textAlign='right'; drawSpacedRight('[24] your text here', W-72, 76, 8);
       ctx.restore();
       ctx.globalAlpha = 1;
 

@@ -89,18 +89,18 @@
 
     // ===== per-event table (mirror of alerts.js EVENTS) =====
     const EVENTS = {
-      follower:   { glyph:"🍓", line:"NEW FOLLOWER",  sub:"[ your text here ]",     burst:14, amount:false },
-      subscriber: { glyph:"🧁", line:"NEW SUB",       sub:"[ your text here ]",   burst:18, amount:false },
-      member:     { glyph:"🎀", line:"NEW MEMBER",    sub:"[ your text here ]",         burst:18, amount:false },
-      cheer:      { glyph:"🫧", line:"CHEER",         sub:"[ your text here ]",            burst:22, amount:true,  amtPre:"", amtSuf:" bits" },
-      donation:   { glyph:"💖", line:"DONATION",      sub:"[ your text here ]",       burst:24, amount:true,  amtPre:"$" },
-      host:       { glyph:"🍮", line:"NOW HOSTING",   sub:"[ your text here ]",        burst:30, amount:true,  amtPre:"", amtSuf:" viewers" },
-      raid:       { glyph:"🍰", line:"RAID INCOMING", sub:"[ your text here ]",   burst:40, amount:true,  amtPre:"", amtSuf:" raiders" },
-      like:       { glyph:"❤️", line:"NEW LIKE",      sub:"[ your text here ]",             burst:12, amount:false },
-      share:      { glyph:"🍡", line:"SHARED",        sub:"[ your text here ]", burst:16, amount:false },
-      star:       { glyph:"⭐", line:"NEW STAR",      sub:"[ your text here ]",          burst:20, amount:true,  amtPre:"", amtSuf:" stars" },
-      superchat:  { glyph:"🍩", line:"SUPER CHAT",    sub:"[ your text here ]",          burst:26, amount:true,  amtPre:"$" },
-      supporter:  { glyph:"🧋", line:"NEW SUPPORTER", sub:"[ your text here ]",     burst:22, amount:false },
+      follower:   { glyph:"🍓", line:"NEW FOLLOWER",  sub:"",     burst:14, amount:false },
+      subscriber: { glyph:"🧁", line:"NEW SUB",       sub:"",   burst:18, amount:false },
+      member:     { glyph:"🎀", line:"NEW MEMBER",    sub:"",         burst:18, amount:false },
+      cheer:      { glyph:"🫧", line:"CHEER",         sub:"",            burst:22, amount:true,  amtPre:"", amtSuf:" bits" },
+      donation:   { glyph:"💖", line:"DONATION",      sub:"",       burst:24, amount:true,  amtPre:"$" },
+      host:       { glyph:"🍮", line:"NOW HOSTING",   sub:"",        burst:30, amount:true,  amtPre:"", amtSuf:" viewers" },
+      raid:       { glyph:"🍰", line:"RAID INCOMING", sub:"",   burst:40, amount:true,  amtPre:"", amtSuf:" raiders" },
+      like:       { glyph:"❤️", line:"NEW LIKE",      sub:"",             burst:12, amount:false },
+      share:      { glyph:"🍡", line:"SHARED",        sub:"", burst:16, amount:false },
+      star:       { glyph:"⭐", line:"NEW STAR",      sub:"",          burst:20, amount:true,  amtPre:"", amtSuf:" stars" },
+      superchat:  { glyph:"🍩", line:"SUPER CHAT",    sub:"",          burst:26, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"🧋", line:"NEW SUPPORTER", sub:"",     burst:22, amount:false },
     };
     const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
 

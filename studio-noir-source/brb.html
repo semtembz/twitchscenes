@@ -24,12 +24,12 @@
          label = editable slot (type your text, or delete the line) -->
     <div class="tally">
       <span class="dot" aria-hidden="true"></span>
-      <span class="label is-slot" id="status" data-slot="tag2">[ your text here ]</span>
+      <span class="label is-slot" id="status" data-slot="tag2"><span class="slot-no">8</span><span class="slot-txt">your text here</span></span>
     </div>
 
     <!-- station mark, top-right on the steel frame = editable slot -->
     <div class="station">
-      <span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag">[ your text here ]</span>
+      <span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag"><span class="slot-no">9</span><span class="slot-txt">your text here</span></span>
     </div>
 
     <!-- THE LOWER-THIRD BAR SYSTEM (signature composition) -->
@@ -38,7 +38,7 @@
            placeholder — type your own text in, or delete the whole line to remove it.
            (Or set ?kicker=...&sub=...&tag=...&tag2=...&tag3=...&ticker=... at render
            time; use =- to remove one.) -->
-      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">10</span><span class="slot-txt">your text here</span></p>
 
       <!-- HEADLINE = the standard scene message, never the theme name -->
       <div class="titlewrap">
@@ -49,7 +49,7 @@
       </div>
 
       <!-- subtitle -->
-      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">11</span><span class="slot-txt">your text here</span></p>
     </section>
 
     <!-- sleek amber broadcast loading strap (no numbers) -->
@@ -61,11 +61,11 @@
     <!-- clean ticker / strap near the bottom — tag cell + scrolling line are
          editable slots (both scroll copies fill identically for the loop) -->
     <div class="ticker">
-      <span class="tag is-slot" data-slot="tag3">[ your text here ]</span>
+      <span class="tag is-slot" data-slot="tag3"><span class="slot-no">12</span><span class="slot-txt">your text here</span></span>
       <div class="track">
         <div class="scroll">
-          <span class="is-slot" data-slot="ticker">[ your text here ]</span>
-          <span class="is-slot" data-slot="ticker">[ your text here ]</span>
+          <span class="is-slot" data-slot="ticker"><span class="slot-no">13</span><span class="slot-txt">your text here</span></span>
+          <span class="is-slot" data-slot="ticker"><span class="slot-no">14</span><span class="slot-txt">your text here</span></span>
         </div>
       </div>
     </div>

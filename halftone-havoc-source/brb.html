@@ -23,7 +23,7 @@
     <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
          placeholder — type your own text in, or delete the whole line to remove it.
          (Or set ?kicker=...&sub=...&tag=...&tag2=... at render time; use =- to remove one.) -->
-    <div class="issue is-slot" data-slot="tag" aria-hidden="true">[ your text here ]</div>
+    <div class="issue is-slot" data-slot="tag" aria-hidden="true"><span class="slot-no">5</span><span class="slot-txt">your text here</span></div>
 
     <main class="page">
       <!-- jagged comic STARBURST holding the kicker -->
@@ -32,7 +32,7 @@
           <polygon class="star-fill" points="215,2 248,44 300,18 297,70 360,58 332,104 404,116 343,140 388,184 318,170 318,204 268,176 232,200 205,160 168,200 142,168 96,196 96,160 38,180 76,138 12,124 70,100 26,62 86,68 80,20 132,42 168,8 196,46" />
           <polygon class="star-line" points="215,2 248,44 300,18 297,70 360,58 332,104 404,116 343,140 388,184 318,170 318,204 268,176 232,200 205,160 168,200 142,168 96,196 96,160 38,180 76,138 12,124 70,100 26,62 86,68 80,20 132,42 168,8 196,46" />
         </svg>
-        <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+        <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">6</span><span class="slot-txt">your text here</span></p>
       </div>
 
       <!-- HEADLINE = the MESSAGE, never the theme name -->
@@ -41,12 +41,12 @@
         <span class="l l2">BACK</span>
       </h1>
 
-      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">7</span><span class="slot-txt">your text here</span></p>
 
       <!-- inked CHARGE bar that fills with halftone dots (no numbers) -->
       <div class="bar" aria-hidden="true">
         <div class="fill" id="fill"></div>
-        <div class="status is-slot" id="status" data-slot="tag2">[ your text here ]</div>
+        <div class="status is-slot" id="status" data-slot="tag2"><span class="slot-no">8</span><span class="slot-txt">your text here</span></div>
       </div>
     </main>
 

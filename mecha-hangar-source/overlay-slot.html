@@ -128,7 +128,7 @@
     <div class="brk brk--br" aria-hidden="true"><i></i></div>
 
     <!-- stamped designation, top-right — editable text slot -->
-    <div class="desig-tr is-slot" data-slot="tag2"><span class="dot"></span>[ your text here ]</div>
+    <div class="desig-tr is-slot" data-slot="tag2"><span class="dot"></span><span class="slot-no">34</span><span class="slot-txt">your text here</span></div>
 
     <!-- riveted-steel handle slot, lower-left -->
     <div class="slot">
@@ -162,7 +162,7 @@
     const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
     if (tag && tagEl) tagEl.lastChild.textContent = tag;
 
-    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+    /* ---- editable text slots: any [data-slot] ships a muted "[35] your text here"
        placeholder the buyer edits or deletes. ?slotname=Text sets it; ?slotname=-
        (or empty/none/off) removes it entirely. ---- */
     document.querySelectorAll("[data-slot]").forEach((sl) => {

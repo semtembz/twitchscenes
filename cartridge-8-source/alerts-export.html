@@ -97,18 +97,18 @@
 
     // ===== per-event table (mirror of alerts.js EVENTS) =====
     const EVENTS = {
-      follower:   { glyph:"+", kicker:"NEW FOLLOWER",   sub:"PLAYER 2 JOINED", motes:16, amount:false, kind:"coin",  cls:"follower" },
-      subscriber: { glyph:"$", kicker:"NEW SUBSCRIBER", sub:"CONTINUE? YES",   motes:22, amount:false, kind:"coin",  cls:"subscriber" },
-      member:     { glyph:"M", kicker:"NEW MEMBER",     sub:"WARP UNLOCKED",   motes:20, amount:false, kind:"block", cls:"member" },
-      cheer:      { glyph:"C", kicker:"CHEER",          sub:"COINS COLLECTED", motes:26, amount:true,  amtPre:"", amtSuf:" BITS",    kind:"coin",  cls:"cheer" },
-      donation:   { glyph:"1", kicker:"DONATION",       sub:"EXTRA LIFE",      motes:26, amount:true,  amtPre:"$", kind:"heart", cls:"donation" },
-      host:       { glyph:">", kicker:"NOW HOSTING",    sub:"PIPE CONNECTED",  motes:32, amount:true,  amtPre:"", amtSuf:" GUESTS",  kind:"block", cls:"host" },
-      raid:       { glyph:"R", kicker:"RAID INCOMING",  sub:"STAMPEDE!",       motes:46, amount:true,  amtPre:"", amtSuf:" RAIDERS", kind:"block", cls:"raid" },
-      like:       { glyph:"<", kicker:"NEW LIKE",       sub:"+1 HP",           motes:14, amount:false, kind:"heart", cls:"like" },
-      share:      { glyph:"S", kicker:"SHARED",         sub:"SIGNAL BOOSTED",  motes:18, amount:false, kind:"block", cls:"share" },
-      star:       { glyph:"*", kicker:"NEW STAR",       sub:"INVINCIBLE!",     motes:24, amount:true,  amtPre:"", amtSuf:" STARS",   kind:"star",  cls:"star" },
-      superchat:  { glyph:"!", kicker:"SUPER CHAT",     sub:"MESSAGE GET!",    motes:28, amount:true,  amtPre:"$", kind:"star",  cls:"superchat" },
-      supporter:  { glyph:"&", kicker:"NEW SUPPORTER",  sub:"POWER-UP!",       motes:24, amount:false, kind:"coin",  cls:"supporter" },
+      follower:   { glyph:"+", kicker:"NEW FOLLOWER",   sub:"", motes:16, amount:false, kind:"coin",  cls:"follower" },
+      subscriber: { glyph:"$", kicker:"NEW SUBSCRIBER", sub:"",   motes:22, amount:false, kind:"coin",  cls:"subscriber" },
+      member:     { glyph:"M", kicker:"NEW MEMBER",     sub:"",   motes:20, amount:false, kind:"block", cls:"member" },
+      cheer:      { glyph:"C", kicker:"CHEER",          sub:"", motes:26, amount:true,  amtPre:"", amtSuf:" BITS",    kind:"coin",  cls:"cheer" },
+      donation:   { glyph:"1", kicker:"DONATION",       sub:"",      motes:26, amount:true,  amtPre:"$", kind:"heart", cls:"donation" },
+      host:       { glyph:">", kicker:"NOW HOSTING",    sub:"",  motes:32, amount:true,  amtPre:"", amtSuf:" GUESTS",  kind:"block", cls:"host" },
+      raid:       { glyph:"R", kicker:"RAID INCOMING",  sub:"",       motes:46, amount:true,  amtPre:"", amtSuf:" RAIDERS", kind:"block", cls:"raid" },
+      like:       { glyph:"<", kicker:"NEW LIKE",       sub:"",           motes:14, amount:false, kind:"heart", cls:"like" },
+      share:      { glyph:"S", kicker:"SHARED",         sub:"",  motes:18, amount:false, kind:"block", cls:"share" },
+      star:       { glyph:"*", kicker:"NEW STAR",       sub:"",     motes:24, amount:true,  amtPre:"", amtSuf:" STARS",   kind:"star",  cls:"star" },
+      superchat:  { glyph:"!", kicker:"SUPER CHAT",     sub:"",    motes:28, amount:true,  amtPre:"$", kind:"star",  cls:"superchat" },
+      supporter:  { glyph:"&", kicker:"NEW SUPPORTER",  sub:"",       motes:24, amount:false, kind:"coin",  cls:"supporter" },
     };
     const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
 

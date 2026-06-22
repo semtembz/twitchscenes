@@ -101,7 +101,7 @@
     <div class="crn crn--br" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
 
     <!-- small station mark, top-right = editable slot (type your text, or delete) -->
-    <div class="station-tr"><span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag">[ your text here ]</span></div>
+    <div class="station-tr"><span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag"><span class="slot-no">40</span><span class="slot-txt">your text here</span></span></div>
 
     <!-- lower-left ON AIR tally slot with @handle -->
     <div class="slot">
@@ -134,7 +134,7 @@
     const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
     if (tag && tagEl) tagEl.lastChild.textContent = tag;
 
-    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+    /* ---- editable text slots: any [data-slot] ships a muted "[41] your text here"
        placeholder the buyer edits or deletes. ?slotname=Text sets it at render
        time; ?slotname=- (or empty/none/off) removes it entirely. ---- */
     document.querySelectorAll("[data-slot]").forEach((sl) => {

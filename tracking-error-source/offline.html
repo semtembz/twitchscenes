@@ -169,7 +169,7 @@
       // caution-chip kicker — editable tagline placeholder (REC dot kept as chrome)
       ctx.save();
       ctx.font='700 30px "Consolas","Courier New",monospace';
-      const kText='[ your text here ]';
+      const kText='[9] your text here';
       const kw=spacedWidth(kText,7)+52;
       ctx.fillStyle=CAUTION; ctx.fillRect(cx-kw/2,H*0.30-30,kw,52);
       ctx.strokeStyle='rgba(15,15,15,0.6)'; ctx.lineWidth=2; ctx.strokeRect(cx-kw/2,H*0.30-30,kw,52);
@@ -186,7 +186,7 @@
       ctx.save();
       ctx.fillStyle=DIM; ctx.font='700 34px "Consolas","Courier New",monospace';
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      drawSpacedCentered('[ your text here ]',cx,H*0.74,12);
+      drawSpacedCentered('[10] your text here',cx,H*0.74,12);
       ctx.restore();
 
       // ---- dense SCANLINES (multiply) over the whole picture ----

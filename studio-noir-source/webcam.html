@@ -127,8 +127,8 @@
       <div class="crn crn--br" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
 
       <!-- caption + station mark = editable slots (type your text, or delete) -->
-      <span class="cap"><span class="dot" aria-hidden="true"></span><span class="is-slot" data-slot="tag2">[ your text here ]</span></span>
-      <span class="station"><span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag">[ your text here ]</span></span>
+      <span class="cap"><span class="dot" aria-hidden="true"></span><span class="is-slot" data-slot="tag2"><span class="slot-no">42</span><span class="slot-txt">your text here</span></span></span>
+      <span class="station"><span class="bar" aria-hidden="true"></span><span class="is-slot" data-slot="tag"><span class="slot-no">43</span><span class="slot-txt">your text here</span></span></span>
 
       <!-- charcoal nameplate slab with @handle -->
       <div class="plate"><span class="dot" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
@@ -157,7 +157,7 @@
     const h = params.get("handle"), el = document.getElementById("handle");
     if (h && el) el.textContent = h;
 
-    /* ---- editable text slots: any [data-slot] ships a muted "[ your text here ]"
+    /* ---- editable text slots: any [data-slot] ships a muted "[44] your text here"
        placeholder the buyer edits or deletes. ?slotname=Text sets it at render
        time; ?slotname=- (or empty/none/off) removes it entirely. ---- */
     document.querySelectorAll("[data-slot]").forEach((sl) => {

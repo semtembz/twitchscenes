@@ -231,7 +231,7 @@
       const lx = 96;
       // tally chip
       const tallyTop = 96;
-      drawTally(lx, tallyTop, '[ your text here ]');
+      drawTally(lx, tallyTop, '[35] your text here');
 
       // charcoal slab behind the handle, amber accent rule
       ctx.save();
@@ -278,8 +278,8 @@
       ctx.font = '700 40px ' + DISPLAY;
       ctx.fillStyle = STEEL; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
       ctx.globalAlpha = 0.92;
-      drawSpacedRight('[ your text here ]', rx, 150, 7);
-      const sw = spacedWidth('[ your text here ]', 7);
+      drawSpacedRight('[36] your text here', rx, 150, 7);
+      const sw = spacedWidth('[37] your text here', 7);
       ctx.globalAlpha = 1;
       ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 10;
       ctx.fillRect(rx - sw - 58, 138, 42, 4);
@@ -289,7 +289,7 @@
       // amber kicker tab over the tagline
       ctx.save();
       ctx.font = '700 24px ' + DISPLAY;
-      const kText = '[ your text here ]';
+      const kText = '[38] your text here';
       const kW = spacedWidth(kText, 5) + 40, kH = 40, kY = 196;
       ctx.fillStyle = AMBER;
       ctx.fillRect(rx - kW, kY, kW, kH);
@@ -301,7 +301,7 @@
       ctx.save();
       ctx.font = '400 30px ' + BODY; ctx.fillStyle = DIM;
       ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('[ your text here ]', rx, 300);
+      ctx.fillText('[39] your text here', rx, 300);
       ctx.restore();
 
       // ============================================================

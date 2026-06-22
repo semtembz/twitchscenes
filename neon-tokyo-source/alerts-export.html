@@ -90,18 +90,18 @@
 
     // ===== per-event table (mirror of alerts.js EVENTS) =====
     const EVENTS = {
-      follower:   { glyph:"▶", kicker:"FOLLOW",  line:"NEW FOLLOWER",  sub:"node linked",          sparks:16, amount:false },
-      subscriber: { glyph:"◆", kicker:"SUB",     line:"NEW SUB",       sub:"subscription active",  sparks:20, amount:false },
-      member:     { glyph:"❖", kicker:"MEMBER",  line:"NEW MEMBER",    sub:"member granted",       sparks:20, amount:false },
-      cheer:      { glyph:"✦", kicker:"CHEER",   line:"CHEER",         sub:"bits received",        sparks:24, amount:true,  amtPre:"", amtSuf:" bits" },
-      donation:   { glyph:"❤", kicker:"DONATE",  line:"DONATION",      sub:"credits received",     sparks:26, amount:true,  amtPre:"$" },
-      host:       { glyph:"⛩", kicker:"HOST",    line:"NOW HOSTING",   sub:"inbound signal",       sparks:34, amount:true,  amtPre:"", amtSuf:" viewers" },
-      raid:       { glyph:"卍", kicker:"RAID",    line:"RAID INCOMING", sub:"brace for impact",     sparks:46, amount:true,  amtPre:"", amtSuf:" raiders" },
-      like:       { glyph:"♥", kicker:"LIKE",    line:"NEW LIKE",      sub:"pulse registered",     sparks:14, amount:false },
-      share:      { glyph:"➤", kicker:"SHARE",   line:"SHARED",        sub:"signal rebroadcast",   sparks:18, amount:false },
-      star:       { glyph:"★", kicker:"STAR",    line:"NEW STAR",      sub:"favorite locked",      sparks:22, amount:true,  amtPre:"", amtSuf:" stars" },
-      superchat:  { glyph:"✸", kicker:"SUPER",   line:"SUPER CHAT",    sub:"message pinned",       sparks:28, amount:true,  amtPre:"$" },
-      supporter:  { glyph:"◈", kicker:"SUPPORT", line:"NEW SUPPORTER", sub:"you keep us online",   sparks:24, amount:false },
+      follower:   { glyph:"▶", kicker:"FOLLOW",  line:"NEW FOLLOWER",  sub:"",          sparks:16, amount:false },
+      subscriber: { glyph:"◆", kicker:"SUB",     line:"NEW SUB",       sub:"",  sparks:20, amount:false },
+      member:     { glyph:"❖", kicker:"MEMBER",  line:"NEW MEMBER",    sub:"",       sparks:20, amount:false },
+      cheer:      { glyph:"✦", kicker:"CHEER",   line:"CHEER",         sub:"",        sparks:24, amount:true,  amtPre:"", amtSuf:" bits" },
+      donation:   { glyph:"❤", kicker:"DONATE",  line:"DONATION",      sub:"",     sparks:26, amount:true,  amtPre:"$" },
+      host:       { glyph:"⛩", kicker:"HOST",    line:"NOW HOSTING",   sub:"",       sparks:34, amount:true,  amtPre:"", amtSuf:" viewers" },
+      raid:       { glyph:"卍", kicker:"RAID",    line:"RAID INCOMING", sub:"",     sparks:46, amount:true,  amtPre:"", amtSuf:" raiders" },
+      like:       { glyph:"♥", kicker:"LIKE",    line:"NEW LIKE",      sub:"",     sparks:14, amount:false },
+      share:      { glyph:"➤", kicker:"SHARE",   line:"SHARED",        sub:"",   sparks:18, amount:false },
+      star:       { glyph:"★", kicker:"STAR",    line:"NEW STAR",      sub:"",      sparks:22, amount:true,  amtPre:"", amtSuf:" stars" },
+      superchat:  { glyph:"✸", kicker:"SUPER",   line:"SUPER CHAT",    sub:"",       sparks:28, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"◈", kicker:"SUPPORT", line:"NEW SUPPORTER", sub:"",   sparks:24, amount:false },
     };
     const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
 

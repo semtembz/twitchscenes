@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cartridge 8 — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1  (add .night sky by editing #stage class) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the bespoke NES scene: sky + drifting pixel clouds + ground tilemap + bobbing coin -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- chunky classic NES HUD bar across the very top -->
+    <div class="hud" aria-hidden="true">
+      <span class="grp"><span class="lbl">WORLD</span><span class="val">1-1</span></span>
+      <span class="grp"><span class="coin"></span><span class="val">x08</span></span>
+      <span class="grp"><span class="lbl">LIVES</span><span class="val">x03</span></span>
+      <span class="grp hearts">
+        <span class="heart"></span><span class="heart"></span>
+        <span class="heart"></span><span class="heart empty"></span>
+      </span>
+      <span class="grp" style="margin-left:auto"><span class="lbl">TIME</span><span class="val">888</span></span>
+    </div>
+
+    <!-- center message: kicker / 3-line title / sub. Headline = the MESSAGE, NOT the theme name. -->
+    <div class="center">
+      <p class="kicker" id="kicker" data-done="PRESS START">INSERT COIN</p>
+      <h1 class="title">
+        <span class="line l1">STARTING</span>
+        <span class="line accent">SOON</span>
+      </h1>
+      <p class="sub">LOADING WORLD 1-1...</p>
+    </div>
+
+    <!-- chunky pixel POWER-METER loading bar (discrete blocks, no numbers) -->
+    <div class="meter" aria-hidden="true">
+      <div class="track"></div>
+      <div class="fill" id="fill"><div class="lit"></div></div>
+    </div>
+
+    <div class="handle" id="handle">@yourhandle</div>
+    <div class="tag" aria-hidden="true">CARTRIDGE 8</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

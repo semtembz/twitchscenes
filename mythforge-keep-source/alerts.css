@@ -1,0 +1,299 @@
+/* ============================================================
+   MYTHFORGE KEEP — alert system ("The Quest Notice")
+   A small AGED-PARCHMENT quest-notice, PINNED to the lower-left of
+   the scene by an IRON corner bracket + nail-heads, lit by drifting
+   embers. Transparent background so it composites over gameplay /
+   the scene. Cohesive with shared.css tokens: torn/scorched
+   parchment, burnt-umber ink, an iron seal-plate holding the event
+   sigil, engraved Trajan-style caps, a forged-gold amount, a
+   flickering rune-rule, and a blood-red wax seal.
+
+   The per-event MOTION is driven from alerts.js by adding a
+   data-anim="<event>" attribute on .alert — each event gets a
+   DISTINCT entrance keyframe here. The background is TRANSPARENT.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --timber:#120D08; --timber-2:#0A0704; --timber-3:#1E150C;
+  --gold:#C9962F; --gold-lt:#F0CE7A; --gold-dk:#8A6320;
+  --wax:#7A1F1F; --moss:#2E4A3A; --parchment:#EFE3C8;
+  --ink:#3A2A16; --ink-soft:#6B5230;
+  --iron:#2A2622; --iron-lt:#4A443C;
+  --glow:rgba(201,150,47,.55); --ember:rgba(240,206,122,.9);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:"Trajan Pro","Cinzel","Optima",Georgia,"Times New Roman",serif;}
+
+/* one canvas for the ember/ash burst, sits behind the notice, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert notice: anchored lower-left, pinned to the scene ---- */
+.alert{position:absolute;left:96px;bottom:128px;width:792px;padding:36px 46px 38px;
+  color:var(--ink);
+  /* aged parchment body: warm core fading to scorched edges, blotchy stains */
+  background:
+    radial-gradient(120% 96% at 36% 28%, rgba(255,250,235,.55), transparent 56%),
+    radial-gradient(40% 36% at 18% 82%, rgba(122,31,31,.12), transparent 70%),
+    radial-gradient(34% 30% at 86% 22%, rgba(58,42,22,.18), transparent 70%),
+    radial-gradient(150% 130% at 48% 46%, #F3E8CE 0%, #E7D7B2 56%, #C9B488 82%, #8E743F 100%);
+  box-shadow:
+    0 44px 110px rgba(0,0,0,.66),
+    0 8px 26px rgba(0,0,0,.5),
+    inset 0 0 110px rgba(120,86,32,.30),
+    inset 0 0 36px rgba(58,30,8,.36);
+  /* torn / irregular burnt edge (echoes the .scroll silhouette, smaller) */
+  clip-path:polygon(
+    1.4% 4%, 12% 1.6%, 28% 3.4%, 46% 1.2%, 64% 3%, 80% 1.4%, 93% 3.4%, 99% 6%,
+    98.4% 26%, 100% 48%, 98.6% 70%, 99.4% 92%,
+    88% 98.4%, 70% 96.6%, 52% 99%, 34% 96.8%, 16% 98.8%, 2.2% 95%,
+    2.8% 74%, 1% 52%, 2.6% 30%);
+  display:grid;grid-template-columns:142px 1fr;gap:34px;align-items:center;
+  /* start hidden + off; per-event data-anim sets the entrance */
+  opacity:0;transform:translateY(40px) scale(.96);
+  transform-origin:96px 100%;
+  will-change:transform,opacity;}
+/* scorch ring just inside the torn edge */
+.alert::before{content:"";position:absolute;inset:9px;pointer-events:none;clip-path:inherit;
+  box-shadow:inset 0 0 24px rgba(58,26,6,.55), inset 0 0 60px rgba(110,70,20,.22);}
+/* fibrous parchment grain + faint fold line */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;clip-path:inherit;opacity:.5;
+  background:
+    repeating-linear-gradient(92deg, rgba(120,86,32,.05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(1deg, rgba(120,86,32,.045) 0 1px, transparent 1px 6px),
+    linear-gradient(90deg, transparent 49.4%, rgba(90,64,24,.10) 50%, transparent 50.6%);}
+
+/* inner burnt-ink runeframe holding the text (echoes .runeframe) */
+.alert .frame{position:absolute;inset:16px;pointer-events:none;
+  border:2px solid rgba(58,42,22,.40);
+  box-shadow:inset 0 0 0 1px rgba(201,150,47,.20);
+  clip-path:inherit;}
+
+/* ---- IRON CORNER BRACKET + NAIL-HEADS pinning the notice (top-left) ---- */
+.alert .pin{position:absolute;left:-16px;top:-16px;width:96px;height:96px;pointer-events:none;
+  z-index:3;filter:drop-shadow(0 4px 5px rgba(0,0,0,.6));}
+.alert .pin svg{width:100%;height:100%;display:block;}
+
+/* ---- a small flickering RUNE-RULE down the inner-left of the notice ---- */
+.alert .runerule{position:absolute;left:18px;top:30px;bottom:30px;width:30px;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-around;
+  pointer-events:none;color:var(--gold-dk);font-size:22px;line-height:1;
+  font-family:"Trajan Pro","Cinzel",Georgia,serif;z-index:2;}
+.alert .runerule b{display:block;text-shadow:0 0 8px var(--glow);opacity:.7;
+  animation:a-runepulse 3.2s ease-in-out infinite;}
+.alert .runerule b:nth-child(2n){animation-duration:4s;animation-delay:.5s;}
+.alert .runerule b:nth-child(3n){animation-duration:2.6s;animation-delay:1s;}
+@keyframes a-runepulse{0%,100%{opacity:.34;text-shadow:0 0 5px rgba(201,150,47,.3)}
+  50%{opacity:.92;text-shadow:0 0 13px var(--gold-lt),0 0 4px var(--gold-lt)}}
+
+/* ---- the IRON SEAL-PLATE holding the event sigil ---- */
+.alert .art{width:142px;height:142px;position:relative;overflow:hidden;z-index:1;
+  background:
+    repeating-conic-gradient(from -90deg at 50% 50%, rgba(0,0,0,.10) 0 6deg, transparent 6deg 18deg),
+    radial-gradient(120% 120% at 38% 30%, #4A443C 0%, #2A2622 52%, #15110D 100%);
+  border:2px solid #000;
+  /* iron plate with clipped corners (forged) */
+  clip-path:polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px),
+    calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+  box-shadow:inset 0 0 0 1px rgba(74,68,60,.7), inset 0 2px 6px rgba(0,0,0,.8),
+    inset 0 0 26px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.5);}
+/* riveted nail-heads at the seal-plate corners */
+.alert .art i{position:absolute;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%,#7a7268,#15110D);
+  box-shadow:0 1px 1px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.5);}
+.alert .art i:nth-child(1){left:8px;top:8px;}
+.alert .art i:nth-child(2){right:8px;top:8px;}
+.alert .art i:nth-child(3){left:8px;bottom:8px;}
+.alert .art i:nth-child(4){right:8px;bottom:8px;}
+/* the engraved gold sigil glyph, struck into the iron */
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:74px;color:var(--gold-lt);
+  text-shadow:0 0 20px rgba(201,150,47,.6), 0 2px 1px rgba(0,0,0,.8), 0 -1px 0 rgba(255,250,235,.18);
+  animation:a-sigil .72s var(--ease) both .2s;}
+@keyframes a-sigil{0%{transform:scale(.3) rotate(-22deg);opacity:0}
+  60%{transform:scale(1.14) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;padding-left:6px;}
+
+/* engraved kicker (the "MYTHFORGE KEEP · NEW FOLLOWER" line) */
+.alert .kick{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+  letter-spacing:.34em;font-size:19px;font-weight:600;text-transform:uppercase;
+  color:var(--ink);text-indent:.34em;margin:0 0 8px;white-space:nowrap;
+  display:flex;align-items:center;gap:12px;
+  overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 0 rgba(255,250,235,.5);}
+.alert .kick .pip{width:10px;height:10px;flex:none;text-indent:0;transform:rotate(45deg);
+  background:linear-gradient(135deg,var(--gold-lt),var(--gold-dk));
+  box-shadow:0 0 8px var(--glow);
+  animation:a-pippulse 1.9s steps(1,end) infinite;}
+@keyframes a-pippulse{0%,60%{opacity:1}61%,100%{opacity:.28}}
+
+/* big NAME — engraved embossed gold, clamped to one line */
+.alert .name{font-size:62px;line-height:.96;font-weight:700;letter-spacing:.012em;margin:2px 0 8px;
+  text-transform:uppercase;color:#9C7A36;
+  text-shadow:
+    0 1px 0 rgba(255,250,235,.6),
+    0 -1px 0 rgba(58,30,8,.55),
+    0 2px 2px rgba(58,30,8,.35);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (forged gold, gradient-clipped) — hidden unless .has-amount */
+.alert .amount{font-size:34px;font-weight:700;letter-spacing:.03em;margin:0 0 6px;display:none;
+  text-transform:uppercase;
+  background:linear-gradient(180deg,var(--gold-lt) 0%,var(--gold) 52%,var(--gold-dk) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1px 0 rgba(255,250,235,.4)) drop-shadow(0 0 16px rgba(201,150,47,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+/* render/visible amount gets its own emphasis pop */
+.alert.has-amount .amount{animation:a-amountpop .6s var(--ease) both .34s;}
+@keyframes a-amountpop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* aged italic sub line */
+.alert .sub{font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;font-size:23px;letter-spacing:.03em;color:var(--ink-soft);margin:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* forged-gold rule beneath the kicker (small divider w/ diamond caps) */
+.alert .crest{position:absolute;top:18px;right:26px;width:120px;height:1px;z-index:2;
+  background:linear-gradient(90deg,transparent,var(--gold-dk) 22%,var(--gold) 60%,transparent);
+  box-shadow:0 0 8px rgba(201,150,47,.4);opacity:.85;}
+.alert .crest::after{content:"";position:absolute;right:-2px;top:50%;width:7px;height:7px;
+  background:var(--gold);transform:translateY(-50%) rotate(45deg);box-shadow:0 0 7px var(--glow);}
+
+/* small engraved corner tag (the keep / brand readout) */
+.alert .tagid{position:absolute;top:22px;right:30px;
+  font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+  font-size:13px;letter-spacing:.34em;color:var(--gold-dk);opacity:.85;text-indent:.34em;
+  text-shadow:0 1px 0 rgba(255,250,235,.4);z-index:2;}
+
+/* ---- blood-red WAX SEAL stamped at the lower-right of the notice ---- */
+.alert .seal{position:absolute;right:-22px;bottom:-22px;width:104px;height:104px;pointer-events:none;
+  z-index:3;filter:drop-shadow(0 5px 9px rgba(0,0,0,.6));
+  animation:a-sealin .55s var(--ease) both .42s;}
+.alert .seal svg{width:100%;height:100%;display:block;}
+@keyframes a-sealin{from{opacity:0;transform:rotate(-18deg) scale(.5)}
+  to{opacity:1;transform:rotate(-7deg) scale(1)}}
+
+/* ============================================================
+   PER-EVENT ENTRANCE CHOREOGRAPHY — 12 DISTINCT motions.
+   JS sets .alert[data-anim="<event>"] then toggles .show / .hide.
+   Each entrance animates ONLY transform/opacity. Exit is shared.
+   ============================================================ */
+.alert.hide{animation:a-out .5s var(--ease) forwards!important;}
+@keyframes a-out{from{opacity:1;transform:translateY(0) scale(1) rotate(0)}
+  to{opacity:0;transform:translateY(46px) scale(.95) rotate(-1deg)}}
+
+/* 1 FOLLOWER — pinned slam: drops in from above and settles (a notice nailed up) */
+.alert[data-anim="follower"].show{animation:a-follower .64s var(--ease) forwards;}
+@keyframes a-follower{
+  0%{opacity:0;transform:translateY(-120px) rotate(-3deg)}
+  62%{opacity:1;transform:translateY(14px) rotate(1deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 2 SUBSCRIBER — heraldic rise: swells up from below with a confident scale */
+.alert[data-anim="subscriber"].show{animation:a-subscriber .7s var(--ease) forwards;}
+@keyframes a-subscriber{
+  0%{opacity:0;transform:translateY(90px) scale(.86)}
+  64%{opacity:1;transform:translateY(-8px) scale(1.03)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 3 MEMBER — oath unfurl: tips open from the left edge like a sworn page */
+.alert[data-anim="member"]{transform-origin:left center;}
+.alert[data-anim="member"].show{animation:a-member .72s var(--ease) forwards;}
+@keyframes a-member{
+  0%{opacity:0;transform:perspective(1200px) rotateY(-72deg)}
+  70%{opacity:1;transform:perspective(1200px) rotateY(8deg)}
+  100%{opacity:1;transform:perspective(1200px) rotateY(0)}}
+
+/* 4 CHEER — coin-toss flip: spins in on X like a flipped gold coin, amount lands */
+.alert[data-anim="cheer"]{transform-origin:center;}
+.alert[data-anim="cheer"].show{animation:a-cheer .74s var(--ease) forwards;}
+@keyframes a-cheer{
+  0%{opacity:0;transform:perspective(1100px) rotateX(86deg) translateY(-30px)}
+  66%{opacity:1;transform:perspective(1100px) rotateX(-10deg) translateY(4px)}
+  100%{opacity:1;transform:perspective(1100px) rotateX(0) translateY(0)}}
+
+/* 5 DONATION — treasure drop: slams down with a heavy weighty bounce */
+.alert[data-anim="donation"]{transform-origin:50% 0;}
+.alert[data-anim="donation"].show{animation:a-donation .78s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes a-donation{
+  0%{opacity:0;transform:translateY(-160px) scale(1.06)}
+  58%{opacity:1;transform:translateY(0) scale(1)}
+  72%{transform:translateY(-16px) scale(1.01)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 6 HOST — gates swing: pivots in from the lower-left hinge (the doors open) */
+.alert[data-anim="host"]{transform-origin:0% 100%;}
+.alert[data-anim="host"].show{animation:a-host .72s var(--ease) forwards;}
+@keyframes a-host{
+  0%{opacity:0;transform:rotate(-14deg) translateX(-90px)}
+  68%{opacity:1;transform:rotate(2.4deg) translateX(6px)}
+  100%{opacity:1;transform:rotate(0) translateX(0)}}
+
+/* 7 RAID — charge in: hard rush from off the left with an overshoot (the horde) */
+.alert[data-anim="raid"].show{animation:a-raid .6s cubic-bezier(.3,.9,.2,1) forwards;}
+@keyframes a-raid{
+  0%{opacity:0;transform:translateX(-1100px) skewX(10deg)}
+  74%{opacity:1;transform:translateX(34px) skewX(-3deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 8 LIKE — soft bloom: gently fades + breathes up from a small scale */
+.alert[data-anim="like"]{transform-origin:center;}
+.alert[data-anim="like"].show{animation:a-like .82s var(--ease) forwards;}
+@keyframes a-like{
+  0%{opacity:0;transform:scale(.78)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 SHARE — pass along: glides in diagonally from the lower-left corner */
+.alert[data-anim="share"].show{animation:a-share .7s var(--ease) forwards;}
+@keyframes a-share{
+  0%{opacity:0;transform:translate(-160px,120px) scale(.92)}
+  72%{opacity:1;transform:translate(10px,-8px) scale(1.01)}
+  100%{opacity:1;transform:translate(0,0) scale(1)}}
+
+/* 10 STAR — marquee strike: a quick zoom-down stamp with a tiny shudder */
+.alert[data-anim="star"]{transform-origin:center;}
+.alert[data-anim="star"].show{animation:a-star .68s cubic-bezier(.2,.9,.3,1.3) forwards;}
+@keyframes a-star{
+  0%{opacity:0;transform:scale(1.5) rotate(6deg)}
+  56%{opacity:1;transform:scale(.96) rotate(-1.5deg)}
+  78%{transform:scale(1.02) rotate(.6deg)}
+  100%{opacity:1;transform:scale(1) rotate(0)}}
+
+/* 11 SUPERCHAT — banner sweep: sweeps in from the right, settles, amount struck */
+.alert[data-anim="superchat"].show{animation:a-superchat .66s var(--ease) forwards;}
+@keyframes a-superchat{
+  0%{opacity:0;transform:translateX(420px) scale(.97)}
+  72%{opacity:1;transform:translateX(-22px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 12 SUPPORTER — steady raise: a calm vertical lift, slow and grateful */
+.alert[data-anim="supporter"].show{animation:a-supporter .9s var(--ease) forwards;}
+@keyframes a-supporter{
+  0%{opacity:0;transform:translateY(64px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* fallback show (no/unknown data-anim): the steady raise */
+.alert.show{animation:a-supporter .9s var(--ease) forwards;}
+
+/* ============================================================
+   RENDER MODE: freeze CSS-driven motion — JS drives transform /
+   opacity deterministically through __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .glyph{animation:none!important;transform:scale(1) rotate(0);opacity:1;}
+#stage.render .alert.has-amount .amount{animation:none!important;transform:scale(1);opacity:1;}
+#stage.render .alert .seal{animation:none!important;opacity:1;transform:rotate(-7deg) scale(1);}
+#stage.render .alert .runerule b{animation:none!important;opacity:.7;}
+#stage.render .alert .kick .pip{animation:none!important;opacity:1;}

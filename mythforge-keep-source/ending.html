@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mythforge Keep — Ending</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="planks" aria-hidden="true"></div>
+    <div class="flicker" aria-hidden="true"></div>
+
+    <div class="tag tag--tl" aria-hidden="true">EST. MMXXVI</div>
+    <div class="tag tag--tr" aria-hidden="true">MYTHFORGE KEEP</div>
+
+    <main class="scroll">
+      <div class="runeframe" aria-hidden="true"></div>
+
+      <!-- iron corner brackets w/ nail-heads pin the parchment to the planks -->
+      <span class="bracket bracket--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="none" stroke="#0A0704" stroke-width="1" opacity=".6"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+
+      <!-- etched golden runes along the inner border -->
+      <div class="runes runes--top" aria-hidden="true">
+        <b>&#5819;</b><b>&#5796;</b><b>&#5809;</b><b>&#5828;</b><b>&#5792;</b><b>&#5815;</b><b>&#5800;</b><b>&#5834;</b>
+      </div>
+      <div class="runes runes--bot" aria-hidden="true">
+        <b>&#5836;</b><b>&#5802;</b><b>&#5821;</b><b>&#5798;</b><b>&#5825;</b><b>&#5810;</b>
+      </div>
+
+      <!-- crossed-sword heraldry crest -->
+      <div class="crest" aria-hidden="true">
+        <svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#C9962F" stroke-width="2.4" fill="none" stroke-linecap="round">
+            <line x1="20" y1="68" x2="92" y2="12"/>
+            <line x1="100" y1="68" x2="28" y2="12"/>
+          </g>
+          <g fill="#C9962F">
+            <!-- sword 1 -->
+            <path d="M90 10 l8 -4 -2 9 z"/>
+            <rect x="14" y="64" width="16" height="4" rx="2" transform="rotate(-38 22 66)"/>
+            <!-- sword 2 -->
+            <path d="M30 10 l-8 -4 2 9 z"/>
+            <rect x="90" y="64" width="16" height="4" rx="2" transform="rotate(38 98 66)"/>
+          </g>
+          <circle cx="60" cy="40" r="6" fill="#7A1F1F" stroke="#C9962F" stroke-width="1.6"/>
+        </svg>
+      </div>
+
+      <p class="kicker" id="kicker" data-done="UNTIL WE MEET AGAIN">Thanks for the Journey</p>
+      <h1 class="title">THE<span class="accent">END</span></h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub">may your road rise to meet you&hellip;</p>
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+
+      <!-- blood-red wax seal at the foot -->
+      <span class="seal" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="wax" cx="38%" cy="34%" r="72%">
+              <stop offset="0%" stop-color="#A33030"/>
+              <stop offset="62%" stop-color="#7A1F1F"/>
+              <stop offset="100%" stop-color="#4E1212"/>
+            </radialGradient>
+          </defs>
+          <path d="M50 4 l11 7 13 -3 5 13 12 7 -4 13 7 12 -10 9 -2 13 -13 1 -9 10 -12 -6
+                   -12 6 -9 -10 -13 -1 -2 -13 -10 -9 7 -12 -4 -13 12 -7 5 -13 13 3 z"
+                fill="url(#wax)" stroke="#3a0e0e" stroke-width="1.4"/>
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#5a1717" stroke-width="2.2"/>
+          <g stroke="#9c3a3a" stroke-width="2" fill="none" stroke-linecap="round" opacity=".95">
+            <line x1="50" y1="34" x2="50" y2="66"/>
+            <line x1="36" y1="42" x2="64" y2="58"/>
+            <line x1="64" y1="42" x2="36" y2="58"/>
+          </g>
+          <circle cx="50" cy="50" r="5" fill="#9c3a3a"/>
+        </svg>
+      </span>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+    <div class="vign" aria-hidden="true"></div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

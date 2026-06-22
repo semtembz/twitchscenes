@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cartridge 8 — Twitch Panels (generator)</title>
+  <!--
+    CARTRIDGE 8 · "WORLD 1-1" 8-bit NES PANELS generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Cartridge 8 NES
+    platformer language:
+        - a flat NES-sky card with a chunky black pixel border + hard inset bevel
+        - a small floating brick / question-block tile sitting at the left,
+          with a tiny pixel icon drawn ON the block face
+        - the label in a chunky monospace pixel font with a HARD offset shadow
+          (no blur, image-rendering: pixelated)
+        - a dirt-ground strip with an orange grass-edge line along the bottom
+    Each panel has its own Download button + a "Download all".
+
+    Everything is integer-grid, ZERO gradients / ZERO blur — bespoke to this theme.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Cartridge 8 NES palette (mirrors shared.css tokens) ---- */
+    :root{
+      --nes-red:#E60000; --nes-blue:#0058F8; --white:#FCFCFC; --nes-green:#00B800;
+      --night:#1A1A2E; --sky:#5C94FC; --brick:#C84C0C; --brick-dk:#7C2800;
+      --qblock:#FCBC3C; --qblock-dk:#A85400; --ground:#9C4A00; --ground-dk:#5C2800;
+      --coin:#FCD800; --shadow:#000000;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+      font-weight:700;color:var(--white);padding:36px 32px 60px;
+      background:var(--night);min-height:100vh;
+      image-rendering:pixelated;
+    }
+    .kicker{letter-spacing:.28em;font-size:13px;color:var(--qblock);
+      text-transform:uppercase;margin:0 0 10px;text-shadow:3px 3px 0 var(--shadow);}
+    h1{font-size:30px;letter-spacing:.04em;margin:0 0 8px;color:var(--white);
+      text-transform:uppercase;text-shadow:4px 4px 0 var(--shadow);}
+    p.lead{color:#B8D0FC;margin:0 0 24px;max-width:760px;line-height:1.7;font-size:14px;
+      text-transform:uppercase;letter-spacing:.04em;}
+    code{color:var(--coin);background:rgba(0,0,0,.4);padding:2px 7px;text-transform:none;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{
+      font-family:inherit;font-weight:700;font-size:13px;letter-spacing:.18em;
+      text-transform:uppercase;padding:13px 24px;cursor:pointer;color:var(--shadow);
+      background:var(--qblock);border:4px solid var(--shadow);
+      box-shadow:5px 5px 0 var(--shadow);
+    }
+    button:active{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--shadow);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:#11112a;padding:16px;border:3px solid #34346a;}
+    /* checkerboard so any transparent panel edge is visible */
+    .frame{overflow:hidden;display:block;background-color:#0d0d1f;
+      background-image:
+        linear-gradient(45deg,#1a1a3a 25%,transparent 25%),
+        linear-gradient(-45deg,#1a1a3a 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1a1a3a 75%),
+        linear-gradient(-45deg,transparent 75%,#1a1a3a 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;image-rendering:pixelated;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;
+      margin-top:12px;font-size:12px;}
+    .card-row .name{letter-spacing:.12em;color:#B8D0FC;text-transform:uppercase;}
+    .card-row a{letter-spacing:.06em;color:var(--coin);text-decoration:none;
+      border:2px solid #34346a;padding:5px 12px;text-transform:uppercase;}
+    .card-row a:hover{background:#1a1a3a;}
+  </style>
+</head>
+<body>
+  <p class="kicker">CARTRIDGE 8 · PANELS</p>
+  <h1>Cartridge 8 — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the World 1-1 NES style:
+    a flat-sky card with a chunky black pixel border, a floating brick / question-block
+    tile with a pixel icon, and a dirt-ground strip. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- size + palette (hex constants mirror shared.css tokens) ----
+    var W = 320, H = 100, PX = 4;   // PX = base pixel unit (everything snaps to it)
+    var SKY = '#5C94FC', WHITE = '#FCFCFC', RED = '#E60000', BLUE = '#0058F8';
+    var GREEN = '#00B800', NIGHT = '#1A1A2E';
+    var BRICK = '#C84C0C', BRICK_DK = '#7C2800';
+    var QB = '#FCBC3C', QB_DK = '#A85400';
+    var GROUND = '#9C4A00', GROUND_DK = '#5C2800', GRASS = '#C84C0C';
+    var COIN = '#FCD800', BLACK = '#000000', CLOUD_EDGE = '#B8D0FC';
+
+    // ---- 12 panels (icon = a tiny pixel glyph drawn ON the block) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     block: 'q', icon: 'face' },
+      { id: 'schedule',  title: 'SCHEDULE',  block: 'b', icon: 'clock' },
+      { id: 'rules',     title: 'RULES',     block: 'b', icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', block: 'q', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   block: 'q', icon: 'chat' },
+      { id: 'twitter',   title: 'TWITTER',   block: 'b', icon: 'bird' },
+      { id: 'youtube',   title: 'YOUTUBE',   block: 'b', icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', block: 'q', icon: 'cam' },
+      { id: 'merch',     title: 'MERCH',     block: 'b', icon: 'shirt' },
+      { id: 'sponsors',  title: 'SPONSORS',  block: 'q', icon: 'star' },
+      { id: 'subscribe', title: 'SUBSCRIBE', block: 'q', icon: 'heart' },
+      { id: 'community', title: 'COMMUNITY', block: 'b', icon: 'mush' }
+    ];
+
+    // ---- pixel helpers (all integer-snapped, hard pixels) ----
+    function R(ctx, x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+
+    // a blocky pixel cloud (rect cluster) — matches shared.js drawCloud silhouette
+    function cloud(ctx, x, y, u) {
+      x = Math.round(x); y = Math.round(y);
+      R(ctx, x,         y + u,   5 * u, u, WHITE);
+      R(ctx, x + u,     y,       u,     u, WHITE);
+      R(ctx, x + 2 * u, y - u,   u,     u, WHITE);
+      R(ctx, x + 3 * u, y,       u,     u, WHITE);
+      R(ctx, x,         y + 2 * u - PX, 5 * u, PX, CLOUD_EDGE);
+    }
+
+    // a brick / question block tile of size t at x,y (mirrors shared.js drawBlock)
+    function block(ctx, x, y, t, kind) {
+      x = Math.round(x); y = Math.round(y);
+      var fillC = kind === 'q' ? QB : BRICK;
+      var dk = kind === 'q' ? QB_DK : BRICK_DK;
+      R(ctx, x, y, t, t, fillC);
+      // hard inset shadow right + bottom
+      R(ctx, x, y + t - PX, t, PX, dk);
+      R(ctx, x + t - PX, y, PX, t, dk);
+      // black border top + left
+      R(ctx, x, y, t, PX / 2, BLACK);
+      R(ctx, x, y, PX / 2, t, BLACK);
+      // black border bottom + right (frame it fully so it reads as a tile)
+      R(ctx, x, y + t - PX / 2, t, PX / 2, BLACK);
+      R(ctx, x + t - PX / 2, y, PX / 2, t, BLACK);
+    }
+
+    // tiny 7x7-grid pixel icon centered on a block face (cx,cy = center), unit g
+    function icon(ctx, kind, cx, cy, g) {
+      var K = BLACK, W2 = WHITE, Cn = COIN, Rd = RED, Gn = GREEN, Bl = BLUE, Wh = WHITE;
+      function p(gx, gy, c) { R(ctx, cx + gx * g, cy + gy * g, g, g, c); }
+      switch (kind) {
+        case 'face': // smiley pixel face
+          [[-1,-2],[1,-2],[-2,1],[-1,2],[0,2],[1,2],[2,1]].forEach(function(d){p(d[0],d[1],K);});
+          break;
+        case 'clock': // ring + hands
+          [[-1,-2],[0,-2],[1,-2],[-2,-1],[2,-1],[-2,0],[2,0],[-2,1],[2,1],[-1,2],[0,2],[1,2]].forEach(function(d){p(d[0],d[1],K);});
+          p(0,-1,K); p(0,0,K); p(1,0,K);
+          break;
+        case 'list': // three rows w/ bullet diamonds
+          for (var ly = -2; ly <= 2; ly += 2) { p(-2,ly,K); for (var lx=-1;lx<=2;lx++) p(lx,ly,K); }
+          break;
+        case 'coin': // $ on a coin
+          [[-1,-2],[0,-2],[1,-2],[-2,-1],[2,-1],[-2,0],[-2,1],[2,1],[-1,2],[0,2],[1,2]].forEach(function(d){p(d[0],d[1],K);});
+          p(0,-1,K); p(0,0,K); p(1,0,K); p(0,1,K);
+          break;
+        case 'chat': // speech bubble + tail (discord-ish)
+          for (var qy=-2;qy<=1;qy++) for (var qx=-2;qx<=2;qx++){ if(qy===-2||qy===1||qx===-2||qx===2) p(qx,qy,K); }
+          p(-2,2,K); p(-1,2,K);
+          p(-1,-1,W2); p(1,-1,W2);
+          break;
+        case 'bird': // simple bird tick
+          [[-2,0],[-1,1],[0,1],[1,0],[2,-1],[2,-2],[1,-2],[0,-1]].forEach(function(d){p(d[0],d[1],K);});
+          break;
+        case 'play': // triangle
+          p(-1,-2,K);p(-1,-1,K);p(0,-1,K);p(-1,0,K);p(0,0,K);p(1,0,K);p(-1,1,K);p(0,1,K);p(-1,2,K);
+          break;
+        case 'cam': // camera body + lens
+          for (var cy2=-1;cy2<=2;cy2++) for (var cx2=-2;cx2<=2;cx2++){ if(cy2===-1||cy2===2||cx2===-2||cx2===2) p(cx2,cy2,K); }
+          p(-1,-2,K); p(0,-2,K); p(0,0,K); p(1,1,K); p(-1,1,K); p(0,1,K);
+          break;
+        case 'shirt': // t-shirt
+          [[-2,-1],[-1,-2],[0,-1],[1,-2],[2,-1],[-2,0],[2,0],[-1,0],[1,0],[-1,1],[0,1],[1,1],[-1,2],[0,2],[1,2]].forEach(function(d){p(d[0],d[1],K);});
+          break;
+        case 'star': // 5-point chunky star
+          p(0,-2,K);p(-1,-1,K);p(0,-1,K);p(1,-1,K);p(-2,0,K);p(-1,0,K);p(0,0,K);p(1,0,K);p(2,0,K);p(-1,1,K);p(1,1,K);p(-2,2,K);p(2,2,K);
+          break;
+        case 'heart': // pixel heart
+          [[-2,-1],[-1,-2],[0,-1],[1,-2],[2,-1],[-2,0],[-1,0],[0,0],[1,0],[2,0],[-1,1],[0,1],[1,1],[0,2]].forEach(function(d){p(d[0],d[1],K);});
+          break;
+        case 'mush': // 1-up mushroom dome
+          [[-1,-2],[0,-2],[1,-2],[-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],[-2,0],[2,0],[-2,1],[-1,1],[0,1],[1,1],[2,1]].forEach(function(d){p(d[0],d[1],K);});
+          p(-1,2,K); p(1,2,K);
+          break;
+        default:
+          p(0,0,K);
+      }
+    }
+
+    // ---- chunky pixel text with HARD offset shadow (no blur) ----
+    function pixelText(ctx, str, x, y, size, color, shadow, align) {
+      ctx.save();
+      ctx.font = '700 ' + size + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+      ctx.textAlign = align || 'left';
+      ctx.textBaseline = 'alphabetic';
+      // layered hard shadow
+      ctx.fillStyle = shadow;
+      ctx.fillText(str, Math.round(x) + PX, Math.round(y) + PX);
+      ctx.fillText(str, Math.round(x) + PX / 2, Math.round(y) + PX / 2);
+      ctx.fillStyle = color;
+      ctx.fillText(str, Math.round(x), Math.round(y));
+      ctx.restore();
+    }
+
+    // ---- the panel renderer ----
+    function drawPanel(ctx, p) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, W, H);
+
+      // flat NES sky body
+      R(ctx, 0, 0, W, H, SKY);
+
+      // a couple of blocky drifting-style clouds in the sky (static here)
+      cloud(ctx, 150, 18, 5);
+      cloud(ctx, 248, 40, 4);
+
+      // dirt ground strip (bottom ~26px) w/ orange grass-edge line + dark seams
+      var groundY = H - 26;
+      R(ctx, 0, groundY, W, H - groundY, GROUND);
+      R(ctx, 0, groundY, W, PX, GRASS);            // grass-edge line
+      ctx.fillStyle = GROUND_DK;
+      for (var gx = 0; gx <= W; gx += 24) ctx.fillRect(gx, groundY + PX, PX, H - groundY - PX);
+
+      // floating block tile at the left with a pixel icon on its face
+      var t = 56, bx = 18, by = (groundY - t) / 2 + 2;
+      block(ctx, bx, by, t, p.block);
+      icon(ctx, p.icon, bx + t / 2 - PX / 2, by + t / 2 - PX / 2, 6);
+
+      // small pixel coin floating just above the block (signature motif)
+      coinSprite(ctx, bx + t / 2, by - 16);
+
+      // kicker above the label — small NES caps
+      pixelText(ctx, 'WORLD 1-1', 96, 30, 13, COIN, BLACK, 'left');
+
+      // big chunky label, shrink-to-fit so long words stay inside
+      ctx.save();
+      var size = 30, label = p.title, maxW = W - 96 - 14;
+      ctx.font = '700 ' + size + 'px "Courier New",ui-monospace,monospace';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1; ctx.font = '700 ' + size + 'px "Courier New",ui-monospace,monospace';
+      }
+      ctx.restore();
+      pixelText(ctx, label, 96, 66, size, WHITE, BLACK, 'left');
+
+      // a green power-meter style underline (discrete blocks) beneath the label
+      var ux = 96, uy = 76, uw = maxW;
+      for (var b = 0; b < Math.floor(uw / 16); b++) {
+        R(ctx, ux + b * 16, uy, 10, 6, GREEN);
+        R(ctx, ux + b * 16, uy + 6, 10, 2, GROUND_DK);
+      }
+
+      // chunky black pixel border framing the whole panel (hard, no blur)
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(0, 0, W, PX);            // top
+      ctx.fillRect(0, H - PX, W, PX);       // bottom
+      ctx.fillRect(0, 0, PX, H);            // left
+      ctx.fillRect(W - PX, 0, PX, H);       // right
+      // inner white bevel line for the cartridge look
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(PX, PX, W - 2 * PX, PX / 2);
+      ctx.fillRect(PX, PX, PX / 2, H - 2 * PX);
+    }
+
+    // a tiny chunky pixel coin sprite (6x8 grid) — mirrors shared.js drawCoin
+    function coinSprite(ctx, cx, cy) {
+      var u = PX, O = QB_DK, C = COIN, Hh = WHITE, K = BLACK;
+      var grid = [
+        [0,0,K,K,0,0],
+        [0,K,O,C,K,0],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [0,K,O,C,K,0],
+        [0,0,K,K,0,0]
+      ];
+      var x = Math.round(cx - 3 * u), y = Math.round(cy - 4 * u);
+      for (var gy = 0; gy < grid.length; gy++)
+        for (var gx = 0; gx < grid[gy].length; gx++) {
+          var c = grid[gy][gx];
+          if (c) R(ctx, x + gx * u, y + gy * u, u, u, c);
+        }
+    }
+
+    // ---- build the grid ----
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++; setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build); else build();
+  })();
+  </script>
+</body>
+</html>

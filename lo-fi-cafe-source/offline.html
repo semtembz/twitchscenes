@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Lo-Fi Cafe (PNG generator)</title>
+  <!--
+    LO-FI CAFE · "Rainy Window Booth" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the rainy-window look (warm mocha gradient, a desk-lamp glow,
+    soft blurred BOKEH of out-of-focus cafe lights behind foggy glass, fine RAIN
+    streaks + sliding DROPLETS frozen mid-slide, a rounded WINDOW pane with low-
+    contrast muntin cross-bars, a CSS-style coffee MUG with steam + a tiny potted
+    PLANT, and a centered cream MENU CARD with a dashed doodle outline, a "CLOSED"
+    tape tab, a rounded title + wavy amber underline, sub, and the handle) onto a
+    <canvas> and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the bokeh / rain / dust
+    scatter is identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --latte:#E8D5C4; --mocha:#C9A88A; --coffee:#8C6A56; --cream:#F4EBE2;
+      --amber:#D9925A; --ink:#6E5040;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,sans-serif;
+      background:#22150E;color:var(--cream);padding:32px;}
+    h1{font-weight:700;font-size:28px;color:var(--cream);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(217,146,90,.3);}
+    p.lead{color:var(--latte);margin:0 0 22px;max-width:820px;line-height:1.6;
+      font-size:16px;font-weight:500;opacity:.92;}
+    .kicker{letter-spacing:5px;font-size:13px;font-weight:600;color:var(--amber);
+      margin:0 0 14px;text-transform:uppercase;text-indent:5px;}
+    button{font-family:inherit;font-weight:700;font-size:14px;letter-spacing:2px;
+      text-transform:uppercase;padding:13px 26px;color:var(--cream);
+      background:linear-gradient(180deg,var(--amber),#B26F3F);border:1px solid rgba(244,235,226,.4);
+      border-radius:14px;cursor:pointer;box-shadow:0 8px 26px rgba(60,40,28,.4);}
+    button:hover{filter:brightness(1.06);}
+    .preview{margin-top:22px;background:#1d130c;padding:14px;border:1px solid #3a2a1c;
+      border-radius:14px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:10px;}
+    code{font-family:"Courier New",monospace;color:var(--amber);background:rgba(217,146,90,.12);
+      padding:2px 6px;border-radius:6px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">LO-FI CAFE · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the rainy-window-booth style — seeded so the
+    bokeh, rain and droplets are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const LATTE = '#E8D5C4', MOCHA = '#C9A88A', COFFEE = '#8C6A56', CREAM = '#F4EBE2';
+    const AMBER = '#D9925A', INK = '#6E5040';
+    const LIGHTS = ['#D9925A', '#F4EBE2', '#E8C79A', '#C9A88A', '#B57A4A'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const RR = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft warm bokeh bloom ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(0.45, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- rounded rectangle path ----
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- a wavy hand-drawn amber doodle underline ----
+    function doodle(x, y, w, amp, weight) {
+      ctx.save();
+      ctx.strokeStyle = AMBER; ctx.lineWidth = weight || 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(217,146,90,0.5)'; ctx.shadowBlur = 14;
+      const n = 6, step = w / n;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let i = 1; i <= n; i++) {
+        const px = x + step * i;
+        const py = y + (i % 2 === 0 ? -amp : amp);
+        const cx = x + step * (i - 0.5);
+        ctx.quadraticCurveTo(cx, y + (i % 2 === 0 ? amp * 1.4 : -amp * 1.4), px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- a CSS-style warm coffee MUG with steam (bottom-left, in the glass) ----
+    function drawMug(mx, my, scale) {
+      ctx.save();
+      ctx.translate(mx, my); ctx.scale(scale, scale);
+
+      // saucer
+      ctx.fillStyle = MOCHA;
+      ctx.beginPath(); ctx.ellipse(0, 96, 116, 16, 0, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(244,235,226,0.5)';
+      ctx.beginPath(); ctx.ellipse(0, 92, 116, 14, 0, Math.PI, 0, true); ctx.fill();
+
+      // handle (ring on the right)
+      ctx.strokeStyle = MOCHA; ctx.lineWidth = 22; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(86, 26, 40, -Math.PI * 0.55, Math.PI * 0.55); ctx.stroke();
+
+      // cup body
+      const cup = ctx.createLinearGradient(-90, -36, 60, 90);
+      cup.addColorStop(0, CREAM); cup.addColorStop(0.78, MOCHA); cup.addColorStop(1, '#B0876A');
+      ctx.fillStyle = cup;
+      roundRect(-92, -36, 184, 128, 26); ctx.fill();
+      // top cream rim
+      ctx.fillStyle = 'rgba(244,235,226,0.55)';
+      roundRect(-92, -36, 184, 14, 26); ctx.fill();
+
+      // coffee surface
+      const brew = ctx.createRadialGradient(-10, -22, 4, -10, -22, 78);
+      brew.addColorStop(0, '#6E4A36'); brew.addColorStop(0.8, '#45291C');
+      ctx.fillStyle = brew;
+      ctx.beginPath(); ctx.ellipse(0, -24, 76, 18, 0, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = 'rgba(244,235,226,0.5)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(0, -24, 76, 18, 0, 0, 6.2832); ctx.stroke();
+
+      // three gentle steam ribbons rising (frozen sine)
+      ctx.strokeStyle = 'rgba(244,235,226,0.6)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(244,235,226,0.4)'; ctx.shadowBlur = 10;
+      for (let i = -1; i <= 1; i++) {
+        const bx = i * 38;
+        ctx.beginPath();
+        ctx.moveTo(bx, -40);
+        ctx.bezierCurveTo(bx + 18, -78, bx - 18, -112, bx + 12, -150);
+        ctx.globalAlpha = 0.55 - Math.abs(i) * 0.12;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // ---- a tiny potted PLANT on the sill ----
+    function drawPlant(px, py, scale) {
+      ctx.save();
+      ctx.translate(px, py); ctx.scale(scale, scale);
+      // leaves
+      const leafGrad = ctx.createLinearGradient(0, -90, 0, 0);
+      leafGrad.addColorStop(0, '#7E8C5A'); leafGrad.addColorStop(1, '#566041');
+      ctx.fillStyle = leafGrad;
+      const leaf = (ang, len) => {
+        ctx.save(); ctx.rotate(ang);
+        ctx.beginPath(); ctx.ellipse(0, -len / 2, 16, len / 2, 0, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      };
+      ctx.save(); ctx.translate(0, -28);
+      leaf(-0.42, 92); leaf(0.04, 110); leaf(0.5, 96);
+      ctx.restore();
+      // pot
+      const pot = ctx.createLinearGradient(-30, 0, 30, 52);
+      pot.addColorStop(0, AMBER); pot.addColorStop(1, '#B26F3F');
+      ctx.fillStyle = pot;
+      roundRect(-32, -28, 64, 54, 10); ctx.fill();
+      ctx.fillStyle = 'rgba(244,235,226,0.25)';
+      roundRect(-32, -28, 64, 12, 10); ctx.fill();
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xD9925A); // fixed seed (amber hex) -> identical scatter
+
+      // ============================================================
+      // BACKGROUND: warm rainy-room gradient (mirrors shared.css #stage)
+      // ============================================================
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, '#D8C0AB'); grad.addColorStop(0.46, '#C9A88A'); grad.addColorStop(1, '#A07E66');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // the stage radial set: lamp glow upper-right + mocha glow centre-left
+      bloom(W * 0.82, H * 0.16, W * 0.40, 'rgba(217,146,90,0.30)', 1);
+      bloom(W * 0.30, H * 0.30, W * 0.46, 'rgba(201,168,138,0.40)', 1);
+
+      // ---- SEEDED warm BOKEH of out-of-focus cafe lights behind glass ----
+      for (let i = 0; i < 18; i++) {
+        const x = RR(rnd, 0, W), y = RR(rnd, 40, H * 0.8), r = RR(rnd, 120, 320);
+        const c = LIGHTS[(rnd() * LIGHTS.length) | 0], a = RR(rnd, 0.06, 0.18);
+        bloom(x, y, r, c, a);
+      }
+
+      // ============================================================
+      // THE WINDOW PANE (rounded, foggy-glass film + soft inner shadow)
+      // ============================================================
+      const wx = 120, wy = 96, ww = W - 240, wh = H - 192;
+      ctx.save();
+      roundRect(wx, wy, ww, wh, 26); ctx.clip();
+
+      // foggy glass film densest near the edges (inverse radial)
+      const fog = ctx.createRadialGradient(W / 2, H * 0.44, H * 0.18, W / 2, H * 0.44, W * 0.62);
+      fog.addColorStop(0, 'rgba(232,213,196,0)'); fog.addColorStop(1, 'rgba(232,213,196,0.30)');
+      ctx.fillStyle = fog; ctx.fillRect(wx, wy, ww, wh);
+
+      // ---- SEEDED fine RAIN streaks on the glass (frozen) ----
+      ctx.strokeStyle = 'rgba(244,235,226,0.85)'; ctx.lineCap = 'round';
+      for (let i = 0; i < 120; i++) {
+        const x = Math.round(RR(rnd, wx, wx + ww)), y = RR(rnd, wy, wy + wh);
+        const len = RR(rnd, 34, 96), w = RR(rnd, 1, 2.4), a = RR(rnd, 0.10, 0.30);
+        ctx.globalAlpha = a; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(x, Math.round(y - len)); ctx.lineTo(x, Math.round(y)); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- SEEDED sliding DROPLETS with wet trails + warm highlight ----
+      for (let i = 0; i < 26; i++) {
+        const x = Math.round(RR(rnd, wx + 10, wx + ww - 10)), y = Math.round(RR(rnd, wy + 40, wy + wh));
+        const r = RR(rnd, 3, 8), trail = RR(rnd, 60, 170), a = RR(rnd, 0.35, 0.7);
+        const tg = ctx.createLinearGradient(x, y - trail, x, y);
+        tg.addColorStop(0, 'rgba(244,235,226,0)');
+        tg.addColorStop(1, 'rgba(244,235,226,' + (a * 0.5).toFixed(3) + ')');
+        ctx.fillStyle = tg;
+        ctx.fillRect(Math.round(x - r * 0.45), Math.round(y - trail), Math.max(1, Math.round(r * 0.9)), trail);
+        ctx.globalAlpha = a; ctx.fillStyle = 'rgba(232,213,196,0.85)';
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = a * 0.9; ctx.fillStyle = 'rgba(255,250,244,0.95)';
+        ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, Math.max(1, r * 0.32), 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore(); // unclip window
+
+      // window inner shadow: a soft dark edge painted INSIDE the clipped pane,
+      // emulating shared.css's `inset 0 0 140px rgba(110,80,64,.42)`
+      ctx.save();
+      roundRect(wx, wy, ww, wh, 26); ctx.clip();
+      const innerShadow = ctx.createRadialGradient(W / 2, H * 0.46, Math.min(ww, wh) * 0.30,
+                                                    W / 2, H * 0.46, Math.max(ww, wh) * 0.6);
+      innerShadow.addColorStop(0, 'rgba(110,80,64,0)');
+      innerShadow.addColorStop(1, 'rgba(110,80,64,0.42)');
+      ctx.fillStyle = innerShadow; ctx.fillRect(wx, wy, ww, wh);
+      ctx.restore();
+      // crisp cream edge film on the frame
+      ctx.save();
+      roundRect(wx + 1.5, wy + 1.5, ww - 3, wh - 3, 25);
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244,235,226,0.2)'; ctx.stroke();
+      ctx.restore();
+
+      // ---- low-contrast muntin cross-bars (so it reads as a window) ----
+      ctx.fillStyle = 'rgba(140,106,86,0.30)';
+      ctx.fillRect(W / 2 - 3, wy, 6, wh);               // vertical
+      ctx.fillRect(wx, H * 0.46 - 3, ww, 6);            // horizontal
+      ctx.fillStyle = 'rgba(244,235,226,0.14)';
+      ctx.fillRect(W / 2 - 4, wy, 1, wh);
+      ctx.fillRect(wx, H * 0.46 - 4, ww, 1);
+
+      // ---- the MUG (bottom-left, inside the glass) + PLANT (bottom-right) ----
+      drawMug(330, 760, 1.05);
+      drawPlant(1560, 880, 1.4);
+
+      // ============================================================
+      // CENTERED MENU CARD — the signature panel
+      // ============================================================
+      const cw = 1040, ch = 560;
+      const cx = W / 2, cyTop = (H - ch) / 2 - 6;
+      const cardX = cx - cw / 2, cardY = cyTop;
+
+      // soft drop shadow + cream paper fill
+      ctx.save();
+      ctx.shadowColor = 'rgba(40,25,14,0.5)'; ctx.shadowBlur = 80; ctx.shadowOffsetY = 28;
+      roundRect(cardX, cardY, cw, ch, 40);
+      const paper = ctx.createLinearGradient(0, cardY, 0, cardY + ch);
+      paper.addColorStop(0, 'rgba(246,238,229,0.95)');
+      paper.addColorStop(1, 'rgba(232,213,196,0.9)');
+      ctx.fillStyle = paper; ctx.fill();
+      ctx.restore();
+
+      // paper grain inside the card (clipped)
+      ctx.save();
+      roundRect(cardX, cardY, cw, ch, 40); ctx.clip();
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(140,106,86,0.12)';
+      for (let gy = cardY; gy < cardY + ch; gy += 5)
+        for (let gx = cardX + ((gy / 5) % 2 ? 2 : 0); gx < cardX + cw; gx += 5)
+          ctx.fillRect(gx, gy, 1.4, 1.4);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // dashed hand-drawn inner outline
+      ctx.save();
+      ctx.strokeStyle = 'rgba(140,106,86,0.34)'; ctx.lineWidth = 2;
+      ctx.setLineDash([12, 9]);
+      roundRect(cardX + 18, cardY + 18, cw - 36, ch - 36, 28); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // outer paper border
+      ctx.strokeStyle = 'rgba(140,106,86,0.34)'; ctx.lineWidth = 2;
+      roundRect(cardX + 1, cardY + 1, cw - 2, ch - 2, 40); ctx.stroke();
+
+      // "CLOSED" tape tab pinned to the top of the card
+      ctx.save();
+      ctx.translate(cx, cardY); ctx.rotate(-1.5 * Math.PI / 180);
+      ctx.font = '700 24px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      const tabLabel = 'CLOSED FOR NOW';
+      const tabW = spacedWidth(tabLabel, 8) + 52;
+      roundRect(-tabW / 2, -26, tabW, 50, 16);
+      ctx.fillStyle = AMBER;
+      ctx.shadowColor = 'rgba(60,40,28,0.3)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.fillStyle = CREAM; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      drawSpacedCentered(tabLabel, 0, 1, 8);
+      ctx.restore();
+
+      // ---- card content (centered) ----
+      // kicker dot + spaced caps
+      ctx.save();
+      ctx.fillStyle = AMBER;
+      ctx.shadowColor = 'rgba(217,146,90,0.55)'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(cx - 132, cardY + 110, 8, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.font = '600 26px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      drawSpaced('THE CAFE IS', cx - 110, cardY + 110, 9);
+      ctx.restore();
+
+      // big rounded title (2 lines), last line amber accent
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 132px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.fillStyle = INK;
+      ctx.shadowColor = 'rgba(244,235,226,0.7)'; ctx.shadowOffsetY = 2; ctx.shadowBlur = 0;
+      ctx.fillText("WE'RE", cx, cardY + 222);
+      // accent line
+      ctx.fillStyle = AMBER;
+      ctx.shadowColor = 'rgba(217,146,90,0.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 0;
+      ctx.fillText('OFFLINE', cx, cardY + 350);
+      ctx.restore();
+
+      // wavy amber doodle underline
+      doodle(cx - 170, cardY + 420, 340, 7, 6);
+
+      // subtitle
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '500 31px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.fillStyle = COFFEE;
+      ctx.fillText('the cafe is closed — follow for the next brew', cx, cardY + 480);
+      ctx.restore();
+
+      // ============================================================
+      // overall vignette + grain so it feels filmic, calm
+      // ============================================================
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.64);
+      vig.addColorStop(0, 'rgba(60,40,28,0)'); vig.addColorStop(1, 'rgba(60,40,28,0.55)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // corner doodle stamps on the sill (outside the card)
+      ctx.save();
+      ctx.fillStyle = 'rgba(110,80,64,0.5)';
+      ctx.font = '46px "Segoe UI Symbol","Quicksand",system-ui,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.translate(190, 190); ctx.rotate(-0.1); ctx.fillText('♪', 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(W - 190, 200); ctx.rotate(0.1); ctx.fillText('✨', 0, 0); ctx.restore();
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, on the sill) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleClean = handle.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 28px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.fillStyle = COFFEE; ctx.shadowColor = 'rgba(244,235,226,0.5)'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 1;
+      ctx.fillText(handle.startsWith('@') ? handle : '@' + handle, W - 150, H - 70);
+      ctx.font = '500 19px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(110,80,64,0.78)';
+      ctx.fillText('twitch.tv/' + handleClean, W - 150, H - 44);
+      ctx.shadowOffsetY = 0;
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Lo-Fi Cafe Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the rainy-window fog wipe to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.3s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #22150E; color: #F4EBE2;
+      font-family: "Quicksand", "Comfortaa", "Varela Round", "Segoe UI", system-ui, sans-serif; }
+    h1 { font-size: 22px; color: #D9925A; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 0 0 16px rgba(217,146,90,.45); }
+    p  { color: #C9A88A; line-height: 1.55; margin: 0 0 14px; max-width: 820px; }
+    code { color: #E8C79A; background: #3a261b80; padding: 2px 6px; border-radius: 4px;
+      font-family: "Consolas", "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #D9925A; color: #2A1810;
+      border: 2px solid #E8C79A; border-radius: 12px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #E8C79A; color: #22150E; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #E8C79A; font-family: "Consolas", "Courier New", monospace; }
+    .stage { background: #3a261b55; border: 1px solid rgba(232,199,154,.22); border-radius: 16px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #22150E;
+      background-image:
+        linear-gradient(45deg, #3a261b 25%, transparent 25%),
+        linear-gradient(-45deg, #3a261b 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #3a261b 75%),
+        linear-gradient(-45deg, transparent 75%, #3a261b 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Lo-Fi Cafe Transition → .webm</h1>
+  <p>Records the rainy-window fog wipe to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 650 ms</strong>
+     (half the default 1300 ms — that's the full-cover fog when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1300;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const LATTE = '#E8D5C4', MOCHA = '#C9A88A', COFFEE = '#8C6A56', CREAM = '#F4EBE2', AMBER = '#D9925A';
+    const LIGHTS = [AMBER, CREAM, '#E8C79A', MOCHA, '#B57A4A'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    let seed = 0xC0FFEE;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const N_BOKEH = 18;
+    const bokeh = Array.from({ length: N_BOKEH }, () => ({
+      x: R(W * 0.04, W * 0.96), y: R(H * 0.06, H * 0.92), r: R(80, 240),
+      c: LIGHTS[(rnd() * LIGHTS.length) | 0], a: R(0.30, 0.7),
+      lead: R(0, 0.22), drift: R(10, 46), df: R(0.6, 1.6), phase: R(0, 6.2832),
+    }));
+
+    const N_RAIN = 150;
+    const rain = Array.from({ length: N_RAIN }, () => ({
+      x: R(-W * 0.1, W * 1.1), y0: R(-H * 0.5, H), len: R(60, 200),
+      vy: R(900, 1700), slope: R(0.10, 0.28), w: R(1, 2.6), a: R(0.18, 0.5),
+      lead: R(0, 0.5),
+    }));
+
+    const N_DROP = 40;
+    const drops = Array.from({ length: N_DROP }, () => ({
+      x: R(W * 0.03, W * 0.97), y0: R(-H * 0.15, H * 0.55), r: R(5, 16),
+      fall: R(H * 0.45, H * 1.25), wob: R(20, 70), wf: R(1.0, 2.4), phase: R(0, 6.2832),
+      lead: R(0.40, 0.66), span: R(0.34, 0.6), a: R(0.4, 0.85),
+    }));
+
+    const N_STEAM = 5;
+    const steam = Array.from({ length: N_STEAM }, () => ({
+      x: R(W * 0.18, W * 0.82), y: R(H * 0.5, H * 0.95), w: R(120, 260), h: R(220, 460),
+      sway: R(20, 70), sf: R(0.8, 1.7), phase: R(0, 6.2832), a: R(0.10, 0.22),
+    }));
+
+    function drawFog(t, cover) {
+      if (cover <= 0.001) return;
+      const front = smooth(t);
+      const band = 0.42;
+      ctx.save();
+      const steps = 5;
+      for (let i = 0; i < steps; i++) {
+        const fy = i / (steps - 1);
+        const local = clamp01((front + band - fy) / band) * clamp01((1 - front + band - (1 - fy)) / band + 1);
+        const a = clamp01(local) * cover;
+        if (a <= 0.01) continue;
+        ctx.globalAlpha = a * 0.9;
+        const gx = lerp(W * 0.1, W * 0.9, fy), gy = lerp(H * 0.1, H * 0.9, fy);
+        const fg = ctx.createRadialGradient(W * 0.78, H * 0.2, 80, gx, gy, W * 0.85);
+        fg.addColorStop(0.0, 'rgba(244,235,226,' + (0.82).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(217,168,128,' + (0.78).toFixed(3) + ')');
+        fg.addColorStop(1.0, 'rgba(160,126,102,' + (0.86).toFixed(3) + ')');
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, Math.round(fy * H - H / steps), W, Math.ceil(H / steps + 2));
+      }
+      ctx.globalAlpha = cover * 0.55;
+      const wash = ctx.createLinearGradient(0, 0, W, H);
+      wash.addColorStop(0.0, 'rgba(232,213,196,0.85)');
+      wash.addColorStop(0.5, 'rgba(217,168,128,0.78)');
+      wash.addColorStop(1.0, 'rgba(160,126,102,0.85)');
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    function drawBokeh(t, cover) {
+      ctx.save();
+      for (const b of bokeh) {
+        const lt = clamp01((t - b.lead) / (1 - b.lead));
+        const bloom = Math.sin(lt * Math.PI);
+        const a = b.a * bloom * cover;
+        if (a <= 0.02) continue;
+        const px = b.x + Math.sin(b.phase + lt * b.df * 6.2832) * b.drift;
+        const py = b.y + Math.cos(b.phase + lt * b.df * 6.2832) * b.drift * 0.5;
+        const rr = b.r * (0.7 + bloom * 0.5);
+        const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0.0, b.c);
+        g.addColorStop(0.45, b.c);
+        g.addColorStop(1.0, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = a;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), Math.round(rr), 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawRain(t, cover) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      const present = lerp(0.35, 1, cover);
+      for (const r of rain) {
+        const lt = clamp01((t - r.lead) / 0.5);
+        if (lt <= 0) continue;
+        const ends = Math.sin(clamp01(t) * Math.PI);
+        const a = r.a * ends * present;
+        if (a <= 0.02) continue;
+        let y = r.y0 + r.vy * t;
+        y = ((y % (H + 260)) + (H + 260)) % (H + 260) - 130;
+        const x = r.x + y * r.slope;
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = 'rgba(244,235,226,0.92)';
+        ctx.lineWidth = r.w;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x - r.len * r.slope), Math.round(y - r.len));
+        ctx.lineTo(Math.round(x), Math.round(y));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawDrops(t, cover) {
+      ctx.save();
+      for (const d of drops) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const ease = lt * lt;
+        const x = d.x + Math.sin(d.phase + lt * d.wf * 6.2832) * d.wob;
+        const y = d.y0 + d.fall * ease;
+        const trailLen = d.fall * ease;
+        const xr = Math.round(x), yr = Math.round(y);
+
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalAlpha = clamp01(0.5 + cover) * 0.9;
+        const cg = ctx.createLinearGradient(xr, yr - trailLen, xr, yr);
+        cg.addColorStop(0, 'rgba(0,0,0,0)');
+        cg.addColorStop(1, 'rgba(0,0,0,0.9)');
+        ctx.fillStyle = cg;
+        const tw = Math.max(2, Math.round(d.r * 0.9));
+        ctx.fillRect(xr - (tw >> 1), Math.round(yr - trailLen), tw, Math.round(trailLen));
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = d.a * cover;
+        ctx.fillStyle = 'rgba(232,213,196,0.9)';
+        ctx.beginPath(); ctx.arc(xr, yr, Math.round(d.r), 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = d.a * 0.95 * cover;
+        ctx.fillStyle = 'rgba(255,250,244,0.95)';
+        ctx.beginPath();
+        ctx.arc(xr - Math.round(d.r * 0.3), yr - Math.round(d.r * 0.3), Math.max(1, Math.round(d.r * 0.32)), 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawSteam(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const peak = Math.sin(clamp01(t) * Math.PI);
+      for (const s of steam) {
+        const a = s.a * peak * cover;
+        if (a <= 0.01) continue;
+        const dx = Math.sin(s.phase + t * s.sf * 6.2832) * s.sway;
+        const cxs = s.x + dx, cys = s.y - peak * 60;
+        const g = ctx.createRadialGradient(cxs, cys, 0, cxs, cys, s.w);
+        g.addColorStop(0, 'rgba(244,235,226,' + a.toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(244,235,226,0)');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(Math.round(cxs), Math.round(cys), Math.round(s.w), Math.round(s.h), 0, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);
+      drawFog(t, cover);
+      drawBokeh(t, cover);
+      drawSteam(t, cover);
+      drawRain(t, cover);
+      drawDrops(t, cover);
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(W * 0.62, H * 0.36, 0, W * 0.62, H * 0.36, W * 0.7);
+        fg.addColorStop(0, 'rgba(244,235,226,' + (0.4 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(217,146,90,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(217,146,90,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

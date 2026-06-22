@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cartridge 8 — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the NES platformer language: a chunky pixel
+       lower-left tag-box (a 1UP-style "P1" plate + @handle) clipped to a blocky
+       8-bit silhouette, plus a tiny "WORLD 1-1" pixel HUD chip top-right and a
+       small bobbing pixel coin. Most of the screen stays transparent so gameplay
+       shows through. Animate transform/opacity only; steps() pops; .render freezes.
+       Optional URL params: ?handle=@you   ?tag=P1   ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: kill every opaque full-bleed bg from shared.css */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+    #stage.night{background:transparent;}
+
+    /* the ambient coin canvas: transparent, decorative only */
+    canvas.bg{pointer-events:none;background:transparent;}
+
+    /* ---- lower-left chunky pixel tag-box (P1 plate + handle) ---- */
+    .slot{position:absolute;left:64px;bottom:64px;height:84px;
+      display:flex;align-items:center;gap:0;
+      pointer-events:none;
+      /* hard black 8-bit border frame, flat night tray, no gradient/blur */
+      background:var(--night);
+      border:4px solid var(--shadow);
+      box-shadow:
+        0 0 0 4px var(--white),      /* white pixel rim outside the black border */
+        10px 10px 0 var(--shadow);   /* hard offset drop shadow, no blur */
+      animation:slotIn .42s var(--step) both .12s;}
+    @keyframes slotIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+    /* "P1" plate — green power chip, hard pixel shading */
+    .slot .plate{align-self:stretch;display:flex;align-items:center;justify-content:center;
+      min-width:96px;padding:0 18px;
+      background:var(--nes-green);
+      border-right:4px solid var(--shadow);
+      font-size:38px;letter-spacing:.06em;line-height:1;text-transform:uppercase;
+      color:var(--white);text-shadow:4px 4px 0 var(--shadow);
+      /* discrete blink so the plate reads as a live arcade chip */
+      animation:plateBlink 1.28s var(--step) infinite;}
+    @keyframes plateBlink{0%,72%{opacity:1}73%,100%{opacity:.5}}
+
+    /* handle — chunky pixel caps in coin-gold */
+    .slot .who{padding:0 26px 0 22px;white-space:nowrap;
+      font-size:36px;letter-spacing:.10em;line-height:1;text-transform:lowercase;
+      color:var(--qblock);text-shadow:5px 5px 0 var(--shadow);}
+
+    /* a small bobbing pixel coin tucked at the box's leading top corner */
+    .slot .coin{position:absolute;left:-18px;top:-22px;width:24px;height:24px;
+      background:var(--coin);
+      box-shadow:
+        -8px 0 0 var(--qblock-dk), 8px 0 0 var(--qblock-dk),
+        0 -8px 0 var(--coin), 0 8px 0 var(--coin),
+        4px 4px 0 var(--shadow);
+      animation:coinBob 1.1s var(--step) infinite;}
+    @keyframes coinBob{0%,49%{transform:translateY(0)}50%,100%{transform:translateY(-8px)}}
+
+    /* ---- top-right pixel HUD chip: WORLD 1-1 ---- */
+    .hud-chip{position:absolute;right:64px;top:56px;
+      display:flex;align-items:center;gap:14px;padding:12px 22px;
+      pointer-events:none;
+      background:var(--night);
+      border:4px solid var(--shadow);
+      box-shadow:0 0 0 4px var(--white), 8px 8px 0 var(--shadow);
+      font-size:28px;letter-spacing:.12em;line-height:1;text-transform:uppercase;
+      color:var(--white);text-shadow:4px 4px 0 var(--shadow);
+      animation:chipIn .42s var(--step) both .26s;}
+    .hud-chip .lbl{color:var(--white);}
+    .hud-chip .val{color:var(--qblock);}
+    @keyframes chipIn{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+
+    /* ---- RENDER MODE: freeze every entrance + ambient blink to final state ---- */
+    #stage.render .slot,
+    #stage.render .hud-chip{animation:none!important;opacity:1;transform:none;}
+    #stage.render .slot .plate{animation:none!important;opacity:1;}
+    #stage.render .slot .coin{animation:none!important;transform:none;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- ambient decorative pixel coins drifting (transparent canvas) -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- top-right pixel HUD chip -->
+    <div class="hud-chip" aria-hidden="true">
+      <span class="lbl">WORLD</span><span class="val">1-1</span>
+    </div>
+
+    <!-- lower-left chunky pixel tag-box -->
+    <div class="slot">
+      <span class="coin" aria-hidden="true"></span>
+      <span class="plate" id="tag">P1</span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + plate tag (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tg = params.get("tag"), tgEl = document.getElementById("tag");
+    if (tg && tgEl) tgEl.textContent = tg;
+
+    /* ---- canvas: a FEW drifting blocky pixel coins (transparent, hard pixels) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const PX = 8;
+    const COIN = "#FCD800", COIN_DK = "#A85400", COIN_HI = "#FCFCFC", K = "#000000";
+    // sparse field of slow-drifting pixel coins, low alpha so gameplay stays readable
+    const coins = ctx ? Array.from({ length: Math.max(0, num("coins", 9)) }, () => ({
+      x: R(0, W), y: R(0, H), v: R(8, 18) / 60, ph: R(0, 6.28),
+      sc: (R(2, 3) | 0), a: R(0.14, 0.3),
+    })) : [];
+
+    // draw one small blocky pixel coin (6x8 grid), centered, hard pixels
+    function drawCoin(cx, cy, u, alpha){
+      const O = COIN_DK, C = COIN, Hh = COIN_HI;
+      const x = Math.round(cx / PX) * PX, y = Math.round(cy / PX) * PX;
+      const grid = [
+        [0,0,K,K,0,0],
+        [0,K,O,C,K,0],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [0,K,O,C,K,0],
+        [0,0,K,K,0,0],
+      ];
+      ctx.globalAlpha = alpha;
+      for (let gy = 0; gy < grid.length; gy++)
+        for (let gx = 0; gx < grid[gy].length; gx++){
+          const c = grid[gy][gx];
+          if (c){ ctx.fillStyle = c; ctx.fillRect(x + (gx - 3) * u, y + (gy - 3) * u, u, u); }
+        }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      const d = dt * 60;
+      for (const c of coins){
+        c.x += c.v * d; c.ph += 0.05 * d;
+        if (c.x > W + 60) c.x = -60;
+        const bob = Math.round(Math.sin(c.ph) * 1.4) * PX;  // integer bob
+        drawCoin(c.x, c.y + bob, c.sc, c.a);
+      }
+    }
+    // rAF-independent verification hook (EXACT theme name)
+    window.__cart8Draw = function(){ drawBg(1/30); };
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

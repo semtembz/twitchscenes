@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Cartridge 8 Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0b0b16; color: #FCFCFC;
+      font-family: "Courier New", ui-monospace, "Lucida Console", Monaco, monospace; font-weight: 700; }
+    h1 { font-size: 22px; color: #FCBC3C; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase;
+      text-shadow: 3px 3px 0 #000; }
+    p  { color: #B8D0FC; line-height: 1.55; margin: 0 0 14px; max-width: 880px; font-weight: 400; }
+    code { color: #FCD800; background: #1A1A2E; padding: 2px 6px; }
+    label { color: #FCBC3C; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #1A1A2E; color: #FCFCFC;
+      border: 3px solid #FCFCFC; margin-right: 16px; font-family: inherit; }
+    input { width: 150px; }
+    button { font-size: 15px; padding: 13px 26px; background: #E60000; color: #FCFCFC;
+      border: 4px solid #FCFCFC; cursor: pointer; letter-spacing: 2px; font-weight: 700;
+      text-transform: uppercase; box-shadow: 6px 6px 0 #000; font-family: inherit; }
+    button:hover:not(:disabled) { background: #FC3030; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #FCBC3C; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 3px solid #1A1A2E; }
+    .checker {
+      background-color: #14141f;
+      background-image:
+        linear-gradient(45deg, #20203a 25%, transparent 25%),
+        linear-gradient(-45deg, #20203a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #20203a 75%),
+        linear-gradient(-45deg, transparent 75%, #20203a 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <h1>Export Cartridge 8 Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>. (Tick "noname" to bake
+     the EVENT label instead of a viewer name — how clips usually ship.)</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" value="Player1" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" value="5" /></span>
+    <span><label for="nn">No-name</label>
+      <input id="nn" type="checkbox" style="width:auto" checked /></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, PX = 8;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css / shared.css tokens)
+    const WHITE = '#FCFCFC', NIGHT = '#1A1A2E', BLUE = '#0058F8', QB = '#FCBC3C',
+          QB_DK = '#A85400', QB_LT = '#FFD874', COIN = '#FCD800', SHADOW = '#000000';
+    const PAL = {
+      coin:  ['#FCD800', '#FCBC3C', '#FCFCFC', '#A85400'],
+      heart: ['#E60000', '#FCFCFC', '#A80000', '#FC7C7C'],
+      star:  ['#FCD800', '#FCFCFC', '#FCBC3C'],
+      block: ['#C84C0C', '#FCBC3C', '#7C2800', '#FCFCFC'],
+    };
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"+", kicker:"NEW FOLLOWER",   sub:"PLAYER 2 JOINED", motes:16, amount:false, kind:"coin",  cls:"follower" },
+      subscriber: { glyph:"$", kicker:"NEW SUBSCRIBER", sub:"CONTINUE? YES",   motes:22, amount:false, kind:"coin",  cls:"subscriber" },
+      member:     { glyph:"M", kicker:"NEW MEMBER",     sub:"WARP UNLOCKED",   motes:20, amount:false, kind:"block", cls:"member" },
+      cheer:      { glyph:"C", kicker:"CHEER",          sub:"COINS COLLECTED", motes:26, amount:true,  amtPre:"", amtSuf:" BITS",    kind:"coin",  cls:"cheer" },
+      donation:   { glyph:"1", kicker:"DONATION",       sub:"EXTRA LIFE",      motes:26, amount:true,  amtPre:"$", kind:"heart", cls:"donation" },
+      host:       { glyph:">", kicker:"NOW HOSTING",    sub:"PIPE CONNECTED",  motes:32, amount:true,  amtPre:"", amtSuf:" GUESTS",  kind:"block", cls:"host" },
+      raid:       { glyph:"R", kicker:"RAID INCOMING",  sub:"STAMPEDE!",       motes:46, amount:true,  amtPre:"", amtSuf:" RAIDERS", kind:"block", cls:"raid" },
+      like:       { glyph:"<", kicker:"NEW LIKE",       sub:"+1 HP",           motes:14, amount:false, kind:"heart", cls:"like" },
+      share:      { glyph:"S", kicker:"SHARED",         sub:"SIGNAL BOOSTED",  motes:18, amount:false, kind:"block", cls:"share" },
+      star:       { glyph:"*", kicker:"NEW STAR",       sub:"INVINCIBLE!",     motes:24, amount:true,  amtPre:"", amtSuf:" STARS",   kind:"star",  cls:"star" },
+      superchat:  { glyph:"!", kicker:"SUPER CHAT",     sub:"MESSAGE GET!",    motes:28, amount:true,  amtPre:"$", kind:"star",  cls:"superchat" },
+      supporter:  { glyph:"&", kicker:"NEW SUPPORTER",  sub:"POWER-UP!",       motes:24, amount:false, kind:"coin",  cls:"supporter" },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 150, 840 wide) =====
+    const CARD_W = 840, CARD_H = 208;
+    const CARD_X0 = 96;
+    const CARD_Y0 = H - 150 - CARD_H;
+
+    // ===== per-event entrance sampler (mirror of alerts.js entrance()) =====
+    // returns {x,y,sc,op} for ms into the entrance (stepped where the CSS is stepped).
+    function entrance(cls, ms) {
+      let x = 0, y = 0, sc = 1, op = 1;
+      switch (cls) {
+        case "follower":
+          if (ms < 420) { const p = ms/420; op = p<.001?0:1; y = p<.001?60:p<.33?40:p<.66?18:0; } break;
+        case "subscriber":
+          if (ms < 440) { const p = ms/440; op = p<.001?0:1; y = p<.40?-90:p<.55?0:p<.70?10:-6; if (p>=.70) y=0; } break;
+        case "member":
+          if (ms < 400) { const p = ms/400; op = p<.001?0:1; sc = p<.35?.05:p<.55?1.0:p<.75?1.08:.96; if (p>=.999) sc=1; } break;
+        case "cheer":
+          if (ms < 460) { const p = ms/460; op = p<.001?0:1; y = p<.25?30:p<.50?-34:p<.72?-44:8; if (p>=.999) y=0; } break;
+        case "donation":
+          if (ms < 500) { const p = ms/500; op = p<.001?0:1; y = p<.30?72:p<.55?40:p<.78?20:6; if (p>=.999) y=0; } break;
+        case "host":
+          if (ms < 420) { const p = ms/420; op = p<.001?0:1; x = p<.33?-260:p<.66?-120:-40; if (p>=.999) x=0; } break;
+        case "raid":
+          if (ms < 560) { const p = ms/560; op = p<.001?0:1;
+            if (p<.20){x=-200;} else if (p<.30){x=0;} else if (p<.42){x=14;y=-6;} else if (p<.54){x=-12;y=4;}
+            else if (p<.66){x=10;y=-4;} else if (p<.78){x=-8;y=3;} else {x=5;y=-2;}
+            if (p>=.999){x=0;y=0;} } break;
+        case "like":
+          if (ms < 300) { const p = ms/300; op = p<.001?0:1; sc = p<.40?.7:p<.70?1.12:.95; if (p>=.999) sc=1; } break;
+        case "share":
+          if (ms < 420) { const p = ms/420; op = p<.001?0:1; x = p<.33?240:p<.66?110:34; if (p>=.999) x=0; } break;
+        case "star":
+          if (ms < 540) { const p = ms/540; y = p<.20?48:0;
+            op = p<.001?0:(p<.30?1:p<.40?.3:p<.52?1:p<.64?.3:p<.76?1:.4); if (p>=.76) op=1; } break;
+        case "superchat":
+          if (ms < 480) { const p = ms/480; op = p<.001?0:1;
+            if (p<.30){x=-180;y=60;} else if (p<.55){x=-90;y=-18;} else if (p<.78){x=-30;y=8;} else {x=-8;y=-4;}
+            if (p>=.999){x=0;y=0;} } break;
+        case "supporter":
+          if (ms < 580) { const p = ms/580; op = p<.001?0:1;
+            y = p<.25?-70:p<.40?0:p<.55?-26:p<.70?0:p<.85?-12:0; } break;
+      }
+      return { x, y, sc, op };
+    }
+
+    function drawMote(p) {
+      const x = Math.round(p.x/PX)*PX, y = Math.round(p.y/PX)*PX, s = p.s;
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.a));
+      if (p.shape === "heart") {
+        const u = s/4; ctx.fillStyle = p.c;
+        ctx.fillRect(x, y+u, u, u); ctx.fillRect(x+2*u, y+u, u, u);
+        ctx.fillRect(x, y+2*u, 3*u, u); ctx.fillRect(x+u, y+3*u, u, u);
+      } else if (p.shape === "star") {
+        const u = s/3; ctx.fillStyle = p.c;
+        ctx.fillRect(x+u, y, u, 3*u); ctx.fillRect(x, y+u, 3*u, u);
+      } else {
+        ctx.fillStyle = p.c; ctx.fillRect(x, y, s, s);
+        ctx.fillStyle = '#FCFCFC'; ctx.fillRect(x, y, s/4, s/4);
+      }
+    }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): entrance up to 580 | hold to 4780 | out .30 => ~5080ms
+    const T_ENTER = 580, T_HOLD_END = 4780, T_OUT = 300;
+    const DUR = T_HOLD_END + T_OUT;
+
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const burst = [];
+      let spawned1 = false, spawned2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n, kind) {
+        const ox = 270, oy = H - 230;
+        for (let i = 0; i < n; i++) burst.push({
+          x: ox + R(-40, 120), y: oy + R(-50, 40),
+          vx: R(-160, 200)/60, vy: R(-300, -120)/60, g: R(420, 560)/3600,
+          s: (R(2, 4)|0) * PX, a: 1, life: R(1.2, 2.2),
+          c: PAL[kind][(Math.random()*PAL[kind].length)|0], shape: kind,
+        });
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g;
+          p.life -= 1/30; p.a = p.life > 1 ? 1 : Math.max(0, p.life);
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      return function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // entrance / hold / exit
+        let x = 0, y = 0, sc = 1, op = 1;
+        if (ms < T_ENTER) { const s = entrance(cfg.cls, ms); x = s.x; y = s.y; sc = s.sc; op = s.op; }
+        else if (ms < T_HOLD_END) { x = 0; y = 0; sc = 1; op = 1; }
+        else { const p = Math.min(1, (ms - T_HOLD_END) / T_OUT);
+          if (p < .50) { y = 10; op = 1; } else { y = 48; op = 0; } }
+
+        // bursts (staggered like the live JS)
+        if (!spawned1 && ms >= 180) { spawn(cfg.motes, cfg.kind); spawned1 = true; }
+        if (!spawned2 && cfg.motes >= 30 && ms >= 520) { spawn(Math.round(cfg.motes*0.6), cfg.kind); spawned2 = true; }
+        stepBurst();
+
+        if (op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1;
+
+        if (op <= 0.01) return;
+
+        // ---- draw the item-box card around its anchored origin, with transform ----
+        ctx.save();
+        ctx.globalAlpha = op;
+        // apply translate + scale around the card center (mirrors transform-origin defaults)
+        const cx = CARD_X0 + CARD_W / 2, cy = CARD_Y0 + CARD_H / 2;
+        ctx.translate(x, y);
+        ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+
+        const bx = CARD_X0, by = CARD_Y0;
+
+        // hard black drop shadow block (12,12 offset)
+        ctx.fillStyle = SHADOW; ctx.fillRect(bx + 12, by + 12, CARD_W, CARD_H);
+        // card body (night) + white border (8) + inner blue double border (4)
+        ctx.fillStyle = NIGHT; ctx.fillRect(bx, by, CARD_W, CARD_H);
+        ctx.lineWidth = 8; ctx.strokeStyle = WHITE;
+        ctx.strokeRect(bx + 4, by + 4, CARD_W - 8, CARD_H - 8);
+        ctx.lineWidth = 4; ctx.strokeStyle = BLUE;
+        ctx.strokeRect(bx + 14, by + 14, CARD_W - 28, CARD_H - 28);
+
+        // top scoreboard seam (qblock w/ hard shadow)
+        ctx.fillStyle = SHADOW; ctx.fillRect(bx + 22, by + 18, CARD_W - 36, 6);
+        ctx.fillStyle = QB; ctx.fillRect(bx + 18, by + 14, CARD_W - 36, 6);
+
+        // ---- art ?-block tile ----
+        const tx = bx + 40, ty = by + 30, ts = 148;
+        ctx.fillStyle = SHADOW; ctx.fillRect(tx + 8, ty + 8, ts, ts);          // tile shadow
+        ctx.fillStyle = QB; ctx.fillRect(tx, ty, ts, ts);                       // tile body
+        ctx.fillStyle = QB_LT; ctx.fillRect(tx, ty, ts, 10); ctx.fillRect(tx, ty, 10, ts);       // inset hi
+        ctx.fillStyle = QB_DK; ctx.fillRect(tx, ty + ts - 10, ts, 10); ctx.fillRect(tx + ts - 10, ty, 10, ts); // inset shadow
+        ctx.lineWidth = 8; ctx.strokeStyle = SHADOW; ctx.strokeRect(tx + 4, ty + 4, ts - 8, ts - 8); // black border
+        // glyph (hard white drop)
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '700 76px "Courier New", monospace';
+        ctx.fillStyle = WHITE; ctx.fillText(cfg.glyph, tx + ts/2 + 4, ty + ts/2 + 4);
+        ctx.fillStyle = SHADOW; ctx.fillText(cfg.glyph, tx + ts/2, ty + ts/2);
+
+        // ---- meta column ----
+        const mx = bx + 40 + ts + 34;
+        const maxW = CARD_W - (mx - bx) - 44;
+        ctx.textAlign = 'left';
+
+        // kicker line (deco caps) — with a small green pixel cursor unless noname
+        let ky = by + 56;
+        if (!noname) {
+          ctx.fillStyle = '#00B800'; ctx.fillRect(mx, ky - 16, 18, 18);
+          ctx.fillStyle = SHADOW; ctx.fillRect(mx + 3, ky - 13, 18, 18); // cursor shadow approx
+          ctx.fillStyle = '#00B800'; ctx.fillRect(mx, ky - 16, 18, 18);
+          ctx.font = '700 26px "Courier New", monospace';
+          ctx.fillStyle = SHADOW; ctx.fillText(spaced('CART 8 · ' + cfg.kicker), mx + 30 + 4, ky + 4);
+          ctx.fillStyle = QB;     ctx.fillText(spaced('CART 8 · ' + cfg.kicker), mx + 30, ky);
+        }
+
+        // name (big pixel) OR the event label if noname
+        const bigText = noname ? cfg.kicker : (name || 'Player1').toUpperCase();
+        ctx.font = '700 64px "Courier New", monospace';
+        const ny = by + 122;
+        ctx.fillStyle = SHADOW; ctx.fillText(clampText(bigText, maxW, '700 64px "Courier New", monospace'), mx + 6, ny + 6);
+        ctx.fillStyle = WHITE;  ctx.fillText(clampText(bigText, maxW, '700 64px "Courier New", monospace'), mx, ny);
+
+        // amount/SCORE (coin yellow) OR sub
+        let subY = by + 168;
+        if (showAmount) {
+          ctx.font = '700 40px "Courier New", monospace';
+          ctx.fillStyle = SHADOW; ctx.fillText(amountStr, mx + 5, by + 165 + 5);
+          ctx.fillStyle = COIN;   ctx.fillText(amountStr, mx, by + 165);
+          subY = by + 192;
+        }
+        // sub caption
+        ctx.font = '700 26px "Courier New", monospace';
+        ctx.fillStyle = SHADOW; ctx.fillText(cfg.sub, mx + 3, subY + 3);
+        ctx.fillStyle = WHITE;  ctx.fillText(cfg.sub, mx, subY);
+
+        // corner credit tag
+        ctx.textAlign = 'right'; ctx.globalAlpha = op * 0.55;
+        ctx.font = '700 18px "Courier New", monospace';
+        ctx.fillStyle = SHADOW; ctx.fillText('CARTRIDGE 8', bx + CARD_W - 26 + 3, by + 38 + 3);
+        ctx.fillStyle = WHITE;  ctx.fillText('CARTRIDGE 8', bx + CARD_W - 26, by + 38);
+
+        ctx.restore();
+      };
+    }
+
+    function spaced(str) { return String(str).split('').join(' '); }
+    function clampText(str, maxW, font) {
+      ctx.save(); ctx.font = font; let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== preview a mid-hold frame so you see the look =====
+    function preview() {
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const noname = document.getElementById('nn').checked;
+      clipState(type, document.getElementById('nm').value, amountStr, noname)(1600);
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('nn').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const noname = document.getElementById('nn').checked;
+      const render = clipState(type, document.getElementById('nm').value, amountStr, noname);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

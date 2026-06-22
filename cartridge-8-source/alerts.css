@@ -1,0 +1,262 @@
+/* ============================================================
+   CARTRIDGE 8 — alert system ("1-UP!")
+   A blocky NES "item-box" notification that POPS up from the
+   bottom-left like a power-up sprout. Transparent background so
+   it composites over gameplay / the scene. Cohesive with
+   shared.css tokens: flat NES colors, ZERO gradients/blur,
+   integer-grid pixels, image-rendering:pixelated, HARD multi-
+   offset text-shadows, and steps(1,end) quantized motion.
+   A chunky bordered "?-block" art tile holds the event glyph,
+   a deco-caps kicker, a big pixel NAME line clamped to one row,
+   an optional pixel SCORE/amount line, a small sub caption, and
+   a corner "CARTRIDGE 8" credit. Each event gets a DISTINCT
+   motion via a per-event class on .alert (alerts.js sets it).
+   ============================================================ */
+:root{
+  /* NES palette (mirrors shared.css so alerts/*.html work standalone) */
+  --nes-red:#E60000; --nes-blue:#0058F8; --white:#FCFCFC; --nes-green:#00B800;
+  --night:#1A1A2E; --sky:#5C94FC;
+  --brick:#C84C0C; --brick-dk:#7C2800; --qblock:#FCBC3C; --qblock-dk:#A85400;
+  --ground:#9C4A00; --ground-dk:#5C2800; --pipe:#00B800; --pipe-dk:#006800; --pipe-lt:#80D010;
+  --coin:#FCD800; --shadow:#000000; --hud-bg:#000000; --ink:#FCFCFC;
+  --step:steps(1,end);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+  font-weight:700;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  -webkit-font-smoothing:none;}
+
+/* one canvas for the pixel-coin/particle burst, behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;
+  image-rendering:pixelated;image-rendering:crisp-edges;}
+
+/* ============================================================
+   THE ALERT CARD — a chunky NES item box, anchored bottom-left
+   ============================================================ */
+.alert{position:absolute;left:96px;bottom:150px;width:840px;padding:30px 40px;
+  background:var(--night);
+  border:8px solid var(--white);
+  /* hard black drop "shadow" block — no blur */
+  box-shadow:12px 12px 0 var(--shadow);
+  display:grid;grid-template-columns:148px 1fr;gap:34px;align-items:center;
+  color:var(--white);
+  /* hidden until JS toggles .show; default resting transform = none */
+  opacity:0;transform:translateY(40px);
+  will-change:transform,opacity;}
+/* inner hard double border (the NES dialog double-frame look) */
+.alert::before{content:"";position:absolute;inset:6px;border:4px solid var(--nes-blue);
+  pointer-events:none;opacity:.0;}
+.alert.show::before{opacity:1;}
+/* a thin top scoreboard rule, flat */
+.alert .seam{position:absolute;left:18px;right:18px;top:14px;height:6px;
+  background:var(--qblock);box-shadow:4px 4px 0 var(--shadow);}
+
+/* ---- event art tile: a chunky ?-block holding the glyph ---- */
+.alert .art{width:148px;height:148px;position:relative;
+  background:var(--qblock);
+  border:8px solid var(--shadow);
+  box-shadow:inset -10px -10px 0 var(--qblock-dk), inset 10px 10px 0 #FFD874,
+    8px 8px 0 var(--shadow);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:76px;font-weight:700;color:var(--shadow);
+  text-shadow:4px 4px 0 var(--white);
+  /* glyph pops in, stepped */
+  animation:glyph-pop .36s var(--step) both .14s;}
+
+/* ---- meta column ---- */
+.alert .meta{min-width:0;}
+/* deco-caps kicker line (small "CART 8 · NEW FOLLOWER") */
+.alert .kick{font-size:26px;letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
+  color:var(--qblock);text-shadow:4px 4px 0 var(--shadow);
+  margin:0 0 10px;display:flex;align-items:center;gap:14px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+/* a tiny blinking pixel square before the kicker (the arcade cursor) */
+.alert .kick .dia{width:18px;height:18px;background:var(--nes-green);
+  box-shadow:3px 3px 0 var(--shadow);flex:none;text-indent:0;
+  animation:blink 1.06s var(--step) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+
+/* big NAME — chunky pixel caps, clamped to one line (long handles never break the box) */
+.alert .name{font-size:64px;line-height:1;font-weight:700;letter-spacing:.01em;
+  margin:2px 0 10px;text-transform:uppercase;color:var(--white);
+  text-shadow:6px 6px 0 var(--shadow);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount / SCORE line — hidden unless .has-amount; emphasized for cheer/donation/superchat */
+.alert .amount{font-size:40px;font-weight:700;letter-spacing:.04em;margin:0 0 8px;display:none;
+  color:var(--coin);text-shadow:5px 5px 0 var(--shadow);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--white);}
+
+/* small pixel sub caption */
+.alert .sub{font-size:26px;letter-spacing:.1em;text-transform:uppercase;color:var(--white);
+  text-shadow:3px 3px 0 var(--shadow);margin:0;opacity:.92;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* corner "CARTRIDGE 8" credit (top-right, small) */
+.alert .tagid{position:absolute;top:18px;right:26px;
+  font-size:18px;letter-spacing:.2em;text-transform:uppercase;color:var(--white);opacity:.55;
+  text-shadow:3px 3px 0 var(--shadow);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 DISTINCT choreographies.
+   JS adds .show + the per-event class; .show drives the chosen
+   keyframe. All easing is steps()-quantized for the 8-bit pop.
+   Resting/final state is always opacity:1; transform:none.
+   ============================================================ */
+.alert.show{opacity:1;}
+
+/* exit is shared: a quick stepped drop-out */
+.alert.hide{animation:cart-out .26s var(--step) forwards!important;}
+@keyframes cart-out{
+  0%{opacity:1;transform:none}
+  50%{opacity:1;transform:translateY(10px)}
+  51%{opacity:0}
+  100%{opacity:0;transform:translateY(48px)}
+}
+
+/* 1) FOLLOWER — "sprout": rises from below in 3 hard steps (power-up emerging) */
+.alert.ev-follower.show{animation:cart-sprout .42s var(--step) both;}
+@keyframes cart-sprout{
+  0%{opacity:0;transform:translateY(60px)}
+  33%{opacity:1;transform:translateY(40px)}
+  66%{transform:translateY(18px)}
+  100%{transform:translateY(0)}
+}
+
+/* 2) SUBSCRIBER — "stomp drop": slams DOWN from above, settles (Goomba stomp) */
+.alert.ev-subscriber.show{animation:cart-stomp .44s var(--step) both;}
+@keyframes cart-stomp{
+  0%{opacity:0;transform:translateY(-90px)}
+  40%{opacity:1;transform:translateY(0)}
+  55%{transform:translateY(10px)}
+  70%{transform:translateY(-6px)}
+  100%{transform:translateY(0)}
+}
+
+/* 3) MEMBER — "warp-in": pops scaling up from a single pixel (pipe warp) */
+.alert.ev-member.show{animation:cart-warp .40s var(--step) both;}
+@keyframes cart-warp{
+  0%{opacity:0;transform:scale(.05)}
+  35%{opacity:1;transform:scale(1.0)}
+  55%{transform:scale(1.08)}
+  75%{transform:scale(.96)}
+  100%{transform:scale(1)}
+}
+
+/* 4) CHEER — "coin pop": jumps up then lands (a collected coin) — amount emphasized */
+.alert.ev-cheer.show{animation:cart-coinpop .46s var(--step) both;}
+@keyframes cart-coinpop{
+  0%{opacity:0;transform:translateY(30px)}
+  25%{opacity:1;transform:translateY(-34px)}
+  50%{transform:translateY(-44px)}
+  72%{transform:translateY(8px)}
+  100%{transform:translateY(0)}
+}
+
+/* 5) DONATION — "1-UP rise": floats up the way a 1-UP score does — amount emphasized */
+.alert.ev-donation.show{animation:cart-oneup .50s var(--step) both;}
+@keyframes cart-oneup{
+  0%{opacity:0;transform:translateY(72px)}
+  30%{opacity:1;transform:translateY(40px)}
+  55%{transform:translateY(20px)}
+  78%{transform:translateY(6px)}
+  100%{transform:translateY(0)}
+}
+
+/* 6) HOST — "slide from pipe (left)": shoves in from off-screen left in hard steps */
+.alert.ev-host.show{animation:cart-slideL .42s var(--step) both;}
+@keyframes cart-slideL{
+  0%{opacity:0;transform:translateX(-260px)}
+  33%{opacity:1;transform:translateX(-120px)}
+  66%{transform:translateX(-40px)}
+  100%{transform:translateX(0)}
+}
+
+/* 7) RAID — "stampede": shakes in hard (a crowd arriving) */
+.alert.ev-raid.show{animation:cart-raid .56s var(--step) both;}
+@keyframes cart-raid{
+  0%{opacity:0;transform:translateX(-200px)}
+  20%{opacity:1;transform:translateX(0)}
+  30%{transform:translate(14px,-6px)}
+  42%{transform:translate(-12px,4px)}
+  54%{transform:translate(10px,-4px)}
+  66%{transform:translate(-8px,3px)}
+  78%{transform:translate(5px,-2px)}
+  100%{transform:translate(0,0)}
+}
+
+/* 8) LIKE — "blip": quick stepped scale-blip pop (a heart blip) */
+.alert.ev-like.show{animation:cart-blip .30s var(--step) both;}
+@keyframes cart-blip{
+  0%{opacity:0;transform:scale(.7)}
+  40%{opacity:1;transform:scale(1.12)}
+  70%{transform:scale(.95)}
+  100%{transform:scale(1)}
+}
+
+/* 9) SHARE — "fly-up from right": darts in from the right and settles */
+.alert.ev-share.show{animation:cart-slideR .42s var(--step) both;}
+@keyframes cart-slideR{
+  0%{opacity:0;transform:translateX(240px)}
+  33%{opacity:1;transform:translateX(110px)}
+  66%{transform:translateX(34px)}
+  100%{transform:translateX(0)}
+}
+
+/* 10) STAR — "invincibility flash-in": rises with a hard flicker (star power) — amount emphasized */
+.alert.ev-star.show{animation:cart-star .54s var(--step) both;}
+@keyframes cart-star{
+  0%{opacity:0;transform:translateY(48px)}
+  20%{opacity:1;transform:translateY(0)}
+  30%{opacity:.3}
+  40%{opacity:1}
+  52%{opacity:.3}
+  64%{opacity:1}
+  76%{opacity:.4}
+  100%{opacity:1;transform:translateY(0)}
+}
+
+/* 11) SUPERCHAT — "fireball arc": swings in from lower-left in stepped arc — amount emphasized */
+.alert.ev-superchat.show{animation:cart-arc .48s var(--step) both;}
+@keyframes cart-arc{
+  0%{opacity:0;transform:translate(-180px,60px)}
+  30%{opacity:1;transform:translate(-90px,-18px)}
+  55%{transform:translate(-30px,8px)}
+  78%{transform:translate(-8px,-4px)}
+  100%{transform:translate(0,0)}
+}
+
+/* 12) SUPPORTER — "double-bounce": lands then bounces twice (a happy hop) */
+.alert.ev-supporter.show{animation:cart-bounce .58s var(--step) both;}
+@keyframes cart-bounce{
+  0%{opacity:0;transform:translateY(-70px)}
+  25%{opacity:1;transform:translateY(0)}
+  40%{transform:translateY(-26px)}
+  55%{transform:translateY(0)}
+  70%{transform:translateY(-12px)}
+  85%{transform:translateY(0)}
+  100%{transform:translateY(0)}
+}
+
+/* ============================================================
+   RENDER MODE — freeze ALL CSS motion to the FINAL state; JS
+   (alerts.js __renderAdvance) drives transform/opacity + the
+   pixel-burst canvas deterministically for the webm pipeline.
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert{opacity:1;transform:none;}
+#stage.render .alert::before{opacity:1;}
+#stage.render .alert .glyph{animation:none!important;transform:none;opacity:1;}
+#stage.render .alert .kick .dia{animation:none!important;opacity:1;}

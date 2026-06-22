@@ -1,0 +1,191 @@
+/* ============================================================
+   LO-FI CAFE — alert system ("Rainy Window Booth")
+   A cozy cream "order ticket" / menu card that drifts up onto the
+   windowsill from the bottom-left, holds, then settles back down.
+   TRANSPARENT background so it composites over gameplay / the scene.
+   Cohesive with shared.css tokens: rounded hand-drawn paper card,
+   dashed doodle inner outline, paper grain, an amber "tape tab",
+   a rounded mug-glyph plate, a pulsing amber kicker dot, the warm
+   coffee NAME line, an optional amber AMOUNT, a wavy doodle rule,
+   a calm italic sub-line, and a tiny corner stamp.
+   The signature warm BOKEH + RAIN field is drawn on the same
+   canvas convention used by the screens (transparent).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --latte:#E8D5C4;        /* warm latte bg */
+  --mocha:#C9A88A;        /* mid mocha */
+  --coffee:#8C6A56;       /* deep coffee / ink */
+  --cream:#F4EBE2;        /* cream */
+  --amber:#D9925A;        /* warm amber accent */
+  /* derived */
+  --ink:#6E5040;                       /* darker coffee text */
+  --glass:rgba(244,235,226,.10);       /* foggy glass film */
+  --line:rgba(140,106,86,.55);         /* hand-drawn ink line */
+  --line-soft:rgba(140,106,86,.26);
+  --amber-glow:rgba(217,146,90,.55);
+  --card:rgba(244,235,226,.82);        /* menu-card paper */
+  --ease:cubic-bezier(.22,.78,.26,1);  /* gentle settle */
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--coffee);background:transparent;
+  font-family:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,
+    -apple-system,"Trebuchet MS",sans-serif;}
+
+/* one canvas for the warm bokeh + rain burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left, drifts up onto the sill ---- */
+.alert{position:absolute;left:96px;bottom:128px;width:760px;padding:34px 42px;
+  background:linear-gradient(180deg, rgba(244,235,226,.94), rgba(232,213,196,.88));
+  border-radius:30px;
+  border:2px solid rgba(140,106,86,.34);
+  box-shadow:0 28px 70px rgba(60,40,28,.42),
+    inset 0 0 0 1px rgba(244,235,226,.6), inset 0 2px 22px rgba(244,235,226,.7);
+  display:grid;grid-template-columns:140px 1fr;gap:30px;align-items:center;
+  /* start below the sill + hidden; .show drifts it up */
+  opacity:0;transform:translateY(120px);
+  will-change:transform,opacity;}
+/* dashed hand-drawn inner outline (echoes the menu card) */
+.alert::before{content:"";position:absolute;inset:12px;border-radius:22px;
+  border:2px dashed rgba(140,106,86,.34);pointer-events:none;}
+/* soft paper grain inside the card */
+.alert::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.5;
+  background:radial-gradient(rgba(140,106,86,.12) 1px, transparent 1.4px);background-size:4px 4px;}
+
+/* entrance / exit driven by JS toggling .show / .hide.
+   Per-event motion is layered ON TOP via body[data-event] (see bottom). */
+.alert.show{animation:alert-in .66s var(--ease) forwards;}
+.alert.hide{animation:alert-out .5s var(--ease) forwards;}
+@keyframes alert-in{
+  0%{opacity:0;transform:translateY(120px);}
+  72%{opacity:1;transform:translateY(-10px);}
+  100%{opacity:1;transform:translateY(0);}
+}
+@keyframes alert-out{
+  0%{opacity:1;transform:translateY(0);}
+  100%{opacity:0;transform:translateY(120px);}
+}
+
+/* amber "tape tab" pinned to the card top — the cafe "order up" tab */
+.alert .tab{position:absolute;left:40px;top:-20px;transform:rotate(-1.5deg);
+  padding:7px 22px;border-radius:13px;background:var(--amber);color:var(--cream);
+  font-size:16px;font-weight:700;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase;
+  box-shadow:0 8px 16px rgba(60,40,28,.3);white-space:nowrap;
+  animation:tab-bob 3.4s ease-in-out infinite;}
+@keyframes tab-bob{0%,100%{transform:rotate(-1.5deg) translateY(0)}50%{transform:rotate(-1.5deg) translateY(-3px)}}
+
+/* event glyph plate — a rounded "coaster" tile with a soft warm glaze + mug-glyph */
+.alert .art{width:140px;height:140px;position:relative;overflow:hidden;border-radius:24px;
+  background:
+    radial-gradient(120% 100% at 30% 24%, rgba(217,146,90,.30), transparent 60%),
+    linear-gradient(160deg, var(--cream) 0%, var(--mocha) 78%, #B0876A 100%);
+  border:2px solid rgba(140,106,86,.32);
+  box-shadow:inset 0 8px 0 rgba(244,235,226,.5), inset -8px -12px 18px rgba(110,80,64,.32),
+    0 10px 22px rgba(60,40,28,.28);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:70px;color:var(--ink);
+  text-shadow:0 2px 0 rgba(244,235,226,.7), 0 0 26px rgba(217,146,90,.45);
+  animation:glyph-pop .72s var(--ease) both .2s;}
+/* a thin dashed ring inside the coaster for the hand-drawn doodle feel */
+.alert .art::after{content:"";position:absolute;inset:12px;border-radius:16px;pointer-events:none;
+  border:2px dashed rgba(140,106,86,.3);}
+@keyframes glyph-pop{0%{transform:scale(.4) rotate(-12deg);opacity:0}60%{transform:scale(1.14) rotate(4deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+/* kicker — gentle spaced caps with a soft pulsing amber dot before it */
+.alert .kick{display:flex;align-items:center;gap:13px;
+  font-size:19px;font-weight:600;letter-spacing:.34em;text-indent:.34em;text-transform:uppercase;
+  color:var(--amber);margin:2px 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:11px;height:11px;border-radius:50%;background:var(--amber);flex:none;text-indent:0;
+  box-shadow:0 0 14px var(--amber-glow);animation:dotpulse 2.4s ease-in-out infinite;}
+@keyframes dotpulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+/* big NAME — warm rounded coffee ink, clamped to one line so a long handle never breaks the card */
+.alert .name{font-size:62px;line-height:1.0;font-weight:700;letter-spacing:.005em;margin:2px 0 8px;
+  text-transform:uppercase;color:var(--ink);
+  text-shadow:0 2px 0 rgba(244,235,226,.7), 0 8px 22px rgba(60,40,28,.16);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (amber) — hidden unless .has-amount */
+.alert .amount{font-size:30px;font-weight:700;letter-spacing:.03em;margin-bottom:6px;display:none;
+  color:var(--amber);text-shadow:0 1px 0 rgba(244,235,226,.6), 0 0 22px rgba(217,146,90,.45);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--ink);}
+
+/* a thin wavy hand-drawn doodle rule under the name (SVG stroke) */
+.alert .doodle{display:block;width:230px;height:13px;margin:0 0 8px;overflow:visible;}
+.alert .doodle path{fill:none;stroke:var(--amber);stroke-width:4;stroke-linecap:round;
+  stroke-dasharray:360;stroke-dashoffset:360;animation:draw .9s var(--ease) forwards .42s;}
+@keyframes draw{to{stroke-dashoffset:0;}}
+
+/* calm italic sub line */
+.alert .sub{font-size:22px;font-style:italic;color:var(--coffee);opacity:.92;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* tiny corner stamp top-right of the card (cozy doodle) */
+.alert .stamp{position:absolute;top:18px;right:24px;font-size:26px;opacity:.5;color:var(--coffee);
+  animation:stamp-bob 4.6s ease-in-out infinite;}
+@keyframes stamp-bob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-6px) rotate(6deg)}}
+
+/* ============================================================
+   PER-EVENT MOTION OVERRIDES — each event gets a DISTINCT entrance,
+   layered on .alert by body[data-event]. The base .alert-in is a
+   gentle drift-up; these swap the keyframes so every event feels
+   different (slide directions, pops, tilts, bounces, etc.).
+   Donation / cheer / superchat keep a pronounced "amount pop".
+   ============================================================ */
+/* follower — gentle drift up from below (the calm default) */
+body[data-event="follower"]   .alert.show{animation:in-drift .66s var(--ease) forwards;}
+/* subscriber — slide in from the left with a soft overshoot */
+body[data-event="subscriber"] .alert.show{animation:in-left .62s var(--ease) forwards;}
+/* member — fade + grow from a small scale (a warm "bloom") */
+body[data-event="member"]     .alert.show{animation:in-bloom .64s var(--ease) forwards;}
+/* cheer — bouncy upward hop (springy, celebratory) */
+body[data-event="cheer"]      .alert.show{animation:in-hop .78s cubic-bezier(.2,1.5,.36,1) forwards;}
+/* donation — a happy little tilt-in (rotate + rise) */
+body[data-event="donation"]   .alert.show{animation:in-tilt .7s var(--ease) forwards;}
+/* host — slide down from the top of the sill */
+body[data-event="host"]       .alert.show{animation:in-top .64s var(--ease) forwards;}
+/* raid — bigger swing-in from the left with a settle (the "crowd arrives") */
+body[data-event="raid"]       .alert.show{animation:in-swing .8s cubic-bezier(.2,1.2,.3,1) forwards;}
+/* like — quick soft pop (snappy, light) */
+body[data-event="like"]       .alert.show{animation:in-pop .5s var(--ease) forwards;}
+/* share — slide in from the right */
+body[data-event="share"]      .alert.show{animation:in-right .62s var(--ease) forwards;}
+/* star — twinkle: scale up with a gentle wobble */
+body[data-event="star"]       .alert.show{animation:in-twinkle .76s cubic-bezier(.2,1.3,.34,1) forwards;}
+/* superchat — emphatic rise + a tiny double-bounce (amount headliner) */
+body[data-event="superchat"]  .alert.show{animation:in-rise .82s cubic-bezier(.18,1.4,.3,1) forwards;}
+/* supporter — warm slow swell up from below (steady, grateful) */
+body[data-event="supporter"]  .alert.show{animation:in-swell .72s var(--ease) forwards;}
+
+@keyframes in-drift{0%{opacity:0;transform:translateY(120px)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes in-left{0%{opacity:0;transform:translateX(-680px)}74%{opacity:1;transform:translateX(18px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes in-bloom{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+@keyframes in-hop{0%{opacity:0;transform:translateY(160px)}55%{opacity:1;transform:translateY(-26px)}78%{transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes in-tilt{0%{opacity:0;transform:translateY(110px) rotate(-5deg)}72%{opacity:1;transform:translateY(-8px) rotate(2deg)}100%{opacity:1;transform:translateY(0) rotate(0)}}
+@keyframes in-top{0%{opacity:0;transform:translateY(-220px)}74%{opacity:1;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes in-swing{0%{opacity:0;transform:translateX(-760px) rotate(-6deg)}60%{opacity:1;transform:translateX(26px) rotate(2deg)}82%{transform:translateX(-10px) rotate(-1deg)}100%{opacity:1;transform:translateX(0) rotate(0)}}
+@keyframes in-pop{0%{opacity:0;transform:scale(.82)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
+@keyframes in-right{0%{opacity:0;transform:translateX(680px)}74%{opacity:1;transform:translateX(-18px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes in-twinkle{0%{opacity:0;transform:scale(.5) rotate(8deg)}55%{opacity:1;transform:scale(1.1) rotate(-3deg)}78%{transform:scale(.98) rotate(1.5deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes in-rise{0%{opacity:0;transform:translateY(180px)}50%{opacity:1;transform:translateY(-22px)}70%{transform:translateY(10px)}86%{transform:translateY(-5px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes in-swell{0%{opacity:0;transform:translateY(90px) scale(.92)}72%{opacity:1;transform:translateY(-6px) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* render mode: freeze ALL CSS-driven motion (JS drives transform/opacity deterministically) */
+#stage.render .alert,#stage.render .alert.show,#stage.render .alert.hide{animation:none!important;opacity:1;}
+#stage.render .alert .glyph{animation:none!important;transform:scale(1) rotate(0);opacity:1;}
+#stage.render .alert .kick .dot{animation:none!important;opacity:1;transform:scale(1);}
+#stage.render .alert .tab{animation:none!important;transform:rotate(-1.5deg);}
+#stage.render .alert .stamp{animation:none!important;}
+#stage.render .alert .doodle path{animation:none!important;stroke-dashoffset:0;}

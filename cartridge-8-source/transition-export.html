@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Cartridge 8 Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the pixel-block curtain wipe to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.1s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #1A1A2E; color: #FCFCFC;
+      font-family: "Courier New", ui-monospace, "Lucida Console", Monaco, monospace;
+      font-weight: 700; -webkit-font-smoothing: none; }
+    h1 { font-size: 22px; color: #FCBC3C; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 4px 4px 0 #000; }
+    p  { color: #B8D0FC; line-height: 1.6; margin: 0 0 14px; max-width: 820px; }
+    code { color: #FCD800; background: #00000055; padding: 2px 6px;
+      font-family: "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #00B800; color: #FCFCFC;
+      border: 4px solid #FCFCFC; cursor: pointer; letter-spacing: 2px; font-weight: 700;
+      text-transform: uppercase; text-shadow: 3px 3px 0 #000; box-shadow: 6px 6px 0 #000;
+      font-family: "Courier New", monospace; image-rendering: pixelated; }
+    button:hover:not(:disabled) { background: #80D010; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #FCBC3C; font-family: "Courier New", monospace; }
+    .stage { background: #00000033; border: 4px solid #FCFCFC; padding: 12px;
+      display: inline-block; margin-top: 18px; box-shadow: 8px 8px 0 #000; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #1A1A2E;
+      background-image:
+        linear-gradient(45deg, #2a2a44 25%, transparent 25%),
+        linear-gradient(-45deg, #2a2a44 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2a2a44 75%),
+        linear-gradient(-45deg, transparent 75%, #2a2a44 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, 12px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <h1>Export Cartridge 8 Transition → .webm</h1>
+  <p>Records the pixel-block curtain wipe to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 550 ms</strong>
+     (half the default 1100 ms — that's the full-cover peak when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1100;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const BRICK = '#C84C0C', BRICK_DK = '#7C2800';
+    const Q = '#FCBC3C', Q_DK = '#A85400';
+    const COIN = '#FCD800', COIN_HI = '#FCFCFC', COIN_DK = '#A85400';
+    const WHITE = '#FCFCFC', BLACK = '#000000', NES_RED = '#E60000';
+
+    const PX = 8;
+    const TILE = 120;
+    const COLS = Math.ceil(W / TILE);
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const snap = (v) => Math.round(v / PX) * PX;
+    const stepq = (x, n) => Math.round(clamp01(x) * n) / n;
+
+    let seed = 0xCA87 >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const cols = Array.from({ length: COLS }, (_, i) => ({
+      kind: rnd() < 0.34 ? 'q' : 'b',
+      lead: R(0, 0.18),
+      top: i % 2 === 0,
+    }));
+
+    function drawTile(x, y, t, kind) {
+      x = snap(x); y = snap(y);
+      const fillC = kind === 'q' ? Q : BRICK;
+      const dk = kind === 'q' ? Q_DK : BRICK_DK;
+      ctx.fillStyle = fillC; ctx.fillRect(x, y, t, t);
+      ctx.fillStyle = dk;
+      ctx.fillRect(x, y + t - PX, t, PX);
+      ctx.fillRect(x + t - PX, y, PX, t);
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(x, y, t, PX / 2);
+      ctx.fillRect(x, y, PX / 2, t);
+      if (kind === 'q') {
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(x + t / 2 - PX, y + PX * 2, PX * 2, PX);
+        ctx.fillRect(x + t / 2, y + PX * 3, PX, PX);
+        ctx.fillRect(x + t / 2, y + PX * 5, PX, PX);
+      } else {
+        ctx.fillStyle = dk;
+        ctx.fillRect(x, y + t / 2 - PX / 2, t, PX / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y, PX / 2, t / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y + t / 2, PX / 2, t / 2);
+      }
+    }
+
+    const COIN_GRID = [
+      [0,0,1,1,0,0],
+      [0,1,2,3,1,0],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [0,1,2,3,1,0],
+      [0,0,1,1,0,0],
+    ];
+    const COIN_COLS = [null, BLACK, COIN_DK, COIN, COIN_HI];
+    function drawCoin(cx, cy, spin, scale) {
+      const sq = Math.abs(Math.cos(spin * Math.PI * 2));
+      const uw = Math.max(PX, snap(scale * (0.18 + 0.82 * sq)));
+      const uh = snap(scale);
+      const gw = COIN_GRID[0].length, gh = COIN_GRID.length;
+      const ox = snap(cx - (gw * uw) / 2);
+      const oy = snap(cy - (gh * uh) / 2);
+      for (let gy = 0; gy < gh; gy++)
+        for (let gx = 0; gx < gw; gx++) {
+          const c = COIN_GRID[gy][gx];
+          if (!c) continue;
+          ctx.fillStyle = COIN_COLS[c];
+          ctx.fillRect(ox + gx * uw, oy + gy * uh, uw, uh);
+        }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);
+      const halfRows = Math.ceil((CY / TILE)) + 1;
+      for (let i = 0; i < cols.length; i++) {
+        const col = cols[i];
+        const x = i * TILE;
+        const adv = stepq(clamp01((cover - col.lead) / (1 - col.lead)), halfRows);
+        const reach = adv * (CY + TILE);
+        if (reach <= 0) continue;
+        for (let r = 0; r < halfRows; r++) {
+          const ty = r * TILE;
+          if (ty > reach) break;
+          drawTile(x, ty - (TILE - 0), TILE, col.kind);
+          drawTile(x, ty, TILE, col.kind);
+        }
+        for (let r = 0; r < halfRows; r++) {
+          const by = H - (r + 1) * TILE;
+          if (H - by > reach) break;
+          drawTile(x, by, TILE, col.kind === 'q' ? 'b' : 'q');
+        }
+      }
+      if (cover > 0.06) {
+        const spin = t * 3;
+        const sc = snap(8 + 34 * cover);
+        drawCoin(CX, CY, spin, sc);
+      }
+      const flashOn = Math.abs(t - 0.5) < (1 / 60);
+      if (flashOn) {
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(0, 0, W, H);
+      } else if (cover > 0.985) {
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(0, CY - PX * 2, W, PX * 4);
+        ctx.fillStyle = NES_RED;
+        ctx.fillRect(0, CY - PX, W, PX * 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

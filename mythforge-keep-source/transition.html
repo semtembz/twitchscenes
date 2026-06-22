@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Mythforge Keep Ember-Burn Parchment Wipe</title>
+  <!--
+    MYTHFORGE KEEP stinger ("The Burning Edict"). A sheet of aged parchment
+    sweeps DOWN over the screen on a diagonal, riding a ragged WALL OF EMBER FIRE:
+    a hot gold/blood-red burn-front with curling charred edges leads the parchment,
+    forged sparks lift off the flame-line on warm candle-air, and at full cover a
+    blast of white-hot gold light + a stamped wax sigil flares at centre. The
+    parchment then BURNS AWAY — the char-line eats it from the leading edge and the
+    screen clears to transparent. Weathered, heroic, candle-lit gold on near-black.
+    Transparent before & after, deterministic, sine-driven, ~1300ms. No glitch, no neon.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover flare).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (mythforge keep) ---- */
+    const TIMBER = '#120D08', TIMBER2 = '#0A0704', TIMBER3 = '#1E150C';
+    const GOLD = '#C9962F', GOLD_LT = '#F0CE7A', GOLD_DK = '#8A6320';
+    const WAX = '#7A1F1F', INK = '#3A2A16';
+    const PARCH_HOT = '#F3E8CE', PARCH = '#E7D7B2', PARCH_DK = '#8E743F';
+    const SPARKS = [GOLD_LT, GOLD, '#FFF4D6', '#E8A23A'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (NO Math.random in the frame fn) ---- */
+    let seed = 0x4d17;                       // "M17" — mythforge
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* ---- a static row of value-noise control points used to give the burn /
+       char front its ragged, hand-torn parchment edge. Sampled deterministically
+       so every frame & the export agree. ---- */
+    const N_EDGE = 26;
+    const edgePts = Array.from({ length: N_EDGE + 1 }, (_, i) => ({
+      amp: R(34, 96), ph: R(0, 6.2832), fr: R(0.8, 2.2),
+    }));
+    // ragged vertical offset (px) along the diagonal sweep, x in 0..W
+    function edgeOffset(x) {
+      const u = (x / W) * N_EDGE;
+      const i = Math.floor(u), f = u - i;
+      const a = edgePts[i], b = edgePts[i + 1];
+      const va = Math.sin(a.ph + a.fr * Math.PI) * a.amp;
+      const vb = Math.sin(b.ph + b.fr * Math.PI) * b.amp;
+      const s = f * f * (3 - 2 * f);
+      return lerp(va, vb, s);
+    }
+
+    /* ---- forged sparks that lift off the flame-line on warm candle-air.
+       Positions are a deterministic function of t (no per-frame randomness). ---- */
+    const N_SPARK = 90;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      x0: R(0, W), rise: R(H * 0.30, H * 0.95), drift: R(-70, 90),
+      sway: R(14, 60), swf: R(1.1, 3.0), phase: R(0, 6.2832),
+      s: R(1.3, 4.6), c: SPARKS[(rnd() * SPARKS.length) | 0],
+      lead: R(0, 0.42), span: R(0.34, 0.7), a: R(0.45, 1.0), tw: R(1.4, 3.0),
+      grey: rnd() < 0.34,                     // ~1/3 cooler grey ash
+    }));
+
+    /* y of the burn-front (parchment leading edge) for a given screen x.
+       The sheet enters top-left and sweeps to bottom-right on a slight diagonal.
+       coverY in 0..1 = how far the *base* front has travelled. */
+    function frontY(x, coverY) {
+      const diag = (x / W) * 150;              // slight downward tilt to the right
+      return coverY * (H + 260) - 130 + diag + edgeOffset(x);
+    }
+
+    /* ---- the parchment sheet riding the burn-front: everything ABOVE the
+       ragged char-line is filled with aged parchment; the char-line itself is a
+       band of glowing ember + black scorch. cover 0..1..0 drives travel. ---- */
+    function drawParchment(t, cover) {
+      if (cover <= 0.001) return;
+      // map cover (sine 0..1..0) to a single monotonic-ish travel position so the
+      // sheet sweeps IN on the rising half and BURNS AWAY on the falling half.
+      const rising = t <= 0.5;
+      // travel of the leading char-line, 0 (offscreen top) -> 1 (offscreen bottom)
+      const coverY = rising ? smooth(t * 2) : 1;       // fully down by mid
+      // on the falling half a *trailing* burn-line eats the sheet from the top down
+      const burnY = rising ? 0 : smooth((t - 0.5) * 2);
+
+      const step = 8;
+      // --- fill the parchment body between the trailing burn-line and the front ---
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, -200);
+      for (let x = 0; x <= W; x += step) ctx.lineTo(x, frontY(x, coverY));
+      ctx.lineTo(W, -200);
+      ctx.closePath();
+      ctx.clip();
+      // if burning away, also clip OUT everything above the rising burn-line
+      // (draw parchment, then erase the consumed strip)
+      // aged parchment vertical wash
+      const pg = ctx.createLinearGradient(0, -100, 0, H + 100);
+      pg.addColorStop(0.00, PARCH_DK);
+      pg.addColorStop(0.10, PARCH);
+      pg.addColorStop(0.45, PARCH_HOT);
+      pg.addColorStop(0.80, PARCH);
+      pg.addColorStop(1.00, PARCH_DK);
+      ctx.fillStyle = pg;
+      ctx.fillRect(0, -260, W, H + 520);
+
+      // blotchy ink / wax stains (deterministic constant blobs)
+      ctx.globalAlpha = 0.10;
+      for (let i = 0; i < 7; i++) {
+        const bx = ((i * 271 + 90) % W), by = ((i * 173 + 140) % H);
+        const br = 120 + (i % 3) * 70;
+        const bg = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+        bg.addColorStop(0, i % 2 ? 'rgba(122,31,31,0.5)' : 'rgba(58,42,22,0.5)');
+        bg.addColorStop(1, 'rgba(58,42,22,0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(bx - br, by - br, br * 2, br * 2);
+      }
+      // fibrous grain
+      ctx.globalAlpha = 0.06;
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1;
+      for (let y = -200; y < H + 200; y += 6) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y + 3); ctx.stroke();
+      }
+      ctx.restore();
+
+      // --- erase the consumed strip on the burn-away (falling) half ---
+      if (!rising && burnY > 0.001) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.moveTo(0, -260);
+        for (let x = 0; x <= W; x += step) ctx.lineTo(x, frontY(x, burnY));
+        ctx.lineTo(W, -260);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // --- glowing EMBER + CHAR band along whichever edge is currently active ---
+      // leading char-line (active on the rising half)
+      if (rising && coverY > 0.001 && coverY < 0.999) drawCharLine(coverY, cover, false);
+      // trailing burn-line eating the sheet (active on the falling half)
+      if (!rising && burnY > 0.001 && burnY < 0.999) drawCharLine(burnY, cover, true);
+    }
+
+    /* a ragged band of black scorch + hot gold/blood ember running along a front. */
+    function drawCharLine(yCover, cover, consuming) {
+      const step = 8;
+      const flick = 0.7 + 0.3 * Math.sin(cover * 9.0 + (consuming ? 1.6 : 0));
+      // black charred curl just behind the edge
+      ctx.save();
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += step) {
+        const y = frontY(x, yCover);
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      for (let x = W; x >= 0; x -= step) {
+        const y = frontY(x, yCover) - 34 - 10 * Math.sin(x * 0.02 + cover * 6);
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#0A0704';
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.restore();
+
+      // hot ember glow ON the edge (gold core -> blood-red falloff)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      // wide soft blood-red halo
+      ctx.strokeStyle = 'rgba(122,31,31,' + (0.5 * flick).toFixed(3) + ')';
+      ctx.lineWidth = 40;
+      ctx.shadowColor = WAX; ctx.shadowBlur = 60;
+      strokeFront(yCover, step);
+      // mid gold body
+      ctx.strokeStyle = 'rgba(201,150,47,' + (0.8 * flick).toFixed(3) + ')';
+      ctx.lineWidth = 14;
+      ctx.shadowColor = GOLD; ctx.shadowBlur = 40;
+      strokeFront(yCover, step);
+      // white-hot core
+      ctx.strokeStyle = 'rgba(255,244,214,' + (0.95 * flick).toFixed(3) + ')';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = GOLD_LT; ctx.shadowBlur = 22;
+      strokeFront(yCover, step);
+      ctx.restore();
+    }
+    function strokeFront(yCover, step) {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += step) {
+        const y = frontY(x, yCover);
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    /* ---- forged sparks + grey ash rising off the burn on candle-air ---- */
+    function drawSparks(t, cover) {
+      ctx.save();
+      for (const d of sparks) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        // emit from near the current burn-front beneath this x, then rise
+        const fy = frontY(d.x0, t <= 0.5 ? smooth(t * 2) : 1);
+        const px = d.x0 + d.drift * lt + Math.sin(d.phase + lt * d.swf * 6.2832) * d.sway;
+        const py = fy - d.rise * lt;
+        const ends = Math.sin(lt * Math.PI);                 // fade in/out
+        const twk = 0.55 + Math.sin(d.phase + lt * d.tw * 6.2832) * 0.45;
+        const present = lerp(0.4, 1, cover);
+        let a = d.a * ends * twk * present;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = Math.min(1, a);
+        if (d.grey) {
+          ctx.fillStyle = 'rgba(150,142,128,0.9)';
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = d.c;
+          ctx.shadowColor = GOLD_LT;
+          ctx.shadowBlur = 10;
+        }
+        const s = d.s;
+        ctx.beginPath();
+        ctx.arc(Math.round(px), Math.round(py), s, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- blood-red WAX SIGIL + white-hot gold flare stamped at centre on the
+           full-cover peak (t≈0.5). cross-hatched cross sigil, like the parchment seal. ---- */
+    function drawSeal(t, cover) {
+      const bloom = Math.exp(-Math.pow((t - 0.5) / 0.12, 2));   // peaks at mid
+      if (bloom <= 0.02) return;
+      ctx.save();
+      ctx.translate(CX, CY);
+      // radiating heat rays
+      ctx.rotate((1 - cover) * 0.12);
+      const rays = 32, len = lerp(120, Math.max(W, H) * 0.5, bloom);
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < rays; i++) {
+        const ang = (i / rays) * Math.PI * 2;
+        const long = (i % 2 === 0);
+        const l = long ? len : len * 0.6;
+        ctx.globalAlpha = (long ? 0.30 : 0.18) * bloom;
+        ctx.strokeStyle = (i % 4 === 0) ? GOLD_LT : GOLD;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * 40, Math.sin(ang) * 40);
+        ctx.lineTo(Math.cos(ang) * l, Math.sin(ang) * l);
+        ctx.stroke();
+      }
+      // blood-red wax disc
+      const rad = lerp(40, 96, bloom);
+      ctx.globalAlpha = 0.9 * bloom;
+      ctx.shadowColor = WAX; ctx.shadowBlur = 40 * bloom;
+      const wg = ctx.createRadialGradient(-rad * 0.3, -rad * 0.3, 0, 0, 0, rad);
+      wg.addColorStop(0, '#A8392F');
+      wg.addColorStop(0.6, WAX);
+      wg.addColorStop(1, '#4E1414');
+      ctx.fillStyle = wg;
+      ctx.beginPath(); ctx.arc(0, 0, rad, 0, 6.2832); ctx.fill();
+      // engraved cross-sword sigil on the wax (gold lines)
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.85 * bloom;
+      ctx.strokeStyle = GOLD_LT; ctx.lineWidth = 3;
+      const a2 = rad * 0.62;
+      ctx.beginPath();
+      ctx.moveTo(-a2, -a2); ctx.lineTo(a2, a2);
+      ctx.moveTo(a2, -a2); ctx.lineTo(-a2, a2);
+      ctx.stroke();
+      // pip
+      ctx.fillStyle = GOLD_LT;
+      ctx.beginPath(); ctx.arc(0, 0, rad * 0.16, 0, 6.2832); ctx.fill();
+      // notched outer ring
+      ctx.globalAlpha = 0.7 * bloom;
+      ctx.strokeStyle = GOLD_DK; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, rad * 0.86, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);            // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawParchment(t, cover);
+      drawSparks(t, cover);
+      drawSeal(t, cover);
+
+      // white-hot gold light-flash at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(255,244,214,' + (0.5 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(240,206,122,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(201,150,47,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                 // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }            // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

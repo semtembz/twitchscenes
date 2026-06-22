@@ -1,0 +1,262 @@
+/* ============================================================
+   FROST PROTOCOL — alert system ("Clean Room HUD")
+   A frosted-glass TELEMETRY PACKET: a translucent cold-blue HUD
+   strip anchored bottom-left, with a hexagonal ice-crystal glyph
+   node, bright L-shaped corner registration ticks, a clinical
+   monospace readout row, a big condensed-grotesque EVENT headline,
+   and an emphasized amount readout for value events. TRANSPARENT
+   background so it composites over gameplay / the scene.
+   Cohesive with shared.css: cold-blue void palette, mono + display
+   stacks, registration ticks, segmented hairlines, ice accent.
+   Each event gets a DISTINCT entrance motion (see alerts.js +
+   the per-event animation classes at the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --bg-deep:#0C1014; --bg-lift:#11181F; --accent:#7FB4D6;
+  --ice:#CFE6F2; --text:#F2F7FA;
+  --hair:rgba(127,180,214,.42);
+  --hair-soft:rgba(127,180,214,.16);
+  --glass:rgba(17,24,31,.34);
+  --glass-edge:rgba(207,230,242,.10);
+  --tick:rgba(207,230,242,.85);
+  --dim:rgba(207,230,242,.55);
+  --grid:rgba(127,180,214,.10);
+  --mono:"JetBrains Mono","Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+  --display:"Eurostile","Bahnschrift","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--mono);}
+
+/* one canvas for the ice-crystal burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert packet: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:820px;padding:30px 40px 30px 36px;
+  background:
+    linear-gradient(180deg, rgba(207,230,242,.05), rgba(17,24,31,.10)),
+    var(--glass);
+  -webkit-backdrop-filter:blur(14px) saturate(105%);
+          backdrop-filter:blur(14px) saturate(105%);
+  border:1px solid var(--hair);
+  box-shadow:
+    0 36px 110px rgba(0,0,0,.55),
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 0 70px rgba(127,180,214,.05);
+  display:grid;grid-template-columns:128px 1fr;column-gap:30px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* faint condensation gradient sheet inside the glass */
+.alert::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.6;
+  background:
+    radial-gradient(80% 120% at 92% -10%, rgba(207,230,242,.10), transparent 55%),
+    radial-gradient(60% 90% at 4% 110%, rgba(127,180,214,.06), transparent 60%);}
+
+/* a slow horizontal scan line sweeping the glass (frozen in render mode) */
+.alert .scan{content:"";position:absolute;left:0;right:0;height:2px;top:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(207,230,242,.5) 50%,transparent);
+  box-shadow:0 0 16px rgba(127,180,214,.5);opacity:.55;
+  animation:alert-scan 3.6s linear infinite;}
+@keyframes alert-scan{0%{transform:translateY(0)}100%{transform:translateY(168px)}}
+
+/* bright L-shaped corner REGISTRATION ticks (same motif as the card) */
+.alert .tick{position:absolute;width:24px;height:24px;pointer-events:none;}
+.alert .tick::before,.alert .tick::after{content:"";position:absolute;background:var(--tick);
+  box-shadow:0 0 7px rgba(127,180,214,.6);}
+.alert .tick::before{width:24px;height:2px;} .alert .tick::after{width:2px;height:24px;}
+.alert .tick--tl{left:-1px;top:-1px;}  .alert .tick--tl::before{left:0;top:0;}  .alert .tick--tl::after{left:0;top:0;}
+.alert .tick--tr{right:-1px;top:-1px;} .alert .tick--tr::before{right:0;top:0;} .alert .tick--tr::after{right:0;top:0;}
+.alert .tick--bl{left:-1px;bottom:-1px;} .alert .tick--bl::before{left:0;bottom:0;} .alert .tick--bl::after{left:0;bottom:0;}
+.alert .tick--br{right:-1px;bottom:-1px;} .alert .tick--br::before{right:0;bottom:0;} .alert .tick--br::after{right:0;bottom:0;}
+
+/* ---- the hexagonal ice-crystal glyph NODE ---- */
+.alert .node{width:128px;height:128px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* hexagonal clip — a frost cell */
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(127,180,214,.22), transparent 60%),
+    linear-gradient(160deg, rgba(17,24,31,.7), rgba(12,16,20,.92));
+  box-shadow:inset 0 0 0 1px var(--hair), inset 0 0 26px rgba(127,180,214,.12);}
+.alert .node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;
+  /* faint inner hex hairline ring */
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  box-shadow:inset 0 0 0 1px var(--hair-soft);}
+.alert .node .glyph{font-family:var(--mono);font-size:58px;line-height:1;color:var(--ice);
+  text-shadow:0 0 20px rgba(127,180,214,.6), 0 2px 1px rgba(4,7,10,.5);
+  transform:translateY(-1px);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* clinical mono readout row (LED + node id + feed) */
+.alert .read{font-family:var(--mono);font-size:14px;letter-spacing:.14em;color:var(--dim);
+  display:flex;align-items:center;gap:18px;margin:0 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
+.alert .read .led{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 9px var(--accent);flex:none;
+  animation:alert-blink 1.6s steps(1,end) infinite;}
+@keyframes alert-blink{0%,70%{opacity:1}71%,100%{opacity:.22}}
+.alert .read .ok{color:var(--accent);}
+
+/* the //-prefixed kicker event label (hidden in noname mode where the
+   big headline already shows the event) */
+.alert .kick{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.40em;
+  text-transform:uppercase;color:var(--accent);text-indent:.40em;margin:0 0 4px;
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick::before{content:"//";color:var(--ice);opacity:.7;letter-spacing:0;}
+
+/* big condensed-grotesque EVENT / NAME headline — clamped to one line */
+.alert .name{font-family:var(--display);font-size:74px;line-height:.92;font-weight:700;
+  letter-spacing:.005em;text-transform:uppercase;color:var(--text);margin:0;
+  text-shadow:0 1px 0 rgba(255,255,255,.10), 0 2px 16px rgba(4,7,10,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount readout (ice-light gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--display);font-size:40px;font-weight:700;letter-spacing:.01em;
+  margin:6px 0 0;display:none;line-height:1;
+  background:linear-gradient(180deg,var(--text) 0%,var(--ice) 46%,var(--accent) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(127,180,214,.4));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet mono telemetry sub-line */
+.alert .sub{font-family:var(--mono);font-size:18px;letter-spacing:.14em;color:var(--dim);
+  text-transform:lowercase;margin:8px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin segmented telemetry strip across the bottom of the packet
+   (echoes the calibration meter) */
+.alert .strip{position:absolute;left:36px;right:40px;bottom:14px;height:3px;opacity:.7;
+  background:
+    repeating-linear-gradient(90deg, var(--accent) 0 14px, transparent 14px 18px);
+  -webkit-mask:linear-gradient(90deg,#000,#000 60%,transparent);
+          mask:linear-gradient(90deg,#000,#000 60%,transparent);}
+
+/* node-id tag readout, top-right of the packet */
+.alert .nid{position:absolute;top:16px;right:22px;font-family:var(--mono);
+  font-size:13px;letter-spacing:.30em;color:var(--accent);opacity:.7;text-indent:.30em;
+  text-transform:uppercase;}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/drop-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .46s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-40px) scale(.985)}}
+
+/* 1 follower — calm slide up from below (settle) */
+.alert.ev-follower.show{animation:fx-follower .66s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(70px)}
+  70%{opacity:1;transform:translateY(-8px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — crystallize: scale up from a frosted point + slight unblur */
+.alert.ev-subscriber.show{animation:fx-subscriber .72s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.6);filter:blur(8px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — slide in from the left with a firm stop */
+.alert.ev-member.show{animation:fx-member .6s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-140px)}
+  72%{opacity:1;transform:translateX(14px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick pop + tiny upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .58s var(--ease) forwards;transform-origin:18% 80%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(40px) scale(.9)}
+  55%{opacity:1;transform:translateY(-10px) scale(1.04)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + gentle bounce (premium, amount event) */
+.alert.ev-donation.show{animation:fx-donation .76s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-90px)}
+  60%{opacity:1;transform:translateY(12px)}
+  82%{transform:translateY(-5px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal expand (doors open) via scaleX */
+.alert.ev-host.show{animation:fx-host .68s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.12)}
+  60%{opacity:1;transform:scaleX(1.02)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big arrival: overshoot rush in from the left + shake settle */
+.alert.ev-raid.show{animation:fx-raid .8s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-260px) scale(1.04)}
+  55%{opacity:1;transform:translateX(26px) scale(1.02)}
+  72%{transform:translateX(-12px)}
+  86%{transform:translateX(6px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .62s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.05)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe in from lower-left (forward motion) */
+.alert.ev-share.show{animation:fx-share .6s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-120px) skewX(-9deg)}
+  70%{opacity:1;transform:translateX(8px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + slight rotate settle (a star pinned to the board) */
+.alert.ev-star.show{animation:fx-star .72s var(--ease) forwards;transform-origin:18% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-70px) rotate(-4deg)}
+  62%{opacity:1;transform:translateY(8px) rotate(1.5deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — zoom-in toward the viewer + settle (loud, amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .7s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.35)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + unblur (calm, recurring support) */
+.alert.ev-supporter.show{animation:fx-supporter .7s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(54px);filter:blur(6px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* glyph node pops in slightly after the card (shared by all events) */
+.alert.show .node .glyph{animation:fx-glyph .6s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:translateY(-1px) scale(.5)}60%{opacity:1;transform:translateY(-1px) scale(1.14)}100%{opacity:1;transform:translateY(-1px) scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .scan{animation:none;display:none;}
+#stage.render .alert .read .led{animation:none;opacity:1;}
+#stage.render .alert .node .glyph{animation:none!important;opacity:1;transform:translateY(-1px) scale(1);}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Lo-Fi Cafe — Ending</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the rainy window canvas: warm bokeh + rain streaks + sliding droplets -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- the window pane surface, muntins, lamp glow, vignette, grain -->
+    <div class="window" aria-hidden="true"></div>
+    <div class="muntin v" aria-hidden="true"></div>
+    <div class="muntin h" aria-hidden="true"></div>
+    <div class="lamp" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- cozy doodle stamps on the sill -->
+    <div class="stamp stamp--note" aria-hidden="true">&#9834;</div>
+    <div class="stamp stamp--bean" aria-hidden="true">&#9728;</div>
+
+    <!-- the steaming coffee mug (CSS illustration) bottom-left -->
+    <div class="mug" aria-hidden="true">
+      <div class="steam"><i></i><i></i><i></i></div>
+      <div class="saucer"></div>
+      <div class="cup"></div>
+      <div class="brew"></div>
+      <div class="handle"></div>
+    </div>
+
+    <!-- a tiny potted plant on the sill, bottom-right -->
+    <div class="plant" aria-hidden="true">
+      <div class="leaf l1"></div>
+      <div class="leaf l2"></div>
+      <div class="leaf l3"></div>
+      <div class="pot"></div>
+    </div>
+
+    <!-- the menu card holds the message -->
+    <main class="card">
+      <span class="tab" aria-hidden="true">TODAY'S SPECIAL</span>
+
+      <!-- ending: bar pre-completes; kicker rests on its "done" copy -->
+      <p class="kicker" id="kicker" data-done="FRESH &amp; READY">LAST CALL</p>
+
+      <!-- HEADLINE = the message, NEVER the theme name -->
+      <h1 class="title">THANKS FOR<span class="accent">HANGING OUT</span></h1>
+
+      <svg class="doodle" viewBox="0 0 340 16" aria-hidden="true">
+        <path d="M4 9 C 60 2, 110 16, 170 8 S 280 2, 336 10" />
+      </svg>
+
+      <p class="sub">see you next cup &mdash; take care</p>
+
+      <div class="bar" aria-hidden="true">
+        <div class="fill" id="fill"><span class="bean"></span></div>
+      </div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

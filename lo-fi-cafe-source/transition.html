@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Lo-Fi Cafe Rainy Window Fog Wipe</title>
+  <!--
+    LO-FI CAFE stinger ("Rainy Window Booth"). A warm foggy-glass condensation
+    wipe: a soft mocha FOG sweeps across the pane while fast warm RAIN STREAKS
+    diagonal in, big warm BOKEH lights (out-of-focus cafe/street lamps) bloom
+    through the fog, and fat DROPLETS slide down dragging clear wet trails. At
+    full cover (t=0.5) the glass is fully fogged warm-amber; then condensation
+    droplets streak down and "wipe" the fog away as it clears. A gentle warm
+    light-bloom + a couple of steam wisps breathe at the peak. Transparent
+    before & after, deterministic (seeded RNG, NO Math.random in the frame fn),
+    sine-driven cover (0->1->0), ~1300ms. Cozy & calm, NOT a curtain wipe.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover fog).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (lo-fi cafe — warm mochas / amber / cream) ---- */
+    const LATTE = '#E8D5C4', MOCHA = '#C9A88A', COFFEE = '#8C6A56', CREAM = '#F4EBE2', AMBER = '#D9925A';
+    const LIGHTS = [AMBER, CREAM, '#E8C79A', MOCHA, '#B57A4A'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (no Math.random in the frame fn). All
+       particle fields are generated ONCE from this so the stinger is identical
+       frame-to-frame and in the export. ---- */
+    let seed = 0xC0FFEE;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* big warm out-of-focus cafe/street lights that bloom through the fog */
+    const N_BOKEH = 18;
+    const bokeh = Array.from({ length: N_BOKEH }, () => ({
+      x: R(W * 0.04, W * 0.96), y: R(H * 0.06, H * 0.92), r: R(80, 240),
+      c: LIGHTS[(rnd() * LIGHTS.length) | 0], a: R(0.30, 0.7),
+      lead: R(0, 0.22), drift: R(10, 46), df: R(0.6, 1.6), phase: R(0, 6.2832),
+    }));
+
+    /* fast warm rain streaks raked across the glass (slightly diagonal) */
+    const N_RAIN = 150;
+    const rain = Array.from({ length: N_RAIN }, () => ({
+      x: R(-W * 0.1, W * 1.1), y0: R(-H * 0.5, H), len: R(60, 200),
+      vy: R(900, 1700), slope: R(0.10, 0.28), w: R(1, 2.6), a: R(0.18, 0.5),
+      lead: R(0, 0.5),
+    }));
+
+    /* fat condensation droplets that slide down & wipe the fog (peak->end) */
+    const N_DROP = 40;
+    const drops = Array.from({ length: N_DROP }, () => ({
+      x: R(W * 0.03, W * 0.97), y0: R(-H * 0.15, H * 0.55), r: R(5, 16),
+      fall: R(H * 0.45, H * 1.25), wob: R(20, 70), wf: R(1.0, 2.4), phase: R(0, 6.2832),
+      lead: R(0.40, 0.66), span: R(0.34, 0.6), a: R(0.4, 0.85),
+    }));
+
+    /* a couple of gentle steam wisps that breathe at the peak */
+    const N_STEAM = 5;
+    const steam = Array.from({ length: N_STEAM }, () => ({
+      x: R(W * 0.18, W * 0.82), y: R(H * 0.5, H * 0.95), w: R(120, 260), h: R(220, 460),
+      sway: R(20, 70), sf: R(0.8, 1.7), phase: R(0, 6.2832), a: R(0.10, 0.22),
+    }));
+
+    /* ---- warm mocha FOG film that sweeps in then is wiped away. The sweep is a
+       soft diagonal wipe (top-left -> bottom-right) so the fog rolls across the
+       glass like breath, densest at full cover. ---- */
+    function drawFog(t, cover) {
+      if (cover <= 0.001) return;
+      // diagonal sweep front: front position runs 0..1 with t; fog opacity at a
+      // pixel ramps up smoothly behind the moving front, scaled by overall cover.
+      const front = smooth(t);                         // 0..1 sweep across the diagonal
+      const band = 0.42;                               // soft front width (frac)
+      // We approximate the diagonal wipe with a few stacked gradient bands.
+      ctx.save();
+      const steps = 5;
+      for (let i = 0; i < steps; i++) {
+        const fy = i / (steps - 1);                    // normalized along the diagonal
+        // local fill = how covered this diagonal slice is given the moving front
+        const local = clamp01((front + band - fy) / band) * clamp01((1 - front + band - (1 - fy)) / band + 1);
+        const a = clamp01(local) * cover;
+        if (a <= 0.01) continue;
+        ctx.globalAlpha = a * 0.9;
+        // warm mocha->latte fog, slightly lighter toward the lamp (upper-right)
+        const gx = lerp(W * 0.1, W * 0.9, fy), gy = lerp(H * 0.1, H * 0.9, fy);
+        const fg = ctx.createRadialGradient(W * 0.78, H * 0.2, 80, gx, gy, W * 0.85);
+        fg.addColorStop(0.0, 'rgba(244,235,226,' + (0.82).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(217,168,128,' + (0.78).toFixed(3) + ')');
+        fg.addColorStop(1.0, 'rgba(160,126,102,' + (0.86).toFixed(3) + ')');
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, Math.round(fy * H - H / steps), W, Math.ceil(H / steps + 2));
+      }
+      // a unifying warm wash so the bands read as one continuous foggy pane
+      ctx.globalAlpha = cover * 0.55;
+      const wash = ctx.createLinearGradient(0, 0, W, H);
+      wash.addColorStop(0.0, 'rgba(232,213,196,0.85)');
+      wash.addColorStop(0.5, 'rgba(217,168,128,0.78)');
+      wash.addColorStop(1.0, 'rgba(160,126,102,0.85)');
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    /* ---- big warm bokeh lights blooming through the fog ---- */
+    function drawBokeh(t, cover) {
+      ctx.save();
+      for (const b of bokeh) {
+        const lt = clamp01((t - b.lead) / (1 - b.lead));
+        const bloom = Math.sin(lt * Math.PI);          // 0 at ends, 1 mid
+        const a = b.a * bloom * cover;
+        if (a <= 0.02) continue;
+        const px = b.x + Math.sin(b.phase + lt * b.df * 6.2832) * b.drift;
+        const py = b.y + Math.cos(b.phase + lt * b.df * 6.2832) * b.drift * 0.5;
+        const rr = b.r * (0.7 + bloom * 0.5);
+        const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0.0, b.c);
+        g.addColorStop(0.45, b.c);
+        g.addColorStop(1.0, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = a;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), Math.round(rr), 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- fast warm diagonal rain streaks raked across the glass ---- */
+    function drawRain(t, cover) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      const present = lerp(0.35, 1, cover);
+      for (const r of rain) {
+        const lt = clamp01((t - r.lead) / 0.5);
+        if (lt <= 0) continue;
+        const ends = Math.sin(clamp01(t) * Math.PI);   // strongest mid-sweep
+        const a = r.a * ends * present;
+        if (a <= 0.02) continue;
+        // deterministic position from t (wraps within the window)
+        let y = r.y0 + r.vy * t;
+        y = ((y % (H + 260)) + (H + 260)) % (H + 260) - 130;
+        const x = r.x + y * r.slope;
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = 'rgba(244,235,226,0.92)';
+        ctx.lineWidth = r.w;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x - r.len * r.slope), Math.round(y - r.len));
+        ctx.lineTo(Math.round(x), Math.round(y));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* ---- fat condensation droplets that slide down dragging a CLEAR wet trail.
+           The trail is drawn with destination-out so it "wipes" the fog, selling
+           the reveal as the glass clears. ---- */
+    function drawDrops(t, cover) {
+      ctx.save();
+      for (const d of drops) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const ease = lt * lt;                          // accelerate as it gains weight
+        const x = d.x + Math.sin(d.phase + lt * d.wf * 6.2832) * d.wob;
+        const y = d.y0 + d.fall * ease;
+        const trailLen = d.fall * ease;
+        const xr = Math.round(x), yr = Math.round(y);
+
+        // 1) clear the fog along the slide (the "wipe") — only once fog is thick
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalAlpha = clamp01(0.5 + cover) * 0.9;
+        const cg = ctx.createLinearGradient(xr, yr - trailLen, xr, yr);
+        cg.addColorStop(0, 'rgba(0,0,0,0)');
+        cg.addColorStop(1, 'rgba(0,0,0,0.9)');
+        ctx.fillStyle = cg;
+        const tw = Math.max(2, Math.round(d.r * 0.9));
+        ctx.fillRect(xr - (tw >> 1), Math.round(yr - trailLen), tw, Math.round(trailLen));
+
+        // 2) the droplet head with a warm highlight (over the top)
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = d.a * cover;
+        ctx.fillStyle = 'rgba(232,213,196,0.9)';
+        ctx.beginPath(); ctx.arc(xr, yr, Math.round(d.r), 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = d.a * 0.95 * cover;
+        ctx.fillStyle = 'rgba(255,250,244,0.95)';
+        ctx.beginPath();
+        ctx.arc(xr - Math.round(d.r * 0.3), yr - Math.round(d.r * 0.3), Math.max(1, Math.round(d.r * 0.32)), 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- gentle steam wisps breathing at the peak ---- */
+    function drawSteam(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const peak = Math.sin(clamp01(t) * Math.PI);
+      for (const s of steam) {
+        const a = s.a * peak * cover;
+        if (a <= 0.01) continue;
+        const dx = Math.sin(s.phase + t * s.sf * 6.2832) * s.sway;
+        const cxs = s.x + dx, cys = s.y - peak * 60;
+        const g = ctx.createRadialGradient(cxs, cys, 0, cxs, cys, s.w);
+        g.addColorStop(0, 'rgba(244,235,226,' + a.toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(244,235,226,0)');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(Math.round(cxs), Math.round(cys), Math.round(s.w), Math.round(s.h), 0, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);    // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawFog(t, cover);          // warm mocha fog sweeps in
+      drawBokeh(t, cover);        // cafe lights bloom through the fog
+      drawSteam(t, cover);        // gentle steam wisps
+      drawRain(t, cover);         // fast warm rain streaks
+      drawDrops(t, cover);        // droplets slide & wipe the fog away (reveal)
+
+      // a soft warm light-bloom at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(W * 0.62, H * 0.36, 0, W * 0.62, H * 0.36, W * 0.7);
+        fg.addColorStop(0, 'rgba(244,235,226,' + (0.4 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(217,146,90,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(217,146,90,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }          // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }      // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

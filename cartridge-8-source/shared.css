@@ -1,0 +1,191 @@
+/* ============================================================
+   CARTRIDGE 8 — shared design system ("WORLD 1-1")
+   A TRUE 8-bit NES platformer screen. Flat primary-color NES sky,
+   blocky drifting pixel clouds, a tiled brick / question-block /
+   green-pipe ground row, a bobbing pixel coin sprite, a chunky
+   pixel HUD bar (WORLD / coins / lives / hearts / TIME), the
+   message in a blocky pixel font with a HARD offset shadow, and a
+   discrete-block pixel POWER-METER loading bar.
+   Everything is integer-grid, image-rendering:pixelated, ZERO
+   gradients / ZERO blur. Bespoke to THIS theme — shares only the
+   invisible engine conventions with other sources.
+   ============================================================ */
+:root{
+  /* ---- NES palette (stable token names) ---- */
+  --nes-red:#E60000;        /* accent / GAME-OVER red */
+  --nes-blue:#0058F8;       /* secondary accent */
+  --white:#FCFCFC;          /* pixel white */
+  --nes-green:#00B800;      /* pipes / READY green */
+  --night:#1A1A2E;          /* deep night bg option */
+  --sky:#5C94FC;            /* classic flat NES daytime sky */
+  /* ---- derived flat tones (no gradients anywhere) ---- */
+  --brick:#C84C0C;          /* brick orange-brown */
+  --brick-dk:#7C2800;       /* brick shadow line */
+  --qblock:#FCBC3C;         /* question-block gold */
+  --qblock-dk:#A85400;      /* q-block shadow */
+  --ground:#9C4A00;         /* dirt ground */
+  --ground-dk:#5C2800;      /* dirt shadow */
+  --pipe:#00B800;           /* pipe body (== nes-green) */
+  --pipe-dk:#006800;        /* pipe shadow */
+  --pipe-lt:#80D010;        /* pipe highlight */
+  --coin:#FCD800;           /* coin yellow */
+  --shadow:#000000;         /* hard black pixel shadow */
+  /* ---- HUD / type ---- */
+  --hud-bg:#000000;
+  --ink:#FCFCFC;
+  /* timing */
+  --step:steps(1,end);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  /* flat NES daytime sky — a SOLID color, no gradient */
+  background:var(--sky);
+  /* chunky 8-bit font stack: chunky monospace (NO CDN, no Press Start 2P) */
+  font-family:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+  font-weight:700;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  -webkit-font-smoothing:none;
+}
+/* every screen can flip to the NIGHT sky by adding .night on #stage */
+#stage.night{background:var(--night);}
+
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;
+  image-rendering:pixelated;image-rendering:crisp-edges;}
+
+/* ============================================================
+   HUD BAR — chunky classic NES status row across the very top
+   ============================================================ */
+.hud{position:absolute;left:0;top:0;width:1920px;height:96px;
+  display:flex;align-items:center;gap:64px;padding:0 64px;
+  font-size:34px;letter-spacing:.10em;line-height:1;text-transform:uppercase;
+  color:var(--white);
+  text-shadow:4px 4px 0 var(--shadow);
+  /* faint solid scan band so HUD reads over sky — flat, no gradient */
+  background:rgba(0,0,0,.0);
+  z-index:6;pointer-events:none;
+  animation:hudDrop .5s var(--step) both;}
+.hud .grp{display:flex;align-items:center;gap:14px;white-space:nowrap;}
+.hud .lbl{color:var(--white);}
+.hud .val{color:var(--white);}
+/* pixel coin glyph in the HUD (drawn with box-shadow pixels) */
+.hud .coin{position:relative;display:inline-block;width:24px;height:24px;
+  background:var(--coin);box-shadow:
+    -8px 0 0 var(--coin), 8px 0 0 var(--coin),
+    0 -8px 0 var(--qblock-dk), 0 8px 0 var(--qblock-dk),
+    4px 4px 0 var(--shadow);
+  margin-right:10px;}
+/* pixel heart row */
+.hearts{display:flex;gap:10px;}
+.heart{width:26px;height:26px;background:var(--nes-red);
+  /* notch the top with two transparent corners via clip-path -> heart-ish blocky shape */
+  clip-path:polygon(0 30%,15% 0,35% 0,50% 18%,65% 0,85% 0,100% 30%,50% 100%);
+  box-shadow:3px 3px 0 var(--shadow);}
+.heart.empty{background:#5C2828;}
+@keyframes hudDrop{from{transform:translateY(-96px)}to{transform:translateY(0)}}
+
+/* ============================================================
+   CENTER MESSAGE COLUMN — kicker / 3-line title / sub
+   ============================================================ */
+.center{position:absolute;left:50%;top:50%;transform:translate(-50%,-54%);
+  width:1400px;text-align:center;z-index:5;}
+
+/* kicker — blinking "INSERT COIN" arcade prompt */
+.kicker{font-size:40px;letter-spacing:.34em;text-indent:.34em;text-transform:uppercase;
+  color:var(--qblock);text-shadow:5px 5px 0 var(--shadow);
+  margin:0 0 38px;
+  animation:blink 1.06s var(--step) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+
+/* the blocky pixel TITLE with a HARD offset shadow */
+.title{margin:0;text-transform:uppercase;line-height:.96;
+  font-size:188px;font-weight:700;letter-spacing:.02em;
+  color:var(--white);
+  /* layered HARD pixel shadow (no blur) */
+  text-shadow:
+     8px  8px 0 var(--shadow),
+    10px 10px 0 var(--shadow),
+     0    0   0 var(--shadow);}
+.title .line{display:block;animation:pop .42s var(--step) both;}
+.title .line.l1{animation-delay:.20s;}
+.title .line.l2{animation-delay:.36s;}
+/* accented last line — NES red (with a blue under-shadow for that NES double-print look) */
+.title .accent{color:var(--nes-red);
+  text-shadow:
+     8px  8px 0 var(--shadow),
+    10px 10px 0 var(--shadow),
+    -4px -4px 0 var(--nes-blue);
+  animation:pop .42s var(--step) both .52s;}
+@keyframes pop{from{opacity:0;transform:translateY(26px) scale(.92)}to{opacity:1;transform:none}}
+
+/* sub — small blocky caption */
+.sub{margin:44px 0 0;font-size:38px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--white);text-shadow:4px 4px 0 var(--shadow);
+  animation:fadeUp .5s var(--step) both .7s;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   POWER-METER loading bar — discrete pixel blocks, NO numbers
+   A chunky bordered tray; #fill clips the lit blocks left->right.
+   ============================================================ */
+.meter{position:absolute;left:50%;bottom:268px;transform:translateX(-50%);
+  width:760px;height:64px;z-index:5;
+  background:var(--night);
+  border:6px solid var(--white);
+  box-shadow:8px 8px 0 var(--shadow);
+  padding:8px;overflow:hidden;
+  animation:fadeUp .5s var(--step) both .85s;}
+/* the segmented track lives as a repeating block pattern; #fill reveals it */
+.meter .track{position:absolute;inset:8px;
+  /* gap stripes between blocks: transparent slots over the night bg */
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 36px,
+      var(--night) 36px 44px);}
+.meter .fill{position:absolute;left:8px;top:8px;bottom:8px;width:0;overflow:hidden;}
+.meter .fill .lit{position:absolute;left:0;top:0;bottom:0;width:744px;
+  /* lit power blocks: green block + dark gap, hard edges */
+  background:
+    repeating-linear-gradient(90deg,
+      var(--nes-green) 0 36px,
+      transparent 36px 44px);}
+/* a brighter leading edge block highlight strip */
+.meter .fill::after{content:"";position:absolute;right:0;top:0;bottom:0;width:6px;
+  background:var(--white);opacity:.9;}
+
+/* ============================================================
+   HANDLE — pixel tag, lower area
+   ============================================================ */
+.handle{position:absolute;left:50%;bottom:188px;transform:translateX(-50%);
+  font-size:32px;letter-spacing:.18em;text-transform:lowercase;
+  color:var(--qblock);text-shadow:4px 4px 0 var(--shadow);z-index:5;
+  animation:fadeUp .5s var(--step) both 1s;}
+
+/* tiny credit corner tag (optional, decorative) */
+.tag{position:absolute;right:48px;bottom:40px;font-size:22px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--white);opacity:.55;
+  text-shadow:3px 3px 0 var(--shadow);z-index:5;pointer-events:none;}
+
+/* ============================================================
+   RENDER MODE: freeze ALL entrance animations to their FINAL
+   state so the headless pipeline captures a clean deterministic
+   webm. (The bg canvas + the bar are stepped by __renderAdvance.)
+   ============================================================ */
+#stage.render .hud,
+#stage.render .kicker,
+#stage.render .title .line,
+#stage.render .title .accent,
+#stage.render .sub,
+#stage.render .meter,
+#stage.render .handle{animation:none!important;}
+#stage.render .hud{transform:translateY(0);}
+#stage.render .kicker{opacity:1;}
+#stage.render .title .line,
+#stage.render .title .accent{opacity:1;transform:none;}
+#stage.render .sub,
+#stage.render .handle{opacity:1;transform:translateX(-50%);}
+#stage.render .meter{opacity:1;transform:translateX(-50%);}

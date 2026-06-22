@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Lo-Fi Cafe — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Rainy Window Booth" language: a slim warm
+       "menu-card" strip lower-left holding @handle + a small "ON AIR" tag with a
+       pulsing amber dot, a tiny wavy doodle underline, and a small "now playing"
+       tape tab top-right. A few very faint rain streaks + a warm bokeh mote hug
+       the strip so the HUD feels alive without covering gameplay. Most of the
+       screen stays transparent.
+       Optional URL params: ?handle=@you   ?tag=ON%20AIR   ?rain=NN   ?bokeh=N -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no page chrome, no room gradient, no window/vignette */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few faint warm rain streaks + bokeh drift across the whole frame (low alpha) */
+    canvas.bg{pointer-events:none;opacity:.5;}
+
+    /* ---- slim warm "menu-card" HUD strip, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:58px;height:66px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 24px;
+      background:linear-gradient(180deg, rgba(244,235,226,.90), rgba(232,213,196,.84));
+      border:2px solid rgba(140,106,86,.34);border-radius:18px;
+      box-shadow:0 18px 44px rgba(60,40,28,.40), inset 0 0 0 1px rgba(244,235,226,.6),
+        inset 0 2px 16px rgba(244,235,226,.7);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* dashed hand-drawn inner outline, like the menu card */
+    .slot::before{content:"";position:absolute;inset:6px;border-radius:12px;
+      border:2px dashed rgba(140,106,86,.32);pointer-events:none;}
+    /* soft warm sheen slowly travels along the strip (like the brewing bar) */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:120px;left:-120px;pointer-events:none;
+      border-radius:18px;mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(217,146,90,.18), transparent);
+      animation:slotsweep 6.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-120px}100%{left:100%}}
+
+    /* "ON AIR" tag — gentle rounded caps + a pulsing amber dot */
+    .slot .tag{display:flex;align-items:center;gap:11px;
+      font-weight:700;letter-spacing:.34em;font-size:18px;text-transform:uppercase;
+      color:var(--amber);text-indent:.34em;}
+    .slot .tag .dot{width:11px;height:11px;border-radius:50%;background:var(--amber);
+      box-shadow:0 0 14px var(--amber-glow);text-indent:0;
+      animation:pulse 2.6s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+    /* thin warm divider rule with a tiny bean dot, between tag and handle */
+    .slot .div{position:relative;width:2px;height:34px;border-radius:2px;
+      background:linear-gradient(180deg,transparent,var(--line),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:7px;height:9px;
+      border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:var(--coffee);opacity:.7;
+      transform:translate(-50%,-50%) rotate(-12deg);}
+
+    /* handle — the rounded humanist stack in deep coffee ink */
+    .slot .who{font-weight:600;letter-spacing:.06em;font-size:30px;color:var(--ink);
+      text-shadow:0 1px 0 rgba(244,235,226,.7);white-space:nowrap;
+      display:flex;flex-direction:column;line-height:1;}
+    /* a tiny hand-drawn wavy underline under the handle */
+    .slot .who .ul{display:block;width:100%;height:8px;margin-top:4px;overflow:visible;}
+    .slot .who .ul path{fill:none;stroke:var(--amber);stroke-width:4;stroke-linecap:round;
+      stroke-dasharray:300;stroke-dashoffset:300;animation:draw 1.3s var(--ease) forwards .8s;}
+    @keyframes draw{to{stroke-dashoffset:0;}}
+
+    /* tiny "now playing" tape tab, top-right — a pinned label with a music note */
+    .tab-tr{position:absolute;top:48px;right:60px;display:flex;align-items:center;gap:12px;
+      padding:8px 22px;border-radius:14px;transform:rotate(1.4deg);
+      background:var(--amber);color:var(--cream);
+      font-size:17px;font-weight:700;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase;
+      box-shadow:0 8px 18px rgba(60,40,28,.34);
+      animation:fade .9s var(--ease) both .3s;}
+    .tab-tr .note{font-size:18px;line-height:1;animation:bob 5s ease-in-out infinite;}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+    @keyframes bob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-4px) rotate(6deg)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .tab-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dot{animation:none;opacity:1;transform:scale(1);}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .tab-tr{opacity:1;}
+    #stage.render .tab-tr .note{animation:none;}
+    #stage.render .slot .who .ul path{animation:none;stroke-dashoffset:0;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="tab-tr" aria-hidden="true"><span class="note">&#9834;</span>NOW PLAYING</div>
+
+    <div class="slot">
+      <span class="tag"><span class="dot"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who"><span id="handle">@yourhandle</span>
+        <svg class="ul" viewBox="0 0 200 8" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M2 5 Q 26 1 50 5 T 100 5 T 150 5 T 198 5" />
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a FEW faint warm rain streaks + a couple soft bokeh motes ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const LIGHTS = ["#D9925A", "#F4EBE2", "#E8C79A", "#C9A88A"];
+    const bokeh = ctx ? Array.from({ length: Math.max(0, num("bokeh", 4)) }, () => ({
+      x: R(0, W), y: R(40, H * 0.7), r: R(120, 260),
+      c: LIGHTS[(Math.random() * LIGHTS.length) | 0],
+      a: R(0.04, 0.10), vx: R(-4, 4) / 60, vy: R(-2, 2) / 60, ph: R(0, 6.28), ps: R(0.3, 0.9),
+    })) : [];
+    const rain = ctx ? Array.from({ length: Math.max(0, num("rain", 44)) }, () => ({
+      x: R(0, W), y: R(0, H), len: R(28, 78), vy: R(420, 720) / 60, w: R(1, 2), a: R(0.06, 0.18),
+    })) : [];
+    function drawBg(dt){
+      if (!ctx) return;
+      const f = dt * 60;
+      ctx.clearRect(0, 0, W, H);
+      for (const b of bokeh){
+        b.x += b.vx * f; b.y += b.vy * f; b.ph += 0.01 * b.ps * f;
+        if (b.x < -300) b.x = W + 300; if (b.x > W + 300) b.x = -300;
+        if (b.y < -300) b.y = H + 300; if (b.y > H + 300) b.y = -300;
+        const rr = b.r * (1 + Math.sin(b.ph) * 0.14);
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, rr);
+        g.addColorStop(0, b.c); g.addColorStop(0.45, b.c); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalAlpha = b.a; ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(Math.round(b.x), Math.round(b.y), rr, 0, 6.2832); ctx.fill();
+      }
+      ctx.lineCap = "round";
+      for (const r of rain){
+        r.y += r.vy * f;
+        if (r.y - r.len > H){ r.y = -R(0, 120); r.x = R(0, W); }
+        ctx.globalAlpha = r.a; ctx.strokeStyle = "rgba(244,235,226,0.9)"; ctx.lineWidth = r.w;
+        const x = Math.round(r.x);
+        ctx.beginPath(); ctx.moveTo(x, Math.round(r.y - r.len)); ctx.lineTo(x, Math.round(r.y)); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__cafeDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lo-Fi Cafe — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Lo-Fi Cafe "Rainy
+    Window Booth" language:
+        - a warm cream "menu-card" paper chip with rounded corners
+        - a dashed hand-drawn inner outline + soft paper grain
+        - a tiny rounded coffee-stain ring and a wavy amber doodle underline
+        - a soft rounded line icon (mug, calendar, list, ...) in deep coffee
+        - the label in the rounded humanist sans, in coffee ink
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Lo-Fi Cafe "Rainy Window Booth" palette (mirror shared.css) ---- */
+    :root {
+      --latte:#E8D5C4; --mocha:#C9A88A; --coffee:#8C6A56; --cream:#F4EBE2;
+      --amber:#D9925A; --ink:#6E5040;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,-apple-system,"Trebuchet MS",sans-serif;
+      color: var(--cream);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 80% -10%, rgba(217,146,90,0.20), transparent 60%),
+        radial-gradient(760px 520px at 18% 110%, rgba(201,168,138,0.30), transparent 62%),
+        linear-gradient(165deg, #2E1D12, #22150E 70%);
+      min-height: 100vh;
+    }
+    .kicker {
+      letter-spacing: 5px; font-size: 12px; font-weight: 600;
+      color: var(--amber); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 5px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--amber);
+      box-shadow: 0 0 14px rgba(217,146,90,0.6); }
+    h1 { font-weight: 700; font-size: 32px; letter-spacing: .5px; margin: 0 0 6px;
+      color: var(--cream); text-shadow: 0 0 26px rgba(217,146,90,0.28); }
+    p.lead { color: var(--latte); margin: 0 0 24px; max-width: 720px; line-height: 1.6;
+      font-size: 16px; font-weight: 500; opacity: .92; }
+    code { font-family: "Courier New", monospace; color: var(--amber);
+      background: rgba(217,146,90,0.12); padding: 2px 7px; border-radius: 6px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: inherit; font-weight: 700; font-size: 13px; letter-spacing: 2px;
+      text-transform: uppercase; padding: 12px 24px; cursor: pointer; color: var(--cream);
+      background: linear-gradient(180deg, var(--amber), #B26F3F);
+      border: 1px solid rgba(244,235,226,0.4); border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(60,40,28,0.4);
+    }
+    button:hover { filter: brightness(1.06); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(46,29,18,0.5); padding: 16px; border-radius: 16px;
+      border: 1px solid rgba(201,168,138,0.26);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 12px; overflow: hidden; display: block;
+      background-color: #1d130c;
+      background-image:
+        linear-gradient(45deg, #2e1d1230 25%, transparent 25%),
+        linear-gradient(-45deg, #2e1d1230 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2e1d1230 75%),
+        linear-gradient(-45deg, transparent 75%, #2e1d1230 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { letter-spacing: 2px; color: var(--latte); text-transform: uppercase; font-weight: 600; }
+    .card-row a { letter-spacing: 1px; color: var(--amber); text-decoration: none; font-weight: 600;
+      border: 1px solid rgba(217,146,90,0.4); border-radius: 10px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(217,146,90,0.16); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dot"></span>LO-FI CAFE · PANELS</p>
+  <h1>Lo-Fi Cafe — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the rainy-window-booth style:
+    a warm cream menu-card chip, a dashed hand-drawn outline, a soft coffee-ring doodle,
+    a wavy amber underline, and a rounded line icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var LATTE = '#E8D5C4', MOCHA = '#C9A88A', COFFEE = '#8C6A56', CREAM = '#F4EBE2';
+    var AMBER = '#D9925A', INK = '#6E5040';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',      icon: 'mug' },
+      { id: 'schedule',  title: 'SCHEDULE',   icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',      icon: 'list' },
+      { id: 'donations', title: 'DONATIONS',  icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',    icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',    icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',    icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM',  icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',      icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',   icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE',  icon: 'star' },
+      { id: 'community', title: 'COMMUNITY',  icon: 'heart' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // soft warm bokeh bloom (blurred radial gradient) — the cafe-light motif
+    function bloom(ctx, cx, cy, rad, color, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // a small wavy hand-drawn amber doodle underline
+    function doodle(ctx, x, y, w) {
+      ctx.save();
+      ctx.strokeStyle = AMBER; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      var n = 5, step = w / n;
+      ctx.moveTo(x, y);
+      for (var i = 1; i <= n; i++) {
+        var px = x + step * i;
+        var py = y + (i % 2 === 0 ? -3 : 3);
+        var cx = x + step * (i - 0.5);
+        ctx.quadraticCurveTo(cx, y + (i % 2 === 0 ? 4 : -4), px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+      var r = 18;
+
+      // ---- warm cream "paper card" body (clipped) ----
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, r);
+      // soft drop shadow under the card
+      ctx.shadowColor = 'rgba(40,25,14,0.55)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
+      var paper = ctx.createLinearGradient(0, 0, 0, H);
+      paper.addColorStop(0, '#F6EEE5');
+      paper.addColorStop(1, '#E4D2C0');
+      ctx.fillStyle = paper; ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, r);
+      ctx.clip();
+
+      // warm amber lamp glow upper-right + soft mocha glow lower-left
+      bloom(ctx, 296, 6, 150, 'rgba(217,146,90,0.45)', 0.55);
+      bloom(ctx, 40, 100, 130, 'rgba(201,168,138,0.6)', 0.4);
+
+      // fine paper grain
+      ctx.save();
+      ctx.fillStyle = 'rgba(140,106,86,0.12)';
+      for (var gy = y; gy < y + h; gy += 4)
+        for (var gx = x + ((gy / 4) % 2 ? 2 : 0); gx < x + w; gx += 4)
+          ctx.fillRect(gx, gy, 1, 1);
+      ctx.restore();
+
+      // a faint coffee-stain ring doodle, lower-right corner
+      ctx.save();
+      ctx.strokeStyle = 'rgba(140,106,86,0.22)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(W - 30, H - 22, 16, 0, 6.2832); ctx.stroke();
+      ctx.strokeStyle = 'rgba(140,106,86,0.12)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(W - 30, H - 22, 11, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+      ctx.restore();
+
+      // ---- dashed hand-drawn inner outline (the menu-card signature) ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(140,106,86,0.42)'; ctx.lineWidth = 1.6;
+      ctx.setLineDash([6, 5]);
+      roundRectPath(ctx, x + 9, y + 9, w - 18, h - 18, r - 7);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // ---- the icon, in a soft amber rounded badge, left ----
+      var iconCX = 44, iconCY = H / 2;
+      ctx.save();
+      roundRectPath(ctx, iconCX - 24, iconCY - 24, 48, 48, 15);
+      ctx.fillStyle = 'rgba(217,146,90,0.16)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(217,146,90,0.5)'; ctx.lineWidth = 1.4;
+      ctx.setLineDash([4, 4]);
+      roundRectPath(ctx, iconCX - 24, iconCY - 24, 48, 48, 15);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      drawIcon(ctx, p.icon, iconCX, iconCY, 28);
+
+      // ---- kicker above the title (spaced caps, amber) ----
+      ctx.save();
+      ctx.font = '700 9px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = AMBER;
+      drawSpaced(ctx, 'LO-FI CAFE', 86, 34, 2.4);
+      ctx.restore();
+
+      // ---- label, rounded humanist sans, coffee ink ----
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 28;
+      var maxW = W - 86 - 26;
+      ctx.font = '700 ' + size + 'px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '700 ' + size + 'px "Quicksand","Comfortaa","Varela Round",system-ui,sans-serif';
+      }
+      ctx.fillStyle = INK;
+      ctx.shadowColor = 'rgba(244,235,226,0.8)'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 1;
+      ctx.fillText(label, 86, 66);
+      ctx.restore();
+
+      // ---- wavy amber doodle underline under the label ----
+      var ulW = Math.min(ctx.measureText(label).width, maxW);
+      doodle(ctx, 88, 78, Math.max(60, ulW));
+
+      // ---- the soft outer paper border on top ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(140,106,86,0.4)'; ctx.lineWidth = 1.6;
+      roundRectPath(ctx, x + 0.8, y + 0.8, w - 1.6, h - 1.6, r);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // Rounded soft strokes in deep coffee ink, centred on (cx, cy), ~s px box.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = COFFEE;
+      ctx.fillStyle = COFFEE;
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      switch (kind) {
+        case 'mug': {
+          // cup body
+          ctx.beginPath();
+          roundRect(ctx, -h * 0.85, -h * 0.45, s * 0.78, s * 0.78, 5);
+          ctx.stroke();
+          // handle
+          ctx.beginPath();
+          ctx.arc(h * 0.5, h * 0.0, h * 0.42, -Math.PI * 0.5, Math.PI * 0.5);
+          ctx.stroke();
+          // saucer
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.95, h * 0.55); ctx.lineTo(h * 0.55, h * 0.55);
+          ctx.stroke();
+          // two steam ribbons
+          ctx.lineWidth = 1.6;
+          for (var sxi = -1; sxi <= 1; sxi += 2) {
+            ctx.beginPath();
+            ctx.moveTo(sxi * h * 0.3, -h * 0.55);
+            ctx.quadraticCurveTo(sxi * h * 0.3 + 4, -h * 0.85, sxi * h * 0.3, -h * 1.05);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'calendar': {
+          ctx.beginPath(); roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 4); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var rr = 0; rr < 2; rr++)
+            for (var cc = 0; cc < 3; cc++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + cc * h * 0.5, -h * 0.02 + rr * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath(); ctx.arc(-h * 0.78, ly, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.6) + 'px "Quicksand","Comfortaa",system-ui,sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          ctx.beginPath(); roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          ctx.beginPath(); roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // local rounded-rect path helper for icons
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    // System fonts (no @font-face / CDN) are ready immediately; guard late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

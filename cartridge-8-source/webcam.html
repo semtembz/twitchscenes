@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cartridge 8 — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one bespoke 8-bit NES webcam frame. Place your camera
+       BEHIND this overlay; the inside of the frame is fully transparent so the
+       camera shows through it. The border is a chunky pixel frame (white rim +
+       black 8-bit border + hard offset shadow), with blocky brick/q-block corner
+       studs and a chunky pixel @handle nameplate. Hard pixels, no blur/gradients.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+    #stage.night{background:transparent;}
+
+    /* ambient decorative pixel coins; transparent canvas */
+    canvas.bg{pointer-events:none;background:transparent;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);pointer-events:none;
+      animation:camIn .42s var(--step) both .1s;}
+    .cam.lower{top:auto;bottom:120px;transform:translateX(-50%);}
+    @keyframes camIn{from{opacity:0;transform:translate(-50%,-50%) translateY(20px)}
+                     to{opacity:1;transform:translate(-50%,-50%)}}
+
+    /* chunky 8-bit pixel border; INSIDE stays fully transparent (cam shows through).
+       Layered hard box-shadows build a flat multi-band frame, no blur/gradient. */
+    .frame{position:absolute;inset:0;background:transparent;
+      border:6px solid var(--shadow);            /* inner black pixel line */
+      box-shadow:
+        inset 0 0 0 6px var(--white),            /* white pixel rim inside */
+        0 0 0 6px var(--white),                  /* white pixel rim outside */
+        0 0 0 12px var(--shadow),                /* black band outside the white */
+        16px 16px 0 var(--shadow);               /* hard offset drop shadow */ }
+
+    /* blocky brick/q-block corner studs sitting on the frame corners */
+    .stud{position:absolute;width:40px;height:40px;
+      background:var(--qblock);
+      border:4px solid var(--shadow);
+      box-shadow:
+        inset -8px -8px 0 var(--qblock-dk),      /* hard inset shade, bottom-right */
+        4px 4px 0 var(--shadow);                 /* hard offset shadow */
+      z-index:2;}
+    .stud.tl{left:-26px;top:-26px;}
+    .stud.tr{right:-26px;top:-26px;}
+    .stud.bl{left:-26px;bottom:-26px;}
+    .stud.br{right:-26px;bottom:-26px;}
+    /* a tiny dark "?" pip centered in each q-block stud */
+    .stud::after{content:"";position:absolute;left:50%;top:46%;width:8px;height:8px;
+      transform:translate(-50%,-50%);background:var(--shadow);}
+
+    /* small "ON AIR" pixel chip, top-left above the frame */
+    .cap{position:absolute;left:-6px;top:-78px;
+      display:flex;align-items:center;gap:14px;padding:10px 20px;
+      background:var(--night);border:4px solid var(--shadow);
+      box-shadow:0 0 0 4px var(--white), 8px 8px 0 var(--shadow);
+      font-size:24px;letter-spacing:.14em;line-height:1;text-transform:uppercase;
+      color:var(--white);text-shadow:4px 4px 0 var(--shadow);
+      animation:capIn .42s var(--step) both .3s;}
+    /* blinking red record pixel */
+    .cap .rec{width:18px;height:18px;background:var(--nes-red);
+      box-shadow:3px 3px 0 var(--shadow);
+      animation:recBlink 1.06s var(--step) infinite;}
+    @keyframes recBlink{0%,55%{opacity:1}56%,100%{opacity:.25}}
+    @keyframes capIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
+
+    /* chunky pixel @handle nameplate clipped to bottom-center of the frame */
+    .tag{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:16px;white-space:nowrap;padding:12px 30px;
+      background:var(--night);border:4px solid var(--shadow);
+      box-shadow:0 0 0 4px var(--white), 10px 10px 0 var(--shadow);
+      animation:tagIn .42s var(--step) both .4s;z-index:3;}
+    .tag .coin{width:22px;height:22px;background:var(--coin);
+      box-shadow:
+        -7px 0 0 var(--qblock-dk), 7px 0 0 var(--qblock-dk),
+        0 -7px 0 var(--coin), 0 7px 0 var(--coin),
+        4px 4px 0 var(--shadow);
+      margin:0 6px;}
+    .tag .who{font-size:34px;letter-spacing:.10em;line-height:1;text-transform:lowercase;
+      color:var(--qblock);text-shadow:5px 5px 0 var(--shadow);}
+    @keyframes tagIn{from{opacity:0;transform:translateX(-50%) translateY(14px)}
+                     to{opacity:1;transform:translateX(-50%)}}
+
+    /* small decorative corner credit tag (NOT the headline) */
+    .crest{position:absolute;right:-4px;top:-72px;
+      font-size:20px;letter-spacing:.2em;line-height:1;text-transform:uppercase;
+      color:var(--white);opacity:.55;text-shadow:3px 3px 0 var(--shadow);
+      animation:capIn .42s var(--step) both .34s;}
+
+    /* ---- RENDER MODE: freeze entrances + ambient blink to final state ---- */
+    #stage.render .cam,
+    #stage.render .cap,
+    #stage.render .tag,
+    #stage.render .crest{animation:none!important;opacity:1;}
+    #stage.render .cam{transform:translate(-50%,-50%);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .cap{transform:none;}
+    #stage.render .tag{transform:translateX(-50%);}
+    #stage.render .cap .rec{animation:none!important;opacity:1;}
+    #stage.render .crest{opacity:.55;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- ambient decorative pixel coins drifting (transparent canvas) -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- blocky q-block corner studs -->
+      <span class="stud tl" aria-hidden="true"></span>
+      <span class="stud tr" aria-hidden="true"></span>
+      <span class="stud bl" aria-hidden="true"></span>
+      <span class="stud br" aria-hidden="true"></span>
+
+      <!-- ON AIR pixel chip, top-left -->
+      <span class="cap" aria-hidden="true"><span class="rec"></span>ON AIR</span>
+      <!-- decorative corner credit, top-right -->
+      <span class="crest" aria-hidden="true">CARTRIDGE 8</span>
+
+      <!-- chunky pixel @handle nameplate, bottom-center -->
+      <div class="tag">
+        <span class="coin" aria-hidden="true"></span>
+        <span class="who" id="handle">@yourhandle</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: a FEW drifting blocky pixel coins (transparent, hard pixels) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const PX = 8;
+    const COIN = "#FCD800", COIN_DK = "#A85400", COIN_HI = "#FCFCFC", K = "#000000";
+    const coins = ctx ? Array.from({ length: Math.max(0, num("coins", 8)) }, () => ({
+      x: R(0, W), y: R(0, H), v: R(8, 18) / 60, ph: R(0, 6.28),
+      sc: (R(2, 3) | 0), a: R(0.12, 0.26),
+    })) : [];
+
+    function drawCoin(cx, cy, u, alpha){
+      const O = COIN_DK, C = COIN, Hh = COIN_HI;
+      const x = Math.round(cx / PX) * PX, y = Math.round(cy / PX) * PX;
+      const grid = [
+        [0,0,K,K,0,0],
+        [0,K,O,C,K,0],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],
+        [0,K,O,C,K,0],
+        [0,0,K,K,0,0],
+      ];
+      ctx.globalAlpha = alpha;
+      for (let gy = 0; gy < grid.length; gy++)
+        for (let gx = 0; gx < grid[gy].length; gx++){
+          const c = grid[gy][gx];
+          if (c){ ctx.fillStyle = c; ctx.fillRect(x + (gx - 3) * u, y + (gy - 3) * u, u, u); }
+        }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      const d = dt * 60;
+      for (const c of coins){
+        c.x += c.v * d; c.ph += 0.05 * d;
+        if (c.x > W + 60) c.x = -60;
+        const bob = Math.round(Math.sin(c.ph) * 1.4) * PX;
+        drawCoin(c.x, c.y + bob, c.sc, c.a);
+      }
+    }
+    // rAF-independent verification hook (EXACT theme name)
+    window.__cart8Draw = function(){ drawBg(1/30); };
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Frost Protocol (PNG generator)</title>
+  <!--
+    FROST PROTOCOL · "Clean Room HUD" PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE identity block;
+    right = a clean-room tagline. The centre is decorative only — a faint frosted-glass
+    pane + a single large ice crystal — so the player can sit over it without hiding
+    anything important.
+
+    Everything random is drawn from a SEEDED PRNG, so the ice field is identical on
+    every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --bg-deep:#0C1014; --bg-lift:#11181F; --accent:#7FB4D6; --ice:#CFE6F2; --text:#F2F7FA;
+      --dim:rgba(207,230,242,.55);
+      --mono:"JetBrains Mono","Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+      --display:"Eurostile","Bahnschrift","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);
+      background:var(--bg-deep);color:var(--text);padding:32px;}
+    h1{font-family:var(--display);font-weight:700;font-size:30px;color:var(--text);
+      letter-spacing:.02em;text-transform:uppercase;margin:0 0 6px;text-shadow:0 2px 18px rgba(4,7,10,.6);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:var(--mono);font-size:14px;letter-spacing:.04em;}
+    .kicker{font-family:var(--mono);letter-spacing:.42em;
+      font-size:13px;color:var(--accent);margin:0 0 14px;text-transform:uppercase;}
+    .kicker::before{content:"// ";color:var(--ice);opacity:.7;}
+    button{font-family:var(--mono);font-weight:600;font-size:13px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--bg-deep);
+      background:linear-gradient(180deg,var(--ice),var(--accent));border:1px solid rgba(127,180,214,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(127,180,214,.22);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0c1116;padding:14px;border:1px solid #1d2a35;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: roughly where Twitch's offline player sits. NOT in the PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(127,180,214,0.45);
+      background:rgba(12,18,24,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(207,230,242,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:var(--mono);font-size:12px;letter-spacing:2px;}
+    code{font-family:var(--mono);color:var(--accent);background:rgba(127,180,214,.08);
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">FROST PROTOCOL · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the clean-room HUD style — seeded so the
+    ice field is reproducible. Identity sits on the <strong>left</strong>, the tagline
+    on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    const BG_DEEP = '#0C1014', ACCENT = '#7FB4D6', ICE = '#CFE6F2', TEXT = '#F2F7FA';
+    const MONO = '"JetBrains Mono","Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+    const DISP = '"Eurostile","Bahnschrift","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    function shard(cx, cy, r, rot, alpha, ice) {
+      ctx.save();
+      ctx.translate(Math.round(cx), Math.round(cy));
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = ice ? ICE : ACCENT;
+      ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      for (let i = 0; i < 6; i++) {
+        const ang = (Math.PI / 3) * i;
+        const ex = Math.cos(ang) * r, ey = Math.sin(ang) * r;
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(ex, ey);
+        const bl = r * 0.26;
+        for (const f of [0.55, 0.8]) {
+          const bx = Math.cos(ang) * r * f, by = Math.sin(ang) * r * f;
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + Math.cos(ang + 1.05) * bl, by + Math.sin(ang + 1.05) * bl);
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + Math.cos(ang - 1.05) * bl, by + Math.sin(ang - 1.05) * bl);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.fillStyle = ice ? ICE : ACCENT;
+      ctx.beginPath(); ctx.arc(0, 0, Math.max(1, r * 0.08), 0, 6.2832); ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    // a centred branding block: kicker + flanking ticks, condensed title, mono sub
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      // kicker (mono caps), centred, with flanking registration ticks
+      ctx.save();
+      ctx.font = '600 20px ' + MONO; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+      ctx.fillStyle = ACCENT;
+      ctx.shadowColor = 'rgba(127,180,214,0.35)'; ctx.shadowBlur = 10;
+      drawSpacedCentered(kickerLabel, cx, 120, 8);
+      const kw = spacedWidth(kickerLabel, 8);
+      ctx.shadowBlur = 0;
+      // flanking L-tick marks
+      ctx.strokeStyle = 'rgba(207,230,242,0.85)'; ctx.lineWidth = 2;
+      [cx - kw / 2 - 26, cx + kw / 2 + 26].forEach((dx, i) => {
+        const s = i === 0 ? 1 : -1;
+        ctx.beginPath();
+        ctx.moveTo(dx, 110); ctx.lineTo(dx + 10 * s, 110);
+        ctx.moveTo(dx, 110); ctx.lineTo(dx, 130);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // condensed title, etched ice-light gradient
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 ' + titleSize + 'px ' + DISP;
+      // base etch
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillText(titleText, cx, 210 + 1);
+      const tg = ctx.createLinearGradient(0, 210 - titleSize / 2, 0, 210 + titleSize / 2);
+      tg.addColorStop(0, TEXT); tg.addColorStop(0.46, ICE); tg.addColorStop(1, ACCENT);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(127,180,214,0.35)'; ctx.shadowBlur = 26;
+      ctx.fillText(titleText, cx, 210);
+      ctx.restore();
+
+      // thin cold-blue rule under the title w/ end caps
+      ctx.save();
+      const ruW = Math.min(340, titleSize * 4);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(127,180,214,0)'); ug.addColorStop(0.5, ICE); ug.addColorStop(1, 'rgba(127,180,214,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 272); ctx.lineTo(cx + ruW / 2, 272); ctx.stroke();
+      ctx.strokeStyle = 'rgba(127,180,214,0.42)';
+      [cx - ruW / 2, cx + ruW / 2].forEach(ex => {
+        ctx.beginPath(); ctx.moveTo(ex + 0.5, 266); ctx.lineTo(ex + 0.5, 278); ctx.stroke();
+      });
+      ctx.restore();
+
+      // sub — quiet mono
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 20px ' + MONO; ctx.fillStyle = 'rgba(207,230,242,0.55)';
+      drawSpacedCentered(subText, cx, 318, 3);
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xCFE6F2); // fixed seed (ice hex) -> identical scatter
+
+      // ---- BACKGROUND: cold-blue void gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0E141A'); grad.addColorStop(0.6, BG_DEEP); grad.addColorStop(1, '#080B0E');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // glows: centre + flanking thirds
+      bloom(W / 2, H / 2 + 10, 680, 'rgba(127,180,214,0.10)');
+      bloom(W * 0.16, H * 0.32, 360, 'rgba(127,180,214,0.07)');
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(127,180,214,0.07)');
+
+      // ---- measurement grid (60 minor / 300 major), masked to fade ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(127,180,214,0.09)'; ctx.lineWidth = 1;
+      for (let x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(127,180,214,0.18)';
+      for (let x = 0; x <= W; x += 300) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += 300) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); ctx.stroke(); }
+      ctx.restore();
+      const m = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, W * 0.5);
+      m.addColorStop(0, 'rgba(12,16,20,0)'); m.addColorStop(1, 'rgba(12,16,20,0.5)');
+      ctx.fillStyle = m; ctx.fillRect(0, 0, W, H);
+
+      // ---- CENTRE: decorative frosted pane + one big ice crystal ----
+      ctx.save();
+      const pw = 470, ph = 220, pxx = W / 2 - pw / 2, pyy = H / 2 - ph / 2;
+      roundRect(pxx, pyy, pw, ph, 2);
+      const pg = ctx.createLinearGradient(0, pyy, 0, pyy + ph);
+      pg.addColorStop(0, 'rgba(207,230,242,0.05)'); pg.addColorStop(1, 'rgba(17,24,31,0.30)');
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.strokeStyle = 'rgba(127,180,214,0.30)'; ctx.lineWidth = 1;
+      roundRect(pxx + 0.5, pyy + 0.5, pw - 1, ph - 1, 2); ctx.stroke();
+      ctx.restore();
+      // big crystal in the centre pane
+      shard(W / 2, H / 2, 92, 0.3, 0.16, true);
+      shard(W / 2 + 130, H / 2 - 40, 44, -0.5, 0.10, false);
+      shard(W / 2 - 140, H / 2 + 40, 40, 0.8, 0.10, false);
+
+      // ---- seeded ice shards + frost into the LEFT and RIGHT thirds ----
+      for (let i = 0; i < 10; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 60, 600) : R(rnd, W - 600, W - 60);
+        const y = R(rnd, 30, H - 30), r = R(rnd, 30, 78);
+        shard(x, y, r, R(rnd, 0, 6.283), R(rnd, 0.05, 0.13), rnd() < 0.5);
+      }
+      ctx.save();
+      for (let i = 0; i < 64; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 620) : R(rnd, W - 620, W - 40);
+        const y = R(rnd, 14, H - 14);
+        const z = R(rnd, 0.5, 1.6), a = R(rnd, 0.25, 0.7);
+        ctx.globalAlpha = a; ctx.fillStyle = ICE;
+        const sp = Math.max(1, Math.round(z * 1.6));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- vignette ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(4,7,10,0.7)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 80, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, 'FROST PROTOCOL', 'SUB ZERO', 80, 'broadcast-grade, sealed & cold');
+
+      // ---- accent registration rails flanking the centre clear-zone ----
+      ctx.save();
+      ctx.fillStyle = 'rgba(127,180,214,0.42)';
+      for (let yy = 90; yy < H - 60; yy += 16) { ctx.fillRect(672, yy, 2, 7); ctx.fillRect(1246, yy, 2, 7); }
+      // bright L-tick caps on the rails
+      ctx.strokeStyle = 'rgba(207,230,242,0.85)'; ctx.lineWidth = 2;
+      [[673, 76, 1], [1247, 76, -1], [673, H - 60, 1], [1247, H - 60, -1]].forEach(([x, y, s]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + 10 * s, y);
+        ctx.moveTo(x, y); ctx.lineTo(x, y + (y < H / 2 ? 10 : -10));
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // ---- void crop-brackets at the banner corners ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(127,180,214,0.42)'; ctx.lineWidth = 1;
+      [[40, 40, 1, 1], [W - 40, 40, -1, 1], [40, H - 40, 1, -1], [W - 40, H - 40, -1, -1]].forEach(([x, y, dx, dy]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + 38 * dx, y);
+        ctx.moveTo(x, y); ctx.lineTo(x, y + 38 * dy);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

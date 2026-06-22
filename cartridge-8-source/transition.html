@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Cartridge 8 Pixel-Block Curtain (WORLD 1-1)</title>
+  <!--
+    CARTRIDGE 8 stinger ("LEVEL CLEAR"). A true 8-bit NES block-curtain wipe:
+    chunky brick / question-block tiles march IN from the top & bottom edges in an
+    integer pixel grid, meeting in the middle to fully cover the screen at t=0.5,
+    while a giant blocky pixel COIN spins on its vertical axis at the seam and a
+    hard 1-frame screen FLASH pops at full cover. Then the blocks retract back to
+    the edges and the screen clears. ZERO gradients / ZERO blur — every edge snaps
+    to the 8px pixel grid; timing uses step-quantized progress for that crunchy
+    NES pop. Transparent before & after, deterministic (seeded RNG, no Math.random
+    in the frame fn), sine-driven cover, ~1100ms.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1100  total duration in ms (default 1100)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover peak).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
+      image-rendering: pixelated; image-rendering: crisp-edges; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1100;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- NES palette (must match shared.css / shared.js COL{}) ---- */
+    const BRICK = '#C84C0C', BRICK_DK = '#7C2800';
+    const Q = '#FCBC3C', Q_DK = '#A85400';
+    const COIN = '#FCD800', COIN_HI = '#FCFCFC', COIN_DK = '#A85400';
+    const WHITE = '#FCFCFC', BLACK = '#000000', NES_RED = '#E60000';
+
+    const PX = 8;                 // base pixel unit (everything snaps to multiples of 8)
+    const TILE = 120;             // curtain block size (snaps to 8-grid)
+    const COLS = Math.ceil(W / TILE);   // columns of blocks across
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const snap = (v) => Math.round(v / PX) * PX;        // hard pixel-grid snap
+    // step-quantized progress -> crunchy NES pop (no eased motion)
+    const stepq = (x, n) => Math.round(clamp01(x) * n) / n;
+
+    /* ---- deterministic seeded RNG: per-column block kind + entrance stagger.
+       Computed ONCE here (NOT in the frame fn) so the look is stable frame-to-frame
+       and identical in the export. ---- */
+    let seed = 0xCA87 >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    // each column: which kind (brick/q), a small entrance lead, and from-which-edge
+    const cols = Array.from({ length: COLS }, (_, i) => ({
+      kind: rnd() < 0.34 ? 'q' : 'b',
+      lead: R(0, 0.18),                 // staggers the march so it isn't a flat line
+      top: i % 2 === 0,                 // alternate columns lead from top vs bottom
+    }));
+
+    /* ---- draw one NES tile (brick or question-block) — same motif as shared.js
+           drawBlock(): flat fill, hard inset shadow R+B, black border T+L, and a
+           pixel "?" (q) or mortar lines (brick). No gradients, no blur. ---- */
+    function drawTile(x, y, t, kind) {
+      x = snap(x); y = snap(y);
+      const fillC = kind === 'q' ? Q : BRICK;
+      const dk = kind === 'q' ? Q_DK : BRICK_DK;
+      ctx.fillStyle = fillC; ctx.fillRect(x, y, t, t);
+      // hard inset shadow on right + bottom
+      ctx.fillStyle = dk;
+      ctx.fillRect(x, y + t - PX, t, PX);
+      ctx.fillRect(x + t - PX, y, PX, t);
+      // black border (top + left)
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(x, y, t, PX / 2);
+      ctx.fillRect(x, y, PX / 2, t);
+      if (kind === 'q') {
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(x + t / 2 - PX, y + PX * 2, PX * 2, PX);
+        ctx.fillRect(x + t / 2, y + PX * 3, PX, PX);
+        ctx.fillRect(x + t / 2, y + PX * 5, PX, PX);
+      } else {
+        ctx.fillStyle = dk;
+        ctx.fillRect(x, y + t / 2 - PX / 2, t, PX / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y, PX / 2, t / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y + t / 2, PX / 2, t / 2);
+      }
+    }
+
+    /* ---- giant blocky pixel COIN that spins (horizontal squash) at the seam,
+           strongest at full cover. Drawn from an integer pixel grid like the HUD
+           coin in shared.js, but huge. ---- */
+    const COIN_GRID = [
+      [0,0,1,1,0,0],
+      [0,1,2,3,1,0],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [1,2,3,4,3,1],
+      [0,1,2,3,1,0],
+      [0,0,1,1,0,0],
+    ];
+    const COIN_COLS = [null, BLACK, COIN_DK, COIN, COIN_HI];
+    function drawCoin(cx, cy, spin, scale) {
+      // spin: 0..1 phase -> horizontal cos squash for a coin flip; scale: cell px
+      const sq = Math.abs(Math.cos(spin * Math.PI * 2));   // 1 -> 0 -> 1 edge-on
+      const uw = Math.max(PX, snap(scale * (0.18 + 0.82 * sq))); // squashed cell width
+      const uh = snap(scale);
+      const gw = COIN_GRID[0].length, gh = COIN_GRID.length;
+      const ox = snap(cx - (gw * uw) / 2);
+      const oy = snap(cy - (gh * uh) / 2);
+      for (let gy = 0; gy < gh; gy++)
+        for (let gx = 0; gx < gw; gx++) {
+          const c = COIN_GRID[gy][gx];
+          if (!c) continue;
+          ctx.fillStyle = COIN_COLS[c];
+          ctx.fillRect(ox + gx * uw, oy + gy * uh, uw, uh);
+        }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      // ---- the two block curtains: top marches DOWN, bottom marches UP, each
+      //      column reaching half-screen (CY) at full cover. Step-quantized so the
+      //      blocks advance in discrete TILE-snaps, not a smooth slide. ----
+      const halfRows = Math.ceil((CY / TILE)) + 1;  // rows needed to fill a half
+      for (let i = 0; i < cols.length; i++) {
+        const col = cols[i];
+        const x = i * TILE;
+        // per-column staggered + step-quantized advance (discrete pixel pop)
+        const adv = stepq(clamp01((cover - col.lead) / (1 - col.lead)), halfRows);
+        const reach = adv * (CY + TILE);            // how far this curtain has come in
+        if (reach <= 0) continue;
+        // TOP curtain column: blocks stacked from y=0 downward
+        for (let r = 0; r < halfRows; r++) {
+          const ty = r * TILE;
+          if (ty > reach) break;
+          drawTile(x, ty - (TILE - 0), TILE, col.kind);       // align top edge
+          drawTile(x, ty, TILE, col.kind);
+        }
+        // BOTTOM curtain column (mirror): blocks stacked from y=H upward
+        for (let r = 0; r < halfRows; r++) {
+          const by = H - (r + 1) * TILE;
+          if (H - by > reach) break;
+          drawTile(x, by, TILE, col.kind === 'q' ? 'b' : 'q'); // alternate kind on bottom
+        }
+      }
+
+      // ---- spinning pixel coin at the seam (rides the cover) ----
+      if (cover > 0.06) {
+        const spin = t * 3;                          // ~3 flips across the stinger
+        const sc = snap(8 + 34 * cover);             // grows toward full cover
+        drawCoin(CX, CY, spin, sc);
+      }
+
+      // ---- hard 1-frame NES screen FLASH at the exact peak (full cover) ----
+      // step-quantized: it's either ON or OFF, never a soft fade.
+      const flashOn = Math.abs(t - 0.5) < (1 / 60);  // ~one 60fps frame wide
+      if (flashOn) {
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(0, 0, W, H);
+      } else if (cover > 0.985) {
+        // a chunky white-bordered seam band a couple frames around peak
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(0, CY - PX * 2, W, PX * 4);
+        ctx.fillStyle = NES_RED;
+        ctx.fillRect(0, CY - PX, W, PX * 2);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Mythforge Keep (PNG generator)</title>
+  <!--
+    MYTHFORGE KEEP · "Tavern Quest-Board" PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = a tavern tagline. The centre is decorative only — a forged-gold crossed-
+    sword crest hung on the timber + warm ember haze — so the player can sit over it
+    without hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the embers / stains scatter is
+    identical on every render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --timber:#120D08; --timber-2:#0A0704; --gold:#C9962F; --gold-lt:#F0CE7A;
+      --gold-dk:#8A6320; --wax:#7A1F1F; --parchment:#EFE3C8; --ink:#3A2A16; --ink-soft:#6B5230;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      background:var(--timber-2);color:var(--parchment);padding:32px;}
+    h1{font-family:"Trajan Pro","Cinzel",Georgia,serif;font-weight:700;font-size:28px;
+      color:var(--gold-lt);letter-spacing:1px;margin:0 0 6px;text-shadow:0 0 22px rgba(201,150,47,.30);}
+    p.lead{color:#b89a6a;margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Trajan Pro","Cinzel",Georgia,serif;letter-spacing:6px;font-size:13px;
+      color:var(--gold-lt);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:"Trajan Pro","Cinzel",Georgia,serif;font-weight:700;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--timber-2);
+      background:linear-gradient(180deg,var(--gold-lt),var(--gold));border:1px solid rgba(240,206,122,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(201,150,47,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0e0a06;padding:14px;border:1px solid #2a2218;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: roughly where Twitch's offline player sits.
+       NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(240,206,122,0.45);
+      background:rgba(10,7,4,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(239,227,200,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Trajan Pro","Cinzel",Georgia,serif;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--gold-lt);background:#1a1209;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">MYTHFORGE KEEP · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the tavern quest-board style — seeded so the
+    embers and stains are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const TIMBER='#120D08', TIMBER2='#0A0704', GOLD='#C9962F', GOLD_LT='#F0CE7A',
+          GOLD_DK='#8A6320', WAX='#7A1F1F', PARCH='#EFE3C8', INK='#3A2A16', INK_SOFT='#6B5230',
+          IRON='#2A2622', IRON_LT='#4A443C';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed){ let s=seed>>>0; return ()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+    const R=(rnd,a,b)=>a+rnd()*(b-a);
+
+    function bloom(x,y,r,color,alpha){
+      const g=ctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0,color); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.globalAlpha=alpha; ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill(); ctx.globalAlpha=1;
+    }
+
+    // ---- dark vertical timber-plank wall ----
+    function drawPlanks(){
+      const grad=ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#160F09'); grad.addColorStop(0.5,TIMBER); grad.addColorStop(1,TIMBER2);
+      ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+      const pw=124;
+      for (let px=0; px<W; px+=pw){
+        ctx.fillStyle = ((px/pw)|0)%2 ? '#150E07' : '#1a1209';
+        ctx.fillRect(px,0,pw,H);
+        ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,0,2,H);
+        ctx.fillStyle='rgba(255,255,255,0.012)'; ctx.fillRect(px+2,0,2,H);
+        const gr=makeRand(0x6c00+px);
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+        for (let i=0;i<6;i++){ const gx=Math.round(px+R(gr,6,pw-6));
+          ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx+R(gr,-5,5),H); ctx.stroke(); }
+      }
+      ctx.fillStyle='rgba(0,0,0,0.08)';
+      for (let y=0;y<H;y+=9) ctx.fillRect(0,y,W,3);
+    }
+
+    // ---- crossed-sword crest hung centre (decorative, behind player) ----
+    function crest(cx,cy,sc){
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(sc,sc);
+      ctx.globalAlpha=0.85; ctx.lineCap='round';
+      ctx.strokeStyle=GOLD; ctx.lineWidth=4;
+      ctx.shadowColor='rgba(201,150,47,0.45)'; ctx.shadowBlur=20;
+      ctx.beginPath(); ctx.moveTo(-58,40); ctx.lineTo(46,-40);
+      ctx.moveTo(58,40);  ctx.lineTo(-46,-40); ctx.stroke();
+      ctx.fillStyle=GOLD;
+      ctx.save(); ctx.translate(-55,37); ctx.rotate(-0.66); ctx.fillRect(-12,-3,24,6); ctx.restore();
+      ctx.save(); ctx.translate(55,37);  ctx.rotate(0.66);  ctx.fillRect(-12,-3,24,6); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(44,-42); ctx.lineTo(54,-48); ctx.lineTo(51,-36); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-44,-42); ctx.lineTo(-54,-48); ctx.lineTo(-51,-36); ctx.closePath(); ctx.fill();
+      // wax pip + shield ring
+      ctx.strokeStyle='rgba(201,150,47,0.35)'; ctx.lineWidth=2; ctx.shadowBlur=0;
+      ctx.beginPath(); ctx.arc(0,0,74,0,6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,9,0,6.2832); ctx.fillStyle=WAX; ctx.fill();
+      ctx.strokeStyle=GOLD; ctx.lineWidth=2; ctx.stroke();
+      ctx.restore(); ctx.globalAlpha=1; ctx.shadowBlur=0;
+    }
+
+    function diamond(x,y,s,fill){ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4);
+      if(fill){ ctx.fillStyle=fill; ctx.fillRect(-s,-s,s*2,s*2); } ctx.restore(); }
+
+    // ---- a centred branding block: crest-flanked kicker, big serif title, sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText){
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      // kicker with flanking diamonds, engraved spaced caps
+      ctx.font='600 22px "Trajan Pro","Cinzel",Georgia,serif';
+      ctx.fillStyle=GOLD_LT; ctx.shadowColor='rgba(201,150,47,0.35)'; ctx.shadowBlur=14;
+      drawSpacedCentered(kickerLabel, cx, 128, 9);
+      const kw=spacedWidth(kickerLabel,9);
+      ctx.shadowColor='rgba(201,150,47,0.6)'; ctx.shadowBlur=10; ctx.fillStyle=GOLD;
+      diamond(cx-kw/2-20,128,4,GOLD); diamond(cx+kw/2+20,128,4,GOLD);
+      ctx.shadowBlur=0;
+
+      // title — engraved embossed-gold serif
+      ctx.font='700 '+titleSize+'px "Trajan Pro","Cinzel",Georgia,serif';
+      const ty=222;
+      ctx.fillStyle='rgba(255,250,235,0.45)'; ctx.fillText(titleText,cx,ty-2);
+      ctx.fillStyle='rgba(58,30,8,0.5)';      ctx.fillText(titleText,cx,ty+2);
+      const tg=ctx.createLinearGradient(0,ty-titleSize/2,0,ty+titleSize/2);
+      tg.addColorStop(0,GOLD_LT); tg.addColorStop(0.52,GOLD); tg.addColorStop(1,GOLD_DK);
+      ctx.fillStyle=tg; ctx.shadowColor='rgba(201,150,47,0.45)'; ctx.shadowBlur=30;
+      ctx.fillText(titleText,cx,ty);
+      ctx.shadowBlur=0;
+
+      // forged rule + diamond caps under the title
+      const ruW=Math.min(360,titleSize*4);
+      const ug=ctx.createLinearGradient(cx-ruW/2,0,cx+ruW/2,0);
+      ug.addColorStop(0,'rgba(138,99,32,0)'); ug.addColorStop(0.2,GOLD_DK);
+      ug.addColorStop(0.5,GOLD); ug.addColorStop(0.8,GOLD_DK); ug.addColorStop(1,'rgba(138,99,32,0)');
+      ctx.strokeStyle=ug; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(cx-ruW/2,288); ctx.lineTo(cx+ruW/2,288); ctx.stroke();
+      ctx.fillStyle=GOLD; diamond(cx-ruW/2-11,288,4,GOLD); diamond(cx+ruW/2+11,288,4,GOLD);
+
+      // subtitle — aged italic serif
+      ctx.font='italic 400 23px Georgia,"Times New Roman",serif';
+      ctx.fillStyle=INK_SOFT;
+      ctx.fillStyle='#9c8049';
+      ctx.fillText(subText,cx,338);
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd=makeRand(0x7A1F1F); // fixed seed (wax hex)
+
+      // ---- BACKGROUND: timber wall + candle wash ----
+      drawPlanks();
+      bloom(W/2, H/2, 540, 'rgba(201,150,47,0.14)', 1);
+      bloom(W*0.16, H*0.32, 360, 'rgba(201,150,47,0.07)', 1);
+      bloom(W*0.84, H*0.34, 360, 'rgba(122,31,31,0.10)', 1);
+
+      // ---- centre crest (decorative, behind the player) ----
+      crest(W/2, H/2+8, 1.0);
+
+      // ---- SEEDED EMBER / ASH scattered into the LEFT & RIGHT thirds ----
+      ctx.save();
+      for (let i=0;i<70;i++){
+        const onLeft=i%2===0;
+        const x=onLeft?R(rnd,40,620):R(rnd,W-620,W-40);
+        const y=R(rnd,16,H-16), z=R(rnd,0.6,1.7);
+        const warm=rnd()>0.34;
+        ctx.globalAlpha=R(rnd,0.25,warm?0.85:0.5);
+        if(warm){ ctx.fillStyle=GOLD_LT; ctx.shadowColor=GOLD_LT; ctx.shadowBlur=7*z; }
+        else { ctx.fillStyle='#8c857a'; ctx.shadowColor='rgba(140,133,122,0.5)'; ctx.shadowBlur=3*z; }
+        const sp=Math.max(1,Math.round(z*1.7));
+        ctx.fillRect(Math.round(x),Math.round(y),sp,sp);
+      }
+      ctx.restore(); ctx.globalAlpha=1; ctx.shadowBlur=0;
+
+      // ---- VIGNETTE ----
+      const vig=ctx.createRadialGradient(W/2,H/2,H*0.30,W/2,H/2,W*0.55);
+      vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(6,3,1,0.78)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle=params.get('handle')||'@YOURHANDLE';
+      const handleAt=handle.startsWith('@')?handle:'@'+handle;
+      const handleClean=handle.replace(/^@/,'');
+      block(400,'THE STREAMER', handleAt.toUpperCase(), 70, 'twitch.tv/'+handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520,'MYTHFORGE KEEP', 'EPIC RUNS', 70, 'a quest every night');
+
+      // accent nail-stud rails flanking the centre clear-zone
+      ctx.fillStyle='rgba(201,150,47,0.4)';
+      for (let yy=96; yy<H-70; yy+=18){ ctx.fillRect(672,yy,3,8); ctx.fillRect(1245,yy,3,8); }
+      ctx.fillStyle=GOLD; ctx.shadowColor='rgba(201,150,47,0.6)'; ctx.shadowBlur=8;
+      [[673,84],[1246,84],[673,H-70],[1246,H-70]].forEach(([x,y])=>{ diamond(x,y,4,GOLD); });
+      ctx.shadowBlur=0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str,sp){ let t=0; for(const ch of str) t+=ctx.measureText(ch).width+sp; return t-sp; }
+    function drawSpacedFrom(str,x,y,sp){ let cx=x; for(const ch of str){ ctx.fillText(ch,cx,y); cx+=ctx.measureText(ch).width+sp; } }
+    function drawSpacedCentered(str,x,y,sp){ const t=spacedWidth(str,sp); const p=ctx.textAlign; ctx.textAlign='left'; drawSpacedFrom(str,x-t/2,y,sp); ctx.textAlign=p; }
+
+    function download(){
+      const a=document.createElement('a');
+      a.download='profile-banner.png';
+      a.href=cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name:'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

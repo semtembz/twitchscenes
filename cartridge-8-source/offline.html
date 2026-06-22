@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Cartridge 8 (PNG generator)</title>
+  <!--
+    CARTRIDGE 8 · "WORLD 1-1" 8-bit NES OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the full World 1-1 platformer screen (flat NES sky, blocky
+    drifting-style pixel clouds, a tiled brick / question-block cluster, two green
+    pipes, a 2-tile dirt-ground strip with orange grass-edge, a bobbing pixel coin
+    sprite, the chunky NES HUD bar, and a giant blocky "GAME OVER" title with a
+    HARD offset shadow) onto a <canvas> and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the cloud / block layout is
+    identical on every render (Math.random is never used) — re-running gives the
+    same frame. ZERO gradients / ZERO blur — bespoke to this theme.
+
+    ?handle=@you customises the bottom handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --nes-red:#E60000; --white:#FCFCFC; --night:#1A1A2E; --sky:#5C94FC;
+      --qblock:#FCBC3C; --coin:#FCD800; --shadow:#000000;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+      font-weight:700;background:var(--night);color:var(--white);padding:32px;
+      image-rendering:pixelated;}
+    h1{font-size:28px;color:var(--white);letter-spacing:.04em;margin:0 0 6px;
+      text-transform:uppercase;text-shadow:4px 4px 0 var(--shadow);}
+    p.lead{color:#B8D0FC;margin:0 0 22px;max-width:880px;line-height:1.7;font-size:14px;
+      text-transform:uppercase;letter-spacing:.04em;}
+    .kicker{letter-spacing:.28em;font-size:13px;color:var(--coin);margin:0 0 14px;
+      text-transform:uppercase;text-shadow:3px 3px 0 var(--shadow);}
+    button{font-family:inherit;font-weight:700;font-size:14px;letter-spacing:.18em;
+      text-transform:uppercase;padding:14px 26px;color:var(--shadow);
+      background:var(--qblock);border:4px solid var(--shadow);cursor:pointer;
+      box-shadow:6px 6px 0 var(--shadow);}
+    button:active{transform:translate(2px,2px);box-shadow:4px 4px 0 var(--shadow);}
+    .preview{margin-top:22px;background:#0d0d1f;padding:14px;border:3px solid #34346a;
+      display:inline-block;}
+    canvas{display:block;width:960px;height:540px;image-rendering:pixelated;}
+    code{color:var(--coin);background:rgba(0,0,0,.4);padding:2px 6px;text-transform:none;}
+  </style>
+</head>
+<body>
+  <p class="kicker">CARTRIDGE 8 · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image as a full World 1-1 NES screen — seeded so the
+    cloud and block layout are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    var W = 1920, H = 1080, PX = 8;   // base pixel unit (everything snaps to multiples of 8)
+    var params = new URLSearchParams(location.search);
+
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    var SKY = '#5C94FC', WHITE = '#FCFCFC', RED = '#E60000', BLUE = '#0058F8';
+    var NIGHT = '#1A1A2E', CLOUD_EDGE = '#B8D0FC';
+    var BRICK = '#C84C0C', BRICK_DK = '#7C2800';
+    var QB = '#FCBC3C', QB_DK = '#A85400';
+    var GROUND = '#9C4A00', GROUND_DK = '#5C2800', GRASS = '#C84C0C';
+    var PIPE = '#00B800', PIPE_DK = '#006800', PIPE_LT = '#80D010';
+    var COIN = '#FCD800', COIN_HI = '#FCFCFC', COIN_DK = '#A85400', BLACK = '#000000';
+
+    var cv = document.getElementById('c');
+    var ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so reproducible ----
+    function makeRand(seed) {
+      var s = seed >>> 0;
+      return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    function RR(rnd, a, b) { return a + rnd() * (b - a); }
+    function snap(v) { return Math.round(v / PX) * PX; }
+    function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(snap(x), snap(y), Math.round(w), Math.round(h)); }
+
+    // ---- blocky pixel cloud (rect cluster) — mirrors shared.js drawCloud ----
+    function cloud(x, y, s) {
+      var u = PX * s;
+      x = snap(x); y = snap(y);
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(x,         y + u,        5 * u, u);
+      ctx.fillRect(x + u,     y,            u,     u);
+      ctx.fillRect(x + 2 * u, y - u,        u,     u);
+      ctx.fillRect(x + 3 * u, y,            u,     u);
+      ctx.fillStyle = CLOUD_EDGE;
+      ctx.fillRect(x, y + 2 * u - PX, 5 * u, PX);
+    }
+
+    // ---- brick / question block tile (mirrors shared.js drawBlock) ----
+    function block(x, y, t, kind) {
+      x = snap(x); y = snap(y);
+      var fillC = kind === 'q' ? QB : BRICK, dk = kind === 'q' ? QB_DK : BRICK_DK;
+      ctx.fillStyle = fillC; ctx.fillRect(x, y, t, t);
+      ctx.fillStyle = dk;
+      ctx.fillRect(x, y + t - PX, t, PX);
+      ctx.fillRect(x + t - PX, y, PX, t);
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(x, y, t, PX / 2);
+      ctx.fillRect(x, y, PX / 2, t);
+      if (kind === 'q') {
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(x + t / 2 - PX, y + PX * 2, PX * 2, PX);
+        ctx.fillRect(x + t / 2, y + PX * 3, PX, PX);
+        ctx.fillRect(x + t / 2, y + PX * 5, PX, PX);
+      } else {
+        ctx.fillStyle = dk;
+        ctx.fillRect(x, y + t / 2 - PX / 2, t, PX / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y, PX / 2, t / 2);
+        ctx.fillRect(x + t / 2 - PX / 2, y + t / 2, PX / 2, t / 2);
+      }
+    }
+
+    // ---- green pixel pipe (mirrors shared.js drawPipe) ----
+    function pipe(x, topY, h) {
+      var lipW = 128, lipH = 56, bodyW = 96;
+      var bx = x + (lipW - bodyW) / 2;
+      ctx.fillStyle = PIPE; ctx.fillRect(bx, topY + lipH, bodyW, h - lipH);
+      ctx.fillStyle = PIPE_LT; ctx.fillRect(bx + PX, topY + lipH, PX * 2, h - lipH);
+      ctx.fillStyle = PIPE_DK; ctx.fillRect(bx + bodyW - PX * 2, topY + lipH, PX * 2, h - lipH);
+      ctx.fillStyle = PIPE; ctx.fillRect(x, topY, lipW, lipH);
+      ctx.fillStyle = PIPE_LT; ctx.fillRect(x + PX, topY + PX, PX * 2, lipH - PX * 2);
+      ctx.fillStyle = PIPE_DK; ctx.fillRect(x + lipW - PX * 3, topY + PX, PX * 2, lipH - PX * 2);
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(x, topY, lipW, PX / 2);
+      ctx.fillRect(x, topY, PX / 2, lipH);
+      ctx.fillRect(x + lipW - PX / 2, topY, PX / 2, lipH);
+      ctx.fillRect(bx, topY + lipH, PX / 2, h - lipH);
+      ctx.fillRect(bx + bodyW - PX / 2, topY + lipH, PX / 2, h - lipH);
+    }
+
+    // ---- chunky pixel coin sprite (6x8 grid) — mirrors shared.js drawCoin ----
+    function coin(cx, cy) {
+      var u = PX * 2, O = COIN_DK, C = COIN, Hh = COIN_HI, K = BLACK;
+      var grid = [
+        [0,0,K,K,0,0],[0,K,O,C,K,0],[K,O,C,Hh,C,K],[K,O,C,Hh,C,K],
+        [K,O,C,Hh,C,K],[K,O,C,Hh,C,K],[0,K,O,C,K,0],[0,0,K,K,0,0]
+      ];
+      var x = snap(cx - 3 * u), y = snap(cy - 4 * u);
+      for (var gy = 0; gy < grid.length; gy++)
+        for (var gx = 0; gx < grid[gy].length; gx++) {
+          var c = grid[gy][gx];
+          if (c) { ctx.fillStyle = c; ctx.fillRect(x + gx * u, y + gy * u, u, u); }
+        }
+    }
+
+    // ---- chunky pixel HUD bar across the top (mirrors the screen .hud) ----
+    function pixelText(str, x, y, size, color, align) {
+      ctx.save();
+      ctx.font = '700 ' + size + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+      ctx.textAlign = align || 'left'; ctx.textBaseline = 'alphabetic';
+      var off = Math.max(3, Math.round(size * 0.05));
+      ctx.fillStyle = BLACK;
+      ctx.fillText(str, Math.round(x) + off, Math.round(y) + off);
+      ctx.fillStyle = color; ctx.fillText(str, Math.round(x), Math.round(y));
+      ctx.restore();
+    }
+
+    function heart(x, y, s, empty) {
+      // chunky pixel heart approximated with rects
+      ctx.fillStyle = empty ? '#5C2828' : RED;
+      ctx.fillRect(x, y + s * 0.2, s * 0.4, s * 0.4);
+      ctx.fillRect(x + s * 0.6, y + s * 0.2, s * 0.4, s * 0.4);
+      ctx.fillRect(x, y + s * 0.4, s, s * 0.3);
+      ctx.fillRect(x + s * 0.2, y + s * 0.7, s * 0.6, s * 0.2);
+      ctx.fillRect(x + s * 0.4, y + s * 0.9, s * 0.2, s * 0.1);
+      // hard pixel shadow
+      ctx.fillStyle = BLACK; ctx.fillRect(x + s * 0.4, y + s * 1.0, s * 0.2, PX / 2);
+    }
+
+    function hud() {
+      // small pixel coin glyph in the HUD
+      coinHud(120, 56);
+      pixelText('WORLD  1-1', 64, 64, 36, WHITE, 'left');
+      pixelText('x08', 150, 64, 36, WHITE, 'left');
+      pixelText('LIVES  x03', 320, 64, 36, WHITE, 'left');
+      // pixel-heart row (one empty)
+      var hx = 560;
+      heart(hx, 30, 36, false); heart(hx + 50, 30, 36, false);
+      heart(hx + 100, 30, 36, false); heart(hx + 150, 30, 36, true);
+      // right-aligned TIME 888
+      pixelText('TIME  888', W - 64, 64, 36, WHITE, 'right');
+    }
+    function coinHud(cx, cy) {
+      var u = 6, O = QB_DK, C = COIN, Hh = COIN_HI, K = BLACK;
+      var grid = [[0,K,K,0],[K,O,C,K],[K,O,Hh,K],[K,O,C,K],[0,K,K,0]];
+      var x = cx - 2 * u, y = cy - Math.round(grid.length / 2) * u;
+      for (var gy = 0; gy < grid.length; gy++)
+        for (var gx = 0; gx < grid[gy].length; gx++) {
+          var c = grid[gy][gx];
+          if (c) { ctx.fillStyle = c; ctx.fillRect(x + gx * u, y + gy * u, u, u); }
+        }
+    }
+
+    function draw() {
+      ctx.imageSmoothingEnabled = false;
+      var rnd = makeRand(0xC84C0C); // fixed seed (brick hex) -> identical layout every render
+
+      // ---- flat NES daytime sky ----
+      rect(0, 0, W, H, SKY);
+
+      // ---- seeded blocky drifting-style clouds (6) ----
+      for (var i = 0; i < 6; i++) {
+        var cx = RR(rnd, 40, W - 240), cy = RR(rnd, 90, 460), cs = (RR(rnd, 3, 6) | 0);
+        cloud(cx, cy, cs);
+      }
+
+      // ---- ground tilemap row (mirrors shared.js drawBg layout) ----
+      var TILE = 96, groundY = H - TILE * 2, blockY = groundY - TILE * 3;
+      var pattern = ['b', 'q', 'b', 'b', 'q', 'b'];
+      var clusters = [W * 0.16, W * 0.66];
+      for (var k = 0; k < clusters.length; k++) {
+        for (var j = 0; j < pattern.length; j++) {
+          block(clusters[k] + j * TILE, blockY, TILE, pattern[j]);
+        }
+      }
+
+      // green pipes
+      pipe(snap(W * 0.40), groundY - 224, 224);
+      pipe(snap(W * 0.84), groundY - 160, 160);
+
+      // dirt ground strip (2 tiles) + grass-edge + seams
+      rect(0, groundY, W, TILE * 2, GROUND);
+      rect(0, groundY, W, PX * 2, GRASS);
+      ctx.fillStyle = GROUND_DK;
+      for (var gx = 0; gx <= W; gx += TILE) ctx.fillRect(gx, groundY + PX * 2, PX, TILE * 2 - PX * 2);
+      for (var gx2 = 0; gx2 <= W; gx2 += TILE) ctx.fillRect(gx2 + TILE / 2, groundY + TILE, PX, TILE);
+
+      // bobbing coin above the left cluster (static peak position on the still)
+      coin(W * 0.16 + TILE * 5.5, blockY - 60);
+
+      // ---- HUD bar ----
+      hud();
+
+      // ============================================================
+      // CENTER MESSAGE: GAME OVER style title (this screen = OFFLINE)
+      // ============================================================
+      var cxc = W / 2;
+      // blinking arcade kicker (static on the still)
+      pixelText('GAME OVER', cxc, 392, 56, COIN, 'center');
+
+      // giant blocky 2-line title with HARD layered offset shadow + NES double-print accent
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      var TS = 176;
+      ctx.font = '700 ' + TS + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+      // line 1 "OFFLINE" (white) with hard shadow
+      ctx.fillStyle = BLACK;
+      ctx.fillText('OFFLINE', cxc + 12, 580 + 12);
+      ctx.fillText('OFFLINE', cxc + 8, 580 + 8);
+      ctx.fillStyle = WHITE; ctx.fillText('OFFLINE', cxc, 580);
+      // line 2 "BACK SOON" (NES red) with blue under-print + hard shadow
+      var TS2 = 132;
+      ctx.font = '700 ' + TS2 + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+      ctx.fillStyle = BLACK;
+      ctx.fillText('BACK SOON', cxc + 10, 716 + 10);
+      ctx.fillStyle = BLUE;
+      ctx.fillText('BACK SOON', cxc - 5, 716 - 5);
+      ctx.fillStyle = RED; ctx.fillText('BACK SOON', cxc, 716);
+      ctx.restore();
+
+      // a discrete-block green power-meter style rule under the title (decorative)
+      var mx = cxc - 380, my = 770, mw = 760;
+      for (var b = 0; b < Math.floor(mw / 44); b++) {
+        rect(mx + b * 44, my, 36, 28, PIPE);
+        rect(mx + b * 44, my + 28, 36, PX, PIPE_DK);
+      }
+      // white meter tray border
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(mx - PX, my - PX, mw + 2 * PX, PX);
+      ctx.fillRect(mx - PX, my + 36, mw + 2 * PX, PX);
+
+      // ---- HANDLE (centered, low) ----
+      var handle = params.get('handle') || '@yourhandle';
+      var handleAt = handle.charAt(0) === '@' ? handle : '@' + handle;
+      var handleClean = handle.replace(/^@/, '');
+      pixelText(handleAt.toLowerCase(), cxc, 884, 44, COIN, 'center');
+      pixelText('twitch.tv/' + handleClean.toLowerCase(), cxc, 930, 26, WHITE, 'center');
+
+      // decorative corner tag
+      pixelText('CARTRIDGE 8', W - 56, H - 44, 28, WHITE, 'right');
+    }
+
+    function download() {
+      var a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = function () { return [{ name: 'offline', dataURL: cv.toDataURL('image/png') }]; };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw); else draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Frost Protocol — Intermission</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- precise measurement grid + coordinate labels behind everything -->
+    <div class="grid" aria-hidden="true"></div>
+    <div class="coords" aria-hidden="true">
+      <i class="cx0">X:000</i><i class="cx1">X:960</i><i class="cx2">X:1920</i>
+      <i class="cy0">Y:120</i><i class="cy1">Y:540</i><i class="cy2">Y:960</i>
+    </div>
+
+    <!-- void registration crop-brackets -->
+    <span class="frame-tick ft--tl" aria-hidden="true"></span>
+    <span class="frame-tick ft--tr" aria-hidden="true"></span>
+    <span class="frame-tick ft--bl" aria-hidden="true"></span>
+    <span class="frame-tick ft--br" aria-hidden="true"></span>
+
+    <!-- corner labels on the void -->
+    <div class="tag tag--tl" aria-hidden="true">PROTOCOL</div>
+    <div class="tag tag--bl" aria-hidden="true">CLEAN ROOM</div>
+    <div class="tag tag--note" aria-hidden="true">THERMAL -18.0&deg;C / SEALED</div>
+
+    <!-- the frosted-glass console card -->
+    <main class="card">
+      <div class="scan" aria-hidden="true"></div>
+
+      <!-- bright L-shaped corner registration ticks -->
+      <span class="tick tick--tl" aria-hidden="true"></span>
+      <span class="tick tick--tr" aria-hidden="true"></span>
+      <span class="tick tick--bl" aria-hidden="true"></span>
+      <span class="tick tick--br" aria-hidden="true"></span>
+
+      <!-- clinical monospace status readout -->
+      <p class="readout" aria-hidden="true">
+        <span><span class="led"></span><span class="ok">SYS//OK</span></span>
+        <span>NODE 7FB4-D6</span>
+        <span>FEED <span id="status" data-done="RESUMING">PAUSED</span></span>
+        <span>LAT 47.61 / LON -122.33</span>
+      </p>
+
+      <p class="kicker" id="kicker" data-done="BREAK ENDING">SHORT BREAK</p>
+
+      <h1 class="title">
+        <span class="line">STAND</span>
+        <span class="accent">BY</span>
+      </h1>
+
+      <p class="sub">cooling the channel briefly</p>
+
+      <div class="bar" aria-hidden="true">
+        <div class="fill" id="fill"></div>
+        <div class="head" id="head"></div>
+      </div>
+    </main>
+
+    <div class="vign" aria-hidden="true"></div>
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

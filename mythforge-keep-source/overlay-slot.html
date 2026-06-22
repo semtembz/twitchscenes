@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mythforge Keep — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Mythforge language: a forged-iron quest
+       placard pinned lower-left by a riveted bracket, holding a tiny crossed-
+       sword crest, a "SUMMONING" status tag, and the @handle engraved in gold;
+       a small engraved brand tag top-right; a few warm embers + grey ash drift
+       up near the placard. Most of the screen stays transparent for gameplay.
+       Optional URL params: ?handle=@you   ?tag=SUMMONING   ?embers=26   ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no timber room, no planks/vignette/flicker */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* only a few faint embers near the strip (low alpha) */
+    canvas.bg{pointer-events:none;opacity:.66;}
+
+    /* ---- forged-iron quest placard, lower-left ---- */
+    .slot{position:absolute;left:62px;bottom:58px;height:66px;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 26px;
+      color:var(--parchment);
+      /* dark hammered iron with a warm candle wash from above */
+      background:
+        radial-gradient(120% 120% at 18% -10%, rgba(201,150,47,.12), transparent 60%),
+        linear-gradient(180deg, var(--iron-lt) 0%, var(--iron) 34%, var(--timber-3) 100%);
+      border:2px solid #000;border-radius:3px;
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.6),
+        inset 0 2px 0 rgba(120,100,70,.22), inset 0 -2px 6px rgba(0,0,0,.7),
+        0 0 0 1px rgba(74,68,60,.5), 0 0 26px rgba(201,150,47,.08);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* engraved inner ink/gold hairline like the runeframe */
+    .slot::before{content:"";position:absolute;inset:5px;pointer-events:none;border-radius:1px;
+      border:1px solid rgba(201,150,47,.26);
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);}
+    /* slow warm heat-glow drifts across the iron (like a charging blade) */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:130px;left:-130px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(240,206,122,.16), transparent);
+      animation:slotsweep 6.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-130px}100%{left:100%}}
+
+    /* riveted iron rivets at the placard's left & right (pins it down) */
+    .slot .rivet{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+      transform:translateY(-50%);
+      background:radial-gradient(circle at 35% 30%,#6a6258,#1a1714);
+      box-shadow:0 1px 1px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.5);}
+    .slot .rivet--l{left:-5px;} .slot .rivet--r{right:-5px;}
+
+    /* tiny crossed-sword crest, left of the status */
+    .slot .crest{display:flex;align-items:center;margin:0;animation:none;}
+    .slot .crest svg{width:40px;height:26px;display:block;
+      filter:drop-shadow(0 0 8px rgba(201,150,47,.45));}
+
+    /* "SUMMONING" status — engraved gold caps + a pulsing gold rune-diamond */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:.4em;font-size:18px;font-weight:600;text-transform:uppercase;
+      color:var(--gold-lt);text-indent:.4em;
+      text-shadow:0 0 14px rgba(201,150,47,.4),0 1px 0 rgba(0,0,0,.6);}
+    .slot .tag .dia{width:10px;height:10px;border:1px solid var(--gold-lt);transform:rotate(45deg);
+      background:var(--gold);box-shadow:0 0 12px var(--glow);
+      animation:emberpulse 2.4s ease-in-out infinite;}
+    @keyframes emberpulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--glow)}
+      50%{opacity:.42;box-shadow:0 0 5px var(--glow)}}
+
+    /* forged divider with a diamond cap, between status and handle */
+    .slot .div{position:relative;width:2px;height:34px;
+      background:linear-gradient(180deg,transparent,var(--gold-dk),var(--gold),var(--gold-dk),transparent);
+      box-shadow:0 0 8px rgba(201,150,47,.4);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;
+      background:var(--gold);transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 0 8px var(--glow);}
+
+    /* handle — engraved forged gold serif */
+    .slot .who{
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:.06em;font-size:29px;color:var(--parchment);white-space:nowrap;
+      text-shadow:0 1px 0 rgba(0,0,0,.6),0 -1px 0 rgba(58,30,8,.4),0 0 24px rgba(201,150,47,.28);}
+
+    /* small engraved brand tag, top-right (on the timber language, no bg) */
+    .mono-tr{position:absolute;top:48px;right:62px;display:flex;align-items:center;gap:14px;
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:.46em;font-size:18px;color:var(--gold);text-indent:.46em;opacity:.85;
+      text-shadow:0 1px 0 rgba(0,0,0,.7),0 0 14px rgba(201,150,47,.22);
+      animation:fade .9s var(--ease) both .25s;}
+    .mono-tr .dia{width:9px;height:9px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 8px rgba(201,150,47,.3);}
+    @keyframes fade{from{opacity:0}to{opacity:.85}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .mono-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dia{animation:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .mono-tr{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="mono-tr" aria-hidden="true"><span class="dia"></span>MYTHFORGE KEEP</div>
+
+    <div class="slot">
+      <span class="rivet rivet--l" aria-hidden="true"></span>
+      <span class="rivet rivet--r" aria-hidden="true"></span>
+
+      <span class="crest" aria-hidden="true">
+        <svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#C9962F" stroke-width="3.2" fill="none" stroke-linecap="round">
+            <line x1="20" y1="68" x2="92" y2="12"/>
+            <line x1="100" y1="68" x2="28" y2="12"/>
+          </g>
+          <g fill="#C9962F">
+            <path d="M90 10 l8 -4 -2 9 z"/>
+            <rect x="14" y="64" width="16" height="4" rx="2" transform="rotate(-38 22 66)"/>
+            <path d="M30 10 l-8 -4 2 9 z"/>
+            <rect x="90" y="64" width="16" height="4" rx="2" transform="rotate(38 98 66)"/>
+          </g>
+          <circle cx="60" cy="40" r="6" fill="#7A1F1F" stroke="#C9962F" stroke-width="2"/>
+        </svg>
+      </span>
+
+      <span class="tag"><span class="dia"></span>SUMMONING</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + status tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a few warm embers + cooler grey ash rising near the strip ---- */
+    const cv = document.querySelector(".bg");
+    let ctx = null, W = 1920, H = 1080, embers = [];
+    const R = (a, b) => a + Math.random() * (b - a);
+    const mk = (initial) => {
+      const ash = Math.random() < 0.34;
+      return {
+        x: R(0, W), y: initial ? R(0, H) : R(H, H + 80),
+        z: R(0.5, 1.7), vy: -R(10, 28) / 60,
+        sway: R(0.4, 1.5), ph: R(0, 6.28), drift: R(-0.22, 0.22),
+        a: R(0.28, 0.9), ash,
+        col: ash ? "200,196,188" : (Math.random() < 0.5 ? "240,206,122" : "201,120,47"),
+        tws: R(0.06, 0.16),
+      };
+    };
+    if (cv) {
+      ctx = cv.getContext("2d");
+      W = cv.width || 1920; H = cv.height || 1080;
+      embers = Array.from({ length: Math.max(0, num("embers", 26)) }, () => mk(true));
+    }
+    function drawBg(dt){
+      if (!ctx) return;
+      const f = dt * 60;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of embers){
+        p.y += p.vy * p.z * f;
+        p.ph += p.tws * f;
+        p.x += (Math.sin(p.ph) * p.sway + p.drift) * f;
+        if (p.y < -20 || p.x < -40 || p.x > W + 40) Object.assign(p, mk(false));
+        const tw = p.ash ? (0.5 + Math.sin(p.ph * 0.8) * 0.25)
+                         : (0.45 + Math.sin(p.ph * 1.9) * 0.55);
+        const s = Math.max(1, Math.round(p.z * (p.ash ? 1.6 : 2.0)));
+        ctx.globalAlpha = Math.max(0, p.a * tw);
+        ctx.fillStyle = "rgb(" + p.col + ")";
+        if (p.ash) { ctx.shadowBlur = 0; }
+        else { ctx.shadowColor = "rgb(" + p.col + ")"; ctx.shadowBlur = 9 * p.z; }
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__mythDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

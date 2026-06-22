@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Frost Protocol — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the FROST PROTOCOL
+    "Clean Room HUD" language:
+        - a frosted-glass console card on the cold-blue void
+        - a 1px cold-blue hairline border + bright L-shaped registration ticks
+        - a faint measurement grid + a small "//" mono node id
+        - a thin ice-line icon (about, schedule, rules, ...)
+        - the label etched in a condensed grotesque (--display), ice-light
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Frost Protocol "Clean Room HUD" palette (mirrors shared.css) ---- */
+    :root {
+      --bg-deep:#0C1014;
+      --bg-lift:#11181F;
+      --accent:#7FB4D6;
+      --ice:#CFE6F2;
+      --text:#F2F7FA;
+      --dim:rgba(207,230,242,.55);
+      --mono:"JetBrains Mono","Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+      --display:"Eurostile","Bahnschrift","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--mono);
+      color: var(--text);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(120% 90% at 70% -10%, rgba(127,180,214,.10), transparent 55%),
+        radial-gradient(90% 70% at 12% 110%, rgba(127,180,214,.06), transparent 60%),
+        linear-gradient(160deg, #0E141A 0%, var(--bg-deep) 52%, #080B0E 100%);
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: var(--mono);
+      letter-spacing: .42em; font-size: 12px;
+      color: var(--accent); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 2px;
+    }
+    .kicker::before { content: "//"; color: var(--ice); opacity: .7; }
+    h1 { font-family: var(--display); font-weight: 700; font-size: 34px; letter-spacing: .01em;
+      text-transform: uppercase; margin: 0 0 6px; color: var(--text);
+      text-shadow: 0 2px 18px rgba(4,7,10,.6); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 740px; line-height: 1.6;
+      font-family: var(--mono); font-size: 14px; letter-spacing: .04em; }
+    code { font-family: var(--mono); color: var(--accent);
+      background: rgba(127,180,214,.08); padding: 2px 7px; border-radius: 3px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: var(--mono); font-weight: 600;
+      font-size: 12px; letter-spacing: 3px; text-transform: uppercase;
+      padding: 12px 24px; cursor: pointer; color: var(--bg-deep);
+      background: linear-gradient(180deg, var(--ice), var(--accent));
+      border: 1px solid rgba(127,180,214,.6); border-radius: 2px;
+      box-shadow: 0 6px 24px rgba(127,180,214,.25);
+    }
+    button:hover { filter: brightness(1.08); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(17,24,31,0.55); padding: 16px; border-radius: 4px;
+      border: 1px solid rgba(127,180,214,0.26);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 3px; overflow: hidden; display: block;
+      background-color: #0c1116;
+      background-image:
+        linear-gradient(45deg, #14202a40 25%, transparent 25%),
+        linear-gradient(-45deg, #14202a40 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #14202a40 75%),
+        linear-gradient(-45deg, transparent 75%, #14202a40 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: var(--mono); letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: var(--mono); letter-spacing: 1px;
+      color: var(--accent); text-decoration: none;
+      border: 1px solid rgba(127,180,214,0.34); border-radius: 2px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(127,180,214,0.14); }
+  </style>
+</head>
+<body>
+  <p class="kicker">FROST PROTOCOL · PANELS</p>
+  <h1>Frost Protocol — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the clean-room HUD style:
+    a frosted-glass console card, a cold-blue hairline border, bright L-shaped
+    registration ticks, a faint measurement grid, and a thin ice-line icon.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var BG_DEEP = '#0C1014', BG_LIFT = '#11181F';
+    var ACCENT = '#7FB4D6', ICE = '#CFE6F2', TEXT = '#F2F7FA';
+
+    // ---- Panel inventory (12, per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     node: '7FB4-A0', icon: 'about' },
+      { id: 'schedule',  title: 'SCHEDULE',  node: '7FB4-A1', icon: 'schedule' },
+      { id: 'rules',     title: 'RULES',     node: '7FB4-A2', icon: 'rules' },
+      { id: 'donations', title: 'DONATIONS', node: '7FB4-A3', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   node: '7FB4-A4', icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   node: '7FB4-A5', icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   node: '7FB4-A6', icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', node: '7FB4-A7', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     node: '7FB4-A8', icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  node: '7FB4-A9', icon: 'shield' },
+      { id: 'subscribe', title: 'SUBSCRIBE', node: '7FB4-AA', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', node: '7FB4-AB', icon: 'community' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // a single hexagonal ice-crystal shard (six arms + dendrite branches)
+    function shard(ctx, cx, cy, r, rot, alpha, ice) {
+      ctx.save();
+      ctx.translate(Math.round(cx), Math.round(cy));
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = ice ? ICE : ACCENT;
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      for (var i = 0; i < 6; i++) {
+        var ang = (Math.PI / 3) * i;
+        var ex = Math.cos(ang) * r, ey = Math.sin(ang) * r;
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(ex, ey);
+        var bl = r * 0.26;
+        [0.55, 0.8].forEach(function (f) {
+          var bx = Math.cos(ang) * r * f, by = Math.sin(ang) * r * f;
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + Math.cos(ang + 1.05) * bl, by + Math.sin(ang + 1.05) * bl);
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + Math.cos(ang - 1.05) * bl, by + Math.sin(ang - 1.05) * bl);
+        });
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // bright L-shaped corner registration ticks on the glass card
+    function regTicks(ctx, x, y, w, h, len) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(207,230,242,0.85)';
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'butt';
+      ctx.shadowColor = 'rgba(127,180,214,0.6)'; ctx.shadowBlur = 5;
+      var corners = [
+        [x, y, 1, 1], [x + w, y, -1, 1],
+        [x, y + h, 1, -1], [x + w, y + h, -1, -1]
+      ];
+      corners.forEach(function (c) {
+        ctx.beginPath();
+        ctx.moveTo(c[0], c[1]); ctx.lineTo(c[0] + len * c[2], c[1]);
+        ctx.moveTo(c[0], c[1]); ctx.lineTo(c[0], c[1] + len * c[3]);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 3;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // frosted-glass card body (clipped rounded rect)
+      ctx.save();
+      roundRect(ctx, x, y, w, h, 5);
+      ctx.clip();
+
+      // base glass gradient
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(17,24,31,0.72)');
+      bg.addColorStop(1, 'rgba(10,14,18,0.92)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // faint measurement grid inside the glass
+      ctx.strokeStyle = 'rgba(127,180,214,0.10)';
+      ctx.lineWidth = 1;
+      for (var gx = x; gx <= x + w; gx += 18) {
+        ctx.beginPath(); ctx.moveTo(Math.round(gx) + 0.5, y); ctx.lineTo(Math.round(gx) + 0.5, y + h); ctx.stroke();
+      }
+      for (var gy = y; gy <= y + h; gy += 18) {
+        ctx.beginPath(); ctx.moveTo(x, Math.round(gy) + 0.5); ctx.lineTo(x + w, Math.round(gy) + 0.5); ctx.stroke();
+      }
+
+      // crystallizing ice shards behind the content (left + right)
+      shard(ctx, 30, 26, 30, 0.4, 0.16, true);
+      shard(ctx, 290, 74, 38, -0.3, 0.12, false);
+      shard(ctx, 268, 20, 20, 0.9, 0.10, true);
+
+      // condensation sheen (cold radial top-right)
+      var cg = ctx.createRadialGradient(W * 0.88, -10, 0, W * 0.88, -10, 180);
+      cg.addColorStop(0, 'rgba(207,230,242,0.10)');
+      cg.addColorStop(1, 'rgba(207,230,242,0)');
+      ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // cold-blue accent rail down the left (a thin double hairline w/ caps)
+      ctx.save();
+      var railX = x + 46;
+      ctx.strokeStyle = 'rgba(127,180,214,0.7)';
+      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(127,180,214,0.55)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(railX + 0.5, y + 16); ctx.lineTo(railX + 0.5, y + h - 16); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(127,180,214,0.28)';
+      ctx.beginPath(); ctx.moveTo(railX + 3.5, y + 22); ctx.lineTo(railX + 3.5, y + h - 22); ctx.stroke();
+      // bright tick caps
+      ctx.strokeStyle = 'rgba(207,230,242,0.85)'; ctx.lineWidth = 1.6;
+      [y + 16, y + h - 16].forEach(function (cy) {
+        ctx.beginPath(); ctx.moveTo(railX - 3, cy + 0.5); ctx.lineTo(railX + 4, cy + 0.5); ctx.stroke();
+      });
+      ctx.restore();
+
+      // thin ice-line icon in the left gutter
+      drawIcon(ctx, p.icon, 24, H / 2, 28);
+
+      // mono node id (kicker) above the label
+      ctx.save();
+      ctx.font = '600 8px ' + monoFont();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = ICE; ctx.globalAlpha = 0.7;
+      ctx.fillText('//', 60, 30);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(127,180,214,0.85)';
+      drawSpaced(ctx, 'NODE ' + p.node, 74, 30, 1.4);
+      ctx.restore();
+
+      // label etched in the condensed display face (ice-light), shrink-to-fit
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 30;
+      var maxW = W - 60 - 22;
+      ctx.font = '700 ' + size + 'px ' + dispFont();
+      while (measureSpaced(ctx, label, 1.5) > maxW && size > 15) {
+        size -= 1;
+        ctx.font = '700 ' + size + 'px ' + dispFont();
+      }
+      var ty = 70;
+      ctx.shadowColor = 'rgba(127,180,214,0.40)'; ctx.shadowBlur = 12;
+      var lg = ctx.createLinearGradient(0, ty - size, 0, ty + 4);
+      lg.addColorStop(0, TEXT); lg.addColorStop(0.5, ICE); lg.addColorStop(1, ACCENT);
+      ctx.fillStyle = lg;
+      drawSpaced(ctx, label, 60, ty, 1.5);
+      ctx.restore();
+
+      // segmented calibration meter under the label (cold-blue cells)
+      ctx.save();
+      var barX = 60, barY = 80, barW = W - 60 - 22, barH = 4;
+      // track
+      ctx.fillStyle = 'rgba(127,180,214,0.10)';
+      ctx.fillRect(barX, barY, barW, barH);
+      // segmented fill (~64%) clipped to cells
+      var fillW = barW * 0.64;
+      var seg = 9, gap = 2, cx = barX;
+      ctx.shadowColor = 'rgba(127,180,214,0.6)'; ctx.shadowBlur = 5;
+      var fg = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+      fg.addColorStop(0, ACCENT); fg.addColorStop(1, ICE);
+      ctx.fillStyle = fg;
+      while (cx < barX + fillW) {
+        var sw = Math.min(seg, barX + fillW - cx);
+        ctx.fillRect(cx, barY, sw, barH);
+        cx += seg + gap;
+      }
+      ctx.shadowBlur = 0;
+      // end caps
+      ctx.strokeStyle = 'rgba(127,180,214,0.42)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX + 0.5, barY - 3); ctx.lineTo(barX + 0.5, barY + barH + 3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(barX + barW - 0.5, barY - 3); ctx.lineTo(barX + barW - 0.5, barY + barH + 3); ctx.stroke();
+      ctx.restore();
+
+      // the cold-blue hairline border drawn ON TOP (rounded)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(127,180,214,0.42)';
+      ctx.lineWidth = 1;
+      roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 5);
+      ctx.stroke();
+      ctx.restore();
+
+      // bright L-shaped registration ticks at the four corners
+      regTicks(ctx, x + 1, y + 1, w - 2, h - 2, 10);
+    }
+
+    function monoFont() {
+      return '"JetBrains Mono","Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+    }
+    function dispFont() {
+      return '"Eurostile","Bahnschrift","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif';
+    }
+    function measureSpaced(ctx, str, sp) {
+      var total = 0;
+      for (var i = 0; i < str.length; i++) total += ctx.measureText(str[i]).width + sp;
+      return total - sp;
+    }
+
+    // ---- thin ice line icons ----------------------------------------------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = ICE;
+      ctx.fillStyle = ICE;
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(127,180,214,0.5)';
+      ctx.shadowBlur = 6;
+
+      switch (kind) {
+        case 'about': { // info: ring + i
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.92, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.42, 1.4, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(0, -h * 0.12); ctx.lineTo(0, h * 0.5); ctx.stroke();
+          break;
+        }
+        case 'schedule': { // calendar
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);  ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.2, 0, Math.PI * 2); ctx.fill();
+            }
+          break;
+        }
+        case 'rules': { // list with tick bullets
+          ctx.lineWidth = 1.8;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            // small registration tick bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.9, ly); ctx.lineTo(-h * 0.62, ly);
+            ctx.moveTo(-h * 0.76, ly - h * 0.14); ctx.lineTo(-h * 0.76, ly + h * 0.14);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': { // currency disc
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.5) + 'px ' + monoFont();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': { // X mark
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.8, -h * 0.8); ctx.lineTo(h * 0.8, h * 0.8);
+          ctx.moveTo(h * 0.8, -h * 0.8); ctx.lineTo(-h * 0.8, h * 0.8);
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 4); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 5); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.4, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 1.8, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'shield': { // sponsors -> shield/cert
+          ctx.beginPath();
+          ctx.moveTo(0, -h * 0.92);
+          ctx.lineTo(h * 0.8, -h * 0.55);
+          ctx.lineTo(h * 0.8, h * 0.15);
+          ctx.quadraticCurveTo(h * 0.8, h * 0.8, 0, h * 0.95);
+          ctx.quadraticCurveTo(-h * 0.8, h * 0.8, -h * 0.8, h * 0.15);
+          ctx.lineTo(-h * 0.8, -h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          // check inside
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.32, h * 0.02); ctx.lineTo(-h * 0.06, h * 0.32); ctx.lineTo(h * 0.4, -h * 0.3);
+          ctx.stroke();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'community': { // three nodes
+          var pts = [[-h * 0.6, -h * 0.4], [h * 0.6, -h * 0.4], [0, h * 0.6]];
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]);
+          ctx.lineTo(pts[2][0], pts[2][1]); ctx.closePath(); ctx.stroke();
+          pts.forEach(function (pt) {
+            ctx.beginPath(); ctx.arc(pt[0], pt[1], h * 0.22, 0, Math.PI * 2); ctx.stroke();
+          });
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

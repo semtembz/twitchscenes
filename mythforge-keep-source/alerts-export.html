@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Mythforge Keep Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    ?noname mode: tick "Headline only" to bake the EVENT label ("NEW FOLLOWER")
+    instead of a viewer name — this is how clips ship (the live name comes from
+    your alert platform's text layer).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.4s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0A0704; color: #EFE3C8;
+      font-family: "Trajan Pro", "Cinzel", "Optima", Georgia, "Times New Roman", serif; }
+    h1 { font-size: 22px; color: #F0CE7A; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: #6B5230; line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #EFE3C8; background: #1E150C; padding: 2px 6px; border-radius: 3px; }
+    label { color: #F0CE7A; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #15110D; color: #EFE3C8;
+      border: 1px solid #8A6320; border-radius: 4px; margin-right: 16px; }
+    input[type=text] { width: 150px; }
+    button { font-size: 15px; padding: 13px 26px; background: linear-gradient(180deg,#F0CE7A,#C9962F);
+      color: #120D08; border: 1px solid #F0CE7A; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #F0CE7A; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #F0CE7A; }
+    .chk { display: inline-flex; align-items: center; gap: 7px; color: #EFE3C8; letter-spacing: 1px; font-size: 14px; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #2A2622; }
+    .checker {
+      background-color: #120D08;
+      background-image:
+        linear-gradient(45deg, #1E150C 25%, transparent 25%),
+        linear-gradient(-45deg, #1E150C 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1E150C 75%),
+        linear-gradient(-45deg, transparent 75%, #1E150C 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Mythforge Keep Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" type="text" value="NewHero" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" type="text" value="5" /></span>
+    <label class="chk"><input id="noname" type="checkbox" /> Headline only (noname)</label>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css / shared.css)
+    const GOLD = '#C9962F', GOLD_LT = '#F0CE7A', GOLD_DK = '#8A6320',
+          INK = '#3A2A16', INK_SOFT = '#6B5230', PARCH = '#EFE3C8', WAX = '#7A1F1F';
+    const EMBER = ['240,206,122', '201,150,47', '201,120,47'];
+    const ASH = '200,196,188';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"❧", kicker:"NEW FOLLOWER",   sub:"a new traveler joins the party", motes:18, amount:false, anim:"follower" },
+      subscriber: { glyph:"✠", kicker:"NEW SUBSCRIBER", sub:"sworn to the keep",              motes:24, amount:false, anim:"subscriber" },
+      member:     { glyph:"❖", kicker:"NEW MEMBER",     sub:"pledged to the order",           motes:24, amount:false, anim:"member" },
+      cheer:      { glyph:"✦", kicker:"CHEER",          sub:"coin tossed in your honor",      motes:28, amount:true,  amtPre:"", amtSuf:" bits", anim:"cheer" },
+      donation:   { glyph:"♦", kicker:"DONATION",       sub:"a bounty for the quest",         motes:30, amount:true,  amtPre:"$", anim:"donation" },
+      host:       { glyph:"⚜", kicker:"NOW HOSTING",    sub:"the gates swing open",           motes:36, amount:true,  amtPre:"", amtSuf:" guests", anim:"host" },
+      raid:       { glyph:"⚔", kicker:"RAID INCOMING",  sub:"the horde storms the keep",      motes:50, amount:true,  amtPre:"", amtSuf:" raiders", anim:"raid" },
+      like:       { glyph:"❤", kicker:"NEW LIKE",       sub:"favor granted",                  motes:14, amount:false, anim:"like" },
+      share:      { glyph:"➤", kicker:"SHARED",         sub:"the tale is carried onward",     motes:18, amount:false, anim:"share" },
+      star:       { glyph:"★", kicker:"NEW STAR",       sub:"a banner raised on high",        motes:24, amount:true,  amtPre:"", amtSuf:" stars", anim:"star" },
+      superchat:  { glyph:"✸", kicker:"SUPER CHAT",     sub:"a sealed message for the hall",  motes:30, amount:true,  amtPre:"$", anim:"superchat" },
+      supporter:  { glyph:"✪", kicker:"NEW SUPPORTER",  sub:"you keep the hearth burning",    motes:24, amount:false, anim:"supporter" },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 128, 792 wide) =====
+    const CARD_W = 792, CARD_H = 214;
+    const CARD_X0 = 96;
+    const CARD_Y = H - 128 - CARD_H; // bottom:128 -> top y
+
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    function overshoot(p, peak, over) {
+      if (p <= 0) return 0; if (p >= 1) return 1;
+      if (p < peak) return easeOut(p / peak) * (1 + over);
+      return (1 + over) - easeOut((p - peak) / (1 - peak)) * over;
+    }
+
+    // ===== torn parchment path (mirrors the clip-path polygon, scaled to the card box) =====
+    const TORN = [
+      [1.4,4],[12,1.6],[28,3.4],[46,1.2],[64,3],[80,1.4],[93,3.4],[99,6],
+      [98.4,26],[100,48],[98.6,70],[99.4,92],
+      [88,98.4],[70,96.6],[52,99],[34,96.8],[16,98.8],[2.2,95],
+      [2.8,74],[1,52],[2.6,30]
+    ];
+    function tornPath(x, y, w, h) {
+      ctx.beginPath();
+      for (let i = 0; i < TORN.length; i++) {
+        const px = x + (TORN[i][0] / 100) * w, py = y + (TORN[i][1] / 100) * h;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+    // iron seal-plate path (clipped corners)
+    function platePath(x, y, s, c) {
+      ctx.beginPath();
+      ctx.moveTo(x + c, y); ctx.lineTo(x + s - c, y); ctx.lineTo(x + s, y + c);
+      ctx.lineTo(x + s, y + s - c); ctx.lineTo(x + s - c, y + s); ctx.lineTo(x + c, y + s);
+      ctx.lineTo(x, y + s - c); ctx.lineTo(x, y + c); ctx.closePath();
+    }
+
+    function drawMote(p) {
+      const tw = p.ash ? (0.5 + Math.sin(p.ph * 0.8) * 0.25) : (0.45 + Math.sin(p.ph * 1.9) * 0.55);
+      ctx.globalAlpha = Math.max(0, p.a * tw);
+      ctx.fillStyle = 'rgb(' + p.col + ')';
+      if (p.ash) ctx.shadowBlur = 0; else { ctx.shadowColor = 'rgb(' + p.col + ')'; ctx.shadowBlur = 10; }
+      const s = Math.max(1, Math.round(p.s));
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+    }
+
+    // letter-space a string to read as engraved caps on canvas
+    function spaced(str) { return String(str).split('').join(' '); }
+    function clampText(str, maxW, font) {
+      ctx.save(); ctx.font = font;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== entrance transform for an event (mirror of alerts.js entranceStyle) =====
+    // returns {dx, dy, sx, sy, rot, skew, op}; we apply only the parts each event uses.
+    function entrance(anim, p) {
+      let dx = 0, dy = 0, s = 1, rot = 0, op = Math.min(1, p / 0.5);
+      switch (anim) {
+        case 'follower':   { const v = overshoot(p,0.62,0.12); dy = -120 + v*120; rot = -3 + v*3; break; }
+        case 'subscriber': { const v = overshoot(p,0.64,0.03); dy = 90 - v*90; s = 0.86 + v*0.14; break; }
+        case 'member':     { const v = overshoot(p,0.70,0.11); // unfurl -> approximate with horizontal squash + slide from left edge
+                             const k = v; dx = (1-k) * -CARD_W*0.5; s = 0.5 + k*0.5; break; } // canvas can't rotateY; fake it
+        case 'cheer':      { const v = overshoot(p,0.66,0.12); dy = -30 + v*30; const sy = Math.abs(Math.cos((1-v)*Math.PI/2)); s = 1; window.__cheerSY = 0.2 + sy*0.8; break; }
+        case 'donation':   { if (p<0.58){dy=-160+easeOut(p/0.58)*160; s=1.06-(p/0.58)*0.06;} else if(p<0.72){const q=(p-0.58)/0.14; dy=-16*Math.sin(q*Math.PI); s=1;} else {dy=0;s=1;} break; }
+        case 'host':       { const v = overshoot(p,0.68,0.17); rot = -14 + v*14; dx = -90 + v*90; break; }
+        case 'raid':       { const v = overshoot(p,0.74,0.031); dx = -1100 + v*1100; break; }
+        case 'like':       { const v = easeOut(p); s = 0.78 + v*0.22; op = easeOut(p); break; }
+        case 'share':      { const v = overshoot(p,0.72,0.01); dx = -160 + v*160; dy = 120 - v*120; s = 0.92 + v*0.08; break; }
+        case 'star':       { const v = overshoot(p,0.56,0.04); s = 1.5 - v*0.5; rot = 6 - v*6; break; }
+        case 'superchat':  { const v = overshoot(p,0.72,0.052); dx = 420 - v*420; s = 0.97 + v*0.03; break; }
+        case 'supporter':
+        default:           { const v = easeOut(p); dy = 64 - v*64; break; }
+      }
+      return { dx, dy, s, rot, op: Math.min(1, op) };
+    }
+
+    // ===== one full alert clip as a function of time =====
+    const ENTER = 720, HOLD_END = ENTER + 4200, EXIT = 520;
+    const DUR = HOLD_END + EXIT; // ~5440ms
+
+    function clipState(type, nameRaw, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const showAmount = !!(cfg.amount && amountStr);
+      const burst = [];
+      let b1 = false, b2 = false;
+      const name = noname ? cfg.kicker : (nameRaw || 'NewHero');
+
+      function spawn(n) {
+        const ox = 230, oy = H - 230;
+        for (let i = 0; i < n; i++) {
+          const ash = Math.random() < 0.33;
+          burst.push({ x: ox + R(-60,120), y: oy + R(-70,60),
+            vx: R(-40,120)/60, vy: R(-220,-60)/60, g: R(60,120)/3600,
+            s: R(2,5), a: 1, life: R(1.6,3.0), ash, ph: R(0,6.28), tws: R(0.06,0.16),
+            col: ash ? ASH : EMBER[(Math.random()*EMBER.length)|0] });
+        }
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.ph += p.tws;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y < -60) burst.splice(i, 1);
+        }
+      }
+
+      return function renderFrame(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // entrance / hold / exit transform
+        let tr;
+        if (ms < ENTER) tr = entrance(cfg.anim, ms / ENTER);
+        else if (ms < HOLD_END) tr = { dx:0, dy:0, s:1, rot:0, op:1 };
+        else { const q = Math.min(1,(ms-HOLD_END)/EXIT); tr = { dx:0, dy:46*easeOut(q), s:1-0.05*q, rot:-1*q, op:1-q }; }
+
+        // bursts (staggered like live JS)
+        if (!b1 && ms >= 200) { spawn(cfg.motes); b1 = true; }
+        if (!b2 && cfg.motes >= 34 && ms >= 600) { spawn(Math.round(cfg.motes*0.6)); b2 = true; }
+        stepBurst();
+        if (tr.op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+        if (tr.op <= 0.01) return;
+
+        // transform origin ~ lower-left anchor of the card
+        const ax = CARD_X0, ay = CARD_Y + CARD_H;
+        ctx.save();
+        ctx.globalAlpha = tr.op;
+        ctx.translate(ax + tr.dx, ay + tr.dy);
+        ctx.rotate(tr.rot * Math.PI / 180);
+        ctx.scale(tr.s, tr.s);
+        ctx.translate(-ax, -ay);
+
+        const x = CARD_X0, y = CARD_Y;
+
+        // --- parchment body ---
+        ctx.save();
+        tornPath(x, y, CARD_W, CARD_H); ctx.clip();
+        const body = ctx.createRadialGradient(x + CARD_W*0.48, y + CARD_H*0.46, 40, x + CARD_W*0.48, y + CARD_H*0.46, CARD_W*0.8);
+        body.addColorStop(0, '#F3E8CE'); body.addColorStop(0.56, '#E7D7B2');
+        body.addColorStop(0.82, '#C9B488'); body.addColorStop(1, '#8E743F');
+        ctx.fillStyle = body; ctx.fillRect(x-20, y-20, CARD_W+40, CARD_H+40);
+        // wax/ink stains
+        const st1 = ctx.createRadialGradient(x+CARD_W*0.18, y+CARD_H*0.82, 0, x+CARD_W*0.18, y+CARD_H*0.82, 120);
+        st1.addColorStop(0,'rgba(122,31,31,0.12)'); st1.addColorStop(1,'rgba(122,31,31,0)');
+        ctx.fillStyle = st1; ctx.fillRect(x,y,CARD_W,CARD_H);
+        const st2 = ctx.createRadialGradient(x+CARD_W*0.86, y+CARD_H*0.22, 0, x+CARD_W*0.86, y+CARD_H*0.22, 110);
+        st2.addColorStop(0,'rgba(58,42,22,0.18)'); st2.addColorStop(1,'rgba(58,42,22,0)');
+        ctx.fillStyle = st2; ctx.fillRect(x,y,CARD_W,CARD_H);
+        // scorch ring
+        ctx.strokeStyle = 'rgba(58,26,6,0.4)'; ctx.lineWidth = 14;
+        tornPath(x+10, y+10, CARD_W-20, CARD_H-20); ctx.stroke();
+        ctx.restore();
+
+        // torn edge outline (subtle)
+        ctx.strokeStyle = 'rgba(58,30,8,0.5)'; ctx.lineWidth = 2;
+        tornPath(x, y, CARD_W, CARD_H); ctx.stroke();
+
+        // inner runeframe
+        ctx.strokeStyle = 'rgba(58,42,22,0.40)'; ctx.lineWidth = 2;
+        ctx.strokeRect(x+16, y+16, CARD_W-32, CARD_H-32);
+
+        // --- iron seal-plate w/ sigil (left column) ---
+        const ts = 142, tx = x + 46, ty = y + (CARD_H - ts)/2;
+        platePath(tx, ty, ts, 12);
+        const tg = ctx.createRadialGradient(tx+ts*0.38, ty+ts*0.30, 6, tx+ts*0.5, ty+ts*0.5, ts*0.8);
+        tg.addColorStop(0,'#4A443C'); tg.addColorStop(0.52,'#2A2622'); tg.addColorStop(1,'#15110D');
+        ctx.fillStyle = tg; ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; platePath(tx, ty, ts, 12); ctx.stroke();
+        // nail-heads
+        ctx.fillStyle = '#15110D';
+        for (const [nx,ny] of [[tx+12,ty+12],[tx+ts-12,ty+12],[tx+12,ty+ts-12],[tx+ts-12,ty+ts-12]]) {
+          ctx.beginPath(); ctx.arc(nx,ny,4.5,0,6.283); ctx.fill();
+          ctx.fillStyle='#7a7268'; ctx.beginPath(); ctx.arc(nx-1,ny-1,1.4,0,6.283); ctx.fill(); ctx.fillStyle='#15110D';
+        }
+        // sigil glyph (gold, glowing)
+        ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(201,150,47,0.6)'; ctx.shadowBlur = 20;
+        ctx.font = '74px "Trajan Pro","Cinzel",Georgia,serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.glyph, tx + ts/2, ty + ts/2 + 2);
+        ctx.shadowBlur = 0;
+
+        // --- meta column ---
+        const mx = tx + ts + 34;
+        const metaMaxW = (x + CARD_W) - mx - 40;
+        ctx.textAlign = 'left';
+        // kicker pip
+        ctx.save();
+        ctx.translate(mx + 6, y + 48); ctx.rotate(Math.PI/4);
+        ctx.fillStyle = GOLD; ctx.shadowColor='rgba(201,150,47,0.5)'; ctx.shadowBlur=8;
+        ctx.fillRect(-5,-5,10,10); ctx.restore(); ctx.shadowBlur = 0;
+        // kicker line (engraved caps)
+        ctx.fillStyle = INK; ctx.font = '600 19px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+        ctx.textBaseline = 'middle';
+        const kickTxt = noname ? '' : spaced('THE KEEP · ' + cfg.kicker);
+        if (!noname) ctx.fillText(clampText(kickTxt, metaMaxW, ctx.font), mx + 24, y + 48);
+        // name / headline (engraved embossed gold)
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = '700 62px "Trajan Pro","Cinzel",Georgia,serif';
+        const big = clampText(String(name).toUpperCase(), metaMaxW, ctx.font);
+        ctx.fillStyle = 'rgba(255,250,235,0.6)'; ctx.fillText(big, mx, y + 116 + 1);   // top highlight
+        ctx.fillStyle = 'rgba(58,30,8,0.55)';   ctx.fillText(big, mx, y + 116 - 1);   // recessed
+        ctx.fillStyle = '#9C7A36';               ctx.fillText(big, mx, y + 116);       // face
+        // amount (forged gold) OR push sub down
+        let subY = y + 162;
+        if (showAmount) {
+          ctx.font = '700 34px "Trajan Pro","Cinzel",Georgia,serif';
+          ctx.fillStyle = GOLD_LT; ctx.shadowColor='rgba(201,150,47,0.5)'; ctx.shadowBlur=16;
+          ctx.fillText(clampText(amountStr.toUpperCase(), metaMaxW, ctx.font), mx, y + 156); ctx.shadowBlur = 0;
+          subY = y + 190;
+        }
+        // sub (aged italic)
+        ctx.fillStyle = INK_SOFT; ctx.font = 'italic 23px Georgia,"Times New Roman",serif';
+        ctx.fillText(clampText(cfg.sub, metaMaxW, ctx.font), mx, subY);
+
+        // tag id (top-right engraved caps)
+        ctx.fillStyle = GOLD_DK; ctx.globalAlpha = tr.op * 0.85;
+        ctx.font = '13px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(spaced('MYTHFORGE KEEP'), x + CARD_W - 30, y + 28);
+        ctx.globalAlpha = tr.op;
+
+        // wax seal (lower-right)
+        const sx = x + CARD_W - 22, sy = y + CARD_H - 22, sr = 44;
+        ctx.save(); ctx.translate(sx, sy); ctx.rotate(-7 * Math.PI/180);
+        ctx.fillStyle = WAX; ctx.beginPath(); ctx.arc(0,0,sr,0,6.283); ctx.fill();
+        ctx.strokeStyle = '#5a1414'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0,0,sr,0,6.283); ctx.stroke();
+        ctx.strokeStyle = 'rgba(156,48,48,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,sr-9,0,6.283); ctx.stroke();
+        // little star sigil + cross
+        ctx.fillStyle = 'rgba(156,48,48,0.85)'; ctx.font = '40px "Trajan Pro",Georgia,serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✠', 0, 2);
+        ctx.restore();
+
+        // forged-gold rule (top-right divider)
+        ctx.strokeStyle = 'rgba(201,150,47,0.6)'; ctx.lineWidth = 1; ctx.globalAlpha = tr.op*0.85;
+        ctx.beginPath(); ctx.moveTo(x + CARD_W - 150, y + 18); ctx.lineTo(x + CARD_W - 32, y + 18); ctx.stroke();
+
+        ctx.restore();
+      };
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      r(1800);
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const cands = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return cands.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const renderFrame = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size/1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        renderFrame(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

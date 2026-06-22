@@ -60,6 +60,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "miami-drive-source", "5586"],
       "port": 5586
+    },
+    {
+      "name": "frost-protocol-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "frost-protocol-source", "5587"],
+      "port": 5587
+    },
+    {
+      "name": "lo-fi-cafe-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "lo-fi-cafe-source", "5588"],
+      "port": 5588
+    },
+    {
+      "name": "cartridge-8-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "cartridge-8-source", "5589"],
+      "port": 5589
+    },
+    {
+      "name": "mythforge-keep-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "mythforge-keep-source", "5590"],
+      "port": 5590
     }
   ]
 }

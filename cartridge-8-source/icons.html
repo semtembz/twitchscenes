@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cartridge 8 Icon Set — generator</title>
+  <!--
+    A consistent set of 18 stand-alone TRANSPARENT PNG icons in the Cartridge 8
+    "WORLD 1-1" 8-bit NES language: chunky FLAT-COLOR pixel sprites drawn on an
+    integer grid, each with a HARD black pixel outline + a hard offset drop-shadow
+    pixel, on a fully transparent background. ZERO gradients / ZERO blur.
+    Each icon is rendered at 200 x 200 px (image-rendering: pixelated).
+
+    The set shares ONE grid unit (CELL), ONE outline rule and ONE flat NES palette
+    so they read as a matched set. Two families:
+      - SOCIAL  : Twitch, YouTube, Twitter/X, Instagram, Discord, TikTok,
+                  Kick, Patreon, PayPal/donate, Steam
+      - LABELS  : follow (heart), subscribe (star), bits/cheer (coin),
+                  raid (flag), host (broadcast), like (thumb), share (nodes),
+                  member (mushroom)
+
+    Each sprite is authored as a small color grid (a tiny "tilemap") and blitted
+    as hard pixels — so it's genuinely 8-bit, not a recolored vector set.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or a single Download under any icon).
+      3. Drop the transparent PNGs into overlays, panels, alert boxes, etc.
+  -->
+  <style>
+    :root{
+      --nes-red:#E60000; --white:#FCFCFC; --night:#1A1A2E; --sky:#5C94FC;
+      --qblock:#FCBC3C; --coin:#FCD800; --shadow:#000000;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+      font-weight:700;background:var(--night);color:var(--white);padding:32px;min-height:100vh;
+      image-rendering:pixelated;}
+    h1{font-size:28px;color:var(--white);letter-spacing:.04em;margin:0 0 6px;
+      text-transform:uppercase;text-shadow:4px 4px 0 var(--shadow);}
+    p.lead{color:#B8D0FC;margin:0 0 22px;max-width:820px;line-height:1.7;font-size:14px;
+      text-transform:uppercase;letter-spacing:.04em;}
+    .toolbar{margin:0 0 26px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+    button{font-family:inherit;font-weight:700;font-size:13px;letter-spacing:.16em;
+      text-transform:uppercase;padding:12px 22px;color:var(--shadow);
+      background:var(--qblock);border:4px solid var(--shadow);cursor:pointer;
+      box-shadow:5px 5px 0 var(--shadow);}
+    button:active{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--shadow);}
+    .section{margin:8px 0 6px;letter-spacing:.28em;font-size:12px;color:var(--coin);
+      text-transform:uppercase;border-top:3px solid #34346a;padding-top:22px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;margin-bottom:10px;}
+    .card{background:#11112a;padding:12px 12px 10px;border:3px solid #34346a;
+      display:flex;flex-direction:column;align-items:center;--c:#1a1a3a;}
+    .canvas-wrap{overflow:hidden;
+      background-image:
+        linear-gradient(45deg,var(--c) 25%,transparent 25%),
+        linear-gradient(-45deg,var(--c) 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,var(--c) 75%),
+        linear-gradient(-45deg,transparent 75%,var(--c) 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:126px;height:126px;image-rendering:pixelated;}
+    .card .name{margin-top:9px;font-size:11px;letter-spacing:.10em;color:var(--coin);text-align:center;}
+    .card a{margin-top:4px;font-size:11px;color:#B8D0FC;text-decoration:none;
+      border-bottom:2px solid #34346a;}
+    .card a:hover{color:var(--coin);}
+  </style>
+</head>
+<body>
+  <h1>CARTRIDGE 8 ICON SET</h1>
+  <p class="lead">
+    18 transparent PNG pixel icons in one cohesive World 1-1 NES style &mdash; chunky
+    flat-color sprites with a hard black outline and a hard offset shadow, shared grid unit.
+    Each is 200&times;200 with its own Download, plus a Download-all. Drop them into overlays,
+    panels, or alert boxes.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+
+  <div class="section">Social platforms</div>
+  <div class="grid" id="grid-social"></div>
+
+  <div class="section">Stream labels &amp; events</div>
+  <div class="grid" id="grid-label"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- size + shared grid ----
+    var SIZE = 200;          // export px (square, transparent)
+    var CELL = 16;           // ONE grid unit for all sprites (200/16 ~ 12 cells)
+    var GRID = 11;           // 11x11 authoring grid, centered
+    var OFF = (SIZE - GRID * CELL) / 2; // centering inset
+    var SHADOW_PX = 4;       // hard offset shadow distance
+
+    // ---- flat NES palette (mirrors shared.css tokens) ----
+    var K = '#000000';       // K = black outline / shadow
+    var W = '#FCFCFC';       // W = white
+    var R = '#E60000';       // R = NES red
+    var B = '#0058F8';       // B = NES blue
+    var G = '#00B800';       // G = NES green
+    var Gd = '#006800';      // Gd= pipe dark
+    var Gl = '#80D010';      // Gl= pipe light
+    var Y = '#FCD800';       // Y = coin yellow
+    var Yo = '#A85400';      // Yo= coin/qblock dark
+    var Q = '#FCBC3C';       // Q = question gold
+    var O = '#C84C0C';       // O = brick orange
+    var P = '#7C2800';       // P = brick dark
+    var Sk = '#5C94FC';      // Sk= sky blue
+    var Sn = '#F0C8A0';      // Sn= skin
+    var _ = null;            // _ = transparent
+
+    // pen helper: blit a color grid (rows of color tokens) onto ctx at integer cells,
+    // with a hard black drop-shadow pass first so every sprite gets the matching 8-bit
+    // offset shadow. Cells equal to K are NOT shadowed twice (the shadow IS black).
+    function blit(ctx, art) {
+      var rows = art.length, cols = art[0].length;
+      var gx0 = Math.round((SIZE - cols * CELL) / 2);
+      var gy0 = Math.round((SIZE - rows * CELL) / 2);
+      // ---- shadow pass: every non-transparent cell, offset, black ----
+      ctx.fillStyle = K;
+      for (var ry = 0; ry < rows; ry++)
+        for (var rx = 0; rx < cols; rx++)
+          if (art[ry][rx]) ctx.fillRect(gx0 + rx * CELL + SHADOW_PX, gy0 + ry * CELL + SHADOW_PX, CELL, CELL);
+      // ---- color pass ----
+      for (var y = 0; y < rows; y++)
+        for (var x = 0; x < cols; x++) {
+          var c = art[y][x];
+          if (c) { ctx.fillStyle = c; ctx.fillRect(gx0 + x * CELL, gy0 + y * CELL, CELL, CELL); }
+        }
+    }
+
+    // =====================================================================
+    // SPRITE ART — each is an 9-11 row color-grid "tilemap". Authored so all
+    // 18 share the SAME cell size + black outline, genuinely pixel-built.
+    // =====================================================================
+    var ART = {
+      // ---- SOCIAL ----
+      twitch: [
+        [K,K,K,K,K,K,K,K,K],
+        [K,W,W,W,W,W,W,W,K],
+        [K,W,B,W,W,B,W,W,K],
+        [K,W,B,W,W,B,W,W,K],
+        [K,W,B,W,W,B,W,W,K],
+        [K,W,W,W,W,W,W,W,K],
+        [K,K,K,W,W,W,W,W,K],
+        [_,_,K,W,W,W,K,K,K],
+        [_,_,_,K,W,K,_,_,_],
+        [_,_,_,_,K,_,_,_,_]
+      ],
+      youtube: [
+        [_,_,_,_,_,_,_,_,_],
+        [K,K,K,K,K,K,K,K,K],
+        [K,R,R,R,R,R,R,R,K],
+        [K,R,R,W,W,R,R,R,K],
+        [K,R,R,W,W,W,R,R,K],
+        [K,R,R,W,W,R,R,R,K],
+        [K,R,R,R,R,R,R,R,K],
+        [K,K,K,K,K,K,K,K,K]
+      ],
+      'twitter-x': [
+        [K,W,_,_,_,_,_,W,K],
+        [K,K,W,_,_,_,W,K,K],
+        [_,K,K,W,_,W,K,K,_],
+        [_,_,K,K,W,K,K,_,_],
+        [_,_,_,K,W,K,_,_,_],
+        [_,_,K,K,W,K,K,_,_],
+        [_,K,K,W,_,W,K,K,_],
+        [K,K,W,_,_,_,W,K,K],
+        [K,W,_,_,_,_,_,W,K]
+      ],
+      instagram: [
+        [K,K,K,K,K,K,K,K,K],
+        [K,Q,Q,Q,Q,Q,W,Q,K],
+        [K,Q,K,K,K,Q,Q,Q,K],
+        [K,Q,K,W,K,K,Q,Q,K],
+        [K,Q,K,W,W,K,Q,Q,K],
+        [K,Q,K,K,K,K,Q,Q,K],
+        [K,Q,Q,Q,Q,Q,Q,Q,K],
+        [K,K,K,K,K,K,K,K,K]
+      ],
+      discord: [
+        [_,K,K,K,K,K,K,K,_],
+        [K,B,B,B,B,B,B,B,K],
+        [K,B,W,B,B,B,W,B,K],
+        [K,B,W,B,B,B,W,B,K],
+        [K,B,B,B,B,B,B,B,K],
+        [K,B,B,B,B,B,B,B,K],
+        [_,K,B,B,_,B,B,K,_],
+        [_,_,K,K,_,K,K,_,_]
+      ],
+      tiktok: [
+        [_,_,_,K,K,K,K,_,_],
+        [_,_,_,K,W,W,K,K,_],
+        [_,_,_,K,W,W,W,K,_],
+        [_,K,K,_,K,W,W,K,_],
+        [K,R,R,K,_,K,K,K,_],
+        [K,R,R,K,_,_,_,_,_],
+        [K,R,R,K,_,B,B,_,_],
+        [_,K,K,_,_,_,B,B,_]
+      ],
+      kick: [
+        [K,G,G,K,_,_,_,_,_],
+        [K,G,G,K,_,_,K,G,K],
+        [K,G,G,K,_,K,G,K,_],
+        [K,G,G,K,K,G,K,_,_],
+        [K,G,G,G,G,K,_,_,_],
+        [K,G,G,K,K,G,K,_,_],
+        [K,G,G,K,_,K,G,K,_],
+        [K,G,G,K,_,_,K,G,K]
+      ],
+      patreon: [
+        [K,K,_,K,K,K,K,_,_],
+        [K,W,K,W,R,R,R,K,_],
+        [K,W,K,R,R,R,R,R,K],
+        [K,W,K,R,R,R,R,R,K],
+        [K,W,K,R,R,R,R,R,K],
+        [K,W,K,W,R,R,R,K,_],
+        [K,W,K,_,K,K,K,_,_],
+        [K,W,K,_,_,_,_,_,_]
+      ],
+      paypal: [
+        [_,K,K,K,K,K,K,K,_],
+        [K,B,B,W,W,B,B,B,K],
+        [K,B,W,B,B,W,B,B,K],
+        [K,B,W,B,B,B,B,B,K],
+        [K,B,B,W,W,B,B,B,K],
+        [K,B,B,B,B,W,B,B,K],
+        [K,B,W,W,W,W,B,B,K],
+        [_,K,K,K,K,K,K,K,_]
+      ],
+      steam: [
+        [_,K,K,K,K,K,K,_,_],
+        [K,B,B,B,K,W,W,K,_],
+        [K,B,B,B,K,W,W,K,_],
+        [K,B,K,B,B,K,K,_,_],
+        [K,B,W,K,B,B,B,K,_],
+        [K,B,W,W,K,B,B,K,_],
+        [_,K,W,W,K,B,B,K,_],
+        [_,_,K,K,K,K,K,_,_]
+      ],
+
+      // ---- LABELS / EVENTS ----
+      follow: [ // heart
+        [_,K,K,_,_,_,K,K,_],
+        [K,R,R,K,_,K,R,R,K],
+        [K,R,R,R,K,R,R,R,K],
+        [K,R,R,R,R,R,R,R,K],
+        [_,K,R,R,R,R,R,K,_],
+        [_,_,K,R,R,R,K,_,_],
+        [_,_,_,K,R,K,_,_,_],
+        [_,_,_,_,K,_,_,_,_]
+      ],
+      subscribe: [ // star
+        [_,_,_,_,K,_,_,_,_],
+        [_,_,_,K,Y,K,_,_,_],
+        [_,_,_,K,Y,K,_,_,_],
+        [K,K,K,Y,Y,Y,K,K,K],
+        [_,K,Y,Y,Y,Y,Y,K,_],
+        [_,_,K,Y,Y,Y,K,_,_],
+        [_,K,Y,K,_,K,Y,K,_],
+        [K,K,_,_,_,_,_,K,K]
+      ],
+      'bits-cheer': [ // coin / gem (the bits motif = the coin sprite)
+        [_,_,K,K,K,K,_,_],
+        [_,K,Yo,Y,Y,K,_,_],
+        [K,Yo,Y,W,Y,Yo,K,_],
+        [K,Yo,Y,W,Y,Yo,K,_],
+        [K,Yo,Y,W,Y,Yo,K,_],
+        [K,Yo,Y,W,Y,Yo,K,_],
+        [_,K,Yo,Y,Y,K,_,_],
+        [_,_,K,K,K,K,_,_]
+      ],
+      raid: [ // flag
+        [K,K,_,_,_,_,_,_,_],
+        [K,Gl,K,K,K,K,K,_,_],
+        [K,G,G,G,G,G,G,K,_],
+        [K,G,G,K,K,G,G,K,_],
+        [K,G,G,G,G,G,G,K,_],
+        [K,K,K,K,K,K,K,_,_],
+        [K,P,K,_,_,_,_,_,_],
+        [K,P,K,_,_,_,_,_,_]
+      ],
+      host: [ // broadcast tower / signal
+        [K,_,_,_,_,_,_,_,K],
+        [_,K,_,K,K,K,_,K,_],
+        [_,_,K,W,B,W,K,_,_],
+        [_,K,_,K,B,K,_,K,_],
+        [K,_,_,_,B,_,_,_,K],
+        [_,_,_,K,B,K,_,_,_],
+        [_,_,K,Yo,Yo,Yo,K,_,_],
+        [_,K,Yo,Yo,Yo,Yo,Yo,K,_]
+      ],
+      like: [ // thumbs up
+        [_,_,_,_,K,K,_,_,_],
+        [_,_,_,K,W,W,K,_,_],
+        [_,_,_,K,W,W,K,_,_],
+        [K,K,K,K,W,W,K,K,K],
+        [K,W,W,W,W,W,W,W,K],
+        [K,W,B,B,B,B,B,W,K],
+        [K,W,B,B,B,B,B,W,K],
+        [_,K,K,K,K,K,K,K,_]
+      ],
+      share: [ // three nodes connected
+        [_,_,_,_,_,_,K,K,_],
+        [_,_,_,_,_,K,G,G,K],
+        [_,_,_,_,K,G,K,K,_],
+        [_,K,K,K,G,K,_,_,_],
+        [K,G,G,G,K,_,_,_,_],
+        [_,K,K,K,G,K,_,_,_],
+        [_,_,_,_,K,G,K,K,_],
+        [_,_,_,_,_,K,G,G,K],
+        [_,_,_,_,_,_,K,K,_]
+      ],
+      member: [ // 1-up mushroom (membership)
+        [_,_,K,K,K,K,K,_,_],
+        [_,K,G,W,W,W,G,K,_],
+        [K,G,W,W,G,W,W,G,K],
+        [K,W,W,G,G,G,W,W,K],
+        [K,G,W,W,G,W,W,G,K],
+        [_,K,K,K,K,K,K,K,_],
+        [_,K,Sn,W,W,W,Sn,K,_],
+        [_,K,Sn,Sn,Sn,Sn,Sn,K,_],
+        [_,_,K,K,K,K,K,_,_]
+      ]
+    };
+
+    var SOCIAL = [
+      ['twitch', 'TWITCH'], ['youtube', 'YOUTUBE'], ['twitter-x', 'TWITTER / X'],
+      ['instagram', 'INSTAGRAM'], ['discord', 'DISCORD'], ['tiktok', 'TIKTOK'],
+      ['kick', 'KICK'], ['patreon', 'PATREON'], ['paypal', 'DONATE'], ['steam', 'STEAM']
+    ];
+    var LABEL = [
+      ['follow', 'FOLLOW'], ['subscribe', 'SUBSCRIBE'], ['bits-cheer', 'BITS / CHEER'],
+      ['raid', 'RAID'], ['host', 'HOST'], ['like', 'LIKE'], ['share', 'SHARE'], ['member', 'MEMBER']
+    ];
+
+    var made = [];
+
+    function renderIcon(id) {
+      var cv = document.createElement('canvas');
+      cv.width = SIZE; cv.height = SIZE;
+      var ctx = cv.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, SIZE, SIZE); // fully transparent
+      var art = ART[id];
+      if (art) blit(ctx, art);
+      return cv;
+    }
+
+    function buildGrid(targetId, list) {
+      var grid = document.getElementById(targetId);
+      for (var i = 0; i < list.length; i++) {
+        var id = list[i][0], label = list[i][1];
+        var cv = renderIcon(id);
+        var card = document.createElement('div'); card.className = 'card';
+        var wrap = document.createElement('div'); wrap.className = 'canvas-wrap';
+        wrap.appendChild(cv);
+        var nm = document.createElement('div'); nm.className = 'name'; nm.textContent = label;
+        var dl = document.createElement('a'); dl.href = '#'; dl.textContent = 'Download';
+        (function (canvas, idc) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, idc); });
+        })(cv, id);
+        card.appendChild(wrap); card.appendChild(nm); card.appendChild(dl);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'icon-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); })();
+    });
+
+    buildGrid('grid-social', SOCIAL);
+    buildGrid('grid-label', LABEL);
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mythforge Keep — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Mythforge Keep
+    "Tavern Quest-Board" dark-fantasy language:
+        - a torn aged-parchment quest-card pinned to dark timber planks
+        - two iron corner brackets w/ riveted nail-heads
+        - a thin burnt-ink runeframe + a small forged-gold rune glyph icon
+        - the label in an engraved Trajan-style serif, embossed gold
+    Each panel has its own Download button + a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Mythforge Keep "Tavern Quest-Board" palette ---- */
+    :root{
+      --timber:#120D08; --timber-2:#0A0704; --timber-3:#1E150C;
+      --gold:#C9962F; --gold-lt:#F0CE7A; --gold-dk:#8A6320;
+      --wax:#7A1F1F; --moss:#2E4A3A; --parchment:#EFE3C8;
+      --ink:#3A2A16; --ink-soft:#6B5230; --iron:#2A2622; --iron-lt:#4A443C;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,"Times New Roman",serif;
+      color:var(--parchment);padding:36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(201,150,47,.12), transparent 60%),
+        radial-gradient(720px 480px at 100% 112%, rgba(122,31,31,.30), transparent 60%),
+        linear-gradient(180deg,#160F09 0%, var(--timber) 52%, var(--timber-2) 100%);
+      min-height:100vh;}
+    .kicker{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:6px;font-size:12px;color:var(--gold-lt);text-transform:uppercase;
+      margin:0 0 8px;display:flex;align-items:center;gap:11px;text-indent:6px;}
+    .dia{width:9px;height:9px;background:var(--gold-lt);transform:rotate(45deg);
+      box-shadow:0 0 12px rgba(201,150,47,.6);}
+    h1{font-family:"Trajan Pro","Cinzel",Georgia,serif;font-weight:700;font-size:32px;
+      letter-spacing:.5px;margin:0 0 6px;color:var(--gold-lt);
+      text-shadow:0 0 28px rgba(201,150,47,.30);}
+    p.lead{color:var(--ink-soft);margin:0 0 24px;max-width:720px;line-height:1.6;
+      font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:17px;color:#b89a6a;}
+    code{font-family:"Courier New",monospace;color:var(--gold-lt);
+      background:rgba(201,150,47,.10);padding:2px 7px;border-radius:3px;font-style:normal;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-weight:700;
+      font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:12px 24px;cursor:pointer;
+      color:var(--timber-2);background:linear-gradient(180deg,var(--gold-lt),var(--gold));
+      border:1px solid rgba(240,206,122,.6);border-radius:2px;
+      box-shadow:0 6px 24px rgba(201,150,47,.30);}
+    button:hover{filter:brightness(1.08);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(10,7,4,.55);padding:16px;border-radius:4px;
+      border:1px solid rgba(74,68,60,.45);}
+    /* checkerboard so transparent corners (torn parchment) are visible */
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#0e0a06;
+      background-image:
+        linear-gradient(45deg,#1e150c40 25%,transparent 25%),
+        linear-gradient(-45deg,#1e150c40 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1e150c40 75%),
+        linear-gradient(-45deg,transparent 75%,#1e150c40 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:"Trajan Pro","Cinzel",Georgia,serif;letter-spacing:2px;
+      color:var(--ink-soft);text-transform:uppercase;}
+    .card-row a{font-family:"Trajan Pro","Cinzel",Georgia,serif;letter-spacing:1px;color:var(--gold-lt);
+      text-decoration:none;border:1px solid rgba(201,150,47,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(201,150,47,.18);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>MYTHFORGE KEEP · PANELS</p>
+  <h1>Mythforge Keep — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the tavern quest-board style:
+    a torn aged-parchment card pinned to dark timber by iron brackets, a burnt-ink runeframe,
+    and a forged-gold rune glyph icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var TIMBER = '#120D08', TIMBER2 = '#0A0704', TIMBER3 = '#1E150C';
+    var GOLD = '#C9962F', GOLD_LT = '#F0CE7A', GOLD_DK = '#8A6320';
+    var WAX = '#7A1F1F', PARCH = '#EFE3C8', INK = '#3A2A16', INK_SOFT = '#6B5230';
+    var IRON = '#2A2622', IRON_LT = '#4A443C';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'crest' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'scroll' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'raven' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'banner' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'shield' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'sword' },
+      { id: 'community', title: 'COMMUNITY', icon: 'goblet' }
+    ];
+
+    // ---- seeded LCG so the parchment stain scatter is identical per render ----
+    function makeRand(seed){ var s = seed>>>0; return function(){ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+    var R = function(rnd,a,b){ return a + rnd()*(b-a); };
+
+    // ---- torn quest-card outline (irregular burnt edge) ----
+    function tornPath(ctx, x, y, w, h, rnd) {
+      var n = 9;                        // points per side
+      ctx.beginPath();
+      function edge(x0,y0,x1,y1,nx,ny){ // nx,ny = outward normal direction
+        for (var i=0;i<=n;i++){
+          var t=i/n, px=x0+(x1-x0)*t, py=y0+(y1-y0)*t;
+          var j=(R(rnd,-1.6,1.8));      // jitter inward/outward
+          ctx.lineTo(Math.round(px+nx*j), Math.round(py+ny*j));
+        }
+      }
+      ctx.moveTo(x,y);
+      edge(x,y, x+w,y, 0,-1);           // top
+      edge(x+w,y, x+w,y+h, 1,0);        // right
+      edge(x+w,y+h, x,y+h, 0,1);        // bottom
+      edge(x,y+h, x,y, -1,0);           // left
+      ctx.closePath();
+    }
+
+    // soft radial bloom
+    function bloom(ctx, cx, cy, rad, color, alpha) {
+      var g = ctx.createRadialGradient(cx,cy,0,cx,cy,rad);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.fillRect(0,0,W,H); ctx.restore();
+    }
+
+    // an iron corner bracket w/ nail-head; flip via scale
+    function bracket(ctx, ox, oy, flipX, flipY) {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(flipX?-1:1, flipY?-1:1);
+      // L-shaped iron plate
+      ctx.beginPath();
+      ctx.moveTo(0,0); ctx.lineTo(22,0);
+      ctx.quadraticCurveTo(18,5,13,5); ctx.lineTo(8,5);
+      ctx.quadraticCurveTo(5,5,5,8); ctx.lineTo(5,13);
+      ctx.quadraticCurveTo(5,18,0,22); ctx.closePath();
+      ctx.fillStyle = IRON; ctx.fill();
+      ctx.strokeStyle = IRON_LT; ctx.lineWidth = 0.8; ctx.stroke();
+      // nail-head
+      ctx.beginPath(); ctx.arc(7.5,7.5,2.3,0,6.2832);
+      ctx.fillStyle = '#3a352e'; ctx.fill();
+      ctx.strokeStyle = TIMBER2; ctx.lineWidth = 0.7; ctx.stroke();
+      ctx.beginPath(); ctx.arc(6.8,6.8,0.7,0,6.2832); ctx.fillStyle = '#6a6258'; ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p, seed) {
+      ctx.clearRect(0, 0, W, H);
+      var rnd = makeRand(seed);
+
+      var pad = 5, x = pad, y = pad, w = W - pad*2, h = H - pad*2;
+
+      // parchment body, clipped to the torn silhouette
+      ctx.save();
+      tornPath(ctx, x, y, w, h, makeRand(seed));   // fresh rnd so clip == draw
+      ctx.clip();
+
+      // warm parchment core fading to scorched edge
+      var bg = ctx.createRadialGradient(W*0.5, H*0.36, 20, W*0.5, H*0.5, W*0.62);
+      bg.addColorStop(0, '#F3E8CE'); bg.addColorStop(0.58, '#E7D7B2');
+      bg.addColorStop(0.84, '#C9B488'); bg.addColorStop(1, '#8E743F');
+      ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+      // blotchy wax / ink stains (seeded)
+      bloom(ctx, W*0.20, H*0.74, 70, 'rgba(122,31,31,0.14)', 1);
+      bloom(ctx, W*0.82, H*0.28, 64, 'rgba(58,42,22,0.20)', 1);
+      var st = makeRand(seed ^ 0x9e37);
+      for (var i=0;i<5;i++){
+        var sx=R(st,W*0.1,W*0.9), sy=R(st,H*0.15,H*0.85), sr=R(st,8,22);
+        bloom(ctx, sx, sy, sr, 'rgba(90,64,24,'+R(st,0.05,0.13).toFixed(3)+')', 1);
+      }
+
+      // fibrous grain + faint center fold
+      ctx.save();
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(120,86,32,0.18)'; ctx.lineWidth = 1;
+      for (var gx=0; gx<W; gx+=4){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx+2,H); ctx.stroke(); }
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = 'rgba(90,64,24,0.16)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(W*0.5, y); ctx.lineTo(W*0.5, y+h); ctx.stroke();
+      ctx.restore();
+
+      // scorch ring just inside the torn edge
+      ctx.save();
+      ctx.shadowColor = 'rgba(58,26,6,0.6)'; ctx.shadowBlur = 16;
+      ctx.strokeStyle = 'rgba(58,26,6,0.5)'; ctx.lineWidth = 6;
+      tornPath(ctx, x+3, y+3, w-6, h-6, makeRand(seed));
+      ctx.stroke();
+      ctx.restore();
+      ctx.restore(); // end clip
+
+      // burnt-ink runeframe
+      ctx.save();
+      ctx.strokeStyle = 'rgba(58,42,22,0.5)'; ctx.lineWidth = 1.4;
+      ctx.strokeRect(x+10.5, y+9.5, w-21, h-19);
+      ctx.strokeStyle = 'rgba(201,150,47,0.28)'; ctx.lineWidth = 1;
+      ctx.strokeRect(x+13.5, y+12.5, w-27, h-25);
+      ctx.restore();
+
+      // iron corner brackets pin two corners
+      bracket(ctx, x+1, y+1, false, false);
+      bracket(ctx, x+w-1, y+h-1, true, true);
+
+      // forged-gold rune glyph icon (left)
+      drawIcon(ctx, p.icon, 40, H/2, 34);
+
+      // kicker above the title — engraved spaced caps
+      ctx.save();
+      ctx.font = '600 9px "Trajan Pro","Cinzel",Georgia,serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = INK_SOFT;
+      drawSpaced(ctx, 'MYTHFORGE KEEP', 74, 34, 1.8);
+      ctx.restore();
+
+      // label — engraved embossed-gold serif (shrink-to-fit)
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 27, maxW = W - 74 - 22;
+      ctx.font = '700 ' + size + 'px "Trajan Pro","Cinzel",Georgia,serif';
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1; ctx.font = '700 ' + size + 'px "Trajan Pro","Cinzel",Georgia,serif';
+      }
+      var ty = 70;
+      // letterpress emboss: bright top highlight + dark recess
+      ctx.fillStyle = 'rgba(255,250,235,0.55)'; ctx.fillText(label, 74, ty-1);
+      ctx.fillStyle = 'rgba(58,30,8,0.5)';      ctx.fillText(label, 74, ty+1);
+      var tg = ctx.createLinearGradient(0, ty-size, 0, ty+4);
+      tg.addColorStop(0, GOLD_LT); tg.addColorStop(0.52, GOLD); tg.addColorStop(1, GOLD_DK);
+      ctx.fillStyle = tg;
+      ctx.shadowColor = 'rgba(201,150,47,0.4)'; ctx.shadowBlur = 12;
+      ctx.fillText(label, 74, ty);
+      ctx.restore();
+
+      // forged-gold divider rule w/ diamond cap under the label
+      ctx.save();
+      var barX = 74, barY = 80, barW = W - 74 - 22;
+      var grad = ctx.createLinearGradient(barX, 0, barX+barW, 0);
+      grad.addColorStop(0, 'rgba(138,99,32,0)'); grad.addColorStop(0.18, GOLD_DK);
+      grad.addColorStop(0.5, GOLD); grad.addColorStop(0.82, GOLD_DK); grad.addColorStop(1, 'rgba(138,99,32,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX+barW, barY); ctx.stroke();
+      ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(201,150,47,0.7)'; ctx.shadowBlur = 6;
+      ctx.save(); ctx.translate(barX+barW*0.5, barY); ctx.rotate(Math.PI/4);
+      ctx.fillRect(-2.4,-2.4,4.8,4.8); ctx.restore();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i=0;i<str.length;i++){ var ch=str[i]; ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+
+    // ---- forged-gold rune-style line/fill icons ---------------------------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s/2;
+      ctx.strokeStyle = GOLD; ctx.fillStyle = GOLD;
+      ctx.lineWidth = 1.9; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(201,150,47,0.55)'; ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'crest': { // crossed swords + wax pip (about)
+          ctx.beginPath(); ctx.moveTo(-h*0.8,h*0.85); ctx.lineTo(h*0.8,-h*0.85);
+          ctx.moveTo(h*0.8,h*0.85); ctx.lineTo(-h*0.8,-h*0.85); ctx.stroke();
+          // pommels
+          ctx.beginPath(); ctx.arc(-h*0.8,h*0.85,1.8,0,6.2832); ctx.arc(h*0.8,h*0.85,1.8,0,6.2832); ctx.fill();
+          ctx.fillStyle = WAX; ctx.beginPath(); ctx.arc(0,0,h*0.26,0,6.2832); ctx.fill();
+          ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0,0,h*0.26,0,6.2832); ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h*0.7, s, s*0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h,-h*0.35); ctx.lineTo(h,-h*0.35);
+          ctx.moveTo(-h*0.55,-h); ctx.lineTo(-h*0.55,-h*0.5);
+          ctx.moveTo(h*0.55,-h);  ctx.lineTo(h*0.55,-h*0.5); ctx.stroke();
+          for (var r=0;r<2;r++) for (var c=0;c<3;c++){
+            ctx.beginPath(); ctx.arc(-h*0.5+c*h*0.5, -h*0.02+r*h*0.45, 1.3, 0, 6.2832); ctx.fill();
+          }
+          break;
+        }
+        case 'scroll': { // rolled scroll / rules
+          ctx.beginPath(); ctx.arc(0,-h*0.7,h*0.28,0,6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h*0.7,h*0.28,0,6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.7,-h*0.7); ctx.lineTo(-h*0.7,h*0.7);
+          ctx.moveTo(h*0.7,-h*0.7);  ctx.lineTo(h*0.7,h*0.7); ctx.stroke();
+          ctx.lineWidth = 1.2;
+          for (var li=0; li<3; li++){ var ly=-h*0.28+li*h*0.28;
+            ctx.beginPath(); ctx.moveTo(-h*0.5,ly); ctx.lineTo(h*0.5,ly); ctx.stroke(); }
+          break;
+        }
+        case 'coin': { // gold coin w/ rune
+          ctx.beginPath(); ctx.arc(0,0,h*0.95,0,6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,0,h*0.72,0,6.2832); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s*0.5) + 'px "Trajan Pro","Cinzel",Georgia,serif';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('ᚨ', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.85,-h*0.45);
+          ctx.quadraticCurveTo(0,-h*0.85,h*0.85,-h*0.45);
+          ctx.lineTo(h*0.7,h*0.55);
+          ctx.quadraticCurveTo(h*0.45,h*0.8,h*0.2,h*0.55);
+          ctx.lineTo(-h*0.2,h*0.55);
+          ctx.quadraticCurveTo(-h*0.45,h*0.8,-h*0.7,h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.32,0,2,0,6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.32,0,2,0,6.2832); ctx.fill();
+          break;
+        }
+        case 'raven': { // raven / messenger bird (twitter)
+          ctx.beginPath();
+          ctx.moveTo(-h*0.9,h*0.3);
+          ctx.quadraticCurveTo(-h*0.1,h*0.55,h*0.55,-h*0.05);
+          ctx.quadraticCurveTo(h*0.95,-h*0.35,h*0.85,-h*0.7);
+          ctx.quadraticCurveTo(h*0.4,-h*0.35,-h*0.1,-h*0.2);
+          ctx.quadraticCurveTo(-h*0.6,-h*0.05,-h*0.9,h*0.3);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h*0.7, s, s*0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.22,-h*0.32); ctx.lineTo(-h*0.22,h*0.28); ctx.lineTo(h*0.42,-h*0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h*0.55, s, s*0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,h*0.1,h*0.4,0,6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.55,-h*0.25,1.6,0,6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.35,-h*0.55); ctx.lineTo(-h*0.15,-h*0.85);
+          ctx.lineTo(h*0.15,-h*0.85); ctx.lineTo(h*0.35,-h*0.55); ctx.stroke();
+          break;
+        }
+        case 'banner': { // heraldic banner (merch)
+          ctx.beginPath();
+          ctx.moveTo(-h*0.6,-h*0.85); ctx.lineTo(h*0.6,-h*0.85);
+          ctx.lineTo(h*0.6,h*0.55); ctx.lineTo(0,h*0.85); ctx.lineTo(-h*0.6,h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.fillStyle = GOLD; ctx.save(); ctx.translate(0,-h*0.1); ctx.rotate(Math.PI/4);
+          ctx.fillRect(-2.6,-2.6,5.2,5.2); ctx.restore();
+          // hanging cord
+          ctx.beginPath(); ctx.moveTo(-h*0.6,-h*0.85); ctx.lineTo(-h*0.6,-h); ctx.moveTo(h*0.6,-h*0.85); ctx.lineTo(h*0.6,-h); ctx.stroke();
+          break;
+        }
+        case 'shield': { // shield (sponsors)
+          ctx.beginPath();
+          ctx.moveTo(0,-h*0.9);
+          ctx.lineTo(h*0.8,-h*0.55);
+          ctx.lineTo(h*0.8,h*0.15);
+          ctx.quadraticCurveTo(h*0.8,h*0.7,0,h*0.95);
+          ctx.quadraticCurveTo(-h*0.8,h*0.7,-h*0.8,h*0.15);
+          ctx.lineTo(-h*0.8,-h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0,-h*0.55); ctx.lineTo(0,h*0.6);
+          ctx.moveTo(-h*0.62,-h*0.1); ctx.lineTo(h*0.62,-h*0.1); ctx.stroke();
+          break;
+        }
+        case 'sword': { // upright sword (subscribe)
+          ctx.beginPath();
+          ctx.moveTo(0,-h*0.95); ctx.lineTo(0,h*0.55); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-h*0.5,h*0.2); ctx.lineTo(h*0.5,h*0.2); ctx.stroke(); // guard
+          ctx.beginPath(); ctx.arc(0,h*0.78,h*0.2,0,6.2832); ctx.stroke();                 // pommel
+          ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(0,-h*0.95,1.8,0,6.2832); ctx.fill(); // tip
+          break;
+        }
+        case 'goblet': { // tavern goblet (community)
+          ctx.beginPath();
+          ctx.moveTo(-h*0.55,-h*0.7); ctx.lineTo(h*0.55,-h*0.7);
+          ctx.quadraticCurveTo(h*0.5,h*0.05,0,h*0.12);
+          ctx.quadraticCurveTo(-h*0.5,h*0.05,-h*0.55,-h*0.7); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0,h*0.12); ctx.lineTo(0,h*0.7); ctx.stroke(); // stem
+          ctx.beginPath(); ctx.moveTo(-h*0.45,h*0.85); ctx.lineTo(h*0.45,h*0.85); ctx.stroke(); // base
+          ctx.fillStyle = WAX; ctx.beginPath();
+          ctx.moveTo(-h*0.5,-h*0.55); ctx.lineTo(h*0.5,-h*0.55);
+          ctx.quadraticCurveTo(h*0.42,-h*0.2,0,-h*0.14);
+          ctx.quadraticCurveTo(-h*0.42,-h*0.2,-h*0.5,-h*0.55); ctx.closePath(); ctx.fill();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0,0,h*0.7,0,6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath(); ctx.moveTo(x+r,y);
+      ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+      ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i=0;i<PANELS.length;i++){
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p, 0x4D17 + i*0x131);   // distinct stain seed per panel
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id){ dl.addEventListener('click', function (e){ e.preventDefault(); save(canvas, id); }); })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next(){ if (i>=made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 200); })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m){ return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(build); } else { build(); }
+  })();
+  </script>
+</body>
+</html>

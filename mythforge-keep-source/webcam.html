@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mythforge Keep — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one Mythforge webcam frame: a forged-iron channel
+       border (transparent inside so the cam under this overlay shows through),
+       pinned at every corner by a riveted iron bracket, etched golden runes
+       strung along the top inner border, a crossed-sword crest above it, and
+       an engraved gold nameplate (@handle) clamped to the foot. A few warm
+       embers + grey ash drift around it.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint embers drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%) rotate(-.5deg);
+      animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:104px;transform:translateX(-50%) rotate(-.5deg);}
+
+    /* forged-iron channel border; INSIDE stays transparent (cam shows through) */
+    .frame{position:absolute;inset:0;background:transparent;border-radius:4px;
+      border:10px solid transparent;
+      /* hammered iron channel painted only on the border via border-image-ish stack */
+      box-shadow:
+        /* outer black edge + iron body */
+        0 0 0 2px #000,
+        inset 0 0 0 2px #000,
+        inset 0 0 0 10px var(--iron),
+        inset 0 0 0 11px rgba(74,68,60,.55),
+        /* warm candle wash + outer glow */
+        0 0 28px rgba(201,150,47,.28),
+        0 22px 60px rgba(0,0,0,.6),
+        inset 0 0 30px rgba(201,150,47,.07);}
+    /* engraved inner ink/gold runeframe hairline just inside the iron */
+    .frame::before{content:"";position:absolute;inset:12px;border-radius:2px;pointer-events:none;
+      border:1px solid rgba(201,150,47,.30);
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);}
+    /* top iron band gets a slow warm heat-glow drift (charging-blade language) */
+    .frame::after{content:"";position:absolute;left:0;right:0;top:0;height:10px;pointer-events:none;
+      mix-blend-mode:screen;overflow:hidden;
+      background:linear-gradient(90deg, transparent, rgba(240,206,122,.20), transparent) -200px 0/200px 100% no-repeat;
+      animation:heatdrift 7s linear infinite;}
+    @keyframes heatdrift{0%{background-position:-200px 0}100%{background-position:120% 0}}
+
+    /* iron corner brackets w/ riveted nail-heads pin the frame at every corner */
+    .bracket{position:absolute;width:120px;height:120px;pointer-events:none;
+      animation:nailin .5s var(--ease) both .45s;}
+    .bracket svg{width:100%;height:100%;display:block;
+      filter:drop-shadow(0 4px 5px rgba(0,0,0,.6));}
+    .bracket--tl{left:-16px;top:-16px;}
+    .bracket--tr{right:-16px;top:-16px;transform:scaleX(-1);}
+    .bracket--bl{left:-16px;bottom:-16px;transform:scaleY(-1);}
+    .bracket--br{right:-16px;bottom:-16px;transform:scale(-1,-1);}
+    @keyframes nailin{from{opacity:0}to{opacity:1}}
+
+    /* etched golden runes strung along the TOP inner border of the frame */
+    .runes{position:absolute;left:60px;right:60px;top:18px;display:flex;justify-content:center;gap:30px;
+      pointer-events:none;color:var(--gold);font-size:24px;line-height:1;
+      font-family:"Trajan Pro","Cinzel",Georgia,serif;}
+    .runes b{display:block;text-shadow:0 0 10px var(--glow);opacity:.78;
+      animation:runepulse 3.4s ease-in-out infinite;}
+    .runes b:nth-child(2n){animation-duration:4.2s;animation-delay:.5s;}
+    .runes b:nth-child(3n){animation-duration:2.9s;animation-delay:1.1s;}
+
+    /* crossed-sword crest above the frame, top-center */
+    .crest{position:absolute;left:50%;top:-58px;transform:translateX(-50%);
+      animation:fadein 1.1s var(--ease) both .5s;}
+    .crest svg{width:84px;height:55px;display:block;
+      filter:drop-shadow(0 0 12px rgba(201,150,47,.45));}
+    @keyframes fadein{from{opacity:0}to{opacity:1}}
+
+    /* small engraved caption, top-left above the frame */
+    .cap{position:absolute;left:6px;top:-46px;display:flex;align-items:center;gap:13px;
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:.46em;font-size:17px;color:var(--gold);text-indent:.46em;opacity:.85;
+      text-shadow:0 1px 0 rgba(0,0,0,.7),0 0 12px rgba(201,150,47,.22);}
+    .cap .dia{width:8px;height:8px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 8px rgba(201,150,47,.3);}
+
+    /* engraved gold nameplate — forged-iron plaque clamped to the frame foot */
+    .tag{position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:14px;white-space:nowrap;padding:9px 28px;
+      color:var(--parchment);
+      background:
+        radial-gradient(120% 140% at 50% -10%, rgba(201,150,47,.12), transparent 60%),
+        linear-gradient(180deg, var(--iron-lt) 0%, var(--iron) 36%, var(--timber-3) 100%);
+      border:2px solid #000;border-radius:3px;
+      box-shadow:
+        0 12px 30px rgba(0,0,0,.55),
+        inset 0 2px 0 rgba(120,100,70,.22), inset 0 -2px 6px rgba(0,0,0,.7),
+        0 0 0 1px rgba(74,68,60,.5), 0 0 20px rgba(201,150,47,.1);}
+    /* rivets clamp the plaque */
+    .tag .rivet{position:absolute;top:50%;width:8px;height:8px;border-radius:50%;
+      transform:translateY(-50%);background:radial-gradient(circle at 35% 30%,#6a6258,#1a1714);
+      box-shadow:0 1px 1px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.5);}
+    .tag .rivet--l{left:-4px;} .tag .rivet--r{right:-4px;}
+    .tag .who{
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:.18em;font-size:23px;color:var(--gold-lt);text-indent:.18em;
+      text-shadow:0 1px 0 rgba(0,0,0,.6),0 0 16px rgba(201,150,47,.4);}
+    .tag .dia{width:9px;height:9px;border:1px solid var(--gold-lt);transform:rotate(45deg);
+      background:var(--gold);box-shadow:0 0 10px var(--glow);
+      animation:emberpulse 2.4s ease-in-out infinite;}
+    @keyframes emberpulse{0%,100%{opacity:1}50%{opacity:.42}}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) rotate(-.5deg) scale(.97)}
+      to{opacity:1;transform:translate(-50%,-50%) rotate(-.5deg) scale(1)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .bracket,#stage.render .crest,#stage.render .runes b{animation:none!important;}
+    #stage.render .frame::after{animation:none;}
+    #stage.render .tag .dia{animation:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) rotate(-.5deg) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%) rotate(-.5deg);}
+    #stage.render .bracket{opacity:1;}
+    #stage.render .bracket--tr{transform:scaleX(-1);}
+    #stage.render .bracket--bl{transform:scaleY(-1);}
+    #stage.render .bracket--br{transform:scale(-1,-1);}
+    #stage.render .crest{opacity:1;}
+    #stage.render .runes b{opacity:.78;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- iron corner brackets w/ nail-heads pin the cam frame -->
+      <span class="bracket bracket--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="none" stroke="#0A0704" stroke-width="1" opacity=".6"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+      <span class="bracket bracket--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 6 H58 Q50 14 42 14 H22 Q14 14 14 22 V42 Q14 50 6 58 Z"
+                fill="#2A2622" stroke="#4A443C" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="5.2" fill="#3a352e"/>
+          <circle cx="20" cy="20" r="5.2" fill="none" stroke="#0A0704" stroke-width="1"/>
+          <circle cx="18.2" cy="18.2" r="1.6" fill="#6a6258"/>
+        </svg>
+      </span>
+
+      <!-- etched golden runes along the top inner border -->
+      <div class="runes" aria-hidden="true">
+        <b>&#5792;</b><b>&#5809;</b><b>&#5828;</b><b>&#5800;</b><b>&#5819;</b><b>&#5834;</b><b>&#5796;</b>
+      </div>
+
+      <!-- crossed-sword heraldry crest above the frame -->
+      <div class="crest" aria-hidden="true">
+        <svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#C9962F" stroke-width="2.4" fill="none" stroke-linecap="round">
+            <line x1="20" y1="68" x2="92" y2="12"/>
+            <line x1="100" y1="68" x2="28" y2="12"/>
+          </g>
+          <g fill="#C9962F">
+            <path d="M90 10 l8 -4 -2 9 z"/>
+            <rect x="14" y="64" width="16" height="4" rx="2" transform="rotate(-38 22 66)"/>
+            <path d="M30 10 l-8 -4 2 9 z"/>
+            <rect x="90" y="64" width="16" height="4" rx="2" transform="rotate(38 98 66)"/>
+          </g>
+          <circle cx="60" cy="40" r="6" fill="#7A1F1F" stroke="#C9962F" stroke-width="1.6"/>
+        </svg>
+      </div>
+
+      <span class="cap" aria-hidden="true"><span class="dia"></span>ON CAMERA</span>
+
+      <div class="tag">
+        <span class="rivet rivet--l" aria-hidden="true"></span>
+        <span class="rivet rivet--r" aria-hidden="true"></span>
+        <span class="dia" aria-hidden="true"></span>
+        <span class="who" id="handle">@yourhandle</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: warm embers + cooler grey ash drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    let ctx = null, W = 1920, H = 1080, embers = [];
+    const R = (a, b) => a + Math.random() * (b - a);
+    const mk = (initial) => {
+      const ash = Math.random() < 0.34;
+      return {
+        x: R(0, W), y: initial ? R(0, H) : R(H, H + 80),
+        z: R(0.5, 1.7), vy: -R(10, 28) / 60,
+        sway: R(0.4, 1.5), ph: R(0, 6.28), drift: R(-0.22, 0.22),
+        a: R(0.26, 0.85), ash,
+        col: ash ? "200,196,188" : (Math.random() < 0.5 ? "240,206,122" : "201,120,47"),
+        tws: R(0.06, 0.16),
+      };
+    };
+    if (cv) {
+      ctx = cv.getContext("2d");
+      W = cv.width || 1920; H = cv.height || 1080;
+      embers = Array.from({ length: Math.max(0, num("embers", 40)) }, () => mk(true));
+    }
+    function drawBg(dt){
+      if (!ctx) return;
+      const f = dt * 60;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of embers){
+        p.y += p.vy * p.z * f;
+        p.ph += p.tws * f;
+        p.x += (Math.sin(p.ph) * p.sway + p.drift) * f;
+        if (p.y < -20 || p.x < -40 || p.x > W + 40) Object.assign(p, mk(false));
+        const tw = p.ash ? (0.5 + Math.sin(p.ph * 0.8) * 0.25)
+                         : (0.45 + Math.sin(p.ph * 1.9) * 0.55);
+        const s = Math.max(1, Math.round(p.z * (p.ash ? 1.6 : 2.0)));
+        ctx.globalAlpha = Math.max(0, p.a * tw);
+        ctx.fillStyle = "rgb(" + p.col + ")";
+        if (p.ash) { ctx.shadowBlur = 0; }
+        else { ctx.shadowColor = "rgb(" + p.col + ")"; ctx.shadowBlur = 9 * p.z; }
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__mythDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

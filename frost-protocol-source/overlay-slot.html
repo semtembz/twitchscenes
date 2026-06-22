@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Frost Protocol — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Clean Room" language: thin cold-blue
+       registration crop-brackets in the corners, a slim frosted telemetry
+       strip lower-left carrying @handle + a "REC" status LED, and a small
+       mono node tag top-right. Almost everything stays transparent so the
+       gameplay shows through; only a faint drift of frost specks lives near
+       the strip. Decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=REC  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no void background, no grid/vignette full-bleed */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of frost specks, very low alpha, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin cold-blue registration crop-brackets in the void corners ---- */
+    .ft{position:absolute;width:54px;height:54px;pointer-events:none;opacity:.7;
+      animation:ftin 1s var(--ease) both .2s;}
+    .ft::before,.ft::after{content:"";position:absolute;background:var(--hair);
+      box-shadow:0 0 6px rgba(127,180,214,.25);}
+    .ft::before{width:54px;height:1px;} .ft::after{width:1px;height:54px;}
+    .ft--tl{left:46px;top:46px;}  .ft--tl::before{left:0;top:0;}  .ft--tl::after{left:0;top:0;}
+    .ft--tr{right:46px;top:46px;} .ft--tr::before{right:0;top:0;} .ft--tr::after{right:0;top:0;}
+    .ft--bl{left:46px;bottom:46px;}  .ft--bl::before{left:0;bottom:0;}  .ft--bl::after{left:0;bottom:0;}
+    .ft--br{right:46px;bottom:46px;} .ft--br::before{right:0;bottom:0;} .ft--br::after{right:0;bottom:0;}
+    @keyframes ftin{from{opacity:0}to{opacity:.7}}
+
+    /* tiny mono coordinate ticks beside each bracket (registration motif) */
+    .ftlbl{position:absolute;font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+      color:rgba(127,180,214,.34);pointer-events:none;animation:ftin 1s var(--ease) both .35s;}
+    .ftlbl--tl{left:108px;top:48px;} .ftlbl--br{right:108px;bottom:50px;text-align:right;}
+
+    /* ---- slim frosted telemetry strip, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:58px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 22px;
+      background:linear-gradient(180deg, rgba(207,230,242,.05), rgba(17,24,31,.10)), var(--glass);
+      -webkit-backdrop-filter:blur(12px) saturate(105%);
+              backdrop-filter:blur(12px) saturate(105%);
+      border:1px solid var(--hair);
+      box-shadow:0 22px 60px rgba(0,0,0,.5), inset 0 1px 0 var(--glass-edge),
+        inset 0 0 60px rgba(127,180,214,.04);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* bright L-shaped corner registration ticks on the strip (the signature motif) */
+    .slot .tk{position:absolute;width:18px;height:18px;pointer-events:none;}
+    .slot .tk::before,.slot .tk::after{content:"";position:absolute;background:var(--tick);
+      box-shadow:0 0 6px rgba(127,180,214,.55);}
+    .slot .tk::before{width:18px;height:2px;} .slot .tk::after{width:2px;height:18px;}
+    .slot .tk.a{left:-1px;top:-1px;}    .slot .tk.a::before{left:0;top:0;}     .slot .tk.a::after{left:0;top:0;}
+    .slot .tk.b{right:-1px;top:-1px;}   .slot .tk.b::before{right:0;top:0;}    .slot .tk.b::after{right:0;top:0;}
+    .slot .tk.c{left:-1px;bottom:-1px;} .slot .tk.c::before{left:0;bottom:0;}  .slot .tk.c::after{left:0;bottom:0;}
+    .slot .tk.d{right:-1px;bottom:-1px;}.slot .tk.d::before{right:0;bottom:0;} .slot .tk.d::after{right:0;bottom:0;}
+    /* slow horizontal scan line sweeps the frosted strip */
+    .slot .scan{position:absolute;left:0;right:0;top:0;height:2px;pointer-events:none;
+      background:linear-gradient(90deg,transparent,rgba(207,230,242,.5) 50%,transparent);
+      box-shadow:0 0 14px rgba(127,180,214,.45);opacity:.6;
+      animation:slotscan 5.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotscan{0%{transform:translateY(0)}100%{transform:translateY(58px)}}
+
+    /* "REC" status — blinking accent LED + spaced mono caps */
+    .slot .tag{display:flex;align-items:center;gap:11px;
+      font-family:var(--mono);letter-spacing:.36em;font-size:16px;font-weight:600;
+      text-transform:uppercase;color:var(--accent);text-indent:.36em;}
+    .slot .tag .led{width:9px;height:9px;border-radius:50%;background:var(--accent);
+      box-shadow:0 0 12px var(--accent);animation:blink 1.8s steps(1,end) infinite;}
+
+    /* thin cold divider with a tiny center reference notch */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--hair),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
+      border:1px solid var(--accent);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px rgba(127,180,214,.5);}
+
+    /* handle — ice-light mono */
+    .slot .who{font-family:var(--mono);letter-spacing:.22em;font-size:24px;color:var(--ice);
+      text-indent:.22em;text-shadow:0 0 14px rgba(127,180,214,.3);white-space:nowrap;}
+
+    /* small mono node tag, top-right (matches the "//" kicker + NODE readout) */
+    .node-tr{position:absolute;top:42px;right:118px;display:flex;align-items:center;gap:12px;
+      font-family:var(--mono);letter-spacing:.4em;font-size:15px;color:var(--accent);
+      text-indent:.4em;opacity:.78;animation:ftin 1s var(--ease) both .3s;}
+    .node-tr::before{content:"//";color:var(--ice);opacity:.6;letter-spacing:0;}
+    .node-tr .pt{width:7px;height:7px;border:1px solid var(--accent);transform:rotate(45deg);
+      box-shadow:0 0 8px rgba(127,180,214,.4);}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .ft,#stage.render .ftlbl,#stage.render .node-tr{animation:none!important;}
+    #stage.render .slot .scan{animation:none;display:none;}
+    #stage.render .slot .tag .led{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .ft,#stage.render .ftlbl{opacity:.7;}
+    #stage.render .node-tr{opacity:.78;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin cold-blue registration crop-brackets in all four corners -->
+    <span class="ft ft--tl" aria-hidden="true"></span>
+    <span class="ft ft--tr" aria-hidden="true"></span>
+    <span class="ft ft--bl" aria-hidden="true"></span>
+    <span class="ft ft--br" aria-hidden="true"></span>
+    <span class="ftlbl ftlbl--tl" aria-hidden="true">X:000 Y:000</span>
+    <span class="ftlbl ftlbl--br" aria-hidden="true">NODE 7FB4-D6</span>
+
+    <!-- small node tag, top-right -->
+    <div class="node-tr" aria-hidden="true"><span class="pt"></span>FROST PROTOCOL</div>
+
+    <!-- slim frosted telemetry strip, lower-left -->
+    <div class="slot">
+      <span class="tk a" aria-hidden="true"></span><span class="tk b" aria-hidden="true"></span>
+      <span class="tk c" aria-hidden="true"></span><span class="tk d" aria-hidden="true"></span>
+      <span class="scan" aria-hidden="true"></span>
+      <span class="tag"><span class="led" aria-hidden="true"></span>REC</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a few subtle drifting frost specks (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x5151 >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const specks = Array.from({ length: Math.max(0, num("specks", 56)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.5), vx: R(-3, 3)/60, vy: R(-2, 5)/60,
+      ph: R(0, 6.28), tw: R(0.4, 1.3), a: R(0.16, 0.5),
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      ctx.shadowBlur = 0;
+      for (const p of specks){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.04 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.55 + Math.sin(p.ph * p.tw) * 0.45;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = "#CFE6F2";
+        const sz = Math.max(1, Math.round(p.z * 1.5));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__frostDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

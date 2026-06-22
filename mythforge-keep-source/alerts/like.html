@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mythforge Keep — Like Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 shows the EVENT headline + hides the baked name (how clips ship)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="like">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert" data-anim="like">
+      <!-- iron corner bracket pinning the notice -->
+      <span class="pin" aria-hidden="true"><svg viewBox="0 0 96 96"><path d="M6 6h54v12H24a6 6 0 0 0-6 6v36H6z" fill="#2A2622" stroke="#000" stroke-width="2"/><path d="M10 10h42v8H22a8 8 0 0 0-8 8v30h-4z" fill="#4A443C" opacity=".5"/><circle cx="14" cy="14" r="4" fill="#15110D"/><circle cx="13" cy="13" r="1.4" fill="#8a8278"/><circle cx="50" cy="14" r="3" fill="#15110D"/><circle cx="14" cy="50" r="3" fill="#15110D"/></svg></span>
+      <!-- flickering rune-rule -->
+      <div class="runerule" aria-hidden="true"><b>ᚠ</b><b>ᚱ</b><b>ᚷ</b><b>ᚹ</b></div>
+      <span class="tagid" aria-hidden="true">MYTHFORGE&nbsp;KEEP</span>
+      <span class="crest" aria-hidden="true"></span>
+
+      <div class="art" aria-hidden="true">
+        <i></i><i></i><i></i><i></i>
+        <div class="glyph" id="glyph">❤</div>
+      </div>
+      <div class="meta">
+        <p class="kick"><span class="pip"></span> THE KEEP · <span id="kick-label">NEW LIKE</span></p>
+        <h1 class="name" id="name">NewHero</h1>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub">favor granted</p>
+      </div>
+
+      <!-- blood-red wax seal -->
+      <span class="seal" aria-hidden="true"><svg viewBox="0 0 104 104"><circle cx="52" cy="52" r="46" fill="#7A1F1F"/><circle cx="52" cy="52" r="46" fill="none" stroke="#5a1414" stroke-width="3"/><circle cx="52" cy="52" r="37" fill="none" stroke="#9c3030" stroke-width="2" opacity=".7"/><path d="M52 26l7 16 17 1-13 11 4 17-15-9-15 9 4-17-13-11 17-1z" fill="#9c3030" opacity=".8"/><path d="M52 30v44M30 52h44" stroke="#5a1414" stroke-width="2.4" opacity=".6"/></svg></span>
+
+      <span class="frame" aria-hidden="true"></span>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

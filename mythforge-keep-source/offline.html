@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Mythforge Keep (PNG generator)</title>
+  <!--
+    MYTHFORGE KEEP · "Tavern Quest-Board" dark-fantasy OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the quest-board look (dark timber plank wall, drifting ember/
+    ash field, a CENTERED torn aged-parchment quest-card pinned by four iron
+    corner brackets, etched golden runes, a crossed-sword crest, an engraved
+    embossed-gold OFFLINE title, a forged divider, a blood-red wax seal at the
+    foot, and engraved corner tags on the timber) onto a <canvas> and downloads
+    it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the embers / stains scatter
+    is identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --timber:#120D08; --timber-2:#0A0704; --gold:#C9962F; --gold-lt:#F0CE7A;
+      --gold-dk:#8A6320; --wax:#7A1F1F; --parchment:#EFE3C8; --ink:#3A2A16; --ink-soft:#6B5230;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      background:var(--timber-2);color:var(--parchment);padding:32px;}
+    h1{font-family:"Trajan Pro","Cinzel",Georgia,serif;font-weight:700;font-size:28px;
+      color:var(--gold-lt);letter-spacing:1px;margin:0 0 6px;text-shadow:0 0 22px rgba(201,150,47,.30);}
+    p.lead{color:#b89a6a;margin:0 0 22px;max-width:820px;line-height:1.6;
+      font-family:Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Trajan Pro","Cinzel",Georgia,serif;letter-spacing:6px;font-size:13px;
+      color:var(--gold-lt);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:"Trajan Pro","Cinzel",Georgia,serif;font-weight:700;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--timber-2);
+      background:linear-gradient(180deg,var(--gold-lt),var(--gold));border:1px solid rgba(240,206,122,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(201,150,47,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0e0a06;padding:14px;border:1px solid #2a2218;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Courier New",monospace;color:var(--gold-lt);background:#1a1209;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">MYTHFORGE KEEP · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the tavern quest-board style — seeded so the
+    embers and stains are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const TIMBER='#120D08', TIMBER2='#0A0704', GOLD='#C9962F', GOLD_LT='#F0CE7A',
+          GOLD_DK='#8A6320', WAX='#7A1F1F', PARCH='#EFE3C8', INK='#3A2A16', INK_SOFT='#6B5230',
+          IRON='#2A2622', IRON_LT='#4A443C';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed){ let s=seed>>>0; return ()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+    const R = (rnd,a,b)=>a+rnd()*(b-a);
+
+    function bloom(x,y,r,color,alpha){
+      const g=ctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0,color); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.globalAlpha=alpha; ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill(); ctx.globalAlpha=1;
+    }
+
+    // ---- dark vertical timber-plank wall ----
+    function drawPlanks(){
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#160F09'); grad.addColorStop(0.46,TIMBER); grad.addColorStop(1,TIMBER2);
+      ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+      const pw=124;                              // plank width
+      for (let px=0; px<W; px+=pw){
+        ctx.fillStyle = ((px/pw)|0)%2 ? '#150E07' : '#1a1209';
+        ctx.fillRect(px,0,pw,H);
+        // seam shadow + highlight
+        ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,0,2,H);
+        ctx.fillStyle='rgba(255,255,255,0.012)'; ctx.fillRect(px+2,0,2,H);
+        // long vertical grain streaks (seeded per plank)
+        const gr = makeRand(0x6c00 + px);
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+        for (let i=0;i<7;i++){ const gx=Math.round(px+R(gr,6,pw-6));
+          ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx+R(gr,-6,6),H); ctx.stroke(); }
+      }
+      // faint horizontal grain
+      ctx.fillStyle='rgba(0,0,0,0.08)';
+      for (let y=0;y<H;y+=9) ctx.fillRect(0,y,W,3);
+    }
+
+    // ---- torn quest-card outline (irregular burnt edge) ----
+    function tornPath(x,y,w,h,rnd){
+      const n=11;
+      ctx.beginPath();
+      const edge=(x0,y0,x1,y1,nx,ny)=>{
+        for (let i=0;i<=n;i++){ const t=i/n, px=x0+(x1-x0)*t, py=y0+(y1-y0)*t, j=R(rnd,-9,11);
+          ctx.lineTo(Math.round(px+nx*j), Math.round(py+ny*j)); }
+      };
+      ctx.moveTo(x,y);
+      edge(x,y,x+w,y,0,-1); edge(x+w,y,x+w,y+h,1,0);
+      edge(x+w,y+h,x,y+h,0,1); edge(x,y+h,x,y,-1,0);
+      ctx.closePath();
+    }
+
+    // ---- iron corner bracket w/ nail-head (SVG-style plate) ----
+    function bracket(ox,oy,flipX,flipY){
+      ctx.save(); ctx.translate(ox,oy); ctx.scale(flipX?-1:1, flipY?-1:1);
+      ctx.beginPath();
+      ctx.moveTo(6,6); ctx.lineTo(78,6);
+      ctx.quadraticCurveTo(64,20,52,20); ctx.lineTo(28,20);
+      ctx.quadraticCurveTo(18,20,18,30); ctx.lineTo(18,52);
+      ctx.quadraticCurveTo(18,64,6,78); ctx.closePath();
+      ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=10; ctx.shadowOffsetY=5;
+      ctx.fillStyle=IRON; ctx.fill();
+      ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+      ctx.strokeStyle=IRON_LT; ctx.lineWidth=1.4; ctx.stroke();
+      // nail-head
+      ctx.beginPath(); ctx.arc(28,28,7,0,6.2832); ctx.fillStyle='#3a352e'; ctx.fill();
+      ctx.strokeStyle=TIMBER2; ctx.lineWidth=1.2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(25.4,25.4,2.2,0,6.2832); ctx.fillStyle='#6a6258'; ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- crossed-sword crest (gold blades, wax pip) ----
+    function crest(cx,cy,sc){
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(sc,sc);
+      ctx.lineCap='round';
+      ctx.strokeStyle=GOLD; ctx.lineWidth=2.4;
+      ctx.shadowColor='rgba(201,150,47,0.45)'; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.moveTo(-40,28); ctx.lineTo(32,-28);
+      ctx.moveTo(40,28);  ctx.lineTo(-32,-28); ctx.stroke();
+      ctx.fillStyle=GOLD;
+      // guards
+      ctx.save(); ctx.translate(-38,26); ctx.rotate(-0.66); ctx.fillRect(-8,-2,16,4); ctx.restore();
+      ctx.save(); ctx.translate(38,26);  ctx.rotate(0.66);  ctx.fillRect(-8,-2,16,4); ctx.restore();
+      // blade tips
+      ctx.beginPath(); ctx.moveTo(30,-30); ctx.lineTo(38,-34); ctx.lineTo(36,-25); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-30,-30); ctx.lineTo(-38,-34); ctx.lineTo(-36,-25); ctx.closePath(); ctx.fill();
+      // wax pip
+      ctx.beginPath(); ctx.arc(0,0,6,0,6.2832); ctx.fillStyle=WAX; ctx.fill();
+      ctx.strokeStyle=GOLD; ctx.lineWidth=1.6; ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- blood-red wax seal (cross-hatched sigil) ----
+    function seal(cx,cy,r,rot){
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot);
+      ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=14; ctx.shadowOffsetY=6;
+      // scalloped wax blob
+      const pts=20; ctx.beginPath();
+      for (let i=0;i<=pts;i++){ const a=i/pts*6.2832, rr=r*(i%2?0.9:1.06);
+        const px=Math.cos(a)*rr, py=Math.sin(a)*rr; if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+      ctx.closePath();
+      const wg=ctx.createRadialGradient(-r*0.3,-r*0.35,2,0,0,r*1.1);
+      wg.addColorStop(0,'#A33030'); wg.addColorStop(0.62,WAX); wg.addColorStop(1,'#4E1212');
+      ctx.fillStyle=wg; ctx.fill();
+      ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+      ctx.strokeStyle='#3a0e0e'; ctx.lineWidth=2; ctx.stroke();
+      // inner ring + sigil
+      ctx.strokeStyle='#5a1717'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.arc(0,0,r*0.62,0,6.2832); ctx.stroke();
+      ctx.strokeStyle='#9c3a3a'; ctx.lineWidth=2.4; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(0,-r*0.42); ctx.lineTo(0,r*0.42);
+      ctx.moveTo(-r*0.36,-r*0.22); ctx.lineTo(r*0.36,r*0.22);
+      ctx.moveTo(r*0.36,-r*0.22);  ctx.lineTo(-r*0.36,r*0.22); ctx.stroke();
+      ctx.fillStyle='#9c3a3a'; ctx.beginPath(); ctx.arc(0,0,r*0.1,0,6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    function diamond(x,y,s,fill){ ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4);
+      if(fill){ ctx.fillStyle=fill; ctx.fillRect(-s,-s,s*2,s*2); } ctx.restore(); }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0xC9962F); // fixed seed (gold hex) -> identical scatter every render
+
+      // ---- BACKGROUND: dark timber plank wall + candle wash ----
+      drawPlanks();
+      bloom(W*0.50, H*0.06, W*0.62, 'rgba(201,150,47,0.12)', 1);
+      bloom(W*0.50, H*1.12, W*0.55, 'rgba(122,31,31,0.12)', 1);
+
+      // ---- SEEDED EMBER / ASH FIELD (warm sparks + cooler grey ash) ----
+      ctx.save();
+      for (let i=0;i<150;i++){
+        const x=R(rnd,10,W-10), y=R(rnd,10,H-10), z=R(rnd,0.6,2.2);
+        const warm = rnd() > 0.34;                 // ~1/3 cooler grey ash
+        const a = R(rnd, 0.25, warm?0.9:0.5);
+        ctx.globalAlpha=a;
+        if (warm){ ctx.fillStyle=GOLD_LT; ctx.shadowColor=GOLD_LT; ctx.shadowBlur=8*z; }
+        else { ctx.fillStyle='#8c857a'; ctx.shadowColor='rgba(140,133,122,0.5)'; ctx.shadowBlur=3*z; }
+        const sp=Math.max(1,Math.round(z*1.8));
+        ctx.fillRect(Math.round(x),Math.round(y),sp,sp);
+      }
+      ctx.restore(); ctx.globalAlpha=1; ctx.shadowBlur=0;
+
+      // low warm heat-haze blooms drifting up
+      bloom(W*0.30, H*0.82, 320, 'rgba(201,150,47,0.06)', 1);
+      bloom(W*0.72, H*0.74, 280, 'rgba(201,150,47,0.05)', 1);
+
+      // ---- DEEP CANDLE VIGNETTE ----
+      const vig=ctx.createRadialGradient(W/2,H*0.42,H*0.26,W/2,H/2,W*0.66);
+      vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(6,3,1,0.92)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+
+      // ---- corner tags engraved on the timber (outside the parchment) ----
+      ctx.save();
+      ctx.font='600 22px "Trajan Pro","Cinzel",Georgia,serif';
+      ctx.fillStyle=GOLD_DK; ctx.textBaseline='alphabetic';
+      ctx.shadowColor='rgba(0,0,0,0.7)'; ctx.shadowOffsetY=1;
+      ctx.textAlign='left';  drawSpaced('EST. MMXXVI', 72, 70, 9);
+      ctx.textAlign='right'; drawSpacedRight('MYTHFORGE KEEP', W-72, 70, 9);
+      ctx.restore();
+
+      // ============================================================
+      // CENTERED PINNED PARCHMENT QUEST-CARD — the signature composition
+      // ============================================================
+      const fw=1180, fh=720, fx=(W-fw)/2, fy=(H-fh)/2;
+      const cx=W/2;
+
+      // pinned tilt
+      ctx.save();
+      ctx.translate(W/2, H/2); ctx.rotate(-0.6*Math.PI/180); ctx.translate(-W/2,-H/2);
+
+      // card drop shadow + torn body
+      ctx.save();
+      ctx.shadowColor='rgba(0,0,0,0.72)'; ctx.shadowBlur=90; ctx.shadowOffsetY=34;
+      tornPath(fx,fy,fw,fh, makeRand(0xA17));
+      ctx.fillStyle='#E7D7B2'; ctx.fill();
+      ctx.restore();
+
+      // re-clip to the SAME torn path to paint the parchment surface
+      ctx.save();
+      tornPath(fx,fy,fw,fh, makeRand(0xA17)); ctx.clip();
+      const pg=ctx.createRadialGradient(cx,fy+fh*0.30,40,cx,fy+fh*0.5,fw*0.62);
+      pg.addColorStop(0,'#F3E8CE'); pg.addColorStop(0.58,'#E7D7B2');
+      pg.addColorStop(0.84,'#C9B488'); pg.addColorStop(1,'#8E743F');
+      ctx.fillStyle=pg; ctx.fillRect(fx-40,fy-40,fw+80,fh+80);
+      // blotchy stains (seeded)
+      bloom(fx+fw*0.22, fy+fh*0.78, 220, 'rgba(122,31,31,0.10)', 1);
+      bloom(fx+fw*0.82, fy+fh*0.24, 200, 'rgba(58,42,22,0.16)', 1);
+      const st=makeRand(0x57A1);
+      for (let i=0;i<10;i++){ bloom(fx+R(st,40,fw-40), fy+R(st,40,fh-40), R(st,30,90),
+        'rgba(90,64,24,'+R(st,0.04,0.10).toFixed(3)+')', 1); }
+      // fibrous grain + faint fold
+      ctx.globalAlpha=0.5; ctx.strokeStyle='rgba(120,86,32,0.10)'; ctx.lineWidth=1;
+      for (let gx=fx; gx<fx+fw; gx+=6){ ctx.beginPath(); ctx.moveTo(gx,fy); ctx.lineTo(gx+3,fy+fh); ctx.stroke(); }
+      ctx.globalAlpha=1; ctx.strokeStyle='rgba(90,64,24,0.12)';
+      ctx.beginPath(); ctx.moveTo(cx,fy); ctx.lineTo(cx,fy+fh); ctx.stroke();
+      // scorch ring
+      ctx.shadowColor='rgba(58,26,6,0.55)'; ctx.shadowBlur=44;
+      ctx.strokeStyle='rgba(58,26,6,0.5)'; ctx.lineWidth=20;
+      tornPath(fx+10,fy+10,fw-20,fh-20, makeRand(0xA17)); ctx.stroke();
+      ctx.restore(); // end clip
+
+      // runeframe (inner ink border on parchment)
+      ctx.save();
+      ctx.strokeStyle='rgba(58,42,22,0.42)'; ctx.lineWidth=2;
+      ctx.strokeRect(fx+44,fy+44,fw-88,fh-88);
+      ctx.strokeStyle='rgba(201,150,47,0.22)'; ctx.lineWidth=1;
+      ctx.strokeRect(fx+48,fy+48,fw-96,fh-96);
+      ctx.restore();
+
+      // etched golden runes top + bottom inner border
+      const RUNES_T='ᚠᚱᛟᛞᚷᛚᚨᛁ', RUNES_B='ᛏᚺᛖᚲᛜᛒ';
+      ctx.save();
+      ctx.font='30px "Trajan Pro","Cinzel",Georgia,serif'; ctx.fillStyle=GOLD;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(201,150,47,0.5)';
+      drawRuneRow(RUNES_T, cx, fy+86, 38, 0x11);
+      drawRuneRow(RUNES_B, cx, fy+fh-78, 38, 0x29);
+      ctx.restore();
+
+      // crossed-sword crest above the kicker
+      crest(cx, fy+150, 1.25);
+
+      // kicker — engraved spaced caps
+      ctx.save();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='600 26px "Trajan Pro","Cinzel",Georgia,serif';
+      ctx.fillStyle=INK; ctx.shadowColor='rgba(255,250,235,0.5)'; ctx.shadowOffsetY=1;
+      drawSpacedCentered('CLOSED FOR THE NIGHT', cx, fy+220, 11);
+      ctx.restore();
+
+      // engraved embossed-gold TITLE: OFFLINE
+      ctx.save();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 168px "Trajan Pro","Cinzel",Georgia,serif';
+      const ty = fy+360;
+      // letterpress emboss
+      ctx.fillStyle='rgba(255,250,235,0.55)'; ctx.fillText('OFFLINE', cx, ty-2);
+      ctx.fillStyle='rgba(58,30,8,0.55)';     ctx.fillText('OFFLINE', cx, ty+3);
+      const tg=ctx.createLinearGradient(0,ty-90,0,ty+90);
+      tg.addColorStop(0,GOLD_LT); tg.addColorStop(0.52,GOLD); tg.addColorStop(1,GOLD_DK);
+      ctx.fillStyle=tg; ctx.shadowColor='rgba(201,150,47,0.5)'; ctx.shadowBlur=50;
+      ctx.fillText('OFFLINE', cx, ty);
+      ctx.restore();
+
+      // forged divider rule w/ diamond caps
+      ctx.save();
+      const ruY=fy+458, ruW=340;
+      const ug=ctx.createLinearGradient(cx-ruW/2,0,cx+ruW/2,0);
+      ug.addColorStop(0,'rgba(138,99,32,0)'); ug.addColorStop(0.18,GOLD_DK);
+      ug.addColorStop(0.5,GOLD); ug.addColorStop(0.82,GOLD_DK); ug.addColorStop(1,'rgba(138,99,32,0)');
+      ctx.strokeStyle=ug; ctx.lineWidth=2; ctx.shadowColor='rgba(201,150,47,0.4)'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.moveTo(cx-ruW/2,ruY); ctx.lineTo(cx+ruW/2,ruY); ctx.stroke();
+      ctx.fillStyle=GOLD; diamond(cx-ruW/2-13,ruY,5,GOLD); diamond(cx+ruW/2+13,ruY,5,GOLD);
+      ctx.restore();
+
+      // subtitle — aged italic serif
+      ctx.save();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='italic 400 32px Georgia,"Times New Roman",serif';
+      ctx.fillStyle=INK_SOFT;
+      ctx.fillText('the keep rests — follow for the next quest', cx, fy+516);
+      ctx.restore();
+
+      // blood-red wax seal at the foot of the parchment
+      seal(cx, fy+fh-70, 56, -7*Math.PI/180);
+
+      // four iron corner brackets pin the parchment to the planks
+      bracket(fx-14, fy-14, false, false);
+      bracket(fx+fw+14, fy-14, true, false);
+      bracket(fx-14, fy+fh+14, false, true);
+      bracket(fx+fw+14, fy+fh+14, true, true);
+
+      ctx.restore(); // end pinned tilt
+
+      // ---- HANDLE (bottom-right, forged gold on the timber) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@'+handle;
+      const handleClean = handle.replace(/^@/,'');
+      ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+      ctx.font='600 28px "Trajan Pro","Cinzel",Georgia,serif';
+      ctx.fillStyle=GOLD_LT; ctx.shadowColor='rgba(201,150,47,0.45)'; ctx.shadowBlur=14;
+      ctx.fillText(handleAt, W-72, H-64);
+      ctx.shadowBlur=0;
+      ctx.font='400 18px Georgia,serif'; ctx.fillStyle=INK_SOFT;
+      ctx.fillText('twitch.tv/'+handleClean, W-72, H-36);
+    }
+
+    // ---- rune row with per-glyph out-of-phase pulse (seeded, deterministic) ----
+    function drawRuneRow(str, cx, y, gap, seed){
+      const rnd=makeRand(seed);
+      let total=0; for (const ch of str) total += ctx.measureText(ch).width + gap; total -= gap;
+      let x = cx - total/2;
+      const prev=ctx.textAlign; ctx.textAlign='left';
+      for (const ch of str){
+        const w=ctx.measureText(ch).width;
+        const a=R(rnd,0.45,0.92); ctx.globalAlpha=a; ctx.shadowBlur=R(rnd,6,16);
+        ctx.fillText(ch, x, y);
+        x += w + gap;
+      }
+      ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign=prev;
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str,x,y,sp){ let cx=x; for(const ch of str){ ctx.fillText(ch,cx,y); cx+=ctx.measureText(ch).width+sp; } }
+    function spacedWidth(str,sp){ let t=0; for(const ch of str) t+=ctx.measureText(ch).width+sp; return t-sp; }
+    function drawSpacedRight(str,x,y,sp){ const t=spacedWidth(str,sp); const p=ctx.textAlign; ctx.textAlign='left'; drawSpaced(str,x-t,y,sp); ctx.textAlign=p; }
+    function drawSpacedCentered(str,x,y,sp){ const t=spacedWidth(str,sp); const p=ctx.textAlign; ctx.textAlign='left'; drawSpaced(str,x-t/2,y,sp); ctx.textAlign=p; }
+
+    function download(){
+      const a=document.createElement('a');
+      a.download='offline-screen.png';
+      a.href=cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name:'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

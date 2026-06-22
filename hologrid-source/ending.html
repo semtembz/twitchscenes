@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Hologrid — Ending</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- ONE canvas paints the full holographic deck: grid floor, base
+         plate, radar rings, scan beams, rotating wireframe globe, motes -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="beam" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- registration crop-brackets in the deck corners -->
+    <span class="frame-tick ft--tl" aria-hidden="true"></span>
+    <span class="frame-tick ft--tr" aria-hidden="true"></span>
+    <span class="frame-tick ft--bl" aria-hidden="true"></span>
+    <span class="frame-tick ft--br" aria-hidden="true"></span>
+
+    <!-- edge coordinate / telemetry readouts -->
+    <div class="coords" aria-hidden="true">
+      <i class="cx0">X:0000</i><i class="cx1">AZ 128.4&deg;</i><i class="cx2">X:1920</i>
+      <i class="cy0">Y:0000</i><i class="cy1">EL +07.2&deg;</i><i class="cy2">Y:1080</i>
+    </div>
+
+    <!-- corner HUD labels on the void -->
+    <div class="tag tag--tl" aria-hidden="true">HOLOGRID OPS</div>
+    <div class="tag tag--bl" aria-hidden="true">PROJECTION DECK</div>
+    <div class="tag tag--note" aria-hidden="true">SYS // GRID-07 &middot; <span id="status" data-done="POWERED DOWN">SHUTTING DOWN</span></div>
+
+    <!-- the HOLO PANEL holding the message -->
+    <main class="panel">
+      <span class="bracket bracket--tl" aria-hidden="true"></span>
+      <span class="bracket bracket--tr" aria-hidden="true"></span>
+      <span class="bracket bracket--bl" aria-hidden="true"></span>
+      <span class="bracket bracket--br" aria-hidden="true"></span>
+
+      <p class="kicker" id="kicker" data-done="GRID OFFLINE"><span class="led" aria-hidden="true"></span>POWERING DOWN GRID</p>
+
+      <!-- HEADLINE = the MESSAGE ("POWERING DOWN"), never the theme name -->
+      <h1 class="title">
+        <span class="line">THANKS</span>
+        <span class="line">POWERING</span>
+        <span class="accent" data-t="DOWN">DOWN</span>
+      </h1>
+
+      <div class="underline" aria-hidden="true"></div>
+
+      <p class="sub">spinning down the holo-deck</p>
+
+      <div class="bar" aria-hidden="true">
+        <div class="fill" id="fill"></div>
+        <div class="head" id="head"></div>
+      </div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

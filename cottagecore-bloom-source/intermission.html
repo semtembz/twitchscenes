@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cottagecore Bloom — Intermission</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="sunbeam" aria-hidden="true"></div>
+    <div class="dapple" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <div class="tag tag--tl" aria-hidden="true">HERBARIUM</div>
+    <div class="tag tag--tr" aria-hidden="true">EST. MMXXVI</div>
+
+    <main class="card">
+      <!-- hand-drawn ivy / pressed-flower sprigs in every corner -->
+      <span class="sprig sprig--tl" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2.4" stroke-linecap="round">
+            <path d="M8 8 C 30 22, 52 30, 74 36 S 104 50, 112 70"/>
+            <path d="M8 8 C 18 30, 26 50, 30 74"/>
+          </g>
+          <!-- ivy leaves -->
+          <g>
+            <path class="leaf" d="M30 24 q14 -10 26 -2 q-8 14 -24 12 q-6 -6 -2 -10z" fill="#7DA453"/>
+            <path class="leaf" d="M52 38 q16 -6 28 6 q-12 12 -28 6 q-4 -8 0 -12z" fill="#5E8038"/>
+            <path class="leaf" d="M22 46 q-12 6 -10 22 q16 0 20 -14 q-4 -8 -10 -8z" fill="#7DA453"/>
+            <path class="leaf" d="M84 52 q14 0 22 12 q-12 10 -26 2 q-2 -10 4 -14z" fill="#9CC56A"/>
+          </g>
+          <!-- pressed flowers (dusty rose + cream) -->
+          <g class="bloom">
+            <circle cx="92" cy="78" r="3.2" fill="#5A4A3A"/>
+            <g fill="#E2A0B4">
+              <ellipse cx="92" cy="69" rx="3.4" ry="6"/>
+              <ellipse cx="101" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="92" cy="87" rx="3.4" ry="6"/>
+              <ellipse cx="83" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="98" cy="72" rx="3" ry="5" transform="rotate(45 98 72)"/>
+              <ellipse cx="98" cy="84" rx="3" ry="5" transform="rotate(-45 98 84)"/>
+              <ellipse cx="86" cy="84" rx="3" ry="5" transform="rotate(45 86 84)"/>
+              <ellipse cx="86" cy="72" rx="3" ry="5" transform="rotate(-45 86 72)"/>
+            </g>
+          </g>
+          <g class="bloom">
+            <circle cx="40" cy="20" r="2.6" fill="#7DA453"/>
+            <g fill="#FBF6E9" stroke="#E7DEC4" stroke-width="0.8">
+              <ellipse cx="40" cy="13" rx="2.8" ry="5"/>
+              <ellipse cx="47" cy="20" rx="5" ry="2.8"/>
+              <ellipse cx="40" cy="27" rx="2.8" ry="5"/>
+              <ellipse cx="33" cy="20" rx="5" ry="2.8"/>
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="sprig sprig--tr" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2.4" stroke-linecap="round">
+            <path d="M8 8 C 30 22, 52 30, 74 36 S 104 50, 112 70"/>
+            <path d="M8 8 C 18 30, 26 50, 30 74"/>
+          </g>
+          <g>
+            <path class="leaf" d="M30 24 q14 -10 26 -2 q-8 14 -24 12 q-6 -6 -2 -10z" fill="#7DA453"/>
+            <path class="leaf" d="M52 38 q16 -6 28 6 q-12 12 -28 6 q-4 -8 0 -12z" fill="#5E8038"/>
+            <path class="leaf" d="M22 46 q-12 6 -10 22 q16 0 20 -14 q-4 -8 -10 -8z" fill="#7DA453"/>
+            <path class="leaf" d="M84 52 q14 0 22 12 q-12 10 -26 2 q-2 -10 4 -14z" fill="#9CC56A"/>
+          </g>
+          <g class="bloom">
+            <circle cx="92" cy="78" r="3.2" fill="#5A4A3A"/>
+            <g fill="#E2A0B4">
+              <ellipse cx="92" cy="69" rx="3.4" ry="6"/>
+              <ellipse cx="101" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="92" cy="87" rx="3.4" ry="6"/>
+              <ellipse cx="83" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="98" cy="72" rx="3" ry="5" transform="rotate(45 98 72)"/>
+              <ellipse cx="98" cy="84" rx="3" ry="5" transform="rotate(-45 98 84)"/>
+              <ellipse cx="86" cy="84" rx="3" ry="5" transform="rotate(45 86 84)"/>
+              <ellipse cx="86" cy="72" rx="3" ry="5" transform="rotate(-45 86 72)"/>
+            </g>
+          </g>
+          <g class="bloom">
+            <circle cx="40" cy="20" r="2.6" fill="#7DA453"/>
+            <g fill="#FBF6E9" stroke="#E7DEC4" stroke-width="0.8">
+              <ellipse cx="40" cy="13" rx="2.8" ry="5"/>
+              <ellipse cx="47" cy="20" rx="5" ry="2.8"/>
+              <ellipse cx="40" cy="27" rx="2.8" ry="5"/>
+              <ellipse cx="33" cy="20" rx="5" ry="2.8"/>
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="sprig sprig--bl" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2.4" stroke-linecap="round">
+            <path d="M8 8 C 30 22, 52 30, 74 36 S 104 50, 112 70"/>
+            <path d="M8 8 C 18 30, 26 50, 30 74"/>
+          </g>
+          <g>
+            <path class="leaf" d="M30 24 q14 -10 26 -2 q-8 14 -24 12 q-6 -6 -2 -10z" fill="#7DA453"/>
+            <path class="leaf" d="M52 38 q16 -6 28 6 q-12 12 -28 6 q-4 -8 0 -12z" fill="#5E8038"/>
+            <path class="leaf" d="M22 46 q-12 6 -10 22 q16 0 20 -14 q-4 -8 -10 -8z" fill="#7DA453"/>
+            <path class="leaf" d="M84 52 q14 0 22 12 q-12 10 -26 2 q-2 -10 4 -14z" fill="#9CC56A"/>
+          </g>
+          <g class="bloom">
+            <circle cx="92" cy="78" r="3.2" fill="#5A4A3A"/>
+            <g fill="#E2A0B4">
+              <ellipse cx="92" cy="69" rx="3.4" ry="6"/>
+              <ellipse cx="101" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="92" cy="87" rx="3.4" ry="6"/>
+              <ellipse cx="83" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="98" cy="72" rx="3" ry="5" transform="rotate(45 98 72)"/>
+              <ellipse cx="98" cy="84" rx="3" ry="5" transform="rotate(-45 98 84)"/>
+              <ellipse cx="86" cy="84" rx="3" ry="5" transform="rotate(45 86 84)"/>
+              <ellipse cx="86" cy="72" rx="3" ry="5" transform="rotate(-45 86 72)"/>
+            </g>
+          </g>
+          <g class="bloom">
+            <circle cx="40" cy="20" r="2.6" fill="#7DA453"/>
+            <g fill="#FBF6E9" stroke="#E7DEC4" stroke-width="0.8">
+              <ellipse cx="40" cy="13" rx="2.8" ry="5"/>
+              <ellipse cx="47" cy="20" rx="5" ry="2.8"/>
+              <ellipse cx="40" cy="27" rx="2.8" ry="5"/>
+              <ellipse cx="33" cy="20" rx="5" ry="2.8"/>
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="sprig sprig--br" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2.4" stroke-linecap="round">
+            <path d="M8 8 C 30 22, 52 30, 74 36 S 104 50, 112 70"/>
+            <path d="M8 8 C 18 30, 26 50, 30 74"/>
+          </g>
+          <g>
+            <path class="leaf" d="M30 24 q14 -10 26 -2 q-8 14 -24 12 q-6 -6 -2 -10z" fill="#7DA453"/>
+            <path class="leaf" d="M52 38 q16 -6 28 6 q-12 12 -28 6 q-4 -8 0 -12z" fill="#5E8038"/>
+            <path class="leaf" d="M22 46 q-12 6 -10 22 q16 0 20 -14 q-4 -8 -10 -8z" fill="#7DA453"/>
+            <path class="leaf" d="M84 52 q14 0 22 12 q-12 10 -26 2 q-2 -10 4 -14z" fill="#9CC56A"/>
+          </g>
+          <g class="bloom">
+            <circle cx="92" cy="78" r="3.2" fill="#5A4A3A"/>
+            <g fill="#E2A0B4">
+              <ellipse cx="92" cy="69" rx="3.4" ry="6"/>
+              <ellipse cx="101" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="92" cy="87" rx="3.4" ry="6"/>
+              <ellipse cx="83" cy="78" rx="6" ry="3.4"/>
+              <ellipse cx="98" cy="72" rx="3" ry="5" transform="rotate(45 98 72)"/>
+              <ellipse cx="98" cy="84" rx="3" ry="5" transform="rotate(-45 98 84)"/>
+              <ellipse cx="86" cy="84" rx="3" ry="5" transform="rotate(45 86 84)"/>
+              <ellipse cx="86" cy="72" rx="3" ry="5" transform="rotate(-45 86 72)"/>
+            </g>
+          </g>
+          <g class="bloom">
+            <circle cx="40" cy="20" r="2.6" fill="#7DA453"/>
+            <g fill="#FBF6E9" stroke="#E7DEC4" stroke-width="0.8">
+              <ellipse cx="40" cy="13" rx="2.8" ry="5"/>
+              <ellipse cx="47" cy="20" rx="5" ry="2.8"/>
+              <ellipse cx="40" cy="27" rx="2.8" ry="5"/>
+              <ellipse cx="33" cy="20" rx="5" ry="2.8"/>
+            </g>
+          </g>
+        </svg>
+      </span>
+
+      <!-- a little sprig crest above the kicker -->
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span>
+        <svg viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2" stroke-linecap="round">
+            <path d="M15 27 L15 9"/>
+            <path d="M15 14 q-7 -4 -10 -10"/>
+            <path d="M15 18 q7 -4 10 -10"/>
+          </g>
+          <circle cx="15" cy="6" r="3" fill="#E2A0B4"/>
+        </svg>
+        <span class="r r--r"></span>
+      </div>
+
+      <p class="kicker" id="kicker" data-done="BACK SOON">Resting in the Shade</p>
+
+      <h1 class="title">
+        <span class="line l1">A LITTLE</span>
+        <span class="accent">BREAK</span>
+      </h1>
+
+      <!-- delicate botanical underline / divider (a little sprig) -->
+      <div class="divider" aria-hidden="true">
+        <svg viewBox="0 0 340 26" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2" stroke-linecap="round">
+            <path d="M10 13 H140"/>
+            <path d="M200 13 H330"/>
+            <path d="M170 13 q-14 -7 -22 -2"/>
+            <path d="M170 13 q14 -7 22 -2"/>
+            <path d="M170 13 q-10 8 -16 6"/>
+            <path d="M170 13 q10 8 16 6"/>
+          </g>
+          <circle cx="170" cy="13" r="4" fill="#E2A0B4"/>
+          <circle cx="140" cy="13" r="2.4" fill="#7DA453"/>
+          <circle cx="200" cy="13" r="2.4" fill="#7DA453"/>
+        </svg>
+      </div>
+
+      <p class="sub">stretching our legs in the meadow</p>
+
+      <!-- loading = a growing VINE: a stem that fills, leaf at the tip -->
+      <div class="bar" aria-hidden="true">
+        <div class="track"></div>
+        <div class="fill" id="fill"></div>
+        <div class="leaf-tip" id="leaftip">
+          <svg viewBox="0 0 34 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 12 q14 -12 30 -8 q-6 16 -24 14 q-6 -2 -6 -6z" fill="#5E8038"/>
+            <path d="M5 12 q12 -2 24 2" fill="none" stroke="#FBF6E9" stroke-width="1.2" opacity="0.5"/>
+          </svg>
+        </div>
+      </div>
+    </main>
+
+    <div class="status" id="status" data-done="READY" aria-hidden="true">
+      <span class="dot"></span>GATHERING
+    </div>
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

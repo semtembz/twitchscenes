@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Studio Noir — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- generative scene field: out-of-focus studio-light bokeh + key-light dust -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- volumetric key-light beam, film grain, vignette, broadcast frame -->
+    <div class="beam" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+    <div class="frameline frameline--t" aria-hidden="true"></div>
+    <div class="frameline frameline--b" aria-hidden="true"></div>
+
+    <!-- ON AIR tally, top-left, pulsing amber dot -->
+    <div class="tally">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="label" id="status" data-done="LIVE">STANDING BY</span>
+    </div>
+
+    <!-- station mark, top-right on the steel frame -->
+    <div class="station" aria-hidden="true">
+      <span class="bar"></span>STUDIO NOIR
+    </div>
+
+    <!-- THE LOWER-THIRD BAR SYSTEM (signature composition) -->
+    <section class="lower">
+      <!-- kicker tab (amber slab) — flips to NOW LIVE on completion -->
+      <p class="kicker" id="kicker" data-done="NOW LIVE">ON AIR SHORTLY</p>
+
+      <!-- charcoal title slab with thin amber accent rule -->
+      <div class="titlewrap">
+        <h1 class="title">
+          <span class="line"><span>STARTING</span></span>
+          <span class="line"><span class="accent">SOON</span></span>
+        </h1>
+      </div>
+
+      <!-- subtitle -->
+      <p class="sub">the broadcast begins in a moment</p>
+    </section>
+
+    <!-- sleek amber broadcast loading strap (no numbers) -->
+    <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+
+    <!-- handle, lower-right -->
+    <div class="handle" id="handle">@yourhandle</div>
+
+    <!-- clean ticker / strap near the bottom -->
+    <div class="ticker" aria-hidden="true">
+      <span class="tag">ON AIR</span>
+      <div class="track">
+        <div class="scroll">
+          <span>Welcome to the broadcast<span class="sep"> // </span>Settle in, the show is about to begin<span class="sep"> // </span>Live coverage starting shortly<span class="sep"> // </span>Thanks for tuning in</span>
+          <span>Welcome to the broadcast<span class="sep"> // </span>Settle in, the show is about to begin<span class="sep"> // </span>Live coverage starting shortly<span class="sep"> // </span>Thanks for tuning in</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Studio Noir — Twitch Panels (generator)</title>
+  <!--
+    STUDIO NOIR · "Cold Open" prestige-broadcast PANELS generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Studio Noir broadcast
+    motion-graphics language:
+        - a charcoal lower-third SLAB on the near-black studio void
+        - a thin amber accent RULE down the left edge (the signature)
+        - a soft steel hairline frame + a faint raked sheen
+        - a thin steel/amber LINE icon (heart, calendar, list, ...)
+        - a small amber-glow kicker over a condensed-grotesque label
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Studio Noir "Cold Open" palette (mirrors shared.css tokens) ---- */
+    :root {
+      --studio-black:#0D0F12;
+      --charcoal:#171B20;
+      --charcoal-2:#10141A;
+      --steel:#C0C6CC;
+      --amber:#E3B23C;
+      --white:#F5F7F9;
+      --dim:rgba(192,198,204,.62);
+      --display:"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif;
+      --body:"Segoe UI",system-ui,Arial,sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--body);
+      color: var(--white);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 80% -10%, rgba(227,178,60,0.07), transparent 50%),
+        radial-gradient(700px 480px at 12% 100%, rgba(192,198,204,0.05), transparent 60%),
+        linear-gradient(165deg, #14181E 0%, var(--studio-black) 55%, #090B0E 100%);
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: var(--display);
+      letter-spacing: .34em; font-size: 12px;
+      color: var(--amber); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 12px; text-indent: .34em;
+    }
+    .kicker .bar { width: 34px; height: 2px; background: var(--amber);
+      box-shadow: 0 0 10px rgba(227,178,60,0.55); }
+    h1 { font-family: var(--display);
+      font-weight: 700; font-size: 38px; letter-spacing: .02em; margin: 0 0 6px;
+      text-transform: uppercase; color: var(--white); text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 720px; line-height: 1.6;
+      font-family: var(--body); font-size: 16px; letter-spacing: .02em; }
+    code { font-family: "Consolas","Courier New",monospace; color: var(--amber);
+      background: rgba(227,178,60,0.08); padding: 2px 7px; border-radius: 2px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: var(--display); font-weight: 700;
+      font-size: 14px; letter-spacing: .22em; text-transform: uppercase;
+      padding: 12px 26px; cursor: pointer; color: var(--studio-black);
+      background: linear-gradient(180deg, #f0c659, var(--amber));
+      border: 1px solid rgba(227,178,60,0.6); border-radius: 2px;
+      box-shadow: 0 8px 28px rgba(227,178,60,0.20);
+    }
+    button:hover { filter: brightness(1.08); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(16,20,26,0.6); padding: 16px; border-radius: 3px;
+      border: 1px solid rgba(192,198,204,0.14);
+    }
+    /* checkerboard so any transparent edges of the panel are visible */
+    .frame {
+      border-radius: 2px; overflow: hidden; display: block;
+      background-color: #0c0f13;
+      background-image:
+        linear-gradient(45deg, #1a1f2620 25%, transparent 25%),
+        linear-gradient(-45deg, #1a1f2620 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1a1f2620 75%),
+        linear-gradient(-45deg, transparent 75%, #1a1f2620 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: var(--display); letter-spacing: .2em;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: var(--display); letter-spacing: .12em;
+      color: var(--amber); text-decoration: none; text-transform: uppercase;
+      border: 1px solid rgba(227,178,60,0.34); border-radius: 2px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(227,178,60,0.14); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="bar"></span>STUDIO NOIR · PANELS</p>
+  <h1>Studio Noir — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the prestige-broadcast style:
+    a charcoal slab on the studio void, an amber accent rule, a steel hairline frame and a
+    thin line icon. Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var STUDIO_BLACK = '#0D0F12', CHARCOAL = '#171B20', CHARCOAL2 = '#10141A';
+    var STEEL = '#C0C6CC', AMBER = '#E3B23C', WHITE = '#F5F7F9';
+    var DISPLAY = '"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif';
+    var BODY    = '"Segoe UI",system-ui,Arial,sans-serif';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     kicker: 'THE BROADCAST', icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  kicker: 'ON AIR',        icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     kicker: 'STUDIO',        icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', kicker: 'SUPPORT',       icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   kicker: 'GREEN ROOM',    icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   kicker: 'FOLLOW',        icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   kicker: 'REPLAYS',       icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', kicker: 'BEHIND SCENES', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     kicker: 'THE STORE',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  kicker: 'PARTNERS',      icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', kicker: 'GO PREMIUM',    icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', kicker: 'THE CREW',      icon: 'people' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // soft amber bokeh bloom (blurred radial gradient), clipped to slab
+    function bloom(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(227,178,60,' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(227,178,60,' + (alpha * 0.34).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(227,178,60,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // a faint cool-steel bokeh bloom (the far-back studio lights)
+    function bloomSteel(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, 'rgba(192,198,204,' + alpha + ')');
+      g.addColorStop(1, 'rgba(192,198,204,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // ---- charcoal SLAB body, clipped to a crisp slight-radius rect ----
+      ctx.save();
+      roundRect(ctx, x, y, w, h, 3);
+      ctx.clip();
+
+      // base charcoal gradient (the slab fill, like .titlewrap)
+      var bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, 'rgba(23,27,32,0.96)');
+      bg.addColorStop(1, 'rgba(16,20,26,0.92)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // far-back cool studio bokeh + a rare amber practical inside the slab
+      bloomSteel(ctx, 232, 16, 150, 0.10);
+      bloomSteel(ctx, 286, 84, 110, 0.07);
+      bloom(ctx, 70, 92, 130, 0.10);
+
+      // faint raked sheen across the slab (the .titlewrap::after motif)
+      var sheen = ctx.createLinearGradient(0, 0, W, H);
+      sheen.addColorStop(0.32, 'rgba(245,247,249,0)');
+      sheen.addColorStop(0.50, 'rgba(245,247,249,0.05)');
+      sheen.addColorStop(0.68, 'rgba(245,247,249,0)');
+      ctx.fillStyle = sheen;
+      ctx.fillRect(0, 0, W, H);
+
+      // subtle inner vignette toward the void
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(5,6,8,0.55)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- the signature thin amber accent RULE down the left edge ----
+      ctx.save();
+      var rg = ctx.createLinearGradient(0, y, 0, y + h);
+      rg.addColorStop(0, AMBER);
+      rg.addColorStop(1, '#9c7620');
+      ctx.fillStyle = rg;
+      ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 12;
+      ctx.fillRect(x, y, 4, h);
+      ctx.restore();
+
+      // ---- thin line icon, steel with a soft amber glow ----
+      drawIcon(ctx, p.icon, 40, H / 2, 32);
+
+      // ---- amber kicker over the label ----
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 11px ' + DISPLAY;
+      ctx.fillStyle = AMBER;
+      ctx.shadowColor = 'rgba(227,178,60,0.35)'; ctx.shadowBlur = 8;
+      drawSpaced(ctx, p.kicker, 74, 36, 2.4);
+      ctx.restore();
+
+      // ---- the LABEL in the condensed grotesque, white, shrink-to-fit ----
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 38;
+      var maxW = W - 74 - 22;
+      ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      while (measureSpaced(ctx, label, 1.2) > maxW && size > 18) {
+        size -= 1;
+        ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      }
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 0;
+      ctx.fillStyle = WHITE;
+      drawSpaced(ctx, label, 74, 76, 1.2);
+      ctx.restore();
+
+      // ---- a thin amber tick + steel rule under the label (broadcast strap) ----
+      ctx.save();
+      var barX = 74, barY = 86, barW = W - 74 - 22;
+      ctx.strokeStyle = 'rgba(192,198,204,0.22)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      // bright amber leading head node + amber lead segment
+      var leadW = barW * 0.36;
+      ctx.strokeStyle = AMBER; ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + leadW, barY); ctx.stroke();
+      ctx.fillStyle = AMBER;
+      ctx.beginPath(); ctx.arc(barX + leadW, barY, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // ---- steel hairline frame on top (broadcast safe-frame) ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(192,198,204,0.18)'; ctx.lineWidth = 1;
+      roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 3);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+    function measureSpaced(ctx, str, sp) {
+      var total = 0;
+      for (var i = 0; i < str.length; i++) total += ctx.measureText(str[i]).width + sp;
+      return total - sp;
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // Consistent thin steel stroke + amber glow, centred on (cx, cy),
+    // sized to roughly `s` px box.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = STEEL;
+      ctx.fillStyle = STEEL;
+      ctx.lineWidth = 1.9;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(227,178,60,0.42)';
+      ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            // amber square bullet (broadcast tally)
+            ctx.save();
+            ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)';
+            ctx.fillRect(-h * 0.9, ly - 1.6, 3.2, 3.2);
+            ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.6) + 'px ' + DISPLAY;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = AMBER;
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // X mark (clean broadcast)
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.8, -h * 0.8); ctx.lineTo(h * 0.8, h * 0.8);
+          ctx.moveTo(h * 0.8, -h * 0.8); ctx.lineTo(-h * 0.8, h * 0.8);
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 4); ctx.stroke();
+          ctx.fillStyle = AMBER;
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 5); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = AMBER;
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.7, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          // amber star center
+          ctx.save();
+          ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)';
+          ctx.translate(0, -h * 0.25); ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-2, -2, 4, 4); ctx.restore();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'people': {
+          // two stylised heads + shoulders (the crew)
+          ctx.beginPath(); ctx.arc(-h * 0.42, -h * 0.34, h * 0.30, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.42, -h * 0.34, h * 0.30, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.92, h * 0.78);
+          ctx.quadraticCurveTo(-h * 0.42, h * 0.08, h * 0.08, h * 0.78);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.08, h * 0.78);
+          ctx.quadraticCurveTo(h * 0.42, h * 0.08, h * 0.92, h * 0.78);
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    // System fonts (no @font-face / CDN) are ready immediately; the
+    // document.fonts.ready guard still settles late metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

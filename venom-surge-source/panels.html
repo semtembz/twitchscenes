@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Venom Surge — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the VENOM SURGE "Toxic
+    Arena" language:
+        - an angular SLASHED gunmetal slab with hazard-cut corners
+        - a venom-green hairline edge + a bright acid corner-accent streak
+        - a faint carbon hex-mesh wash + a venom energy-core glow
+        - a thin venom/acid LINE icon (heart, calendar, list, ...)
+        - the label in a heavy black italic sans, skewed forward for speed,
+          venom->acid gradient with a hard dark outline + drop glow
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Venom Surge "Toxic Arena" palette ---- */
+    :root {
+      --toxic-black:#04110A; --toxic-black2:#020A06;
+      --venom:#00FF66; --cyan:#0AE0FF; --gunmetal:#101418; --acid:#C6FF00;
+      --text:#EAFFF2; --dim:#7FA890;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace;
+      color: var(--text);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(0,255,102,0.10), transparent 60%),
+        radial-gradient(740px 480px at 100% 110%, rgba(198,255,0,0.06), transparent 60%),
+        linear-gradient(155deg, #06160D, var(--toxic-black2));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif;
+      letter-spacing: 7px; font-size: 12px; font-weight: 700;
+      color: var(--acid); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 7px;
+    }
+    .dia { width: 9px; height: 9px; background: var(--venom); transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(0,255,102,0.65); }
+    h1 { font-family: "Arial Black","Franklin Gothic Heavy",Impact,system-ui,sans-serif;
+      font-weight: 900; font-style: italic; font-size: 34px; letter-spacing: -.5px; margin: 0 0 6px;
+      transform: skewX(-9deg); transform-origin: left;
+      color: var(--text); text-shadow: 0 0 28px rgba(0,255,102,0.32); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 760px; line-height: 1.6;
+      font-size: 15px; }
+    code { font-family: "Consolas",ui-monospace,monospace; color: var(--acid);
+      background: rgba(198,255,0,0.08); padding: 2px 7px; border-radius: 3px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif; font-weight: 700;
+      font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+      padding: 12px 24px; cursor: pointer; color: var(--toxic-black);
+      background: linear-gradient(180deg, var(--venom), var(--acid));
+      border: 1px solid rgba(0,255,102,0.6); border-radius: 2px;
+      box-shadow: 0 6px 24px rgba(0,255,102,0.28); transform: skewX(-8deg);
+    }
+    button:hover { filter: brightness(1.08); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(16,20,24,0.55); padding: 16px; border-radius: 4px;
+      border: 1px solid rgba(0,255,102,0.24);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 3px; overflow: hidden; display: block;
+      background-color: #08130D;
+      background-image:
+        linear-gradient(45deg, #11201818 25%, transparent 25%),
+        linear-gradient(-45deg, #11201818 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #11201818 75%),
+        linear-gradient(-45deg, transparent 75%, #11201818 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+    .card-row a { letter-spacing: 1px; color: var(--acid); text-decoration: none;
+      border: 1px solid rgba(0,255,102,0.34); border-radius: 2px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(0,255,102,0.16); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>VENOM SURGE · PANELS</p>
+  <h1>VENOM SURGE — TWITCH PANELS</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the toxic-arena style:
+    an angular slashed gunmetal slab, venom-green hairline edge, an acid corner streak, and a
+    thin venom line icon. Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var TOXIC = '#04110A', GUNMETAL = '#101418';
+    var VENOM = '#00FF66', CYAN = '#0AE0FF', ACID = '#C6FF00';
+    var TEXT = '#EAFFF2', DIM = '#7FA890', OUTLINE = '#020A06';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'bolt' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'people' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    // Angular SLASHED slab silhouette — the signature gamer-panel shape
+    // (hazard-cut corners, asymmetric like shared.css .slab clip-path).
+    function slabPath(ctx, x, y, w, h, c) {
+      // c = corner cut size; top-right + bottom-left get the long hazard cut
+      var big = c * 2.4;
+      ctx.beginPath();
+      ctx.moveTo(x, y + c);
+      ctx.lineTo(x + c, y);
+      ctx.lineTo(x + w - big, y);
+      ctx.lineTo(x + w, y + c * 1.4);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + big, y + h);
+      ctx.lineTo(x, y + h - c * 1.4);
+      ctx.closePath();
+    }
+
+    // soft venom energy bloom (blurred radial gradient), clipped to the card
+    function bloom(ctx, cx, cy, rad, rgb, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(' + rgb + ',' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(' + rgb + ',' + (alpha * 0.34).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(' + rgb + ',0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // a small esports corner bracket tick
+    function bracket(ctx, x, y, s, flipX, flipY) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.strokeStyle = VENOM; ctx.lineWidth = 2.4; ctx.lineCap = 'square';
+      ctx.shadowColor = 'rgba(0,255,102,0.6)'; ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, s); ctx.lineTo(0, 0); ctx.lineTo(s, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+      var cc = 13; // corner cut
+
+      // gunmetal slab body, clipped to the slashed silhouette
+      ctx.save();
+      slabPath(ctx, x, y, w, h, cc);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      bg.addColorStop(0, 'rgba(16,20,24,0.94)');
+      bg.addColorStop(1, 'rgba(4,17,10,0.90)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // carbon hex-mesh wash (diagonal hatch echoing shared.css .hexmesh)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,255,102,0.05)'; ctx.lineWidth = 1;
+      for (var d = -H; d < W; d += 13) {
+        ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + H, H); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(10,224,255,0.035)';
+      for (var d2 = 0; d2 < W + H; d2 += 13) {
+        ctx.beginPath(); ctx.moveTo(d2, 0); ctx.lineTo(d2 - H, H); ctx.stroke();
+      }
+      ctx.restore();
+
+      // pulsing energy CORE glow behind the label
+      bloom(ctx, 200, 50, 150, '0,255,102', 0.20);
+      bloom(ctx, 40, 96, 110, '198,255,0', 0.10);
+
+      // a faint claw-slash seam raking the card on the -24deg axis
+      ctx.save();
+      ctx.translate(W * 0.62, H * 0.5); ctx.rotate(-24 * Math.PI / 180);
+      var seam = ctx.createLinearGradient(-180, 0, 180, 0);
+      seam.addColorStop(0, 'rgba(0,255,102,0)');
+      seam.addColorStop(0.5, 'rgba(198,255,0,0.55)');
+      seam.addColorStop(1, 'rgba(0,255,102,0)');
+      ctx.fillStyle = seam; ctx.shadowColor = 'rgba(0,255,102,0.6)'; ctx.shadowBlur = 10;
+      ctx.fillRect(-180, -1, 360, 2);
+      ctx.restore();
+
+      // hazard chevron strip raking the bottom edge
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      for (var hx = -10; hx < W; hx += 16) {
+        ctx.fillStyle = ((hx / 16) | 0) % 2 === 0 ? ACID : 'rgba(0,0,0,0)';
+        ctx.beginPath();
+        ctx.moveTo(hx, h + pad); ctx.lineTo(hx + 8, h + pad);
+        ctx.lineTo(hx + 14, h + pad - 4); ctx.lineTo(hx + 6, h + pad - 4);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+
+      // subtle vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(2,8,5,0.55)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore(); // end clip
+
+      // venom accent rule down the left (skewed double hairline)
+      ctx.save();
+      var ruleX = x + 50;
+      ctx.strokeStyle = 'rgba(0,255,102,0.75)'; ctx.lineWidth = 1.4;
+      ctx.shadowColor = 'rgba(0,255,102,0.55)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(ruleX + 5, y + 16); ctx.lineTo(ruleX - 5, y + h - 16); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(10,224,255,0.30)';
+      ctx.beginPath(); ctx.moveTo(ruleX + 9, y + 22); ctx.lineTo(ruleX - 1, y + h - 22); ctx.stroke();
+      ctx.restore();
+
+      // thin venom line icon
+      drawIcon(ctx, p.icon, 28, H / 2, 30);
+
+      // kicker above the label — spaced techy caps
+      ctx.save();
+      ctx.font = '700 9px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = DIM;
+      drawSpaced(ctx, 'VENOM SURGE', 64, 30, 2.4);
+      ctx.restore();
+
+      // label — heavy black italic, skewed forward, venom->acid gradient + outline
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 30;
+      var maxW = W - 64 - 22;
+      ctx.font = '900 italic ' + size + 'px "Arial Black","Franklin Gothic Heavy",Impact,sans-serif';
+      // skew the whole label forward
+      ctx.translate(64, 70);
+      ctx.transform(1, 0, -0.16, 1, 0, 0); // skewX(~-9deg)
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1;
+        ctx.font = '900 italic ' + size + 'px "Arial Black","Franklin Gothic Heavy",Impact,sans-serif';
+      }
+      // hard dark outline
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 4;
+      ctx.strokeText(label, 0, 0);
+      // venom->acid gradient fill
+      var lg = ctx.createLinearGradient(0, -size, label.length * size * 0.4, 0);
+      lg.addColorStop(0, VENOM); lg.addColorStop(0.62, ACID); lg.addColorStop(1, CYAN);
+      ctx.fillStyle = lg;
+      ctx.shadowColor = 'rgba(0,255,102,0.5)'; ctx.shadowBlur = 14;
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
+
+      // a slashed venom underline rule beneath the label
+      ctx.save();
+      var barX = 64, barY = 80, barW = W - 64 - 22;
+      ctx.translate(0, 0);
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(0,255,102,0)');
+      grad.addColorStop(0.18, VENOM);
+      grad.addColorStop(0.62, ACID);
+      grad.addColorStop(1, 'rgba(10,224,255,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,255,102,0.5)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(barX + 4, barY); ctx.lineTo(barX + barW - 4, barY - 3); ctx.stroke();
+      ctx.restore();
+
+      // acid corner-accent streak on the top-right cut (echo .slab::after)
+      ctx.save();
+      ctx.translate(x + w - 56, y + 5); ctx.transform(1, 0, -0.6, 1, 0, 0);
+      var ag = ctx.createLinearGradient(0, 0, 46, 0);
+      ag.addColorStop(0, 'rgba(0,0,0,0)'); ag.addColorStop(0.6, ACID); ag.addColorStop(1, CYAN);
+      ctx.fillStyle = ag; ctx.shadowColor = ACID; ctx.shadowBlur = 10;
+      ctx.fillRect(0, 0, 46, 3);
+      ctx.restore();
+
+      // the venom slab frame: slashed double border ON TOP (not clipped)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,255,102,0.62)'; ctx.lineWidth = 1.4;
+      slabPath(ctx, x + 0.7, y + 0.7, w - 1.4, h - 1.4, cc);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,255,102,0.16)'; ctx.lineWidth = 1;
+      slabPath(ctx, x + 5.5, y + 5.5, w - 11, h - 11, cc - 4);
+      ctx.stroke();
+      ctx.restore();
+
+      // esports corner bracket ticks
+      bracket(ctx, x + 7, y + 7, 11, false, false);
+      bracket(ctx, x + w - 7, y + h - 7, 11, true, true);
+    }
+
+    // draw text with manual letter spacing
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- line icons -------------------------------------------------------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = VENOM; ctx.fillStyle = VENOM;
+      ctx.lineWidth = 2.0; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,255,102,0.6)'; ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.save(); ctx.translate(-h * 0.78, ly); ctx.rotate(Math.PI / 4);
+            ctx.fillRect(-1.6, -1.6, 3.2, 3.2); ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '900 ' + Math.round(s * 0.56) + 'px "Arial Black",Impact,sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          // X mark (modern)
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.8, -h * 0.8); ctx.lineTo(h * 0.8, h * 0.8);
+          ctx.moveTo(h * 0.8, -h * 0.8);  ctx.lineTo(-h * 0.8, h * 0.8);
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55); ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);  ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'bolt': {
+          // lightning bolt (sponsors = voltage/power)
+          ctx.beginPath();
+          ctx.moveTo(h * 0.18, -h * 0.95);
+          ctx.lineTo(-h * 0.5, h * 0.12);
+          ctx.lineTo(-h * 0.02, h * 0.12);
+          ctx.lineTo(-h * 0.22, h * 0.95);
+          ctx.lineTo(h * 0.55, -h * 0.18);
+          ctx.lineTo(h * 0.06, -h * 0.18);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'people': {
+          // two-figure community mark
+          ctx.beginPath(); ctx.arc(-h * 0.4, -h * 0.3, h * 0.3, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.45, -h * 0.42, h * 0.24, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, h * 0.85);
+          ctx.quadraticCurveTo(-h * 0.4, h * 0.18, h * 0.05, h * 0.85);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(h * 0.12, h * 0.85);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.30, h * 0.92, h * 0.85);
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Cottagecore Bloom (PNG generator)</title>
+  <!--
+    COTTAGECORE BLOOM · "Pressed-Flower Herbarium" PROFILE BANNER generator
+    (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = a botanical tagline. The centre is decorative only — a faint pressed-flower
+    garland + sun-dapple — so the player can sit over it without hiding anything.
+
+    Everything random is drawn from a SEEDED LCG, so the scatter is identical on every
+    render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --sage-bg:#E6EFD8; --meadow:#B7CE96; --leaf:#7DA453; --leaf-deep:#5E8038;
+      --cream:#FBF6E9; --paper-edge:#EFE7D2; --rose:#E2A0B4; --ink:#5A4A3A;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,system-ui,sans-serif;
+      background:linear-gradient(168deg,#EEF4E2,var(--sage-bg) 60%,#DBE7C6);color:var(--ink);padding:32px;}
+    h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;
+      font-size:28px;color:var(--ink);letter-spacing:.3px;margin:0 0 6px;}
+    p.lead{color:rgba(90,74,58,.66);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{letter-spacing:.42em;font-size:13px;color:var(--leaf-deep);margin:0 0 14px;
+      text-transform:uppercase;text-indent:.42em;font-weight:600;}
+    button{font-family:"Optima","Gill Sans","Segoe UI",system-ui,sans-serif;font-weight:600;font-size:14px;
+      letter-spacing:2.4px;text-transform:uppercase;padding:13px 26px;color:var(--cream);
+      background:linear-gradient(180deg,var(--leaf),var(--leaf-deep));border:1px solid rgba(94,128,56,.6);
+      border-radius:24px;cursor:pointer;box-shadow:0 8px 22px rgba(94,128,56,.24);}
+    button:hover{filter:brightness(1.05);}
+    .preview{margin-top:22px;background:#dfe9cc;padding:14px;border:1px solid rgba(125,164,83,.4);
+      border-radius:10px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:6px;}
+    /* PREVIEW-ONLY ghost: where Twitch's offline player roughly sits. NOT in the PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(94,128,56,0.5);
+      background:rgba(255,253,244,0.4);pointer-events:none;border-radius:8px;
+      color:rgba(90,74,58,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Optima","Gill Sans",system-ui,sans-serif;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--leaf-deep);background:rgba(125,164,83,.12);
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">COTTAGECORE BLOOM · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the pressed-flower herbarium style — seeded so the
+    scatter is reproducible. Identity sits on the <strong>left</strong>, the tagline on the
+    <strong>right</strong>; the centre is decorative so Twitch's offline player can sit over it.
+    Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror shared.css design tokens) ----
+    const SAGE = '#E6EFD8', MEADOW = '#B7CE96', LEAF = '#7DA453', LEAF_DEEP = '#5E8038';
+    const CREAM = '#FBF6E9', PAPER_EDGE = '#EFE7D2', ROSE = '#E2A0B4', INK = '#5A4A3A';
+    const LEAF_LT = '#9CC56A';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed){ let s = seed >>> 0; return () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s/0x7fffffff; }; }
+    const Rr = (rnd,a,b) => a + rnd()*(b-a);
+
+    function bloom(x,y,r,color,alpha){
+      const g = ctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0,color); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function leaf(x,y,r,rot,color){
+      ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.quadraticCurveTo(r*0.9,-r*0.8, r*1.7,0);
+      ctx.quadraticCurveTo(r*0.9, r*0.9, 0,0);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    function pressedFlower(x,y,r,petal,center){
+      ctx.save(); ctx.translate(x,y);
+      ctx.fillStyle = petal;
+      for (let k=0;k<8;k++){
+        ctx.save(); ctx.rotate(k*Math.PI/4);
+        ctx.beginPath(); ctx.ellipse(0,-r*1.4, r*0.6, r*1.05, 0, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = center || INK;
+      ctx.beginPath(); ctx.arc(0,0, r*0.55, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- faint central pressed-flower GARLAND (behind the player) ----
+    function drawGarland(cx, cy, scale){
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.5;
+      // a sweeping vine arch
+      ctx.strokeStyle = LEAF; ctx.lineWidth = 3; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(-150, 40);
+      ctx.quadraticCurveTo(0, -90, 150, 40);
+      ctx.stroke();
+      ctx.strokeStyle = LEAF_LT; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-130, 48);
+      ctx.quadraticCurveTo(0, -70, 130, 48);
+      ctx.stroke();
+      // leaves along the arch
+      const pts = [-150,-110,-70,-30,30,70,110,150];
+      ctx.globalAlpha = 0.6;
+      for (let i=0;i<pts.length;i++){
+        const t = (pts[i]+150)/300; // 0..1
+        const x = pts[i];
+        const y = 40 - 130*Math.sin(t*Math.PI);  // along the arch-ish
+        leaf(x, y, 12, (i%2?1:-1)*0.8, i%2?LEAF_DEEP:LEAF);
+      }
+      // pressed flowers near the apex
+      ctx.globalAlpha = 0.7;
+      pressedFlower(0, -56, 14, ROSE, INK);
+      pressedFlower(-66, -14, 9, CREAM, LEAF);
+      pressedFlower(66, -14, 9, CREAM, LEAF);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a centred branding block ----
+    function block(cx, kickerLabel, titleText, titleSize, subText){
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      // kicker — humanist leaf-green caps with flanking pressed flowers
+      ctx.font = '600 24px "Optima","Gill Sans","Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = LEAF_DEEP;
+      drawSpacedCentered(kickerLabel, cx, 128, 10);
+      const kw = spacedWidth(kickerLabel, 10);
+      pressedFlower(cx - kw/2 - 26, 128, 7, ROSE, INK);
+      pressedFlower(cx + kw/2 + 26, 128, 7, ROSE, INK);
+
+      // title — graceful old-style serif, warm ink
+      ctx.font = '600 ' + titleSize + 'px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      ctx.fillStyle = INK;
+      ctx.fillText(titleText, cx, 214);
+
+      // botanical rule under the title (vine + rose)
+      const ruW = Math.min(360, titleSize*4);
+      ctx.strokeStyle = LEAF; ctx.lineWidth = 2; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(cx-ruW/2, 274); ctx.lineTo(cx-22, 274);
+      ctx.moveTo(cx+22, 274); ctx.lineTo(cx+ruW/2, 274);
+      ctx.moveTo(cx, 274); ctx.quadraticCurveTo(cx-12, 268, cx-18, 271);
+      ctx.moveTo(cx, 274); ctx.quadraticCurveTo(cx+12, 268, cx+18, 271);
+      ctx.stroke();
+      ctx.fillStyle = ROSE;
+      ctx.beginPath(); ctx.arc(cx, 274, 4, 0, 6.2832); ctx.fill();
+
+      // subtitle — gentle italic serif
+      ctx.font = 'italic 400 23px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      ctx.fillStyle = 'rgba(90,74,58,0.66)';
+      ctx.fillText(subText, cx, 330);
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0xB7CE96); // fixed seed (meadow hex) -> identical scatter
+
+      // ---- BACKGROUND: sage meadow gradient ----
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#EEF4E2'); grad.addColorStop(0.6, SAGE); grad.addColorStop(1,'#DBE7C6');
+      ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+      // warm meadow glows
+      bloom(W/2, H/2+20, 720, 'rgba(255,252,238,0.55)', 1);
+      bloom(W/2, H/2, 520, 'rgba(183,206,150,0.30)', 1);
+      bloom(W*0.16, H*0.30, 360, 'rgba(125,164,83,0.18)', 1);
+      bloom(W*0.84, H*0.32, 360, 'rgba(226,160,180,0.14)', 1);
+
+      // ---- faint central garland (decorative, behind the player) ----
+      drawGarland(W/2, H/2 + 24, 1.5);
+
+      // ---- SEEDED POLLEN + PETALS scattered into LEFT and RIGHT thirds ----
+      ctx.save();
+      for (let i=0;i<64;i++){
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? Rr(rnd,40,620) : Rr(rnd, W-620, W-40);
+        const y = Rr(rnd,18,H-18);
+        const z = Rr(rnd,0.5,1.6), a = Rr(rnd,0.3,0.7);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = (rnd() < 0.7) ? '#FBEFC9' : '#FBF6E9';
+        const sp = Math.max(1, Math.round(z*1.6));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore(); ctx.globalAlpha = 1;
+
+      // a few petals in the side thirds
+      for (let i=0;i<10;i++){
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? Rr(rnd,60,560) : Rr(rnd, W-560, W-60);
+        const y = Rr(rnd,40,H-40);
+        const sz = Rr(rnd,9,16), rot = Rr(rnd,0,6.283), a = Rr(rnd,0.4,0.7);
+        const rose = rnd() < 0.6;
+        ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.globalAlpha = a;
+        ctx.fillStyle = rose ? ROSE : '#F3DCC6';
+        ctx.beginPath();
+        ctx.moveTo(0,-sz);
+        ctx.bezierCurveTo(sz*0.8,-sz*0.5, sz*0.7,sz*0.6, 0,sz);
+        ctx.bezierCurveTo(-sz*0.7,sz*0.6, -sz*0.8,-sz*0.5, 0,-sz);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- daylight vignette ----
+      const vig = ctx.createRadialGradient(W/2,H/2, H*0.30, W/2,H/2, W*0.55);
+      vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(120,135,90,0.24)');
+      ctx.fillStyle = vig; ctx.fillRect(0,0,W,H);
+
+      // ---- corner ivy sprigs anchoring the two safe blocks ----
+      drawCornerSprig(56, 44, 1, 1);
+      drawCornerSprig(W-56, 44, -1, 1);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@'+handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/'+handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, 'COTTAGECORE BLOOM', 'COZY & CALM', 72, 'wildflowers, slow streams');
+
+      // accent vine rails flanking the centre clear-zone (deco ticks)
+      ctx.save();
+      ctx.fillStyle = 'rgba(125,164,83,0.5)';
+      for (let yy=96; yy<H-70; yy+=18){ ctx.fillRect(672, yy, 3, 8); ctx.fillRect(1245, yy, 3, 8); }
+      // a little pressed flower capping each rail
+      [[673,80],[1246,80],[673,H-70],[1246,H-70]].forEach(([x,y]) => pressedFlower(x,y, 6, ROSE, INK));
+      ctx.restore();
+    }
+
+    // a small corner ivy sprig anchoring each side
+    function drawCornerSprig(ox, oy, sx, sy){
+      ctx.save();
+      ctx.translate(ox, oy); ctx.scale(sx, sy);
+      ctx.strokeStyle = LEAF; ctx.lineWidth = 3; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.beginPath();
+      ctx.moveTo(0,0); ctx.bezierCurveTo(36,18, 60,36, 78,64);
+      ctx.moveTo(0,0); ctx.bezierCurveTo(18,34, 28,60, 32,86);
+      ctx.stroke();
+      leaf(34, 22, 14, -0.4, LEAF);
+      leaf(60, 44, 15, -0.1, LEAF_DEEP);
+      leaf(20, 56, 13, 0.9, LEAF_LT);
+      pressedFlower(78, 64, 8, ROSE, INK);
+      ctx.restore();
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str,sp){ let t=0; for (const ch of str) t += ctx.measureText(ch).width + sp; return t - sp; }
+    function drawSpacedFrom(str,x,y,sp){ let cx=x; for (const ch of str){ ctx.fillText(ch,cx,y); cx += ctx.measureText(ch).width + sp; } }
+    function drawSpacedCentered(str,x,y,sp){ const prev=ctx.textAlign; ctx.textAlign='left'; drawSpacedFrom(str, x - spacedWidth(str,sp)/2, y, sp); ctx.textAlign=prev; }
+
+    function download(){
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name:'profile-banner', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

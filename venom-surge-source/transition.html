@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Venom Surge Claw-Slash Tear</title>
+  <!--
+    VENOM SURGE stinger ("Toxic Arena Claw-Slash"). Three diagonal CLAW-SLASH
+    tears rip across the frame along the theme's signature -24deg slash axis,
+    each a bright venom->acid seam with a hard white core line. The gunmetal
+    toxic shards between the tears slam shut to FULL COVER at the mid point;
+    at the peak a venom/acid voltage FLASH detonates and crackling forked
+    ELECTRIC ARCS snap on along the slash axis while SURGE speed-lines streak
+    and venom/acid/cyan embers rise. The shards then rip back open along the
+    same tears and the screen clears. Transparent before & after, deterministic
+    (seeded RNG, no Math.random in the frame fn), sine-driven, ~1100ms. Toxic,
+    voltage, claws — bespoke to THIS theme, not a recolor of any other.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1100  total duration in ms (default 1100)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover peak).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1100;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (venom surge — mirrors shared.css token VALUES) ---- */
+    const TOXIC_BLACK = '#04110A', GUNMETAL = '#101418', GUNMETAL2 = '#0A1014';
+    const VENOM = '#00FF66', CYAN = '#0AE0FF', ACID = '#C6FF00', TEXT = '#EAFFF2';
+    const EMBERS = [VENOM, ACID, CYAN, '#7CFFB0'];
+
+    /* the signature slash axis: -24deg (matches .claw rotate(-24deg)) */
+    const SLASH = -24 * Math.PI / 180;
+    const COS = Math.cos(SLASH), SIN = Math.sin(SLASH);
+    /* unit normal to the slash axis — shards open/close along this direction */
+    const NX = -SIN, NY = COS;
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (only used at setup, never in frame fn) ---- */
+    let seed = 0x5e90 ^ 0xAC1D;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* The three CLAW TEARS define the gaps between four toxic shards. Each tear
+       sits at a signed offset along the slash NORMAL (so they rip diagonally),
+       staggered in time so the claw "rakes" across (tear 1 leads, tear 3 trails). */
+    const SPAN = (Math.abs(NX) * W + Math.abs(NY) * H);       // extent of frame along normal
+    const tears = [
+      { off: -SPAN * 0.30, lead: 0.00 },
+      { off:  0.0,         lead: 0.10 },
+      { off:  SPAN * 0.30, lead: 0.20 },
+    ];
+
+    /* ---- SURGE speed-lines streaking along the slash axis (precomputed) ---- */
+    const N_SURGE = 26;
+    const surge = Array.from({ length: N_SURGE }, () => ({
+      off: R(-SPAN * 0.55, SPAN * 0.55),       // position across the normal
+      pos: R(-0.2, 1.2),                       // base position along axis (0..1 of diag)
+      len: R(140, 460), w: R(2, 6),
+      spd: R(0.7, 1.5), a: R(0.25, 0.7),
+      c: rnd() < 0.5 ? VENOM : (rnd() < 0.6 ? ACID : CYAN),
+      lead: R(0, 0.25),
+    }));
+
+    /* ---- rising ENERGY embers ---- */
+    const N_EMBER = 54;
+    const embers = Array.from({ length: N_EMBER }, () => ({
+      x0: R(W * 0.08, W * 0.92), y0: R(H * 0.55, H * 1.10),
+      rise: R(H * 0.55, H * 1.15), sway: R(16, 64), swf: R(1.0, 2.6), phase: R(0, 6.2832),
+      s: R(1.6, 4.6), c: EMBERS[(rnd() * EMBERS.length) | 0],
+      lead: R(0, 0.32), span: R(0.5, 0.85), a: R(0.4, 0.95), tw: R(1.3, 2.4),
+    }));
+
+    /* ---- forked ELECTRIC ARCS that snap on at the peak (precomputed shapes) ---- */
+    const N_ARC = 5;
+    const arcs = Array.from({ length: N_ARC }, () => {
+      // each arc travels along the slash axis, jittered perpendicular into forks
+      const baseOff = R(-SPAN * 0.42, SPAN * 0.42);
+      const segs = 7 + ((rnd() * 4) | 0);
+      const pts = [];
+      for (let i = 0; i <= segs; i++) pts.push({ u: i / segs, j: R(-26, 26) });
+      const branches = [];
+      for (let b = 0; b < 2; b++) {
+        const at = 0.3 + rnd() * 0.4, dir = rnd() < 0.5 ? 1 : -1, bl = R(0.10, 0.22);
+        const bp = [];
+        const bs = 4;
+        for (let i = 0; i <= bs; i++) bp.push({ u: at + (i / bs) * bl, j: dir * (i / bs) * R(40, 110) + R(-14, 14) });
+        branches.push(bp);
+      }
+      return {
+        off: baseOff, pts, branches,
+        u0: R(0.12, 0.42), u1: R(0.62, 0.92),         // arc spans this slice of the axis
+        on: R(0, 1),                                  // phase seed for the snap-on flicker
+        c: rnd() < 0.5 ? CYAN : ACID, w: R(2, 3.4),
+      };
+    });
+
+    /* map (axis u in 0..1, normal offset) -> screen point. u runs the diagonal
+       from one corner toward the opposite; the diagonal is centered on CX,CY. */
+    const DIAG = (Math.abs(COS) * W + Math.abs(SIN) * H) * 1.25;
+    function axisPt(u, off) {
+      const a = (u - 0.5) * DIAG;
+      return {
+        x: CX + COS * a + NX * off,
+        y: CY + SIN * a + NY * off,
+      };
+    }
+
+    /* ---- the four toxic SHARDS between the tears. Each shard is the band of the
+       frame between two tear offsets; it slides in along the normal to seal the
+       frame at full cover, then slides back out. We render by clipping to a band
+       (rotated rect across the whole frame) and filling gunmetal. ---- */
+    function shardBand(off0, off1, slide) {
+      // a long quad spanning the diagonal, between normal offsets off0+slide..off1+slide
+      const p = (u, o) => axisPt(u, o);
+      const a = p(-0.3, off0), b = p(1.3, off0), c2 = p(1.3, off1), d = p(-0.3, off1);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(a.x), Math.round(a.y));
+      ctx.lineTo(Math.round(b.x), Math.round(b.y));
+      ctx.lineTo(Math.round(c2.x), Math.round(c2.y));
+      ctx.lineTo(Math.round(d.x), Math.round(d.y));
+      ctx.closePath();
+    }
+
+    function drawShards(cover) {
+      if (cover <= 0.001) return;
+      // shard edges: from outside the frame inward. close = cover near 1.
+      // four shards, alternating which side they slide from so the frame "zips".
+      const ext = SPAN * 0.62;                 // how far off-frame a shard starts
+      const o = (1 - cover) * ext;             // current slide-out distance
+      const bands = [
+        { a: -SPAN * 0.62, b: -SPAN * 0.30, dir: -1 },
+        { a: -SPAN * 0.30, b:  0.0,         dir: -1 },
+        { a:  0.0,         b:  SPAN * 0.30,  dir:  1 },
+        { a:  SPAN * 0.30, b:  SPAN * 0.62,  dir:  1 },
+      ];
+      for (const bd of bands) {
+        const slide = bd.dir * o;
+        ctx.save();
+        shardBand(bd.a, bd.b, slide);
+        ctx.clip();
+        // gunmetal toxic fill with a venom-tinted gradient down the slash normal
+        const g0 = axisPt(0.5, bd.a + slide), g1 = axisPt(0.5, bd.b + slide);
+        const g = ctx.createLinearGradient(g0.x, g0.y, g1.x, g1.y);
+        g.addColorStop(0.00, GUNMETAL2);
+        g.addColorStop(0.45, GUNMETAL);
+        g.addColorStop(0.92, '#0B1A12');
+        g.addColorStop(1.00, TOXIC_BLACK);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+
+        // faint carbon hex-mesh hatching on the shard (theme motif)
+        ctx.globalAlpha = 0.5 * cover;
+        ctx.strokeStyle = 'rgba(0,255,102,0.06)';
+        ctx.lineWidth = 1;
+        for (let s = -SPAN; s < SPAN; s += 24) {
+          const aa = axisPt(0.0, s + slide), bb = axisPt(1.0, s + slide);
+          ctx.beginPath(); ctx.moveTo(aa.x, aa.y); ctx.lineTo(bb.x, bb.y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    /* ---- the bright CLAW TEAR seams along each tear line ---- */
+    function drawTears(t, cover) {
+      // tear seam brightness peaks at full cover; entrance staggered via lead.
+      for (const tr of tears) {
+        const lt = clamp01((t - tr.lead) / 0.55);
+        const reveal = smooth(lt);                // 0..1 wipe along the axis
+        if (cover <= 0.002 && reveal <= 0.002) continue;
+        // the seam glow grows with cover
+        const seamA = Math.pow(cover, 0.7);
+        const u0 = -0.3, u1 = lerp(-0.3, 1.3, reveal);   // wipe-reveal entrance
+        const A = axisPt(u0, tr.off), B = axisPt(u1, tr.off);
+
+        // wide venom->acid halo
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.shadowColor = VENOM; ctx.shadowBlur = 40 * seamA;
+        ctx.globalAlpha = 0.5 * seamA;
+        ctx.strokeStyle = VENOM; ctx.lineWidth = 26 * (0.5 + 0.5 * cover);
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+
+        // acid-lime mid seam
+        ctx.shadowColor = ACID; ctx.shadowBlur = 22 * seamA;
+        ctx.globalAlpha = 0.85 * seamA;
+        ctx.strokeStyle = ACID; ctx.lineWidth = 9 * (0.5 + 0.5 * cover);
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+
+        // hard hot-white core line
+        ctx.shadowColor = TEXT; ctx.shadowBlur = 12 * seamA;
+        ctx.globalAlpha = Math.min(1, 1.0 * seamA + 0.1);
+        ctx.strokeStyle = TEXT; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    /* ---- SURGE speed-lines streaking along the axis ---- */
+    function drawSurge(t, cover) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (const s of surge) {
+        const lt = clamp01((t - s.lead) / 0.8);
+        if (lt <= 0 || lt >= 1) continue;
+        const ends = Math.sin(lt * Math.PI);
+        const a = s.a * ends * (0.4 + 0.6 * cover);
+        if (a <= 0.02) continue;
+        const u = (s.pos + lt * s.spd) % 1.4 - 0.2;
+        const lenU = s.len / DIAG;
+        const A = axisPt(u, s.off), B = axisPt(u + lenU, s.off);
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = s.c;
+        ctx.shadowColor = s.c; ctx.shadowBlur = 10;
+        ctx.lineWidth = s.w;
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* ---- forked ELECTRIC ARCS snapping on at the peak ---- */
+    function drawArcs(t, cover) {
+      const energy = Math.pow(cover, 2.2);                 // arcs only near full cover
+      if (energy <= 0.03) return;
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const arc of arcs) {
+        // deterministic snap flicker keyed to t (steppy on/off)
+        const ph = (t * 9 + arc.on * 7);
+        const snap = (Math.floor(ph) % 2 === 0) ? 1 : 0.35;
+        const a = energy * snap;
+        if (a <= 0.04) continue;
+        const drawPoly = (pts, off, width, alpha, color) => {
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = color;
+          ctx.shadowColor = color; ctx.shadowBlur = 16;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          for (let i = 0; i < pts.length; i++) {
+            const u = lerp(arc.u0, arc.u1, pts[i].u);
+            const p = axisPt(u, off + pts[i].j);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+        };
+        // glow pass + hot core pass
+        drawPoly(arc.pts, arc.off, arc.w + 4, a * 0.5, arc.c);
+        drawPoly(arc.pts, arc.off, arc.w, a, arc.c);
+        drawPoly(arc.pts, arc.off, 1.4, a, TEXT);
+        for (const br of arc.branches) {
+          drawPoly(br, arc.off, arc.w * 0.8, a * 0.85, arc.c);
+          drawPoly(br, arc.off, 1.1, a * 0.9, TEXT);
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- rising venom/acid/cyan embers ---- */
+    function drawEmbers(t, cover) {
+      ctx.save();
+      for (const d of embers) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = d.x0 + Math.sin(d.phase + lt * d.swf * 6.2832) * d.sway;
+        const py = d.y0 - d.rise * lt;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.55 + Math.sin(d.phase + lt * d.tw * 6.2832) * 0.45;
+        const present = lerp(0.4, 1, cover);
+        const a = d.a * ends * twk * present;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = d.c;
+        ctx.shadowColor = d.c; ctx.shadowBlur = 9;
+        const s = d.s;
+        // a tiny energized diamond ember
+        ctx.beginPath();
+        ctx.moveTo(Math.round(px), Math.round(py - s));
+        ctx.lineTo(Math.round(px + s), Math.round(py));
+        ctx.lineTo(Math.round(px), Math.round(py + s));
+        ctx.lineTo(Math.round(px - s), Math.round(py));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawShards(cover);
+
+      // toxic vignette over the sealed shards so they read deep, not flat
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(CX, CY, H * 0.16, CX, CY, H * 0.95);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(2,10,6,' + (0.62 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+        // venom core glow behind the seam (screen)
+        ctx.save();
+        const cg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.5);
+        const ca = 0.22 * cover;
+        cg.addColorStop(0, 'rgba(0,255,102,' + ca.toFixed(3) + ')');
+        cg.addColorStop(0.4, 'rgba(10,224,255,' + (ca * 0.4).toFixed(3) + ')');
+        cg.addColorStop(1, 'rgba(0,255,102,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = cg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawSurge(t, cover);
+      drawTears(t, cover);
+      drawArcs(t, cover);
+      drawEmbers(t, cover);
+
+      // venom/acid voltage FLASH at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.045, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(234,255,242,' + (0.40 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.35, 'rgba(198,255,0,' + (0.22 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.7, 'rgba(0,255,102,' + (0.12 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(0,255,102,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

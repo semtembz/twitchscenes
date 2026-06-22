@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Studio Noir (PNG generator)</title>
+  <!--
+    STUDIO NOIR · "Cold Open" prestige-broadcast PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = an ON-AIR tally + @YOURHANDLE
+    identity on a charcoal lower-third slab w/ an amber accent rule; right = the
+    STUDIO NOIR station mark + a tagline. The centre is decorative only — a faint
+    volumetric key-light beam + steel bokeh + a thin amber broadcast strap — so the
+    player can sit over it without hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the bokeh / dust scatter is
+    identical on every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --studio-black:#0D0F12; --charcoal:#171B20; --charcoal-2:#10141A;
+      --steel:#C0C6CC; --amber:#E3B23C; --white:#F5F7F9; --dim:rgba(192,198,204,.62);
+      --display:"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif;
+      --body:"Segoe UI",system-ui,Arial,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--body);background:var(--studio-black);color:var(--white);padding:32px;}
+    h1{font-family:var(--display);font-weight:700;font-size:32px;color:var(--white);
+      letter-spacing:.02em;margin:0 0 6px;text-transform:uppercase;}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:var(--body);font-size:16px;letter-spacing:.02em;}
+    .kicker{font-family:var(--display);letter-spacing:.34em;font-size:13px;
+      color:var(--amber);margin:0 0 14px;text-transform:uppercase;text-indent:.34em;}
+    button{font-family:var(--display);font-weight:700;font-size:14px;
+      letter-spacing:.22em;text-transform:uppercase;padding:13px 28px;color:var(--studio-black);
+      background:linear-gradient(180deg,#f0c659,var(--amber));border:1px solid rgba(227,178,60,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 8px 30px rgba(227,178,60,.20);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0c0f13;padding:14px;border:1px solid rgba(192,198,204,.14);
+      border-radius:4px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:3px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits so you
+       can confirm the L/R blocks stay clear. It is NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(227,178,60,0.45);
+      background:rgba(13,15,18,0.45);pointer-events:none;border-radius:4px;
+      color:rgba(245,247,249,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:var(--display);font-size:13px;letter-spacing:.2em;text-transform:uppercase;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--amber);background:rgba(227,178,60,.08);
+      padding:2px 6px;border-radius:2px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">STUDIO NOIR · PROFILE BANNER</p>
+  <h1>Profile Banner Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the prestige-broadcast style — seeded so the
+    bokeh and key-light dust are reproducible. Identity sits on the <strong>left</strong>, the
+    station mark + tagline on the <strong>right</strong>; the centre is decorative so Twitch's
+    offline player can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const STUDIO_BLACK = '#0D0F12', CHARCOAL = '#171B20', CHARCOAL2 = '#10141A';
+    const STEEL = '#C0C6CC', AMBER = '#E3B23C', WHITE = '#F5F7F9';
+    const DIM = 'rgba(192,198,204,0.62)';
+    const DISPLAY = '"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif';
+    const BODY    = '"Segoe UI",system-ui,Arial,sans-serif';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft bokeh bloom (blurred radial gradient) ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      drawSpaced(str, x - total, y, sp);
+    }
+
+    // ---- ON AIR style tally chip (left block) ----
+    function drawTally(x, y, label) {
+      ctx.save();
+      ctx.font = '700 22px ' + DISPLAY;
+      const txtW = spacedWidth(label, 7);
+      const padL = 46, padR = 20, h = 44;
+      const w = padL + txtW + padR;
+      ctx.fillStyle = 'rgba(23,27,32,0.92)';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 8;
+      ctx.fillRect(x, y, w, h);
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = 'rgba(192,198,204,0.14)'; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.fillStyle = AMBER; ctx.fillRect(x, y, 3, h);
+      const dcx = x + 26, dcy = y + h / 2;
+      const halo = ctx.createRadialGradient(dcx, dcy, 0, dcx, dcy, 16);
+      halo.addColorStop(0, 'rgba(227,178,60,0.5)'); halo.addColorStop(1, 'rgba(227,178,60,0)');
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(dcx, dcy, 16, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.7)'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(dcx, dcy, 6, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = WHITE; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      drawSpaced(label, x + padL, dcy + 1, 7);
+      ctx.restore();
+      return w;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x171B20); // fixed seed (charcoal hex) -> identical scatter every render
+
+      // ---- BACKGROUND: the studio void gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#14181E'); grad.addColorStop(0.55, STUDIO_BLACK); grad.addColorStop(1, '#090B0E');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // amber rig glow top-right of centre + cool steel pools flanking
+      bloom(W * 0.50, -H * 0.12, W * 0.30, 'rgba(227,178,60,0.06)', 1);
+      bloom(W * 0.14, H * 0.34, 360, 'rgba(192,198,204,0.05)', 1);
+      bloom(W * 0.86, H * 0.30, 360, 'rgba(192,198,204,0.05)', 1);
+
+      // ---- FAR-BACK STUDIO BOKEH (additive, biased upper) ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 14; i++) {
+        const x = R(rnd, 0, W);
+        const y = R(rnd, -H * 0.10, H * 0.70);
+        const r = R(rnd, 90, 240);
+        const roll = rnd();
+        let c, a;
+        if (roll > 0.86)      { c = 'rgba(227,178,60,1)';  a = R(rnd, 0.05, 0.10); } // rare amber
+        else if (roll > 0.64) { c = 'rgba(120,150,190,1)'; a = R(rnd, 0.04, 0.08); } // cooler blue
+        else                  { c = 'rgba(192,198,204,1)'; a = R(rnd, 0.04, 0.09); } // cool steel
+        bloom(x, y, r, c, a);
+      }
+      ctx.restore();
+
+      // ---- KEY-LIGHT DUST scattered into the L + R thirds (centre kept clean) ----
+      ctx.save();
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(245,247,249,0.8)';
+      for (let i = 0; i < 56; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 640) : R(rnd, W - 640, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.4, 1.5), a = R(rnd, 0.16, 0.55);
+        ctx.globalAlpha = a; ctx.shadowBlur = 5 * z;
+        const sp = Math.max(1, Math.round(z * 1.5));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- faint VOLUMETRIC KEY-LIGHT BEAM through the centre (decorative) ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.translate(W * 0.62, -H * 0.30);
+      ctx.rotate((206 - 180) * Math.PI / 180);
+      const beamLen = H * 2.2, beamHalf = W * 0.16;
+      const bg2 = ctx.createLinearGradient(-beamHalf, 0, beamHalf, 0);
+      bg2.addColorStop(0.00, 'rgba(227,178,60,0)');
+      bg2.addColorStop(0.45, 'rgba(227,178,60,0.04)');
+      bg2.addColorStop(0.50, 'rgba(245,247,249,0.09)');
+      bg2.addColorStop(0.55, 'rgba(227,178,60,0.04)');
+      bg2.addColorStop(1.00, 'rgba(227,178,60,0)');
+      ctx.fillStyle = bg2;
+      ctx.fillRect(-beamHalf, -beamLen * 0.2, beamHalf * 2, beamLen);
+      ctx.restore();
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(5,6,8,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- top + bottom safe-area hairlines ----
+      ctx.strokeStyle = 'rgba(192,198,204,0.20)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(64, 40.5); ctx.lineTo(W - 64, 40.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(64, H - 40.5); ctx.lineTo(W - 64, H - 40.5); ctx.stroke();
+
+      // ============================================================
+      // LEFT BLOCK — identity on a charcoal lower-third slab
+      // ============================================================
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = (handle.startsWith('@') ? handle : '@' + handle).toUpperCase();
+      const handleClean = handle.replace(/^@/, '').toLowerCase();
+
+      const lx = 96;
+      // tally chip
+      const tallyTop = 96;
+      drawTally(lx, tallyTop, 'ON AIR');
+
+      // charcoal slab behind the handle, amber accent rule
+      ctx.save();
+      ctx.font = '700 84px ' + DISPLAY;
+      const hW = spacedWidth(handleAt, 2);
+      const slabX = lx, slabY = 168, slabPadX = 34, slabPadR = 40;
+      const slabW = Math.min(hW + slabPadX + slabPadR, 720), slabH = 118;
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 18;
+      const sg = ctx.createLinearGradient(slabX, slabY, slabX + slabW, slabY);
+      sg.addColorStop(0, 'rgba(23,27,32,0.94)'); sg.addColorStop(1, 'rgba(16,20,26,0.86)');
+      ctx.fillStyle = sg; ctx.fillRect(slabX, slabY, slabW, slabH);
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = 'rgba(192,198,204,0.14)'; ctx.lineWidth = 1;
+      ctx.strokeRect(slabX + 0.5, slabY + 0.5, slabW - 1, slabH - 1);
+      const rg = ctx.createLinearGradient(slabX, slabY, slabX, slabY + slabH);
+      rg.addColorStop(0, AMBER); rg.addColorStop(1, '#9c7620');
+      ctx.fillStyle = rg; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 16;
+      ctx.fillRect(slabX, slabY, 6, slabH);
+      ctx.shadowBlur = 0;
+      // handle text (shrink-to-fit inside slab)
+      let hSize = 84;
+      ctx.font = '700 ' + hSize + 'px ' + DISPLAY;
+      while (spacedWidth(handleAt, 2) > slabW - slabPadX - slabPadR && hSize > 36) {
+        hSize -= 2; ctx.font = '700 ' + hSize + 'px ' + DISPLAY;
+      }
+      ctx.fillStyle = WHITE; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 0;
+      drawSpaced(handleAt, slabX + slabPadX, slabY + slabH / 2 + 2, 2);
+      ctx.restore();
+
+      // twitch url under the slab
+      ctx.save();
+      ctx.font = '400 26px ' + BODY; ctx.fillStyle = DIM;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      drawSpaced('twitch.tv/' + handleClean, lx, 340, 2);
+      ctx.restore();
+
+      // ============================================================
+      // RIGHT BLOCK — STUDIO NOIR station mark + tagline
+      // ============================================================
+      const rx = W - 96;
+      // station mark: STUDIO NOIR with amber tick to the left of it
+      ctx.save();
+      ctx.font = '700 40px ' + DISPLAY;
+      ctx.fillStyle = STEEL; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 0.92;
+      drawSpacedRight('STUDIO NOIR', rx, 150, 7);
+      const sw = spacedWidth('STUDIO NOIR', 7);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 10;
+      ctx.fillRect(rx - sw - 58, 138, 42, 4);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // amber kicker tab over the tagline
+      ctx.save();
+      ctx.font = '700 24px ' + DISPLAY;
+      const kText = 'BROADCAST QUALITY';
+      const kW = spacedWidth(kText, 5) + 40, kH = 40, kY = 196;
+      ctx.fillStyle = AMBER;
+      ctx.fillRect(rx - kW, kY, kW, kH);
+      ctx.fillStyle = STUDIO_BLACK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      drawSpaced(kText, rx - kW + 20, kY + kH / 2 + 1, 5);
+      ctx.restore();
+
+      // tagline (right-aligned, steel)
+      ctx.save();
+      ctx.font = '400 30px ' + BODY; ctx.fillStyle = DIM;
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('every stream, a cold open', rx, 300);
+      ctx.restore();
+
+      // ============================================================
+      // thin amber broadcast STRAP across the bottom (the loading-bar motif),
+      // with a bright leading head node — a quiet signature, full-width
+      // ============================================================
+      ctx.save();
+      const strapY = H - 64;
+      ctx.strokeStyle = 'rgba(192,198,204,0.12)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(96, strapY); ctx.lineTo(W - 96, strapY); ctx.stroke();
+      // amber filled lead segment (decorative, ~62%)
+      const fillEnd = 96 + (W - 192) * 0.62;
+      const fg = ctx.createLinearGradient(96, 0, fillEnd, 0);
+      fg.addColorStop(0, '#9c7620'); fg.addColorStop(1, AMBER);
+      ctx.strokeStyle = fg; ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(227,178,60,0.5)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(96, strapY); ctx.lineTo(fillEnd, strapY); ctx.stroke();
+      ctx.fillStyle = AMBER;
+      ctx.beginPath(); ctx.arc(fillEnd, strapY, 5, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      // end tick caps
+      ctx.fillStyle = 'rgba(192,198,204,0.3)';
+      ctx.fillRect(96 - 0.5, strapY - 5, 1, 10);
+      ctx.fillRect(W - 96 - 0.5, strapY - 5, 1, 10);
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hologrid — Twitch Panels (generator)</title>
+  <!--
+    HOLOGRID · "Holographic Projection Deck" PANEL generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Hologrid sci-fi HUD
+    language:
+        - a chamfered translucent indigo holo card (cut top-right + bottom-left)
+          over a faint perspective grid + radar-ring sliver
+        - bright corner BRACKETS (HUD targeting marks) + a glowing cyan->mint
+          ->violet top hairline
+        - a wide geometric-sans label (cyan->mint->violet gradient) with a
+          mono kicker, a blinking-style mint LED, and a thin holo line icon
+        - a small segmented charge-meter tick rail along the bottom
+
+    Everything is drawn on a <canvas> with additive glow — bespoke to Hologrid,
+    NOT a recolor of another theme. Each panel has its own Download button +
+    there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Hologrid palette (hex mirrors shared.css tokens) ---- */
+    :root{
+      --space:#070B16; --indigo:#1B2B6B; --cyan:#36C2FF; --violet:#B66BFF;
+      --mint:#5BFFD0; --text:#EAF2FF; --dim:rgba(234,242,255,.55);
+      --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+      --display:"Bahnschrift","Eurostile","DIN Condensed","Arial Narrow",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;font-family:var(--mono);color:var(--text);padding:36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 16% -10%, rgba(54,194,255,.10), transparent 60%),
+        radial-gradient(800px 520px at 100% 110%, rgba(182,107,255,.10), transparent 60%),
+        linear-gradient(165deg,#0A1024,var(--space) 52%,#04060E 100%);
+      min-height:100vh;
+    }
+    .kicker{font-family:var(--mono);letter-spacing:.42em;font-size:12px;color:var(--cyan);
+      text-transform:uppercase;margin:0 0 8px;display:flex;align-items:center;gap:11px;text-indent:.42em;}
+    .led{width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint);}
+    h1{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.02em;margin:0 0 6px;
+      text-transform:uppercase;color:var(--text);text-shadow:0 0 30px rgba(54,194,255,.30);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:760px;line-height:1.6;font-size:15px;letter-spacing:.04em;}
+    code{font-family:var(--mono);color:var(--mint);background:rgba(54,194,255,.08);
+      padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+      padding:12px 24px;cursor:pointer;color:var(--space);
+      background:linear-gradient(180deg,var(--mint),var(--cyan));
+      border:1px solid rgba(91,255,208,.6);border-radius:2px;box-shadow:0 6px 24px rgba(54,194,255,.30);}
+    button:hover{filter:brightness(1.08);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(10,16,36,.55);padding:16px;border-radius:4px;border:1px solid rgba(54,194,255,.24);}
+    /* checkerboard so the panel's transparent chamfers are visible */
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#0A1024;
+      background-image:
+        linear-gradient(45deg,#13203f20 25%,transparent 25%),
+        linear-gradient(-45deg,#13203f20 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#13203f20 75%),
+        linear-gradient(-45deg,transparent 75%,#13203f20 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:var(--mono);letter-spacing:.16em;color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:var(--mono);letter-spacing:.08em;color:var(--mint);text-decoration:none;
+      border:1px solid rgba(91,255,208,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(91,255,208,.14);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="led"></span>HOLOGRID · PANELS</p>
+  <h1>Hologrid — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the holographic-projection-deck style:
+    a chamfered translucent indigo holo card, bright corner brackets, a glowing top hairline, a
+    thin holo line icon and a wide geometric-sans label. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var SPACE = '#070B16', INDIGO = '#1B2B6B', CYAN = '#36C2FF',
+        VIOLET = '#B66BFF', MINT = '#5BFFD0', TEXT = '#EAF2FF';
+    var DIM = 'rgba(234,242,255,0.55)';
+    var MONO = '"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+    var DISPLAY = '"Bahnschrift","Eurostile","DIN Condensed","Arial Narrow",system-ui,sans-serif';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'user' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'shield' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'orbit' }
+    ];
+
+    // ---- chamfered HUD-panel path (cut top-right + bottom-left corners) ----
+    function chamferPath(ctx, x, y, w, h, c) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w - c, y);
+      ctx.lineTo(x + w, y + c);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + c, y + h);
+      ctx.lineTo(x, y + h - c);
+      ctx.closePath();
+    }
+
+    // ---- soft holo bloom (additive radial glow) ----
+    function bloom(ctx, cx, cy, rad, color, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- bright HUD corner bracket ----
+    function bracket(ctx, x, y, len, fx, fy) {
+      ctx.save();
+      ctx.translate(x, y); ctx.scale(fx, fy);
+      ctx.strokeStyle = '#EAF2FF'; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+      ctx.shadowColor = 'rgba(54,194,255,0.8)'; ctx.shadowBlur = 7;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, len); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ----
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 5, ch = 12;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // --- holo card body (clipped to the chamfered silhouette) ---
+      ctx.save();
+      chamferPath(ctx, x, y, w, h, ch);
+      ctx.clip();
+
+      // translucent indigo sheet
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(27,43,107,0.42)');
+      bg.addColorStop(1, 'rgba(7,11,22,0.74)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // faint perspective grid floor inside the card (receding rows)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(54,194,255,0.10)'; ctx.lineWidth = 1;
+      var horizon = y + h * 0.30;
+      for (var i = 0; i < 6; i++) {
+        var f = (i + 1) / 6;
+        var yy = horizon + f * f * (y + h - horizon);
+        ctx.globalAlpha = 0.10 + f * 0.18;
+        ctx.beginPath(); ctx.moveTo(x, Math.round(yy)); ctx.lineTo(x + w, Math.round(yy)); ctx.stroke();
+      }
+      // converging verticals fanning from a vanishing point on the right
+      var vpx = x + w * 0.86, vpy = horizon;
+      for (var k = -4; k <= 4; k++) {
+        ctx.globalAlpha = 0.06 + (1 - Math.abs(k) / 4) * 0.07;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(vpx), Math.round(vpy));
+        ctx.lineTo(Math.round(vpx + k * w * 0.20), y + h);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // a radar-ring gauge sliver glowing from the right edge (globe motif)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      var rgx = x + w * 0.82, rgy = y + h * 0.5;
+      bloom(ctx, rgx, rgy, 64, 'rgba(54,194,255,0.18)', 0.9);
+      ctx.translate(rgx, rgy); ctx.scale(1, 0.5);
+      [40, 30, 20].forEach(function (rr, idx) {
+        ctx.globalAlpha = 0.22 - idx * 0.04;
+        ctx.strokeStyle = idx === 1 ? VIOLET : (idx === 2 ? MINT : CYAN);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, rr, 0, 6.2832); ctx.stroke();
+        // a bright sweep arc
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, rr, -0.7 + idx, 0.4 + idx, false); ctx.stroke();
+      });
+      ctx.restore();
+
+      // warm holo blooms seating the panel
+      bloom(ctx, x + 30, y + 14, 90, 'rgba(54,194,255,0.16)', 0.9);
+      bloom(ctx, x + w * 0.5, y + h, 120, 'rgba(182,107,255,0.10)', 0.8);
+
+      // holo scanlines (CRT projection feel)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(54,194,255,0.05)';
+      for (var sy = y; sy < y + h; sy += 4) ctx.fillRect(x, sy, w, 1);
+      ctx.restore();
+      ctx.restore(); // unclip
+
+      // --- glowing top hairline (cyan->mint->violet) along the chamfer ---
+      ctx.save();
+      var tg = ctx.createLinearGradient(x, 0, x + w, 0);
+      tg.addColorStop(0, 'rgba(54,194,255,0)');
+      tg.addColorStop(0.3, CYAN); tg.addColorStop(0.5, MINT);
+      tg.addColorStop(0.7, VIOLET); tg.addColorStop(1, 'rgba(182,107,255,0)');
+      ctx.strokeStyle = tg; ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(54,194,255,0.6)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(x, y + 1); ctx.lineTo(x + w - ch, y + 1); ctx.stroke();
+      ctx.restore();
+
+      // --- panel edge (chamfered hairline) ---
+      ctx.save();
+      ctx.strokeStyle = 'rgba(54,194,255,0.30)'; ctx.lineWidth = 1;
+      chamferPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, ch);
+      ctx.stroke();
+      ctx.restore();
+
+      // --- bright corner BRACKETS ---
+      var bl = 13;
+      bracket(ctx, x + 2, y + 2, bl, 1, 1);              // tl
+      bracket(ctx, x + w - 2, y + 2, bl, -1, 1);         // tr
+      bracket(ctx, x + 2, y + h - 2, bl, 1, -1);         // bl
+      bracket(ctx, x + w - 2, y + h - 2, bl, -1, -1);    // br
+
+      // --- thin holo line icon (left zone) ---
+      drawIcon(ctx, p.icon, x + 28, H / 2 - 2, 30);
+
+      // --- divider rail between icon and text ---
+      ctx.save();
+      var rx = x + 52;
+      ctx.strokeStyle = 'rgba(54,194,255,0.35)'; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(54,194,255,0.5)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(rx, y + 16); ctx.lineTo(rx, y + h - 16); ctx.stroke();
+      ctx.restore();
+
+      // --- mono kicker w/ LED ---
+      var tx = x + 64;
+      ctx.save();
+      // LED dot
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = MINT; ctx.shadowColor = MINT; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(tx + 2, 28, 2.4, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.font = '600 9px ' + MONO;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = CYAN;
+      drawSpaced(ctx, 'HOLOGRID', tx + 12, 31, 2.4);
+      ctx.restore();
+
+      // --- label (wide geometric sans, cyan->mint->violet gradient) ---
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 30, maxW = W - tx - 14;
+      ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      while (ctx.measureText(label).width > maxW && size > 15) {
+        size -= 1; ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      }
+      var ty = 70;
+      var lg = ctx.createLinearGradient(tx, 0, tx + maxW, 0);
+      lg.addColorStop(0, CYAN); lg.addColorStop(0.45, MINT); lg.addColorStop(1, VIOLET);
+      // subtle RGB-split ghosts behind
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = CYAN; ctx.fillText(label, tx + 1.5, ty);
+      ctx.fillStyle = VIOLET; ctx.fillText(label, tx - 1.5, ty);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = lg;
+      ctx.shadowColor = 'rgba(91,255,208,0.45)'; ctx.shadowBlur = 14;
+      ctx.fillText(label, tx, ty);
+      ctx.restore();
+
+      // --- bottom segmented charge-meter tick rail under the label ---
+      ctx.save();
+      var barY = 80, barX = tx, barW = W - tx - 16;
+      ctx.strokeStyle = 'rgba(54,194,255,0.5)'; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(54,194,255,0.5)'; ctx.shadowBlur = 5;
+      var seg = 10, n = Math.floor(barW / seg);
+      for (var s = 0; s < n; s++) {
+        ctx.globalAlpha = s < n * 0.66 ? 0.85 : 0.28;   // partial "charge"
+        ctx.beginPath();
+        ctx.moveTo(barX + s * seg, barY);
+        ctx.lineTo(barX + s * seg + seg - 4, barY);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- thin holo line icons (cyan stroke + mint glow) ----
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = MINT; ctx.fillStyle = MINT;
+      ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(54,194,255,0.7)'; ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'user': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.35, h * 0.42, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.75, h * 0.85);
+          ctx.quadraticCurveTo(-h * 0.75, h * 0.12, 0, h * 0.12);
+          ctx.quadraticCurveTo(h * 0.75, h * 0.12, h * 0.75, h * 0.85);
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);  ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2); ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            // chamfer-tick bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.85, ly - 2); ctx.lineTo(-h * 0.7, ly - 2);
+            ctx.lineTo(-h * 0.7, ly + 2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-h * 0.5, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.5) + 'px ' + DISPLAY;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.85); ctx.lineTo(h * 0.85, h * 0.85);
+          ctx.moveTo(h * 0.85, -h * 0.85);  ctx.lineTo(-h * 0.85, h * 0.85);
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'shield': {
+          ctx.beginPath();
+          ctx.moveTo(0, -h * 0.92);
+          ctx.lineTo(h * 0.78, -h * 0.55);
+          ctx.lineTo(h * 0.78, h * 0.1);
+          ctx.quadraticCurveTo(h * 0.78, h * 0.7, 0, h * 0.95);
+          ctx.quadraticCurveTo(-h * 0.78, h * 0.7, -h * 0.78, h * 0.1);
+          ctx.lineTo(-h * 0.78, -h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          // chamfer check inside
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.34, -h * 0.02); ctx.lineTo(-h * 0.06, h * 0.3); ctx.lineTo(h * 0.4, -h * 0.34);
+          ctx.stroke();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'orbit': {
+          // wireframe-globe motif: sphere + two orbital ellipses + nodes
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.55, 0, Math.PI * 2); ctx.stroke();
+          ctx.save(); ctx.rotate(-0.5);
+          ctx.beginPath(); ctx.ellipse(0, 0, h * 0.95, h * 0.34, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+          ctx.beginPath(); ctx.ellipse(0, 0, h * 0.34, h * 0.95, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = VIOLET;
+          ctx.beginPath(); ctx.arc(h * 0.9, -h * 0.15, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = CYAN;
+          ctx.beginPath(); ctx.arc(-h * 0.85, h * 0.2, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ----
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id); i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build);
+    else build();
+  })();
+  </script>
+</body>
+</html>

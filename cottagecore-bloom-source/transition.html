@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cottagecore Bloom — Petal &amp; Leaf Swirl Wipe</title>
+  <!--
+    COTTAGECORE BLOOM stinger ("The Wildflower Gust"). A warm meadow gust:
+    petals (dusty rose + cream), ivy leaves and dandelion seeds spiral IN from
+    the edges on a sinusoidal breeze, gathering toward centre into a soft cream
+    paper-bloom flood that fills the frame; at full cover a pressed-flower
+    rosette + a warm sun-flash open at the seam, then everything scatters back
+    out and the screen clears. A faint sage→cream wash carries the cover so the
+    swap reads as a soft botanical wipe (no hard wall). Petals tumble (rotate),
+    seeds trail fluffy tufts, leaves sway — all deterministic & sine-driven.
+    Transparent before & after, ~1300ms. Wholesome, sunny, no glitch.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (cottagecore bloom) ---- */
+    const SAGE = '#E6EFD8', MEADOW = '#B7CE96', LEAF = '#7DA453', LEAF_DEEP = '#5E8038';
+    const CREAM = '#FBF6E9', PAPER_EDGE = '#EFE7D2', ROSE = '#E2A0B4', ROSE_DEEP = '#CE8298';
+    const INK = '#5A4A3A';
+    const PETAL_COLS = [ROSE, CREAM, '#EBB9C8', PAPER_EDGE, ROSE_DEEP];
+    const LEAF_COLS  = [LEAF, LEAF_DEEP, '#9CC56A', MEADOW];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const TAU = Math.PI * 2;
+
+    /* ---- deterministic seeded RNG (LCG). NEVER Math.random in a frame fn. ---- */
+    let seed = 0x6105e2 >>> 0;                              // "bloom" seed
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+    const pick = (arr) => arr[(rnd() * arr.length) | 0];
+
+    /* ---- the wildflower swarm: each mote spawns out near an edge ring and
+       spirals IN toward centre as cover rises (0..0.5), then is pushed back
+       OUT as the gust passes (0.5..1). Position is a pure function of t so the
+       look is identical frame-to-frame and in the export. ---- */
+    const N = 110;
+    const flora = Array.from({ length: N }, () => {
+      const kindR = rnd();
+      const kind = kindR < 0.5 ? 'petal' : kindR < 0.82 ? 'leaf' : 'seed';
+      const ang = R(0, TAU);
+      const outR = R(0.62, 1.18);          // resting radius (×screen half-diag) out at edges
+      const inR  = R(0.02, 0.26);          // how close it gathers to centre at full cover
+      return {
+        kind,
+        ang,
+        outR, inR,
+        swirl: R(0.5, 1.7) * (rnd() < 0.5 ? -1 : 1),   // angular drift (spiral)
+        sway: R(20, 70), swf: R(0.8, 2.2), phase: R(0, TAU),
+        size: kind === 'leaf' ? R(16, 30) : kind === 'seed' ? R(7, 13) : R(13, 26),
+        col: kind === 'leaf' ? pick(LEAF_COLS) : kind === 'seed' ? CREAM : pick(PETAL_COLS),
+        spin0: R(0, TAU), spinV: R(1.4, 4.2) * (rnd() < 0.5 ? -1 : 1),
+        lead: R(0, 0.12), a: R(0.6, 1.0),
+      };
+    });
+
+    const HALF_DIAG = Math.hypot(CX, CY);   // ~1100
+
+    /* ---- draw helpers (all coords rounded to ints) ---- */
+    function petalPath(s) {
+      // a soft teardrop petal, drawn around local origin pointing up
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * 0.62, -s * 0.6, s * 0.5, s * 0.55, 0, s);
+      ctx.bezierCurveTo(-s * 0.5, s * 0.55, -s * 0.62, -s * 0.6, 0, -s);
+      ctx.closePath();
+    }
+    function leafPath(s) {
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * 0.78, -s * 0.35, s * 0.62, s * 0.7, 0, s);
+      ctx.bezierCurveTo(-s * 0.62, s * 0.7, -s * 0.78, -s * 0.35, 0, -s);
+      ctx.closePath();
+    }
+
+    function drawFlora(t, cover) {
+      // gather curve: 0 at ends (out), 1 at mid (centre)
+      const gather = Math.sin(clamp01(t) * Math.PI);    // == cover, but used for radius
+      for (const f of flora) {
+        const lt = clamp01((t - f.lead) / (1 - f.lead));
+        const g = Math.sin(lt * Math.PI);               // per-mote gather (0..1..0)
+        const r = lerp(f.outR, f.inR, g) * HALF_DIAG;
+        const ang = f.ang + f.swirl * g * 2.0 + Math.sin(f.phase + lt * f.swf * TAU) * 0.10;
+        const breeze = Math.sin(f.phase + lt * f.swf * TAU) * f.sway * (1 - g * 0.7);
+        const px = CX + Math.cos(ang) * r + breeze;
+        const py = CY + Math.sin(ang) * r + Math.sin(f.phase * 1.7 + lt * 1.4 * TAU) * f.sway * 0.5;
+        // fade in from edges; thin out a touch at the very centre when fully covered
+        const edgeFade = Math.sin(lt * Math.PI);
+        const a = f.a * edgeFade * lerp(1, 0.55, cover * Math.max(0, g - 0.6) * 2.5);
+        if (a <= 0.02) continue;
+
+        ctx.save();
+        ctx.globalAlpha = clamp01(a);
+        ctx.translate(Math.round(px), Math.round(py));
+        const spin = f.spin0 + f.spinV * lt;
+        ctx.rotate(spin);
+        const s = f.size;
+
+        if (f.kind === 'seed') {
+          // dandelion seed: tiny body + radiating fluffy white tuft
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 1;
+          const spokes = 9;
+          for (let i = 0; i < spokes; i++) {
+            const sa = (i / spokes) * TAU;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.round(Math.cos(sa) * s), Math.round(Math.sin(sa) * s));
+            ctx.stroke();
+          }
+          ctx.fillStyle = '#D8C9A6';
+          ctx.beginPath(); ctx.arc(0, Math.round(s * 0.2), 2, 0, TAU); ctx.fill();
+        } else if (f.kind === 'leaf') {
+          ctx.fillStyle = f.col;
+          ctx.shadowColor = 'rgba(90,74,58,0.18)';
+          ctx.shadowBlur = 4;
+          leafPath(s);
+          ctx.fill();
+          // centre vein
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'rgba(90,74,58,0.22)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(0, -s * 0.9); ctx.lineTo(0, s * 0.9); ctx.stroke();
+        } else {
+          ctx.fillStyle = f.col;
+          ctx.shadowColor = 'rgba(90,74,58,0.16)';
+          ctx.shadowBlur = 5;
+          petalPath(s);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    /* ---- the soft cream PAPER-BLOOM flood: a radial cream wash that grows
+           from centre as the gust gathers, peaking at full cover. This is the
+           botanical "wipe" body so the scene swap reads soft, not a hard wall. ---- */
+    function drawFlood(cover) {
+      if (cover <= 0.001) return;
+      const c = smooth(cover);
+      // radius grows past the corners at full cover so it fully covers
+      const rad = lerp(120, HALF_DIAG * 1.35, c);
+      const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, rad);
+      g.addColorStop(0.00, 'rgba(251,246,233,' + (0.98 * c).toFixed(3) + ')');   // cream core
+      g.addColorStop(0.55, 'rgba(247,241,222,' + (0.95 * c).toFixed(3) + ')');   // paper edge
+      g.addColorStop(0.82, 'rgba(214,228,191,' + (0.72 * c).toFixed(3) + ')');   // sage rim
+      g.addColorStop(1.00, 'rgba(183,206,150,0)');                               // feathered meadow
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(CX, CY, rad, 0, TAU); ctx.fill();
+
+      // faint warm paper grain over the flood (very light, only when covered)
+      if (c > 0.25) {
+        ctx.save();
+        ctx.globalAlpha = 0.05 * c;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1;
+        for (let y = ((CY - rad) | 0); y < CY + rad; y += 6) {
+          ctx.beginPath(); ctx.moveTo(CX - rad, y); ctx.lineTo(CX + rad, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    /* ---- a pressed-flower ROSETTE that opens at the seam (full cover): five
+           dusty-rose petals around a leaf-green centre, with a ring of stamens.
+           Strongest at t=0.5; rotates gently as the gust parts. ---- */
+    function drawRosette(cover) {
+      const bloom = Math.pow(clamp01(cover), 1.5);
+      if (bloom <= 0.02) return;
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate((1 - cover) * 0.5);                   // small open-rotation on the way out
+
+      // outer cream petal ring (back layer)
+      const petals = 5;
+      const Rb = lerp(40, 150, bloom);
+      for (let layer = 0; layer < 2; layer++) {
+        const ringR = layer === 0 ? Rb : Rb * 0.62;
+        const ps = layer === 0 ? Rb * 0.62 : Rb * 0.5;
+        const col = layer === 0 ? ROSE : CREAM;
+        const rot = layer === 0 ? 0 : Math.PI / petals;     // offset inner ring
+        for (let i = 0; i < petals; i++) {
+          const ang = rot + (i / petals) * TAU - Math.PI / 2;
+          ctx.save();
+          ctx.globalAlpha = (layer === 0 ? 0.92 : 0.95) * bloom;
+          ctx.translate(Math.cos(ang) * ringR * 0.5, Math.sin(ang) * ringR * 0.5);
+          ctx.rotate(ang + Math.PI / 2);
+          ctx.fillStyle = col;
+          ctx.shadowColor = 'rgba(90,74,58,0.18)';
+          ctx.shadowBlur = 10 * bloom;
+          petalPath(ps);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // leaf-green centre disc + stamen dots
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = bloom;
+      const cr = lerp(8, 30, bloom);
+      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, cr);
+      cg.addColorStop(0, LEAF);
+      cg.addColorStop(1, LEAF_DEEP);
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(0, 0, cr, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,250,225,0.9)';
+      const dots = 8;
+      for (let i = 0; i < dots; i++) {
+        const ang = (i / dots) * TAU + (1 - cover);
+        ctx.beginPath();
+        ctx.arc(Math.round(Math.cos(ang) * cr * 0.55), Math.round(Math.sin(ang) * cr * 0.55), 2.2 * bloom + 0.5, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawFlood(cover);
+      drawRosette(cover);
+      drawFlora(t, cover);
+
+      // warm sun-flash at the very peak (full cover) — a gentle daylight bloom
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(255,250,225,' + (0.5 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(255,247,214,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(255,247,214,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

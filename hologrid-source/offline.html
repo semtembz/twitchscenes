@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Hologrid (PNG generator)</title>
+  <!--
+    HOLOGRID · "Holographic Projection Deck" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the full sci-fi HUD deck onto a <canvas>: a deep-space
+    gradient void, a perspective HOLO GRID FLOOR, an elliptical BASE PLATE disc,
+    concentric RADAR RING GAUGES with frozen sweep arcs, vertical SCAN BEAMS, a
+    rotating 3D WIREFRAME GLOBE (lat/long lattice projected 3D->2D, with a
+    cyan/violet/mint chromatic fringe), floating data motes, holo scanlines, a
+    deep vignette, edge telemetry readouts, and a CENTERED chamfered holo PANEL
+    framed by bright corner brackets holding an OFFLINE headline + handle.
+
+    Everything random is drawn from a SEEDED PRNG (mulberry32), so the scene is
+    identical on every render — Math.random is never used.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --space:#070B16; --indigo:#1B2B6B; --cyan:#36C2FF; --violet:#B66BFF;
+      --mint:#5BFFD0; --text:#EAF2FF; --dim:rgba(234,242,255,.55);
+      --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+      --display:"Bahnschrift","Eurostile","DIN Condensed","Arial Narrow",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);background:#04060E;color:var(--text);padding:32px;}
+    h1{font-family:var(--display);font-weight:700;font-size:28px;color:var(--text);letter-spacing:.04em;
+      margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 22px rgba(54,194,255,.30);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;font-size:15px;letter-spacing:.04em;}
+    .kicker{font-family:var(--mono);letter-spacing:.42em;font-size:13px;color:var(--cyan);margin:0 0 14px;
+      text-transform:uppercase;text-indent:.42em;}
+    button{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+      padding:13px 26px;color:var(--space);background:linear-gradient(180deg,var(--mint),var(--cyan));
+      border:1px solid rgba(91,255,208,.6);border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(54,194,255,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0A1024;padding:14px;border:1px solid #15233f;border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:var(--mono);color:var(--mint);background:#0d1530;padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">HOLOGRID · OFFLINE SCREEN</p>
+  <h1>Offline Screen Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image as a holographic projection deck — seeded so the
+    scene is reproducible. Pass <code>?handle=@you</code> to set the handle. Click Download then
+    upload it on Twitch under <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (hex constants mirror shared.css tokens) ----
+    const SPACE = '#070B16', INDIGO = '#1B2B6B', CYAN = '#36C2FF',
+          VIOLET = '#B66BFF', MINT = '#5BFFD0', TEXT = '#EAF2FF';
+    const DIM = 'rgba(234,242,255,0.55)';
+    const MONO = '"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+    const DISPLAY = '"Bahnschrift","Eurostile","DIN Condensed","Arial Narrow",system-ui,sans-serif';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded PRNG (mulberry32) — NEVER Math.random, reproducible ----
+    let _s = 0x4A17 >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+    const tintOf = (t) => t < 0.45 ? CYAN : t < 0.8 ? MINT : VIOLET;
+
+    // deck anchor
+    const CX = W * 0.5, CY = H * 0.575, GR = Math.min(W, H) * 0.30;
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // chamfered HUD-panel path (cut top-right + bottom-left)
+    function chamferPath(x, y, w, h, c) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w - c, y);
+      ctx.lineTo(x + w, y + c);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + c, y + h);
+      ctx.lineTo(x, y + h - c);
+      ctx.closePath();
+    }
+
+    // bright HUD corner bracket
+    function bracket(x, y, len, fx, fy) {
+      ctx.save();
+      ctx.translate(x, y); ctx.scale(fx, fy);
+      ctx.strokeStyle = TEXT; ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(54,194,255,0.8)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, len); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- perspective HOLO GRID FLOOR (frozen) ----
+    function drawFloor() {
+      const vpY = CY + GR * 0.18;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(54,194,255,0.16)';
+      for (let i = 0; i < 16; i++) {
+        const f = (i + 0.3) / 16;
+        const yy = vpY + f * f * (H - vpY) * 1.15;
+        if (yy > H + 4) continue;
+        ctx.globalAlpha = 0.05 + f * 0.18;
+        ctx.beginPath(); ctx.moveTo(0, Math.round(yy)); ctx.lineTo(W, Math.round(yy)); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(91,255,208,0.12)';
+      for (let i = -10; i <= 10; i++) {
+        const spread = i / 10;
+        const bx = CX + spread * W * 0.85, tx = CX + spread * W * 0.10;
+        ctx.globalAlpha = 0.10 + (1 - Math.abs(spread)) * 0.10;
+        ctx.beginPath(); ctx.moveTo(Math.round(tx), Math.round(vpY)); ctx.lineTo(Math.round(bx), H); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- base plate disc ----
+    function drawBasePlate() {
+      const by = CY + GR * 0.96, rx = GR * 1.25, ry = GR * 0.30;
+      const g = ctx.createRadialGradient(CX, by, 0, CX, by, rx);
+      g.addColorStop(0, 'rgba(54,194,255,0.20)');
+      g.addColorStop(0.6, 'rgba(27,43,107,0.10)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(CX, by); ctx.scale(1, ry / rx);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, 6.2832); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(91,255,208,0.45)'; ctx.globalAlpha = 0.7;
+      ctx.beginPath(); ctx.arc(0, 0, GR * 0.92, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- vertical scan beams (frozen at varied heights) ----
+    function drawBeams() {
+      const by = CY + GR * 0.96, ry = 0.30;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 7; i++) {
+        const ang = R(0, Math.PI * 2), rad = R(0.35, 1.05), hh = R(0.7, 1.5);
+        const pulse = R(0.55, 1.0), tint = srnd();
+        const bx = CX + Math.cos(ang) * rad * GR;
+        const baseY = by + Math.sin(ang) * rad * GR * ry;
+        const topY = baseY - hh * GR * pulse;
+        const col = tintOf(tint);
+        const g = ctx.createLinearGradient(0, baseY, 0, topY);
+        g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.22 * pulse; ctx.strokeStyle = g; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(Math.round(bx), Math.round(baseY)); ctx.lineTo(Math.round(bx), Math.round(topY)); ctx.stroke();
+        // climbing spark
+        ctx.globalAlpha = 0.8 * pulse; ctx.fillStyle = col;
+        const sp = R(0.2, 0.8);
+        ctx.fillRect(Math.round(bx) - 1, Math.round(baseY + (topY - baseY) * sp) - 1, 3, 3);
+      }
+      ctx.restore();
+    }
+
+    // ---- concentric radar ring gauges (frozen sweeps) ----
+    function drawRings() {
+      const rings = [
+        { r: 1.30, sweep: 0.6, col: CYAN, a: 0.28 },
+        { r: 1.55, sweep: 3.2, col: VIOLET, a: 0.22 },
+        { r: 1.05, sweep: 1.9, col: MINT, a: 0.30 },
+      ];
+      const ry = 0.42;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(CX, CY); ctx.scale(1, ry);
+      for (const rg of rings) {
+        const RR = rg.r * GR;
+        ctx.globalAlpha = rg.a * 0.4; ctx.strokeStyle = rg.col; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, RR, 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = rg.a * 0.6;
+        for (let k = 0; k < 48; k++) {
+          const a0 = (k / 48) * 6.2832, big = k % 6 === 0;
+          const r0 = RR - (big ? 12 : 6), r1 = RR + (big ? 4 : 2);
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
+          ctx.lineTo(Math.cos(a0) * r1, Math.sin(a0) * r1); ctx.stroke();
+        }
+        ctx.globalAlpha = rg.a; ctx.lineWidth = 3;
+        const grad = ctx.createLinearGradient(-RR, 0, RR, 0);
+        grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, rg.col);
+        ctx.strokeStyle = grad;
+        ctx.beginPath(); ctx.arc(0, 0, RR, rg.sweep, rg.sweep + 1.1, false); ctx.stroke();
+        ctx.globalAlpha = rg.a * 1.6; ctx.fillStyle = rg.col;
+        const ex = Math.cos(rg.sweep + 1.1) * RR, ey = Math.sin(rg.sweep + 1.1) * RR;
+        ctx.beginPath(); ctx.arc(ex, ey, 4, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ---- rotating wireframe globe (frozen at a chosen yaw) ----
+    function holoSeg(a, b, alpha, fringe) {
+      ctx.globalAlpha = alpha * 0.45; ctx.strokeStyle = VIOLET;
+      ctx.beginPath(); ctx.moveTo(Math.round(a.sx - fringe), Math.round(a.sy)); ctx.lineTo(Math.round(b.sx - fringe), Math.round(b.sy)); ctx.stroke();
+      ctx.globalAlpha = alpha * 0.45; ctx.strokeStyle = CYAN;
+      ctx.beginPath(); ctx.moveTo(Math.round(a.sx + fringe), Math.round(a.sy)); ctx.lineTo(Math.round(b.sx + fringe), Math.round(b.sy)); ctx.stroke();
+      ctx.globalAlpha = alpha; ctx.strokeStyle = MINT;
+      ctx.beginPath(); ctx.moveTo(Math.round(a.sx), Math.round(a.sy)); ctx.lineTo(Math.round(b.sx), Math.round(b.sy)); ctx.stroke();
+    }
+    function drawGlobe() {
+      const LAT = 9, LON = 18, yaw = 0.9, tilt = 0.42, fringe = 2.4;
+      const cyT = Math.cos(tilt), syT = Math.sin(tilt);
+      const cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
+      const verts = [];
+      for (let i = 1; i < LAT; i++) {
+        const phi = (Math.PI * i) / LAT - Math.PI / 2;
+        const cphi = Math.cos(phi), sphi = Math.sin(phi);
+        for (let j = 0; j < LON; j++) {
+          const lam = (2 * Math.PI * j) / LON;
+          verts.push({ x: cphi * Math.cos(lam), y: sphi, z: cphi * Math.sin(lam), lon: j });
+        }
+      }
+      function proj(p) {
+        let x = p.x * cyaw + p.z * syaw, z = -p.x * syaw + p.z * cyaw, y = p.y;
+        const y2 = y * cyT - z * syT, z2 = y * syT + z * cyT;
+        return { sx: CX + x * GR, sy: CY + y2 * GR, d: z2 };
+      }
+      const pts = verts.map(proj);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < verts.length; i++) {
+        const g0 = verts[i], a = pts[i];
+        const next = i - g0.lon + ((g0.lon + 1) % LON), b = pts[next];
+        const down = i + LON;
+        const depth = (a.d + 1) / 2, alpha = 0.10 + depth * 0.55;
+        if (b) holoSeg(a, b, alpha, fringe);
+        if (down < verts.length) holoSeg(a, pts[down], alpha, fringe);
+      }
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], depth = (a.d + 1) / 2;
+        if (depth < 0.35) continue;
+        ctx.globalAlpha = (depth - 0.3) * 0.9;
+        ctx.fillStyle = i % 7 === 0 ? VIOLET : MINT;
+        ctx.beginPath(); ctx.arc(Math.round(a.sx), Math.round(a.sy), depth * 2.6, 0, 6.2832); ctx.fill();
+      }
+      // equatorial halo
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(54,194,255,0.5)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(CX, CY, GR * 1.001, 0, 6.2832); ctx.stroke();
+      // core glow
+      const cg = ctx.createRadialGradient(CX, CY, 0, CX, CY, GR);
+      cg.addColorStop(0, 'rgba(54,194,255,0.10)'); cg.addColorStop(0.7, 'rgba(27,43,107,0.05)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(CX, CY, GR, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- floating data motes (seeded scatter) ----
+    function drawMotes() {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 70; i++) {
+        const x = R(0, W), y = R(0, H), z = R(0.4, 1.6), a = R(0.2, 0.7), tint = srnd();
+        const tw = R(0.4, 1.0);
+        ctx.globalAlpha = a * tw; ctx.fillStyle = tintOf(tint);
+        const sz = Math.max(1, Math.round(z * 1.5));
+        ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+      }
+      ctx.restore();
+    }
+
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp;
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - spacedWidth(str, sp), y, sp); ctx.textAlign = prev;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - spacedWidth(str, sp) / 2, y, sp); ctx.textAlign = prev;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      _s = 0x4A17 >>> 0;   // reset seed -> identical scene every render
+
+      // ---- BACKGROUND: deep-space void (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, '#0A1024'); grad.addColorStop(0.52, SPACE); grad.addColorStop(1, '#04060E');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(W * 0.50, H * 0.30, W * 0.55, 'rgba(27,43,107,0.55)', 1);
+      bloom(W * 0.16, H * 0.90, W * 0.42, 'rgba(182,107,255,0.10)', 1);
+      bloom(W * 0.86, H * 0.12, W * 0.40, 'rgba(91,255,208,0.07)', 1);
+      ctx.restore();
+
+      // ---- the holographic deck ----
+      drawFloor();
+      drawBasePlate();
+      drawRings();
+      drawBeams();
+      drawGlobe();
+      drawMotes();
+
+      // ---- holo scanlines ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(54,194,255,0.05)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+
+      // ---- deep vignette ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,4,10,0.88)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTERED CHAMFERED HOLO PANEL — the signature composition
+      // ============================================================
+      const fw = 1180, fh = 680, fx = (W - fw) / 2, fy = (H - fh) / 2, cham = 34;
+
+      // panel sheet (translucent indigo) + soft drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(2,4,10,0.55)'; ctx.shadowBlur = 130; ctx.shadowOffsetY = 40;
+      chamferPath(fx, fy, fw, fh, cham);
+      const pg = ctx.createLinearGradient(0, fy, 0, fy + fh);
+      pg.addColorStop(0, 'rgba(54,194,255,0.08)');
+      pg.addColorStop(0.5, 'rgba(27,43,107,0.30)');
+      pg.addColorStop(1, 'rgba(7,11,22,0.40)');
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.restore();
+
+      // inner holo wash (clipped)
+      ctx.save();
+      chamferPath(fx, fy, fw, fh, cham); ctx.clip();
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(fx + fw * 0.86, fy - 20, 320, 'rgba(182,107,255,0.10)', 1);
+      bloom(fx + fw * 0.08, fy + fh + 20, 320, 'rgba(91,255,208,0.08)', 1);
+      ctx.restore();
+
+      // glowing top hairline (cyan->mint->violet)
+      ctx.save();
+      const tg = ctx.createLinearGradient(fx, 0, fx + fw, 0);
+      tg.addColorStop(0, 'rgba(54,194,255,0)'); tg.addColorStop(0.3, CYAN);
+      tg.addColorStop(0.5, MINT); tg.addColorStop(0.7, VIOLET); tg.addColorStop(1, 'rgba(182,107,255,0)');
+      ctx.strokeStyle = tg; ctx.lineWidth = 2.4;
+      ctx.shadowColor = 'rgba(54,194,255,0.6)'; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.moveTo(fx, fy + 1); ctx.lineTo(fx + fw - cham, fy + 1); ctx.stroke();
+      ctx.restore();
+
+      // panel edge
+      ctx.strokeStyle = 'rgba(54,194,255,0.30)'; ctx.lineWidth = 1.4;
+      chamferPath(fx + 0.7, fy + 0.7, fw - 1.4, fh - 1.4, cham); ctx.stroke();
+
+      // bright corner brackets
+      const bl = 46;
+      bracket(fx - 4, fy - 4, bl, 1, 1);
+      bracket(fx + fw + 4, fy - 4, bl, -1, 1);
+      bracket(fx - 4, fy + fh + 4, bl, 1, -1);
+      bracket(fx + fw + 4, fy + fh + 4, bl, -1, -1);
+
+      // ---- panel content (centered) ----
+      const cx = W / 2;
+
+      // kicker — mono caps w/ a flanking LED
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = MINT; ctx.shadowColor = MINT; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(cx - 168, fy + 150, 6, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 24px ' + MONO; ctx.fillStyle = CYAN;
+      ctx.shadowColor = 'rgba(54,194,255,0.4)'; ctx.shadowBlur = 16;
+      drawSpacedCentered('SIGNAL LOST', cx + 12, fy + 150, 11);
+      ctx.restore();
+
+      // big geometric-sans TITLE: OFFLINE (cyan->mint->violet + RGB-split)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 200px ' + DISPLAY;
+      const ty = fy + 320;
+      // RGB-split ghosts
+      ctx.globalAlpha = 0.45; ctx.fillStyle = CYAN; ctx.fillText('OFFLINE', cx + 4, ty);
+      ctx.fillStyle = VIOLET; ctx.fillText('OFFLINE', cx - 4, ty);
+      ctx.globalAlpha = 1;
+      const tgg = ctx.createLinearGradient(cx - 460, 0, cx + 460, 0);
+      tgg.addColorStop(0, CYAN); tgg.addColorStop(0.45, MINT); tgg.addColorStop(1, VIOLET);
+      ctx.fillStyle = tgg; ctx.shadowColor = 'rgba(91,255,208,0.45)'; ctx.shadowBlur = 60;
+      ctx.fillText('OFFLINE', cx, ty);
+      ctx.restore();
+
+      // animated-style scanning underline (static segment)
+      ctx.save();
+      const ruY = fy + 430, ruW = 460;
+      ctx.fillStyle = 'rgba(54,194,255,0.18)'; ctx.fillRect(cx - ruW / 2, ruY, ruW, 2);
+      const ug = ctx.createLinearGradient(cx - 90, 0, cx + 90, 0);
+      ug.addColorStop(0, 'rgba(0,0,0,0)'); ug.addColorStop(0.5, MINT); ug.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ug; ctx.shadowColor = 'rgba(91,255,208,0.7)'; ctx.shadowBlur = 14;
+      ctx.fillRect(cx - 90, ruY, 180, 2);
+      ctx.restore();
+
+      // subtitle — quiet mono telemetry
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 30px ' + MONO; ctx.fillStyle = DIM;
+      ctx.fillText('the holo-deck is powered down — follow for the next session', cx, fy + 490);
+      ctx.restore();
+
+      // segmented charge-meter tick rail (empty) inside the panel
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const barW = 580, barX = cx - barW / 2, barY = fy + 560, seg = 24;
+      ctx.strokeStyle = 'rgba(54,194,255,0.30)'; ctx.lineWidth = 2;
+      for (let s = 0; s < Math.floor(barW / seg); s++) {
+        ctx.globalAlpha = 0.30;
+        ctx.beginPath(); ctx.moveTo(barX + s * seg, barY); ctx.lineTo(barX + s * seg + seg - 8, barY); ctx.stroke();
+      }
+      ctx.restore();
+
+      // ---- corner HUD telemetry on the void (outside the panel) ----
+      ctx.save();
+      ctx.font = '500 20px ' + MONO; ctx.fillStyle = CYAN; ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 0.78;
+      ctx.textAlign = 'left';  drawSpaced('HOLOGRID OPS', 64, 72, 8);
+      ctx.fillStyle = DIM;
+      ctx.textAlign = 'right'; drawSpacedRight('PROJECTION DECK', W - 64, 72, 8);
+      ctx.restore();
+
+      // edge coordinate readouts
+      ctx.save();
+      ctx.font = '400 14px ' + MONO; ctx.fillStyle = 'rgba(54,194,255,0.34)';
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';   ctx.fillText('X:0000', 64, 36);  ctx.fillText('Y:0000', 28, 150);
+      ctx.textAlign = 'center'; ctx.fillText('AZ 128.4°', W / 2, 36);
+      ctx.textAlign = 'right';  ctx.fillText('X:1920', W - 64, 36);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, mint) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 28px ' + MONO; ctx.fillStyle = MINT;
+      ctx.shadowColor = 'rgba(91,255,208,0.45)'; ctx.shadowBlur = 16;
+      drawSpacedRight(handle.startsWith('@') ? handle : '@' + handle, W - 64, H - 64, 3);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 18px ' + MONO; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 36);
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

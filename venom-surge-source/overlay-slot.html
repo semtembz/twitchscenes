@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Venom Surge — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Venom Surge language: a slim hazard-skewed
+       gunmetal slab lower-left holding a blinking "ON AIR" status + @handle, a
+       short claw-slash seam above it, esports corner registration ticks, and a
+       small "SYS // SURGE" void tag top-right. A FEW faint surge speed-lines +
+       venom embers streak the slash diagonal. Most of the frame stays
+       transparent so gameplay shows through. Decoration is pointer-events:none.
+       Optional URL params: ?handle=@you   ?tag=ON%20AIR -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no toxic-arena bg, no hex-mesh, no full-bleed slab */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* the live canvas is decoration only; let gameplay through */
+    canvas.bg{pointer-events:none;opacity:.8;}
+
+    /* faint hazard chevron tick raking the very top edge (subtle, on-brand) */
+    .hud-hazard{position:absolute;left:0;right:0;top:0;height:8px;pointer-events:none;opacity:.5;
+      background:repeating-linear-gradient(115deg, var(--acid) 0 22px, transparent 22px 44px);
+      -webkit-mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+              mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+      animation:fade .9s var(--ease) both .3s;}
+
+    /* small void tag, top-right */
+    .hud-tag{position:absolute;top:40px;right:60px;pointer-events:none;
+      font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:.4em;
+      text-indent:.4em;color:var(--cyan);opacity:.8;
+      text-shadow:0 0 12px var(--cyan-soft);
+      animation:fade .9s var(--ease) both .25s;}
+
+    /* a short claw-slash seam just above the strip (venom -> acid core line) */
+    .hud-claw{position:absolute;left:54px;bottom:128px;width:360px;height:18px;pointer-events:none;
+      transform:skewX(-24deg);transform-origin:left center;
+      background:linear-gradient(90deg,
+        transparent 0%, var(--venom-dim) 14%, var(--venom) 48%, var(--acid) 52%,
+        var(--venom-dim) 84%, transparent 100%);
+      -webkit-mask:linear-gradient(180deg,transparent 0%,#000 42%,#000 58%,transparent 100%);
+              mask:linear-gradient(180deg,transparent 0%,#000 42%,#000 58%,transparent 100%);
+      filter:drop-shadow(0 0 14px var(--venom-soft)) drop-shadow(0 0 4px var(--acid));
+      opacity:.9;animation:slashin .8s var(--ease-snap) both .2s;}
+    .hud-claw::after{content:"";position:absolute;left:12%;right:12%;top:50%;height:2px;
+      transform:translateY(-50%);
+      background:linear-gradient(90deg,transparent,var(--text),var(--acid),var(--text),transparent);
+      box-shadow:0 0 10px var(--acid);}
+    @keyframes slashin{0%{opacity:0;clip-path:inset(0 100% 0 0);}
+      60%{opacity:1;}100%{opacity:.9;clip-path:inset(0 0 0 0);}}
+
+    /* ---- slim hazard-skewed gunmetal HUD slab, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 26px;
+      background:linear-gradient(160deg, rgba(16,20,24,.86), rgba(4,17,10,.76));
+      border:1px solid var(--slab-edge);
+      box-shadow:0 18px 50px rgba(0,0,0,.55),
+        inset 0 0 34px rgba(0,255,102,.06),
+        0 0 26px rgba(0,255,102,.12);
+      /* sharp cut hazard corners, matching the slab language */
+      clip-path:polygon(0 16px,16px 0,calc(100% - 26px) 0,100% 22px,
+        100% calc(100% - 16px),calc(100% - 16px) 100%,26px 100%,0 calc(100% - 22px));
+      animation:slotin .9s var(--ease) both .15s;}
+    /* inner hairline echo */
+    .slot::before{content:"";position:absolute;inset:5px;pointer-events:none;
+      border:1px solid var(--slab-edge-soft);clip-path:inherit;}
+    /* bright acid corner accent streaking the top-right cut */
+    .slot::after{content:"";position:absolute;top:0;right:26px;width:70px;height:4px;pointer-events:none;
+      background:linear-gradient(90deg,transparent,var(--acid),var(--cyan));
+      box-shadow:0 0 12px var(--acid);transform:skewX(-32deg);transform-origin:top right;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+
+    /* "ON AIR" status — techy caps + a blinking venom diamond LED */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:var(--tech);font-weight:700;font-size:19px;letter-spacing:.34em;
+      text-transform:uppercase;text-indent:.34em;color:var(--venom);
+      text-shadow:0 0 14px var(--venom-soft);}
+    .slot .tag .led{width:11px;height:11px;background:var(--venom);transform:rotate(45deg);
+      box-shadow:0 0 12px var(--venom);animation:blip 1.3s steps(1) infinite;}
+    @keyframes blip{0%,60%{opacity:1;}61%,100%{opacity:.25;}}
+
+    /* slashed divider between status and handle */
+    .slot .div{width:3px;height:30px;transform:skewX(-24deg);
+      background:linear-gradient(180deg,transparent,var(--venom),transparent);
+      box-shadow:0 0 8px var(--venom-soft);}
+
+    /* handle — acid lime, skewed forward for speed */
+    .slot .who{font-family:var(--tech);font-weight:700;font-size:27px;letter-spacing:.12em;
+      text-indent:.12em;color:var(--acid);white-space:nowrap;transform:skewX(-8deg);
+      text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 18px var(--acid-soft);}
+
+    /* esports corner registration ticks bracketing the strip */
+    .slot .brk{position:absolute;width:16px;height:16px;pointer-events:none;
+      border:3px solid var(--cyan);filter:drop-shadow(0 0 6px var(--cyan-soft));}
+    .slot .brk--tl{left:7px;top:7px;border-right:0;border-bottom:0;}
+    .slot .brk--br{right:7px;bottom:7px;border-left:0;border-top:0;}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,
+    #stage.render .hud-tag,
+    #stage.render .hud-hazard,
+    #stage.render .hud-claw{animation:none!important;}
+    #stage.render .slot .tag .led{animation:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .hud-tag{opacity:.8;}
+    #stage.render .hud-hazard{opacity:.5;}
+    #stage.render .hud-claw{opacity:.9;clip-path:inset(0 0 0 0);}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="hud-hazard" aria-hidden="true"></div>
+    <div class="hud-tag" aria-hidden="true">SYS // SURGE</div>
+    <div class="hud-claw" aria-hidden="true"></div>
+
+    <div class="slot">
+      <span class="brk brk--tl" aria-hidden="true"></span>
+      <span class="brk brk--br" aria-hidden="true"></span>
+      <span class="tag"><span class="led" aria-hidden="true"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;            // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + status tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ============================================================
+       CANVAS: a FEW subtle surge speed-lines + venom embers streaking
+       the -24deg slash diagonal (the theme's kinetic signature, dialed
+       way down so gameplay reads through). Deterministic seeded RNG so
+       render mode is reproducible — no Math.random in the frame fn.
+       ============================================================ */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const SLASH = -24 * Math.PI / 180, DX = Math.cos(SLASH), DY = Math.sin(SLASH);
+
+    let _s = 0x7A11 >>> 0;
+    function srnd(){ _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    let lines = [], embers = [];
+    function build(){
+      _s = 0x7A11 >>> 0;                          // reset seed -> identical field each build
+      const NL = Math.max(0, num("lines", 16));
+      lines = Array.from({ length: NL }, () => ({
+        p: R(-0.2, 1.2), off: R(-900, 900), len: R(120, 420),
+        sp: R(0.10, 0.30), w: R(1, 2.6), a: R(0.08, 0.30), hue: srnd(),
+      }));
+      const NE = Math.max(0, num("embers", 30));
+      embers = Array.from({ length: NE }, () => ({
+        x: R(0, W), y: R(0, H), z: R(0.4, 1.6),
+        vy: R(-8, -20) / 60, sway: R(0.4, 1.4), ph: R(0, 6.283), a: R(0.18, 0.6), hue: srnd(),
+      }));
+    }
+    build();
+
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      const cxw = W / 2, cyh = H / 2;
+      // surge speed-lines along the slash diagonal
+      for (const l of lines){
+        l.p += l.sp * dt; if (l.p > 1.25) l.p -= 1.5;
+        const travel = (l.p - 0.5) * 2600;
+        const x = cxw + DX * travel + (-DY) * l.off;
+        const y = cyh + DY * travel + (DX) * l.off;
+        const ex = x + DX * l.len, ey = y + DY * l.len;
+        const edge = Math.min(1, Math.min(l.p + 0.25, 1.25 - l.p) * 3);
+        const g = ctx.createLinearGradient(x, y, ex, ey);
+        const col = l.hue < 0.62 ? "0,255,102" : (l.hue < 0.85 ? "198,255,0" : "10,224,255");
+        g.addColorStop(0, "rgba(" + col + ",0)");
+        g.addColorStop(0.5, "rgba(" + col + "," + (l.a * edge).toFixed(3) + ")");
+        g.addColorStop(1, "rgba(" + col + ",0)");
+        ctx.strokeStyle = g; ctx.lineWidth = l.w; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x), Math.round(y));
+        ctx.lineTo(Math.round(ex), Math.round(ey));
+        ctx.stroke();
+      }
+      // rising venom embers
+      for (const e of embers){
+        e.y += e.vy * dt * 60; e.ph += 0.05 * dt * 60; e.x += Math.sin(e.ph) * e.sway * 0.7;
+        if (e.y < -12) e.y = H + 12;
+        if (e.x < -12) e.x = W + 12; if (e.x > W + 12) e.x = -12;
+        const tw = 0.55 + Math.sin(e.ph * 1.6) * 0.45;
+        const col = e.hue < 0.6 ? "#00FF66" : (e.hue < 0.85 ? "#C6FF00" : "#0AE0FF");
+        ctx.globalAlpha = e.a * tw;
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 7 * e.z;
+        const sz = Math.max(1, Math.round(e.z * 1.7));
+        ctx.fillRect(Math.round(e.x), Math.round(e.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__venomDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; build(); drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

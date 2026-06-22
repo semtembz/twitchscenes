@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Venom Surge — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- animated toxic-arena field: surge lines + arcs + embers -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- carbon hex-mesh + hazard edges -->
+    <div class="hexmesh" aria-hidden="true"></div>
+    <div class="hazard hazard--t" aria-hidden="true"></div>
+    <div class="hazard hazard--b" aria-hidden="true"></div>
+
+    <!-- pulsing energy core glow behind the message -->
+    <div class="core" aria-hidden="true"></div>
+
+    <!-- three diagonal claw-slash tears revealing venom energy -->
+    <div class="claws" aria-hidden="true">
+      <span class="claw claw--1"></span>
+      <span class="claw claw--2"></span>
+      <span class="claw claw--3"></span>
+    </div>
+
+    <!-- corner labels on the toxic void -->
+    <div class="tag tag--tl" aria-hidden="true">SYS // SURGE</div>
+    <div class="tag tag--tr" aria-hidden="true">VOLT 100%</div>
+
+    <!-- the slashed slab panel holding the message -->
+    <main class="slab">
+      <span class="bracket bracket--tl" aria-hidden="true"></span>
+      <span class="bracket bracket--br" aria-hidden="true"></span>
+
+      <p class="kicker" id="kicker" data-done="LOCKED IN">
+        <span class="dot" aria-hidden="true"></span>POWERING UP
+      </p>
+
+      <!-- HEADLINE = the MESSAGE. Never the theme name. -->
+      <h1 class="title">
+        <span class="line line--1">STREAM</span>
+        <span class="line line--2">STARTING</span>
+        <span class="accent">SOON</span>
+      </h1>
+
+      <div class="rule" aria-hidden="true">
+        <span class="seg seg--a"></span>
+        <span class="chev">&#9656;&#9656;</span>
+        <span class="seg seg--b"></span>
+      </div>
+
+      <p class="sub">charging the stream...</p>
+
+      <div class="bar" aria-hidden="true">
+        <span class="track"></span>
+        <span class="fill" id="fill"></span>
+        <span class="surge"></span>
+      </div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

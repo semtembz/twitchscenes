@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Cottagecore Bloom Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    Tick "No name (event headline)" to bake the EVENT headline ("NEW BLOOM") and
+    HIDE the viewer name — this is how clips ship (your alert platform overlays the
+    live name). No audio.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.5s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #28301F; color: #FBF6E9;
+      font-family: "Optima", "Gill Sans", "Segoe UI", Candara, system-ui, sans-serif; }
+    h1 { font-size: 22px; color: #B7CE96; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: #C7D3B0; line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #FBF6E9; background: #3A472C; padding: 2px 6px; border-radius: 3px; }
+    label { color: #B7CE96; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #353F25; color: #FBF6E9;
+      border: 1px solid #7DA453; border-radius: 4px; margin-right: 16px; }
+    input[type="text"] { width: 150px; }
+    .chk { display: inline-flex; align-items: center; gap: 8px; color: #FBF6E9; letter-spacing: 1px; }
+    .chk input { margin: 0; }
+    button { font-size: 15px; padding: 13px 26px; background: linear-gradient(180deg,#B7CE96,#7DA453);
+      color: #2B3320; border: 1px solid #B7CE96; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 6px; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #C6DAA8; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #B7CE96; }
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #4A5733; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #28301f;
+      background-image:
+        linear-gradient(45deg, #3a472c 25%, transparent 25%),
+        linear-gradient(-45deg, #3a472c 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #3a472c 75%),
+        linear-gradient(-45deg, transparent 75%, #3a472c 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Cottagecore Bloom Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" type="text" value="NewFriend" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" type="text" value="5" /></span>
+    <span class="chk"><input id="noname" type="checkbox" /> <label for="noname" style="margin:0">No name (event headline)</label></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css / shared.css)
+    const CREAM = '#FBF6E9', PAPER_EDGE = '#EFE7D2', INK = '#5A4A3A',
+          INK_SOFT = 'rgba(90,74,58,0.62)', LEAF = '#7DA453', LEAF_DEEP = '#5E8038',
+          ROSE = '#E2A0B4', GOLD = '#E8B84B', PETAL_CREAM = '#F3DCC6',
+          WHITE = '#FBF6E9', POLLEN = '#FBEFC9';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"leaf",   kicker:"NEW SPROUT",      sub:"welcome to the garden",    motion:"grow",    motes:18, burst:"seed",   amount:false },
+      subscriber: { glyph:"rose",   kicker:"NEW BLOOM",       sub:"a flower that returns",    motion:"bloom",   motes:24, burst:"petal",  amount:false },
+      member:     { glyph:"daisy",  kicker:"NEW SEEDLING",    sub:"planted in the patch",     motion:"pot",     motes:22, burst:"mix",    amount:false },
+      cheer:      { glyph:"bee",    kicker:"CHEER",           sub:"a busy little buzz",       motion:"flutter", motes:26, burst:"pollen", amount:true,  amtPre:"", amtSuf:" bits" },
+      donation:   { glyph:"heart",  kicker:"A GIFT",          sub:"so very kind of you",      motion:"gift",    motes:28, burst:"petal",  amount:true,  amtPre:"$" },
+      host:       { glyph:"wreath", kicker:"NOW HOSTING",     sub:"the gate swings open",     motion:"sweep",   motes:34, burst:"mix",    amount:true,  amtPre:"", amtSuf:" guests" },
+      raid:       { glyph:"posy",   kicker:"WILDFLOWER RAID", sub:"the meadow fills at once", motion:"gust",    motes:48, burst:"mix",    amount:true,  amtPre:"", amtSuf:" arriving" },
+      like:       { glyph:"heart",  kicker:"A LITTLE LOVE",   sub:"much obliged",             motion:"pop",     motes:14, burst:"petal",  amount:false },
+      share:      { glyph:"seed",   kicker:"SEEDS SPREAD",    sub:"word drifts on the wind",  motion:"carry",   motes:20, burst:"seed",   amount:false },
+      star:       { glyph:"star",   kicker:"NEW STAR",        sub:"the meadow shines",        motion:"twinkle", motes:24, burst:"pollen", amount:true,  amtPre:"", amtSuf:" stars" },
+      superchat:  { glyph:"note",   kicker:"PRESSED NOTE",    sub:"a note for the journal",   motion:"unfold",  motes:30, burst:"petal",  amount:true,  amtPre:"$" },
+      supporter:  { glyph:"sun",    kicker:"NEW GARDENER",    sub:"you help it all grow",     motion:"nestle",  motes:24, burst:"mix",    amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== deckled paper path (matches the .paper clip-path polygon) =====
+    const DECKLE = [
+      [0,6],[4,2],[12,5],[22,1],[33,5],[45,2],[57,5],[69,1],[80,5],[90,2],[97,5],[100,8],
+      [98,24],[100,40],[98,56],[100,72],[98,88],[100,94],
+      [96,99],[86,96],[74,100],[62,96],[50,100],[38,96],[26,100],[15,96],[5,99],[1,94],
+      [2,78],[0,62],[2,46],[0,30],[2,14]
+    ];
+    function papPath(x, y, w, h) {
+      ctx.beginPath();
+      for (let i = 0; i < DECKLE.length; i++) {
+        const px = x + (DECKLE[i][0] / 100) * w;
+        const py = y + (DECKLE[i][1] / 100) * h;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+    // a rounded-rect helper (inner ruled frame)
+    function rr(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 120) =====
+    // paper grid: 132 art col + 30 gap + text, padding 30/40/32; ~ 760 wide.
+    const CARD_W = 760, CARD_H = 196;
+    const CARD_X0 = 96;
+    const CARD_Y = H - 120 - CARD_H;   // bottom:120 -> top y
+
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // ===== burst particles (mirror of alerts.js spawnBurst/drawMote) =====
+    function makeBurst() {
+      const list = [];
+      function spawn(n, flavor) {
+        const ox = 240, oy = H - 200;
+        for (let i = 0; i < n; i++) {
+          let kind = flavor;
+          if (flavor === "mix") kind = (i % 3 === 0) ? "petal" : (i % 3 === 1) ? "seed" : "pollen";
+          list.push({
+            kind,
+            x: ox + R(-60, 120), y: oy + R(-70, 50),
+            vx: R(-30, 150) / 60,
+            vy: (kind === "petal" ? R(-60, 60) : R(-190, -60)) / 60,
+            g: (kind === "petal" ? R(28, 70) : -R(10, 40)) / 3600,
+            sway: R(0.4, 1.4), ph: R(0, 6.283),
+            s: kind === "petal" ? R(8, 15) : kind === "seed" ? R(4, 7) : R(1.5, 3),
+            rot: R(0, 6.28), vr: R(-2.5, 2.5) / 60,
+            a: 1, life: R(1.6, 3.0),
+            rose: Math.random() < 0.6,
+          });
+        }
+      }
+      function step() {
+        for (let i = list.length - 1; i >= 0; i--) {
+          const p = list[i];
+          p.ph += 0.05;
+          p.x += p.vx + Math.sin(p.ph) * p.sway * 0.5;
+          p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+          p.life -= 1 / 30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60 || p.y < -60) list.splice(i, 1);
+        }
+      }
+      function draw() {
+        for (const p of list) {
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.globalAlpha = Math.max(0, p.a);
+          if (p.kind === "petal") {
+            const sz = p.s;
+            ctx.fillStyle = p.rose ? ROSE : PETAL_CREAM;
+            ctx.beginPath();
+            ctx.moveTo(0, -sz);
+            ctx.bezierCurveTo(sz * 0.8, -sz * 0.5, sz * 0.7, sz * 0.6, 0, sz);
+            ctx.bezierCurveTo(-sz * 0.7, sz * 0.6, -sz * 0.8, -sz * 0.5, 0, -sz);
+            ctx.fill();
+          } else if (p.kind === "seed") {
+            ctx.strokeStyle = WHITE; ctx.lineWidth = 1; ctx.lineCap = "round";
+            const r = p.s;
+            for (let i = 0; i < 8; i++) {
+              const ang = (i / 8) * 6.283;
+              ctx.beginPath(); ctx.moveTo(0, 0);
+              ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r); ctx.stroke();
+            }
+          } else {
+            ctx.fillStyle = POLLEN;
+            const s = Math.max(1, Math.round(p.s));
+            ctx.fillRect(-s / 2, -s / 2, s, s);
+          }
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+      }
+      return { spawn, step, draw };
+    }
+
+    // ===== glyph specimens drawn on canvas (echo the SVG specimens) =====
+    function drawGlyph(key, cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-50, -50);
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      const path = (d, fill, stroke, lw) => {
+        const p = new Path2D(d);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(p); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 2; ctx.stroke(p); }
+      };
+      const ell = (x, y, rx, ry, rot, fill, stroke, lw) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(rot * Math.PI / 180);
+        ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+        ctx.restore();
+      };
+      const circ = (x, y, r, fill, stroke, lw) => {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+      };
+      switch (key) {
+        case 'leaf':
+          path('M50 88 C 30 70, 14 50, 20 24 C 46 26, 78 38, 80 70 C 70 84, 58 88, 50 88z', LEAF);
+          path('M50 86 C 46 64, 40 42, 26 28', null, 'rgba(251,246,233,0.55)', 2.4);
+          break;
+        case 'rose':
+          ell(50,28,12,20,0,ROSE); ell(71,43,12,20,72,ROSE); ell(63,68,12,20,144,ROSE);
+          ell(37,68,12,20,216,ROSE); ell(29,43,12,20,288,ROSE);
+          circ(50,50,9,LEAF_DEEP); circ(50,50,5,CREAM);
+          break;
+        case 'daisy':
+          ell(50,24,7,18,0,CREAM,'#E7DEC4',1.2); ell(68,32,7,18,45,CREAM,'#E7DEC4',1.2);
+          ell(76,50,18,7,0,CREAM,'#E7DEC4',1.2); ell(68,68,7,18,-45,CREAM,'#E7DEC4',1.2);
+          ell(50,76,7,18,0,CREAM,'#E7DEC4',1.2); ell(32,68,7,18,45,CREAM,'#E7DEC4',1.2);
+          ell(24,50,18,7,0,CREAM,'#E7DEC4',1.2); ell(32,32,7,18,-45,CREAM,'#E7DEC4',1.2);
+          circ(50,50,11,GOLD);
+          break;
+        case 'bee':
+          ell(34,40,16,11,-24,'rgba(251,246,233,0.85)'); ell(58,34,16,11,24,'rgba(251,246,233,0.85)');
+          ctx.save(); ctx.translate(50,56); ctx.rotate(20*Math.PI/180); ctx.translate(-50,-56);
+          ell(50,56,24,16,0,GOLD);
+          path('M40 44 v24 M50 41 v30 M60 44 v24', null, INK, 5);
+          circ(72,52,9,INK); ctx.restore();
+          break;
+        case 'heart':
+          path('M50 82 C 18 58, 14 34, 30 24 C 42 17, 50 28, 50 34 C 50 28, 58 17, 70 24 C 86 34, 82 58, 50 82z', ROSE);
+          path('M50 76 C 30 58, 26 38, 36 30', null, 'rgba(251,246,233,0.5)', 2.6);
+          break;
+        case 'wreath':
+          circ(50,50,30,null,LEAF,4);
+          ell(50,20,6,11,0,LEAF_DEEP); ell(76,36,6,11,60,LEAF_DEEP); ell(76,64,6,11,120,LEAF_DEEP);
+          ell(50,80,6,11,0,LEAF_DEEP); ell(24,64,6,11,60,LEAF_DEEP); ell(24,36,6,11,120,LEAF_DEEP);
+          circ(50,50,6,ROSE);
+          break;
+        case 'posy':
+          path('M50 84 C 44 64, 40 50, 34 40 M50 84 C 50 62, 50 48, 50 36 M50 84 C 56 64, 60 50, 66 40', null, LEAF_DEEP, 3.4);
+          circ(32,36,11,ROSE); circ(32,36,5,CREAM);
+          circ(66,36,11,CREAM,'#E7DEC4',1.4); circ(66,36,4.5,GOLD);
+          circ(50,28,12,LEAF); circ(50,28,5,CREAM);
+          break;
+        case 'seed':
+          ctx.strokeStyle = 'rgba(251,246,233,0.85)'; ctx.lineWidth = 2;
+          path('M50 44 L50 18 M50 44 L34 22 M50 44 L66 22 M50 44 L22 34 M50 44 L78 34 M50 44 L28 52 M50 44 L72 52', null, 'rgba(251,246,233,0.85)', 2);
+          circ(50,40,9,null,'rgba(251,246,233,0.4)',1.6);
+          path('M50 46 L50 84', null, '#B7A98C', 3);
+          ell(50,48,3.4,6,0,'#B7A98C');
+          break;
+        case 'star':
+          path('M50 14 L59 40 L86 40 L64 57 L72 84 L50 67 L28 84 L36 57 L14 40 L41 40 Z', GOLD, '#C9952C', 1.4);
+          circ(50,52,6,CREAM);
+          break;
+        case 'note':
+          (function(){ const p=new Path2D(); p.rect(26,20,48,60); ctx.fillStyle=CREAM; ctx.fill(p); ctx.strokeStyle='#E7DEC4'; ctx.lineWidth=1.6; ctx.stroke(p); })();
+          path('M34 36 H66 M34 46 H66 M34 56 H58', null, '#C9BFA4', 2.2);
+          path('M50 78 q-7 -4 -10 -10 M50 78 q7 -4 10 -10', null, LEAF, 2.6);
+          circ(50,70,3.4,ROSE);
+          break;
+        case 'sun':
+          path('M50 12 V24 M50 76 V88 M12 50 H24 M76 50 H88 M23 23 L31 31 M69 69 L77 77 M77 23 L69 31 M31 69 L23 77', null, GOLD, 4);
+          circ(50,50,18,GOLD); circ(50,50,11,'rgba(251,246,233,0.5)');
+          break;
+        default:
+          circ(50,50,18,LEAF);
+      }
+      ctx.restore();
+    }
+
+    // ===== per-event entrance transform (mirrors the CSS @keyframes) =====
+    // returns {tx,ty,sc,rot,op} for an entrance progress p in 0..1
+    function entrance(motion, p) {
+      const e = easeOut(p);
+      const o = (lo, hi, x) => lo + (hi - lo) * x;
+      let s = { tx:0, ty:0, sc:1, rot:0, op:1 };
+      const fadeIn = Math.min(1, p / 0.4);
+      switch (motion) {
+        case 'grow':
+          s.ty = o(60, 0, e); s.sc = o(0.7, 1, e); s.rot = o(-3, 0, e); s.op = fadeIn; break;
+        case 'bloom':
+          s.sc = o(0.2, 1, e); s.rot = o(-8, 0, e); s.op = Math.min(1, p / 0.3); break;
+        case 'pot': {
+          // drop + settle bounce
+          const b = Math.sin(p * Math.PI) * (1 - p) * 14;
+          s.ty = o(-90, 0, e) + b; s.op = Math.min(1, p / 0.3); break;
+        }
+        case 'flutter':
+          s.tx = o(160, 0, e); s.ty = Math.sin(p * Math.PI) * -10 + o(-40, 0, e) * 0.0;
+          s.ty = o(-40, 0, e) - Math.sin(p * Math.PI) * 8; s.rot = o(10, 0, e); s.op = fadeIn; break;
+        case 'gift':
+          s.ty = o(70, 0, e) - Math.sin(p * Math.PI) * 8; s.sc = o(0.86, 1, e); s.op = fadeIn; break;
+        case 'sweep':
+          s.tx = o(-520, 0, e); s.rot = o(-2, 0, e); s.op = fadeIn; break;
+        case 'gust':
+          s.tx = o(-260, 0, e); s.ty = o(120, 0, e) - Math.sin(p * Math.PI) * 14;
+          s.rot = o(-12, 0, e); s.sc = o(0.82, 1, e); s.op = fadeIn; break;
+        case 'pop':
+          s.sc = o(0.5, 1, e); s.ty = o(24, 0, e) - Math.sin(p * Math.PI) * 6; s.op = Math.min(1, p / 0.3); break;
+        case 'carry':
+          s.tx = o(120, 0, e); s.ty = o(-26, 0, e); s.rot = o(6, 0, e); s.sc = o(0.96, 1, e); s.op = fadeIn; break;
+        case 'twinkle':
+          s.sc = o(0.3, 1, e); s.rot = o(-20, 0, e) + Math.sin(p * Math.PI) * 6; s.op = Math.min(1, p / 0.3); break;
+        case 'unfold':
+          // approximate the 3D rotateX flatten with a vertical squash + rise
+          s.ty = o(-40, 0, e); s.sc = 1; s.scaleY = o(0.18, 1, e); s.op = fadeIn; break;
+        case 'nestle':
+          s.ty = o(46, 0, e) - Math.sin(p * Math.PI) * 6; s.rot = o(-4, 0, e) + Math.sin(p * Math.PI) * 3; s.op = fadeIn; break;
+        default:
+          s.ty = o(56, 0, e); s.sc = o(0.84, 1, e); s.op = fadeIn;
+      }
+      return s;
+    }
+
+    // ===== draw the whole label at a given transform =====
+    function drawLabel(cfg, name, amountStr, noname, st, glyphBreath) {
+      const showAmount = !!(cfg.amount && amountStr);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, st.op);
+      // transform-origin ~ bottom-left of card
+      const ox = CARD_X0, oy = CARD_Y + CARD_H;
+      ctx.translate(ox + st.tx, oy + st.ty);
+      ctx.rotate((st.rot || 0) * Math.PI / 180);
+      ctx.scale(st.sc, (st.sc) * (st.scaleY != null ? st.scaleY : 1));
+      ctx.translate(-ox, -oy);
+
+      const x = CARD_X0, y = CARD_Y;
+
+      // paper body (cream, deckled, soft shadow)
+      ctx.shadowColor = 'rgba(90,74,58,0.30)'; ctx.shadowBlur = 46; ctx.shadowOffsetY = 18;
+      papPath(x, y, CARD_W, CARD_H);
+      const body = ctx.createLinearGradient(x, y, x, y + CARD_H);
+      body.addColorStop(0, CREAM); body.addColorStop(1, PAPER_EDGE);
+      ctx.fillStyle = body; ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+      // inner ruled herbarium frame
+      ctx.strokeStyle = 'rgba(125,164,83,0.32)'; ctx.lineWidth = 1;
+      rr(x + 13, y + 13, CARD_W - 26, CARD_H - 26, 6); ctx.stroke();
+
+      // left stem/twine accent
+      const stem = ctx.createLinearGradient(0, y + 24, 0, y + CARD_H - 24);
+      stem.addColorStop(0, LEAF); stem.addColorStop(1, LEAF_DEEP);
+      ctx.fillStyle = stem; ctx.shadowColor = 'rgba(125,164,83,0.45)'; ctx.shadowBlur = 8;
+      ctx.fillRect(x + 13, y + 24, 3, CARD_H - 48); ctx.shadowBlur = 0;
+
+      // glyph plate (a round herbarium specimen disc)
+      const pcx = x + 40 + 66, pcy = y + CARD_H / 2, pr = 66;
+      const disc = ctx.createRadialGradient(pcx, pcy - 16, 6, pcx, pcy, pr);
+      disc.addColorStop(0, CREAM); disc.addColorStop(0.6, '#F5EEDE'); disc.addColorStop(1, PAPER_EDGE);
+      circleFill(pcx, pcy, pr, disc);
+      ctx.strokeStyle = 'rgba(125,164,83,0.45)'; ctx.lineWidth = 1.5;
+      circ2(pcx, pcy, pr); ctx.stroke();
+      // dashed pressed-specimen ring
+      ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(226,160,180,0.55)'; ctx.lineWidth = 1.4;
+      circ2(pcx, pcy, pr - 10); ctx.stroke(); ctx.restore();
+      // the specimen glyph
+      drawGlyph(cfg.glyph, pcx, pcy, (84 / 100) * glyphBreath);
+
+      // text column
+      const mx = x + 40 + 132 + 30;
+      ctx.textAlign = 'left';
+      const maxW = CARD_W - (mx - x) - 40;
+
+      // kicker (leaf-green humanist caps) with a little leaf bud bullet
+      ctx.save();
+      ctx.translate(mx + 5, y + 44); ctx.rotate(-20 * Math.PI / 180);
+      ctx.fillStyle = LEAF; ctx.beginPath();
+      // tiny leaf-bud (rounded-corner sliver)
+      ctx.moveTo(-5, 5); ctx.quadraticCurveTo(5, 5, 5, -5); ctx.quadraticCurveTo(5, 5, -5, 5);
+      ctx.arc(0, 0, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (!noname) {
+        ctx.fillStyle = LEAF_DEEP; ctx.font = '600 18px "Optima","Gill Sans","Segoe UI",Candara,system-ui,sans-serif';
+        ctx.fillText(spacedCaps('THE GARDEN · ' + cfg.kicker), mx + 22, y + 50);
+      }
+
+      // big NAME (or event headline in noname) — old-style serif in warm ink
+      const bigLine = noname ? cfg.kicker : (name || 'NewFriend');
+      ctx.fillStyle = INK; ctx.shadowColor = 'rgba(90,74,58,0.12)'; ctx.shadowBlur = 12;
+      ctx.font = '600 56px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      const nameY = noname ? y + 96 : y + 100;
+      ctx.fillText(clampText(bigLine.toUpperCase(), maxW, '600 56px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif'), mx, nameY);
+      ctx.shadowBlur = 0;
+
+      // amount (leaf-green) OR sub
+      let subY = noname ? y + 138 : y + 142;
+      if (showAmount) {
+        ctx.fillStyle = LEAF_DEEP; ctx.shadowColor = 'rgba(125,164,83,0.22)'; ctx.shadowBlur = 10;
+        ctx.font = '600 30px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+        ctx.fillText(amountStr, mx, nameY + 36); ctx.shadowBlur = 0;
+        subY = nameY + 70;
+      }
+      // sub (italic serif, soft ink)
+      ctx.fillStyle = INK_SOFT; ctx.font = 'italic 22px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      ctx.fillText(cfg.sub, mx, subY);
+
+      // corner herbarium tag (top-right)
+      ctx.fillStyle = LEAF_DEEP; ctx.globalAlpha = Math.max(0, st.op) * 0.7;
+      ctx.font = '13px "Optima","Gill Sans","Segoe UI",Candara,system-ui,sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(spacedCaps('HERBARIUM'), x + CARD_W - 30, y + 30);
+      ctx.globalAlpha = Math.max(0, st.op);
+      // tag rule
+      ctx.strokeStyle = 'rgba(125,164,83,0.6)'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(x + CARD_W - 30 - 84, y + 40); ctx.lineTo(x + CARD_W - 30, y + 40); ctx.stroke();
+
+      ctx.restore();
+    }
+    function circleFill(cx, cy, r, fill) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); }
+    function circ2(cx, cy, r) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); }
+
+    // letter-space a string a touch so it reads as humanist caps on canvas
+    function spacedCaps(str) { return String(str).split('').join(' '); }
+    // clamp a string to a pixel width with a given font
+    function clampText(str, maxW, font) {
+      ctx.save(); ctx.font = font;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): entrance 900 | hold to 4900 | wilt-out 600  => ~5500ms
+    const T_IN = 900, T_HOLD_END = 4900, T_OUT = 600;
+    const DUR = T_HOLD_END + T_OUT;
+
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const b = makeBurst();
+      let s1 = false, s2 = false;
+
+      return function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // entrance / hold / exit transform
+        let st;
+        if (ms < T_IN) {
+          st = entrance(cfg.motion, Math.min(1, ms / T_IN));
+        } else if (ms < T_HOLD_END) {
+          // settled: a gentle breeze drift (echoes .settled .paper)
+          const t = (ms - T_IN) / 1000;
+          st = { tx: 0, ty: Math.sin(t * 0.97) * -5, sc: 1, rot: Math.sin(t * 0.97) * 0.5, op: 1 };
+        } else {
+          const p = Math.min(1, (ms - T_HOLD_END) / T_OUT);
+          st = { tx: 0, ty: p * 34, sc: 1 - p * 0.06, rot: p * -2, op: 1 - p };
+        }
+        const glyphBreath = 1 + Math.sin(ms / 1000 * (2 * Math.PI / 4.6)) * 0.06;
+
+        // bursts (staggered like the live JS)
+        if (!s1 && ms >= 240) { b.spawn(cfg.motes, cfg.burst); s1 = true; }
+        if (!s2 && cfg.motes >= 30 && ms >= 700) { b.spawn(Math.round(cfg.motes * 0.55), cfg.burst); s2 = true; }
+        b.step();
+        b.draw();
+
+        if (st.op > 0.01) drawLabel(cfg, name, amountStr, noname, st, glyphBreath);
+      };
+    }
+
+    // ===== preview a static frame so you see the look before recording =====
+    function preview() {
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const noname = document.getElementById('noname').checked;
+      ctx.clearRect(0, 0, W, H);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, noname);
+      r(2000); // mid-hold frame
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const noname = document.getElementById('noname').checked;
+      const render = clipState(type, document.getElementById('nm').value, amountStr, noname);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

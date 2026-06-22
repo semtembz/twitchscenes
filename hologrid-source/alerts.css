@@ -1,0 +1,305 @@
+/* ============================================================
+   HOLOGRID — alert system ("Projection Deck Hails")
+   A translucent holographic HUD HAIL that materializes on the deck,
+   holds, then de-resolves. TRANSPARENT background so it composites
+   over gameplay / the scene. Cohesive with shared.css tokens:
+   chamfered (cut top-right + bottom-left) translucent indigo panel,
+   bright corner BRACKETS, a glowing multi-stop top hairline, a
+   holo glyph node, spaced mono caps kicker w/ status LED, a wide
+   geometric-sans NAME line w/ RGB-split, an optional emphasized
+   AMOUNT readout, a mono sub + a segmented charge underline + a
+   corner SYS tag. Each of the 12 events gets a DISTINCT entrance.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --space:#070B16; --indigo:#1B2B6B; --cyan:#36C2FF; --violet:#B66BFF;
+  --mint:#5BFFD0; --text:#EAF2FF;
+  /* derived */
+  --hair:rgba(54,194,255,.42);
+  --hair-soft:rgba(54,194,255,.16);
+  --panel:rgba(27,43,107,.30);
+  --panel-edge:rgba(54,194,255,.34);
+  --bracket:rgba(234,242,255,.95);
+  --dim:rgba(234,242,255,.55);
+  --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+  --display:"Bahnschrift","Eurostile","DIN Condensed","Arial Narrow",system-ui,sans-serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--mono);}
+
+/* one canvas for the holo particle burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ============================================================
+   THE ALERT HAIL — anchored lower-left on the deck.
+   .alert holds the resting transform (translate(0,0) scale(1)).
+   Per-event entrance/exit is applied to an inner .holo wrapper so
+   the burst origin / layout never shifts. Visuals are pure
+   transform/opacity (+filter) so OBS stays smooth.
+   ============================================================ */
+.alert{position:absolute;left:96px;bottom:140px;width:812px;height:226px;
+  pointer-events:none;}
+
+/* the chamfered translucent holo card */
+.holo{position:relative;width:100%;height:100%;padding:30px 40px;
+  display:grid;grid-template-columns:150px 1fr;gap:34px;align-items:center;
+  background:
+    linear-gradient(180deg, rgba(54,194,255,.07), rgba(27,43,107,.20)),
+    var(--panel);
+  border:1px solid var(--panel-edge);
+  box-shadow:
+    0 40px 120px rgba(2,4,10,.55),
+    inset 0 1px 0 rgba(234,242,255,.10),
+    inset 0 0 90px rgba(27,43,107,.34);
+  /* chamfered sci-fi corners — cut top-right + bottom-left (echoes shared.css panel) */
+  clip-path:polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 26px 100%, 0 calc(100% - 26px));
+  opacity:0;transform-origin:left center;will-change:transform,opacity,filter;}
+
+/* glowing multi-stop top hairline + faint inner holo wash */
+.holo::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--cyan) 26%,var(--mint) 50%,var(--violet) 74%,transparent);
+  box-shadow:0 0 18px rgba(54,194,255,.6);opacity:.9;}
+.holo::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.6;clip-path:inherit;
+  background:
+    radial-gradient(74% 120% at 92% -14%, rgba(182,107,255,.12), transparent 56%),
+    radial-gradient(60% 100% at 4% 114%, rgba(91,255,208,.10), transparent 60%);}
+
+/* faint holo scanlines inside the card (CRT projection feel) */
+.holo .lines{position:absolute;inset:0;pointer-events:none;opacity:.4;mix-blend-mode:screen;clip-path:inherit;
+  background:repeating-linear-gradient(0deg, rgba(54,194,255,.06) 0 1px, transparent 1px 4px);}
+
+/* bright corner BRACKETS framing the card (HUD targeting marks) */
+.holo .br{position:absolute;width:30px;height:30px;pointer-events:none;}
+.holo .br::before,.holo .br::after{content:"";position:absolute;background:var(--bracket);
+  box-shadow:0 0 9px rgba(54,194,255,.7);}
+.holo .br::before{width:30px;height:2px;} .holo .br::after{width:2px;height:30px;}
+.holo .br--tl{left:6px;top:6px;}        .holo .br--tl::before{left:0;top:0;}     .holo .br--tl::after{left:0;top:0;}
+.holo .br--tr{right:6px;top:6px;}       .holo .br--tr::before{right:0;top:0;}    .holo .br--tr::after{right:0;top:0;}
+.holo .br--bl{left:6px;bottom:6px;}     .holo .br--bl::before{left:0;bottom:0;}  .holo .br--bl::after{left:0;bottom:0;}
+.holo .br--br{right:6px;bottom:6px;}    .holo .br--br::before{right:0;bottom:0;} .holo .br--br::after{right:0;bottom:0;}
+
+/* a thin cyan energy seam down the left edge */
+.holo .seam{position:absolute;left:7px;top:18px;bottom:18px;width:3px;
+  background:linear-gradient(180deg,var(--cyan),var(--mint) 55%,var(--violet));
+  box-shadow:0 0 14px rgba(54,194,255,.75);opacity:.9;}
+
+/* SYS tag top-right (mono caps readout) + small rule */
+.holo .sysid{position:absolute;top:16px;right:34px;font-family:var(--mono);
+  font-size:13px;letter-spacing:.34em;color:var(--cyan);opacity:.7;text-indent:.34em;
+  text-shadow:0 0 10px rgba(54,194,255,.4);white-space:nowrap;}
+.holo .sysrule{position:absolute;top:38px;right:34px;width:96px;height:1px;opacity:.7;
+  background:linear-gradient(90deg,transparent,var(--cyan) 40%,var(--mint) 80%);}
+
+/* ---- the holo GLYPH NODE (chamfered node tile, projects the icon) ---- */
+.node{width:150px;height:150px;position:relative;overflow:hidden;
+  background:
+    radial-gradient(120% 120% at 50% 20%, rgba(54,194,255,.16), transparent 60%),
+    linear-gradient(150deg, rgba(27,43,107,.55) 0%, rgba(7,11,22,.6) 100%);
+  border:1px solid var(--panel-edge);
+  /* matched chamfer (cut tl + br) */
+  clip-path:polygon(0 18px, 18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  box-shadow:inset 0 0 0 1px rgba(234,242,255,.08), inset 0 0 26px rgba(54,194,255,.14), 0 8px 24px rgba(2,4,10,.5);}
+/* concentric ring + crosshair etch on the node */
+.node .ring{position:absolute;inset:0;pointer-events:none;opacity:.45;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 47px, rgba(54,194,255,.3) 47px 48px, transparent 49px),
+    radial-gradient(circle at 50% 50%, transparent 60px, rgba(91,255,208,.2) 60px 61px, transparent 62px);}
+.node .ring::before,.node .ring::after{content:"";position:absolute;background:rgba(54,194,255,.22);}
+.node .ring::before{left:8px;right:8px;top:50%;height:1px;}
+.node .ring::after{top:8px;bottom:8px;left:50%;width:1px;}
+.node .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:74px;line-height:1;color:var(--text);
+  text-shadow:0 0 24px rgba(54,194,255,.7), 0 0 6px rgba(91,255,208,.5);}
+/* scanlines glaze over the node */
+.node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;clip-path:inherit;
+  background:repeating-linear-gradient(0deg, rgba(2,4,10,.16) 0 1px, transparent 1px 3px);}
+
+/* meta column */
+.meta{min-width:0;position:relative;}
+
+/* kicker — spaced mono caps w/ status LED */
+.kick{font-family:var(--mono);letter-spacing:.34em;font-size:18px;font-weight:600;
+  text-transform:uppercase;color:var(--cyan);text-indent:.34em;
+  display:flex;align-items:center;gap:13px;margin:0 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 14px rgba(54,194,255,.35);}
+.kick .led{width:9px;height:9px;border-radius:50%;background:var(--mint);flex:none;text-indent:0;
+  box-shadow:0 0 12px var(--mint);animation:led-blink 1.6s steps(1,end) infinite;}
+@keyframes led-blink{0%,70%{opacity:1}71%,100%{opacity:.25}}
+
+/* big NAME — wide geometric sans, RGB-split, clamped to one line */
+.name{font-family:var(--display);font-size:62px;line-height:.96;font-weight:700;
+  letter-spacing:.02em;margin:0 0 6px;text-transform:uppercase;color:var(--text);
+  position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 2px 0 rgba(2,4,10,.4), 0 0 46px rgba(54,194,255,.28);}
+/* chromatic RGB-split ghosts (driven by data-t set in JS) */
+.name::before,.name::after{content:attr(data-t);position:absolute;left:0;top:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+  z-index:-1;opacity:.5;pointer-events:none;}
+.name::before{color:var(--cyan);transform:translate(-3px,0);}
+.name::after{color:var(--violet);transform:translate(3px,0);}
+
+/* amount readout (cyan->mint->violet gradient) — hidden unless .has-amount */
+.amount{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:.04em;
+  margin:0 0 4px;display:none;
+  background:linear-gradient(100deg,var(--cyan) 0%,var(--mint) 50%,var(--violet) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 14px rgba(91,255,208,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.amount b{font-weight:700;-webkit-text-fill-color:var(--text);color:var(--text);}
+/* amount "pulse" emphasis (donation/cheer/superchat) */
+.alert.amt .amount{animation:amt-pulse 1.1s var(--ease) infinite alternate;}
+@keyframes amt-pulse{from{filter:drop-shadow(0 0 10px rgba(91,255,208,.4))}
+  to{filter:drop-shadow(0 0 22px rgba(91,255,208,.85))}}
+
+/* sub — quiet mono telemetry caption */
+.sub{font-family:var(--mono);font-size:18px;letter-spacing:.12em;text-transform:lowercase;
+  color:var(--dim);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* segmented charge underline beneath the meta (echoes the .bar motif) */
+.chargeline{position:absolute;left:0;right:34px;bottom:-4px;height:3px;
+  background:repeating-linear-gradient(90deg, rgba(54,194,255,.22) 0 16px, transparent 16px 18px);}
+.chargeline::before{content:"";position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg,var(--cyan),var(--mint) 60%,var(--violet));
+  box-shadow:0 0 12px rgba(54,194,255,.7);
+  -webkit-mask:repeating-linear-gradient(90deg,#000 0 16px,transparent 16px 18px);
+          mask:repeating-linear-gradient(90deg,#000 0 16px,transparent 16px 18px);
+  animation:charge-fill 4.6s var(--ease) forwards;}
+@keyframes charge-fill{from{width:0}to{width:100%}}
+
+/* ============================================================
+   PER-EVENT ENTRANCE CHOREOGRAPHY — 12 DISTINCT motions.
+   JS sets data-anim on .alert; .holo plays in then out (.hide).
+   Each entrance ends at the resting state opacity:1; transform:none.
+   Render mode freezes these (JS drives transform deterministically).
+   ============================================================ */
+
+/* shared exit: de-resolve (collapse + flicker out) */
+.alert.hide .holo{animation:holo-out .5s var(--ease) forwards!important;}
+@keyframes holo-out{
+  0%{opacity:1;transform:none;filter:none;}
+  55%{opacity:.6;transform:translateY(-4px) scaleY(.9);}
+  100%{opacity:0;transform:translateY(-8px) scaleX(1.04) scaleY(.02);filter:brightness(1.6);}
+}
+
+/* 1. FOLLOWER — "boot up": vertical scanline expand (scaleY 0 -> 1) */
+.alert[data-anim="follower"].show .holo{animation:a-boot .56s var(--ease) both;}
+@keyframes a-boot{
+  0%{opacity:0;transform:scaleY(.02);filter:brightness(2);}
+  40%{opacity:1;transform:scaleY(1.06);}
+  70%{transform:scaleY(.97);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 2. SUBSCRIBER — "phase-in": fade up from a defocused blur + lift */
+.alert[data-anim="subscriber"].show .holo{animation:a-phase .62s var(--ease) both;}
+@keyframes a-phase{
+  0%{opacity:0;transform:translateY(26px) scale(.94);filter:blur(8px) brightness(1.4);}
+  60%{opacity:1;filter:blur(0) brightness(1);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 3. MEMBER — "stamp": punch in from large w/ a settle */
+.alert[data-anim="member"].show .holo{animation:a-stamp .54s var(--ease) both;}
+@keyframes a-stamp{
+  0%{opacity:0;transform:scale(1.4);filter:brightness(1.8);}
+  55%{opacity:1;transform:scale(.96);}
+  78%{transform:scale(1.02);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 4. CHEER — "data rain": drop from above + tiny overshoot bounce */
+.alert[data-anim="cheer"].show .holo{animation:a-rain .6s var(--ease) both;}
+@keyframes a-rain{
+  0%{opacity:0;transform:translateY(-120px);filter:brightness(1.5);}
+  55%{opacity:1;transform:translateY(14px);}
+  78%{transform:translateY(-6px);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 5. DONATION — "materialize": glitch-flicker resolve in place (amount focus) */
+.alert[data-anim="donation"].show .holo{animation:a-glitch .66s steps(1,end) both;}
+@keyframes a-glitch{
+  0%{opacity:0;transform:translateX(-10px);} 12%{opacity:.6;transform:translateX(8px);}
+  24%{opacity:.2;transform:translateX(-6px);} 36%{opacity:.85;transform:translateX(4px);}
+  48%{opacity:.4;transform:translateX(-3px);} 62%{opacity:1;transform:translateX(2px);}
+  78%{opacity:.9;transform:translateX(-1px);} 100%{opacity:1;transform:none;}
+}
+
+/* 6. HOST — "wipe in": slide from off-screen left w/ overshoot */
+.alert[data-anim="host"].show .holo{animation:a-wipe .6s var(--ease) both;}
+@keyframes a-wipe{
+  0%{opacity:0;transform:translateX(-560px);}
+  68%{opacity:1;transform:translateX(20px);}
+  100%{opacity:1;transform:none;}
+}
+
+/* 7. RAID — "inbound": sweep from the right + slight overshoot (biggest energy) */
+.alert[data-anim="raid"].show .holo{animation:a-inbound .62s var(--ease) both;}
+@keyframes a-inbound{
+  0%{opacity:0;transform:translateX(680px) skewX(-8deg);filter:brightness(1.6);}
+  60%{opacity:1;transform:translateX(-24px) skewX(2deg);}
+  82%{transform:translateX(8px) skewX(0);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 8. LIKE — "ping": quick soft pop (scale + fade), small + friendly */
+.alert[data-anim="like"].show .holo{animation:a-ping .46s var(--ease) both;}
+@keyframes a-ping{
+  0%{opacity:0;transform:scale(.78);}
+  60%{opacity:1;transform:scale(1.04);}
+  100%{opacity:1;transform:none;}
+}
+
+/* 9. SHARE — "beam across": diagonal entrance from lower-left */
+.alert[data-anim="share"].show .holo{animation:a-beam .58s var(--ease) both;}
+@keyframes a-beam{
+  0%{opacity:0;transform:translate(-90px,60px) scale(.92);}
+  65%{opacity:1;transform:translate(8px,-4px) scale(1.01);}
+  100%{opacity:1;transform:none;}
+}
+
+/* 10. STAR — "spin-in": rotate + scale up into place */
+.alert[data-anim="star"].show .holo{transform-origin:center;animation:a-spin .6s var(--ease) both;}
+@keyframes a-spin{
+  0%{opacity:0;transform:rotate(-7deg) scale(.7);filter:brightness(1.6);}
+  62%{opacity:1;transform:rotate(2deg) scale(1.03);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 11. SUPERCHAT — "uplink": rise from below + brighten (amount focus) */
+.alert[data-anim="superchat"].show .holo{animation:a-uplink .62s var(--ease) both;}
+@keyframes a-uplink{
+  0%{opacity:0;transform:translateY(120px) scale(.97);filter:brightness(1.5);}
+  60%{opacity:1;transform:translateY(-10px);filter:brightness(1.1);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* 12. SUPPORTER — "unfold": horizontal scaleX expand (iris from the seam) */
+.alert[data-anim="supporter"].show .holo{transform-origin:left center;animation:a-unfold .58s var(--ease) both;}
+@keyframes a-unfold{
+  0%{opacity:0;transform:scaleX(.02);filter:brightness(1.8);}
+  45%{opacity:1;transform:scaleX(1.05);}
+  72%{transform:scaleX(.98);}
+  100%{opacity:1;transform:none;filter:none;}
+}
+
+/* ============================================================
+   RENDER MODE: freeze all CSS-driven motion. JS drives the .holo
+   transform/opacity + the charge fill deterministically.
+   ============================================================ */
+#stage.render .holo,
+#stage.render .alert.show .holo,
+#stage.render .alert.hide .holo{animation:none!important;}
+/* render: freeze the charge fill anim + drive its width from --cw (set in JS) */
+#stage.render .chargeline::before{animation:none!important;width:var(--cw,0)!important;}
+#stage.render .holo .led{animation:none!important;opacity:1;}
+#stage.render .alert.amt .amount{animation:none!important;}

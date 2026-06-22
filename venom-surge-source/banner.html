@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Venom Surge (PNG generator)</title>
+  <!--
+    VENOM SURGE · "Toxic Arena" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + a STREAMER
+    kicker tab; right = a venom tagline. The centre is decorative only — a faint
+    hex-mesh wash, a venom energy-core glow + an angular slashed plate behind the
+    clear-zone — so the player can sit over it without hiding anything important.
+
+    The look is bespoke to Venom Surge: a dark toxic gradient, carbon HEX-MESH,
+    acid HAZARD chevron rails along the top/bottom edges, diagonal CLAW-SLASH
+    seams on the signature -24deg axis, kinetic SURGE speed-lines and a frozen
+    forked electric ARC, with heavy black ITALIC sans titles skewed forward,
+    venom->acid->cyan gradient-filled, hard dark outline + drop glow.
+
+    Everything random is drawn from a SEEDED LCG, so the field is identical on
+    every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only;
+    it is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --toxic-black:#04110A; --toxic-black2:#020A06;
+      --venom:#00FF66; --cyan:#0AE0FF; --gunmetal:#101418; --acid:#C6FF00;
+      --text:#EAFFF2; --dim:#7FA890;
+      --display:"Arial Black","Arial Narrow Bold",Haettenschweiler,Impact,"Franklin Gothic Heavy",system-ui,sans-serif;
+      --tech:"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace;
+      --mono:Consolas,ui-monospace,"SFMono-Regular",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--tech);
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(0,255,102,0.10), transparent 60%),
+        radial-gradient(740px 480px at 100% 110%, rgba(198,255,0,0.06), transparent 60%),
+        linear-gradient(160deg,#06160D,#020A06);
+      color:var(--text);padding:32px;min-height:100vh;}
+    h1{font-family:var(--display);font-style:italic;font-weight:900;transform:skewX(-9deg);
+      font-size:30px;color:var(--text);letter-spacing:.5px;margin:0 0 10px 6px;
+      text-shadow:0 0 24px rgba(0,255,102,.35);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:860px;line-height:1.6;
+      font-family:var(--tech);font-size:16px;}
+    .kicker{font-family:var(--tech);font-weight:700;letter-spacing:.4em;text-indent:.4em;
+      font-size:13px;color:var(--acid);margin:0 0 14px;text-transform:uppercase;
+      text-shadow:0 0 14px rgba(198,255,0,.5);}
+    button{font-family:var(--tech);font-weight:700;font-size:14px;letter-spacing:3px;
+      text-transform:uppercase;padding:13px 26px;color:var(--toxic-black);transform:skewX(-9deg);
+      background:linear-gradient(180deg,var(--acid),var(--venom));border:0;border-bottom:3px solid var(--cyan);
+      cursor:pointer;box-shadow:0 0 30px rgba(0,255,102,.30);}
+    button:hover{filter:brightness(1.08);}
+    button>span{display:inline-block;transform:skewX(9deg);}
+    .preview{margin-top:22px;background:#04110A;padding:14px;border:1px solid rgba(0,255,102,.30);
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits so you
+       can confirm the L/R blocks stay clear. It is NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(10,224,255,0.5);
+      background:rgba(4,17,10,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(234,255,242,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:var(--mono);font-size:12px;letter-spacing:2px;}
+    code{font-family:var(--mono);color:var(--acid);background:#0a1a10;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">VENOM SURGE · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the toxic-arena style &mdash; seeded so the surge
+    lines, embers and arc are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl"><span>Download profile-banner.png</span></button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const TOXIC = '#04110A', TOXIC2 = '#020A06', GUNMETAL = '#101418';
+    const VENOM = '#00FF66', CYAN = '#0AE0FF', ACID = '#C6FF00';
+    const TEXT = '#EAFFF2', DIM = '#7FA890';
+    const SLASH = -24 * Math.PI / 180;   // the signature claw / surge axis
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft radial bloom ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- carbon HEX-MESH wash (the backdrop texture) ----
+    function hexMesh() {
+      ctx.save();
+      ctx.lineWidth = 1;
+      // two crossing diagonal hatch families + faint horizontals
+      const sp = 26;
+      ctx.strokeStyle = 'rgba(0,255,102,0.05)';
+      for (let i = -H; i < W + H; i += sp) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H * 0.58, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - H * 0.58, H); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(10,224,255,0.035)';
+      for (let y = 0; y < H; y += 45) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.restore();
+    }
+
+    // ---- acid HAZARD chevron rail along an edge ----
+    function hazardRail(y, h, flip) {
+      ctx.save();
+      const seg = 22;
+      const dir = flip ? -1 : 1;
+      for (let x = -seg; x < W + seg * 2; x += seg * 2) {
+        // fade the rail toward the L/R edges (mask the middle stays solid)
+        const t = x / W;
+        const edgeFade = Math.min(1, Math.min(t, 1 - t) / 0.12);
+        ctx.globalAlpha = 0.7 * Math.max(0, edgeFade);
+        ctx.fillStyle = ACID;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + seg, y);
+        ctx.lineTo(x + seg + dir * h, y + h);
+        ctx.lineTo(x + dir * h, y + h);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a single CLAW-SLASH tear on the -24deg axis ----
+    // cx,cy = centre of the tear; len = length; bright venom seam edged acid.
+    function clawSlash(cx, cy, len, scale) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(SLASH);
+      const half = len / 2;
+      // the glowing seam: a long thin gradient bar fading at both tips
+      const grad = ctx.createLinearGradient(-half, 0, half, 0);
+      grad.addColorStop(0.00, 'rgba(0,255,102,0)');
+      grad.addColorStop(0.18, 'rgba(0,255,102,0.18)');
+      grad.addColorStop(0.46, 'rgba(0,255,102,0.95)');
+      grad.addColorStop(0.50, 'rgba(198,255,0,1)');
+      grad.addColorStop(0.54, 'rgba(0,255,102,0.95)');
+      grad.addColorStop(0.82, 'rgba(0,255,102,0.18)');
+      grad.addColorStop(1.00, 'rgba(0,255,102,0)');
+      const th = 30 * scale;
+      ctx.shadowColor = 'rgba(0,255,102,0.55)'; ctx.shadowBlur = 26;
+      ctx.fillStyle = grad;
+      // diamond-tapered tear silhouette
+      ctx.beginPath();
+      ctx.moveTo(-half, 0);
+      ctx.lineTo(0, -th / 2);
+      ctx.lineTo(half, 0);
+      ctx.lineTo(0, th / 2);
+      ctx.closePath(); ctx.fill();
+      // hard bright core line
+      ctx.shadowColor = 'rgba(198,255,0,0.9)'; ctx.shadowBlur = 12;
+      const core = ctx.createLinearGradient(-half, 0, half, 0);
+      core.addColorStop(0, 'rgba(234,255,242,0)');
+      core.addColorStop(0.5, 'rgba(234,255,242,1)');
+      core.addColorStop(1, 'rgba(234,255,242,0)');
+      ctx.strokeStyle = core; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-half * 0.86, 0); ctx.lineTo(half * 0.86, 0); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- kinetic SURGE speed-lines streaking along the slash axis ----
+    function surgeLines(rnd) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 26; i++) {
+        const x = R(rnd, -100, W + 100), y = R(rnd, -40, H + 40);
+        const len = R(rnd, 60, 260), a = R(rnd, 0.05, 0.22);
+        const col = rnd() < 0.5 ? VENOM : (rnd() < 0.6 ? ACID : CYAN);
+        ctx.save();
+        ctx.translate(x, y); ctx.rotate(SLASH);
+        const g = ctx.createLinearGradient(-len / 2, 0, len / 2, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(0.5, col);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = a; ctx.strokeStyle = g; ctx.lineWidth = R(rnd, 1, 2.4);
+        ctx.beginPath(); ctx.moveTo(-len / 2, 0); ctx.lineTo(len / 2, 0); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a frozen forked electric ARC (seeded jagged polyline) ----
+    function electricArc(rnd, x0, y0, x1, y1, branch) {
+      const segs = 9;
+      const pts = [];
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const jx = (i === 0 || i === segs) ? 0 : R(rnd, -16, 16);
+        const jy = (i === 0 || i === segs) ? 0 : R(rnd, -16, 16);
+        pts.push([x0 + (x1 - x0) * t + jx, y0 + (y1 - y0) * t + jy]);
+      }
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(10,224,255,0.9)'; ctx.shadowBlur = 14;
+      ctx.strokeStyle = 'rgba(234,255,242,0.92)'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.stroke();
+      // a couple of forks
+      if (branch) {
+        for (let k = 0; k < 2; k++) {
+          const p = pts[3 + k * 3];
+          ctx.beginPath(); ctx.moveTo(p[0], p[1]);
+          ctx.lineTo(p[0] + R(rnd, -40, 40), p[1] + R(rnd, 14, 44));
+          ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(10,224,255,0.8)';
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    // ---- an angular SLASHED plate (gunmetal slab silhouette) ----
+    function slashedPlate(x, y, w, h) {
+      const cut = 26;
+      ctx.beginPath();
+      ctx.moveTo(x, y + cut);
+      ctx.lineTo(x + cut, y);
+      ctx.lineTo(x + w - cut * 2, y);
+      ctx.lineTo(x + w, y + cut * 1.4);
+      ctx.lineTo(x + w, y + h - cut);
+      ctx.lineTo(x + w - cut, y + h);
+      ctx.lineTo(x + cut * 2, y + h);
+      ctx.lineTo(x, y + h - cut * 1.4);
+      ctx.closePath();
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    // ---- draw a heavy ITALIC skewed title with venom->acid->cyan gradient ----
+    // The skew is baked via a shear transform so it matches the live screens.
+    function skewTitle(text, cx, cy, size) {
+      ctx.save();
+      ctx.font = '900 italic ' + size + 'px ' + getDisplay();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.translate(cx, cy);
+      ctx.transform(1, 0, Math.tan(-9 * Math.PI / 180), 1, 0, 0); // skewX(-9deg)
+      // hard dark outline (offset stamps)
+      ctx.fillStyle = TOXIC2;
+      const o = Math.max(2, size * 0.022);
+      [[o,0],[-o,0],[0,o],[0,-o],[o,o],[-o,o],[o,-o],[-o,-o]].forEach(([dx,dy]) =>
+        ctx.fillText(text, dx, dy));
+      // gradient fill
+      const g = ctx.createLinearGradient(-size * 1.4, 0, size * 1.4, 0);
+      g.addColorStop(0, VENOM); g.addColorStop(0.6, ACID); g.addColorStop(1.0, CYAN);
+      ctx.fillStyle = g;
+      ctx.shadowColor = 'rgba(198,255,0,0.55)'; ctx.shadowBlur = 26;
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+    function getDisplay() {
+      return '"Arial Black","Arial Narrow Bold",Haettenschweiler,Impact,"Franklin Gothic Heavy",system-ui,sans-serif';
+    }
+    function getTech() {
+      return '"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace';
+    }
+
+    // ---- a skewed hazard KICKER tab (acid text, venom/cyan side bars) ----
+    function kickerTab(label, cx, y) {
+      ctx.save();
+      ctx.font = '700 22px ' + getTech();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = spacedWidth(label, 6);
+      const padX = 22, h = 40, w = tw + padX * 2;
+      ctx.translate(cx, y);
+      ctx.transform(1, 0, Math.tan(-10 * Math.PI / 180), 1, 0, 0);
+      // tab body
+      ctx.fillStyle = 'rgba(0,255,102,0.08)';
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      // venom left bar, cyan right bar
+      ctx.fillStyle = VENOM; ctx.fillRect(-w / 2, -h / 2, 4, h);
+      ctx.fillStyle = CYAN;  ctx.fillRect(w / 2 - 4, -h / 2, 4, h);
+      // label
+      ctx.fillStyle = ACID;
+      ctx.shadowColor = 'rgba(198,255,0,0.5)'; ctx.shadowBlur = 12;
+      drawSpacedCentered(label, 0, 1, 6);
+      ctx.restore();
+    }
+
+    // ---- a centred branding block: kicker tab, skew title, rule, sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      kickerTab(kickerLabel, cx, 128);
+
+      skewTitle(titleText, cx, 232, titleSize);
+
+      // slashed double rule beneath the title
+      const ruW = Math.min(360, titleSize * 4.2);
+      ctx.save();
+      ctx.translate(cx, 300);
+      ctx.transform(1, 0, Math.tan(-32 * Math.PI / 180), 1, 0, 0);
+      const ug = ctx.createLinearGradient(-ruW / 2, 0, ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(0,255,102,0)');
+      ug.addColorStop(0.5, ACID);
+      ug.addColorStop(1, 'rgba(10,224,255,0)');
+      ctx.fillStyle = ug; ctx.shadowColor = 'rgba(0,255,102,0.55)'; ctx.shadowBlur = 12;
+      ctx.fillRect(-ruW / 2, -2.5, ruW * 0.72, 5);
+      ctx.fillRect(ruW / 2 - ruW * 0.18, -2.5, ruW * 0.18, 5);
+      ctx.restore();
+      // chevrons
+      ctx.save();
+      ctx.font = '900 20px ' + getDisplay();
+      ctx.fillStyle = ACID; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(198,255,0,0.6)'; ctx.shadowBlur = 10;
+      ctx.fillText('▸▸', cx, 300);
+      ctx.restore();
+
+      // subtitle — techy bold caps
+      ctx.save();
+      ctx.font = '600 22px ' + getTech();
+      ctx.fillStyle = DIM; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      drawSpacedCentered(subText.toUpperCase(), cx, 344, 2.5);
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x00FF66); // fixed seed (venom hex) -> identical field every render
+
+      // ---- BACKGROUND: dark toxic gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, '#06160D'); grad.addColorStop(0.5, TOXIC); grad.addColorStop(1, TOXIC2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // venom energy-core glow centre + flanking color glows
+      bloom(W / 2, H / 2 + 10, 760, 'rgba(0,255,102,0.16)', 1);
+      bloom(W * 0.16, H * 0.30, 360, 'rgba(10,224,255,0.10)', 1);
+      bloom(W * 0.84, H * 0.34, 360, 'rgba(198,255,0,0.08)', 1);
+
+      // ---- carbon hex-mesh ----
+      hexMesh();
+
+      // ---- SEEDED color haze ----
+      const HAZE = ['rgba(0,255,102,1)', 'rgba(10,224,255,1)', 'rgba(198,255,0,1)'];
+      for (let i = 0; i < 10; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), r = R(rnd, 80, 220);
+        const c = HAZE[(rnd() * HAZE.length) | 0], a = R(rnd, 0.03, 0.08);
+        bloom(x, y, r, c, a);
+      }
+
+      // ---- kinetic surge speed-lines ----
+      surgeLines(rnd);
+
+      // ---- decorative slashed plate behind the centre clear-zone ----
+      ctx.save();
+      slashedPlate(W / 2 - 300, H / 2 - 120, 600, 240);
+      ctx.fillStyle = 'rgba(16,20,24,0.55)';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 40;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(0,255,102,0.28)'; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.restore();
+
+      // ---- three diagonal CLAW-SLASH tears across the frame ----
+      clawSlash(W / 2 - 180, H / 2 - 110, 760, 1.0);
+      clawSlash(W / 2 + 60,  H / 2 + 10,  920, 1.15);
+      clawSlash(W / 2 + 240, H / 2 + 150, 700, 0.9);
+
+      // ---- a frozen forked electric arc snaking across the centre ----
+      electricArc(rnd, W * 0.40, H * 0.30, W * 0.60, H * 0.74, true);
+
+      // ---- SEEDED rising embers scattered into the L and R thirds ----
+      ctx.save();
+      const EMBER = [VENOM, ACID, CYAN];
+      for (let i = 0; i < 60; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 640) : R(rnd, W - 640, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.6, 1.8), a = R(rnd, 0.25, 0.8);
+        const col = EMBER[(rnd() * EMBER.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = col;
+        ctx.shadowColor = col; ctx.shadowBlur = 7 * z;
+        const sp = Math.max(1, Math.round(z * 1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- acid HAZARD chevron rails along top + bottom edges ----
+      hazardRail(0, 12, false);
+      hazardRail(H - 12, 12, true);
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.56);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,10,6,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 70, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) ----
+      block(1520, 'VENOM SURGE', 'POWER UP', 70, 'adrenaline · voltage · surge');
+
+      // ---- accent hazard rails flanking the centre clear-zone ----
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,255,102,0.45)';
+      for (let yy = 90; yy < H - 70; yy += 16) {
+        ctx.save(); ctx.translate(676, yy); ctx.transform(1,0,Math.tan(SLASH),1,0,0);
+        ctx.fillRect(0, 0, 3, 8); ctx.restore();
+        ctx.save(); ctx.translate(1241, yy); ctx.transform(1,0,Math.tan(SLASH),1,0,0);
+        ctx.fillRect(0, 0, 3, 8); ctx.restore();
+      }
+      // bright diamond caps on each rail
+      ctx.fillStyle = ACID; ctx.shadowColor = 'rgba(198,255,0,0.6)'; ctx.shadowBlur = 8;
+      [[676, 78], [1241, 78], [676, H - 66], [1241, H - 66]].forEach(([x, y]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

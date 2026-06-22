@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Studio Noir — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Studio Noir broadcast language: thin steel
+       safe-area corner brackets w/ amber ticks, a small "ON AIR" tally tag
+       (pulsing amber dot) lower-left with @handle on a charcoal slab + amber
+       accent rule, and a tiny STUDIO NOIR station mark top-right. The rest of
+       the frame stays transparent so gameplay shows through. A faint drift of
+       key-light dust + a couple of soft out-of-focus motes hug the edges.
+       Optional URL params: ?handle=@you   ?tag=ON%20AIR -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no studio void bg, no beam/grain/vignette */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint key-light dust / motes hug the frame (low alpha) */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* ---- thin broadcast safe-area corner brackets (steel hairline + amber tick) ---- */
+    .crn{position:absolute;width:74px;height:74px;pointer-events:none;
+      animation:crnin .8s var(--ease) both .1s;}
+    .crn::before{content:"";position:absolute;width:74px;height:1px;background:var(--hair);}
+    .crn::after{content:"";position:absolute;width:1px;height:74px;background:var(--hair);}
+    /* a short amber accent tick sits inside each corner */
+    .crn .tick{position:absolute;background:var(--amber);box-shadow:0 0 10px var(--amber-glow);}
+    .crn .tick.h{width:26px;height:2px;} .crn .tick.v{width:2px;height:26px;}
+
+    .crn--tl{left:56px;top:52px;}
+    .crn--tl::before{left:0;top:0;} .crn--tl::after{left:0;top:0;}
+    .crn--tl .tick.h{left:0;top:0;} .crn--tl .tick.v{left:0;top:0;}
+
+    .crn--tr{right:56px;top:52px;}
+    .crn--tr::before{right:0;top:0;} .crn--tr::after{right:0;top:0;}
+    .crn--tr .tick.h{right:0;top:0;} .crn--tr .tick.v{right:0;top:0;}
+
+    .crn--bl{left:56px;bottom:52px;}
+    .crn--bl::before{left:0;bottom:0;} .crn--bl::after{left:0;bottom:0;}
+    .crn--bl .tick.h{left:0;bottom:0;} .crn--bl .tick.v{left:0;bottom:0;}
+
+    .crn--br{right:56px;bottom:52px;}
+    .crn--br::before{right:0;bottom:0;} .crn--br::after{right:0;bottom:0;}
+    .crn--br .tick.h{right:0;bottom:0;} .crn--br .tick.v{right:0;bottom:0;}
+    @keyframes crnin{from{opacity:0}to{opacity:1}}
+
+    /* ---- lower-left "ON AIR" tally slot w/ @handle (charcoal slab, amber rule) ---- */
+    .slot{position:absolute;left:64px;bottom:60px;display:flex;align-items:stretch;
+      background:var(--slab);border:1px solid var(--slab-edge);border-left:3px solid var(--amber);
+      box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(245,247,249,.04);
+      overflow:hidden;animation:slotin .85s var(--ease-slab) both .2s;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+    /* faint raked sheen across the slab */
+    .slot::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+      background:linear-gradient(105deg, transparent 42%, rgba(245,247,249,.05) 50%, transparent 58%);}
+
+    /* amber tally tag cell (pulsing dot + ON AIR) */
+    .slot .tag{display:flex;align-items:center;gap:11px;padding:0 18px;
+      background:var(--amber);color:var(--studio-black);
+      font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.28em;
+      text-indent:.28em;text-transform:uppercase;white-space:nowrap;}
+    .slot .tag .dot{width:10px;height:10px;border-radius:50%;background:var(--studio-black);
+      box-shadow:0 0 0 0 rgba(13,15,18,.55);animation:dotpulse 1.9s ease-out infinite;}
+    @keyframes dotpulse{
+      0%{box-shadow:0 0 0 0 rgba(13,15,18,.55);transform:scale(1)}
+      70%{box-shadow:0 0 0 9px rgba(13,15,18,0);transform:scale(1.12)}
+      100%{box-shadow:0 0 0 0 rgba(13,15,18,0);transform:scale(1)}}
+
+    /* handle cell — condensed grotesque, steel */
+    .slot .who{display:flex;align-items:center;padding:0 26px 0 22px;
+      font-family:var(--display);font-weight:700;font-size:27px;letter-spacing:.16em;
+      text-indent:.16em;color:var(--white);white-space:nowrap;
+      text-shadow:0 1px 0 rgba(0,0,0,.4);}
+
+    /* ---- small STUDIO NOIR station mark, top-right (matches starting-soon) ---- */
+    .station-tr{position:absolute;right:64px;top:74px;display:flex;align-items:center;gap:12px;
+      font-family:var(--display);font-weight:700;letter-spacing:.4em;text-indent:.4em;
+      font-size:19px;color:var(--steel);text-transform:uppercase;opacity:.85;
+      animation:crnin .85s var(--ease) both .3s;}
+    .station-tr .bar{width:30px;height:2px;background:var(--amber);box-shadow:0 0 10px var(--amber-glow);}
+
+    /* render mode: freeze entrances + ambient pulses to a clean final state */
+    #stage.render .crn,
+    #stage.render .slot,
+    #stage.render .station-tr{animation:none!important;opacity:1!important;transform:none!important;}
+    #stage.render .slot .tag .dot{animation:none!important;box-shadow:0 0 0 0 rgba(13,15,18,0)!important;transform:scale(1)!important;}
+    #stage.render .station-tr{opacity:.85!important;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin broadcast safe-area corner brackets w/ amber ticks -->
+    <div class="crn crn--tl" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
+    <div class="crn crn--tr" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
+    <div class="crn crn--bl" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
+    <div class="crn crn--br" aria-hidden="true"><span class="tick h"></span><span class="tick v"></span></div>
+
+    <!-- small station mark, top-right -->
+    <div class="station-tr" aria-hidden="true"><span class="bar"></span>STUDIO NOIR</div>
+
+    <!-- lower-left ON AIR tally slot with @handle -->
+    <div class="slot">
+      <span class="tag"><span class="dot" aria-hidden="true"></span>ON AIR</span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: faint key-light dust + a couple of soft out-of-focus motes ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    // sparse fine dust drifting slowly down-right (raked key-light)
+    const dust = ctx ? Array.from({ length: Math.max(0, num("dust", 30)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.4),
+      vx: R(2, 6) / 60, vy: R(2, 5) / 60, ph: R(0, 6.28), tw: R(0.5, 1.5), a: R(0.12, 0.45),
+    })) : [];
+    // a couple of large soft cool bokeh motes biased to the upper corners
+    const motes = ctx ? Array.from({ length: Math.max(0, num("motes", 3)) }, () => ({
+      x: R(0, W), y: R(0, H * 0.6), r: R(120, 240),
+      vx: R(-1.6, 1.6) / 60, vy: R(-1.2, 1.2) / 60, ph: R(0, 6.28), ps: R(0.25, 0.6), a: R(0.04, 0.08),
+    })) : [];
+
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      // soft out-of-focus bokeh (additive)
+      ctx.globalCompositeOperation = "lighter";
+      for (const m of motes){
+        m.x += m.vx * dt * 60; m.y += m.vy * dt * 60; m.ph += m.ps * dt;
+        if (m.x < -300) m.x = W + 300; if (m.x > W + 300) m.x = -300;
+        if (m.y < -300) m.y = H + 300; if (m.y > H + 300) m.y = -300;
+        const breathe = 0.84 + Math.sin(m.ph) * 0.16, a = m.a * breathe;
+        const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+        g.addColorStop(0, `rgba(192,198,204,${a.toFixed(3)})`);
+        g.addColorStop(0.55, `rgba(192,198,204,${(a * 0.3).toFixed(3)})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(Math.round(m.x), Math.round(m.y), m.r, 0, 6.2832); ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      // fine key-light dust
+      for (const d of dust){
+        d.x += d.vx * dt * 60; d.y += d.vy * dt * 60; d.ph += 0.04 * dt * 60;
+        if (d.x > W + 8){ d.x = -8; d.y = Math.random() * H; }
+        if (d.y > H + 8){ d.y = -8; d.x = Math.random() * W; }
+        const tw = 0.5 + Math.sin(d.ph * d.tw) * 0.5;
+        ctx.globalAlpha = d.a * tw;
+        ctx.fillStyle = "#C0C6CC";
+        const s = Math.max(1, Math.round(d.z * 1.5));
+        ctx.fillRect(Math.round(d.x), Math.round(d.y), s, s);
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__noirDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

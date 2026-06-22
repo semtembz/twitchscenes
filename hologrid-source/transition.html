@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Hologrid Holographic Materialize Sweep</title>
+  <!--
+    HOLOGRID stinger ("Projection Sweep"). The screen MATERIALIZES as a
+    holographic projection and then DEMATERIALIZES away — pure sci-fi HUD,
+    no frosted glass, no neon signboard. Beat by beat:
+      (1) a vertical HOLO SCANLINE WALL sweeps the deck (cyan ribbon), the
+          field flooding with fine CRT scanlines + a chromatic cyan/violet
+          fringe at the leading edge;
+      (2) a perspective HOLO GRID FLOOR snaps in from a vanishing point and
+          a CONSTELLATION of data nodes/links rezzes across the field;
+      (3) at full cover a WIREFRAME GLOBE flashes into existence at centre
+          with a bright base-plate disc + a radial energy bloom + a ring of
+          radar ticks;
+      (4) everything then DEMATERIALIZES — scanlines collapse, nodes blink
+          out, the globe powers down — and the screen clears to transparent.
+    All luminous additive ("lighter") glow on a TRANSPARENT canvas.
+    Deterministic (seeded RNG, NO Math.random in the frame fn), sine-driven
+    (cover = Math.sin(t*PI), full cover at t=0.5), ~1300ms.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (hologrid) ---- */
+    const SPACE = '#070B16';
+    const CYAN  = [54, 194, 255];   // --cyan   #36C2FF
+    const VIOLET= [182, 107, 255];  // --violet #B66BFF
+    const MINT  = [91, 255, 208];   // --mint   #5BFFD0
+    const WHITE = [234, 242, 255];  // --text   #EAF2FF
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a > 1 ? 1 : a).toFixed(3) + ')';
+
+    /* ---- deterministic seeded RNG. Used ONCE up front to lay out a fixed
+       constellation of data nodes; the frame fn only ever READS these. ---- */
+    let seed = 0x4011D >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* data NODES of the rezzing constellation: each pops in over its own window */
+    const N_NODE = 60;
+    const palette3 = [CYAN, VIOLET, MINT];
+    const nodes = Array.from({ length: N_NODE }, () => ({
+      x: R(W * 0.08, W * 0.92), y: R(H * 0.10, H * 0.90),
+      s: R(1.6, 4.4), c: palette3[(rnd() * 3) | 0],
+      lead: R(0, 0.42), span: R(0.22, 0.5),                  // appear/blink window
+      tw: R(1.2, 2.8), phase: R(0, 6.2832),                 // twinkle
+    }));
+    // a few deterministic links between near-ish nodes (precomputed index pairs)
+    const links = [];
+    for (let i = 0; i < N_NODE; i++) {
+      let best = -1, bd = 1e9;
+      for (let j = i + 1; j < N_NODE; j++) {
+        const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = j; }
+      }
+      if (best >= 0 && bd < (W * 0.22) * (W * 0.22)) links.push([i, best]);
+    }
+
+    /* radar ticks around the globe base (fixed angles) */
+    const N_TICK = 48;
+
+    /* globe lat/long lattice (unit sphere points), built once */
+    const LAT = 7, LON = 16;
+    const sphere = [];
+    for (let a = 0; a <= LAT; a++) {
+      const phi = (a / LAT - 0.5) * Math.PI;       // -PI/2 .. PI/2
+      for (let b = 0; b < LON; b++) {
+        const th = (b / LON) * Math.PI * 2;
+        sphere.push([Math.cos(phi) * Math.cos(th), Math.sin(phi), Math.cos(phi) * Math.sin(th), a, b]);
+      }
+    }
+    const idx = (a, b) => a * LON + (b % LON);
+
+    /* ---- (1) HOLO SCANLINE WALL — a vertical cyan ribbon sweeps the deck,
+           flooding the covered region with fine CRT scanlines + a bright
+           chromatic leading edge. The wall position is driven by `front`
+           (0..1, how far the sweep has crossed). ---- */
+    function drawScanWall(front, cover) {
+      if (cover <= 0.001) return;
+      const edgeX = front * W;                              // leading edge of the materialized field
+      const fieldA = 0.10 + 0.16 * cover;
+
+      // faint filled field behind the edge (the "rezzed" area), additive glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const fg = ctx.createLinearGradient(0, 0, edgeX, 0);
+      fg.addColorStop(0.00, rgba(CYAN, 0.02 * cover));
+      fg.addColorStop(0.85, rgba(CYAN, fieldA * 0.5));
+      fg.addColorStop(1.00, rgba(CYAN, fieldA));
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, Math.ceil(edgeX), H);
+
+      // fine horizontal CRT scanlines across the rezzed field
+      ctx.globalAlpha = 0.5 * cover;
+      ctx.strokeStyle = rgba(CYAN, 0.22);
+      ctx.lineWidth = 1;
+      for (let y = 0; y < H; y += 4) {
+        ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(edgeX, y + 0.5); ctx.stroke();
+      }
+      ctx.restore();
+
+      // bright chromatic leading edge: violet ghost / cyan core / mint ghost
+      if (front > 0.001 && front < 0.999) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const eA = Math.sin(cover * Math.PI) * 0.9 + 0.1;
+        // violet trailing ghost
+        ctx.strokeStyle = rgba(VIOLET, 0.5 * eA);
+        ctx.lineWidth = 3; ctx.shadowColor = rgba(VIOLET, 0.8); ctx.shadowBlur = 26;
+        ctx.beginPath(); ctx.moveTo(Math.round(edgeX - 7), 0); ctx.lineTo(Math.round(edgeX - 7), H); ctx.stroke();
+        // mint leading ghost
+        ctx.strokeStyle = rgba(MINT, 0.5 * eA);
+        ctx.shadowColor = rgba(MINT, 0.8);
+        ctx.beginPath(); ctx.moveTo(Math.round(edgeX + 7), 0); ctx.lineTo(Math.round(edgeX + 7), H); ctx.stroke();
+        // cyan core ribbon
+        ctx.strokeStyle = rgba(WHITE, 0.85 * eA);
+        ctx.lineWidth = 4; ctx.shadowColor = rgba(CYAN, 1); ctx.shadowBlur = 40;
+        ctx.beginPath(); ctx.moveTo(Math.round(edgeX), 0); ctx.lineTo(Math.round(edgeX), H); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    /* ---- (2) perspective HOLO GRID FLOOR — receding horizontal rings +
+           converging verticals to a vanishing point under centre. Rezzes
+           with `cover`; only draws to the right of nothing (full width). ---- */
+    function drawGridFloor(cover) {
+      const g = smooth(cover);
+      if (g <= 0.02) return;
+      const horizon = CY + 40;
+      const vanish = CX;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = 1;
+
+      // receding horizontal lines (denser toward horizon)
+      const rows = 13;
+      for (let i = 1; i <= rows; i++) {
+        const p = i / rows;
+        const y = horizon + Math.pow(p, 1.8) * (H - horizon);
+        const a = 0.10 * g * (1 - p * 0.5);
+        ctx.strokeStyle = rgba(CYAN, a);
+        ctx.beginPath(); ctx.moveTo(0, Math.round(y)); ctx.lineTo(W, Math.round(y)); ctx.stroke();
+      }
+      // converging vertical lines to the vanishing point
+      const cols = 17;
+      for (let i = 0; i <= cols; i++) {
+        const fx = (i / cols) * W;
+        const a = 0.08 * g;
+        ctx.strokeStyle = rgba(CYAN, a);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(fx), H);
+        ctx.lineTo(Math.round(lerp(fx, vanish, 0.92)), Math.round(horizon));
+        ctx.stroke();
+      }
+      // bright horizon hairline (mint)
+      ctx.strokeStyle = rgba(MINT, 0.22 * g);
+      ctx.shadowColor = rgba(MINT, 0.6); ctx.shadowBlur = 16; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, Math.round(horizon)); ctx.lineTo(W, Math.round(horizon)); ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---- (2b) the rezzing CONSTELLATION of data nodes + links ---- */
+    function drawConstellation(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      // links first (faint), visible only when both ends are present
+      ctx.lineWidth = 1;
+      for (const [i, j] of links) {
+        const a = nodes[i], b = nodes[j];
+        const la = clamp01((t - a.lead) / a.span), lb = clamp01((t - b.lead) / b.span);
+        if (la <= 0 || lb <= 0) continue;
+        const pres = Math.min(Math.sin(la * Math.PI), Math.sin(lb * Math.PI)) * cover;
+        if (pres <= 0.03) continue;
+        ctx.strokeStyle = rgba(CYAN, 0.16 * pres);
+        ctx.beginPath(); ctx.moveTo(Math.round(a.x), Math.round(a.y)); ctx.lineTo(Math.round(b.x), Math.round(b.y)); ctx.stroke();
+      }
+
+      // nodes
+      for (const n of nodes) {
+        const lt = clamp01((t - n.lead) / n.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const ends = Math.sin(lt * Math.PI);                 // pop in then blink out
+        const tw = 0.6 + Math.sin(n.phase + lt * n.tw * 6.2832) * 0.4;
+        const a = ends * tw * (0.4 + 0.6 * cover);
+        if (a <= 0.03) continue;
+        const x = Math.round(n.x), y = Math.round(n.y), s = n.s * (0.6 + 0.6 * ends);
+        ctx.shadowColor = rgba(n.c, 0.9); ctx.shadowBlur = 14;
+        // small holo diamond node
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = rgba(n.c, 0.9);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath();
+        ctx.stroke();
+        // bright core dot
+        ctx.fillStyle = rgba(WHITE, a);
+        ctx.beginPath(); ctx.arc(x, y, Math.max(1, s * 0.4), 0, 6.2832); ctx.fill();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    /* ---- (3) the WIREFRAME GLOBE that flashes in at full cover, with a
+           base-plate disc, radial bloom and radar ticks. `g` is its presence
+           (0..1, peaks near t=0.5), `spin` advances with t for life. ---- */
+    function drawGlobe(g, spin) {
+      if (g <= 0.02) return;
+      const r = GLOBE_R = lerp(120, 300, smooth(g));
+      const tilt = 0.42, ct = Math.cos(tilt), st = Math.sin(tilt);
+      const cy = Math.cos(spin), sy = Math.sin(spin);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      // radial core bloom
+      const bloom = ctx.createRadialGradient(CX, CY, 0, CX, CY, r * 1.4);
+      bloom.addColorStop(0.0, rgba(CYAN, 0.30 * g));
+      bloom.addColorStop(0.35, rgba(VIOLET, 0.10 * g));
+      bloom.addColorStop(1.0, rgba(CYAN, 0));
+      ctx.fillStyle = bloom;
+      ctx.beginPath(); ctx.arc(CX, CY, r * 1.4, 0, 6.2832); ctx.fill();
+
+      // base-plate disc (elliptical) the globe projects from
+      const by = CY + r * 0.92;
+      const disc = ctx.createRadialGradient(CX, by, 0, CX, by, r * 1.1);
+      disc.addColorStop(0.0, rgba(MINT, 0.22 * g));
+      disc.addColorStop(1.0, rgba(MINT, 0));
+      ctx.fillStyle = disc;
+      ctx.save();
+      ctx.translate(CX, by); ctx.scale(1, 0.28);
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      // mint base ring
+      ctx.strokeStyle = rgba(MINT, 0.5 * g); ctx.lineWidth = 2;
+      ctx.shadowColor = rgba(MINT, 0.7); ctx.shadowBlur = 18;
+      ctx.save();
+      ctx.translate(CX, by); ctx.scale(1, 0.28);
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.92, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+      ctx.shadowBlur = 0;
+
+      // project a sphere point with yaw + tilt -> 2D + depth(z')
+      const proj = (p) => {
+        // yaw about Y
+        let x = p[0] * cy + p[2] * sy;
+        let z = -p[0] * sy + p[2] * cy;
+        let y = p[1];
+        // tilt about X
+        const y2 = y * ct - z * st;
+        const z2 = y * st + z * ct;
+        return [CX + x * r, CY + y2 * r, z2];      // z2: + = near
+      };
+      const projected = sphere.map(proj);
+
+      // latitude rings + longitude segments with chromatic fringe + depth fade
+      const drawSeg = (P, Q, baseA) => {
+        const zc = (P[2] + Q[2]) * 0.5;
+        const depth = (zc + 1) * 0.5;              // 0 far .. 1 near
+        const a = baseA * g * (0.25 + 0.75 * depth);
+        if (a <= 0.02) return;
+        // chromatic fringe: cyan(+x) / violet(-x) ghosts + mint core
+        ctx.strokeStyle = rgba(CYAN, a * 0.5);
+        ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(Math.round(P[0] + 1.5), Math.round(P[1])); ctx.lineTo(Math.round(Q[0] + 1.5), Math.round(Q[1])); ctx.stroke();
+        ctx.strokeStyle = rgba(VIOLET, a * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(P[0] - 1.5), Math.round(P[1])); ctx.lineTo(Math.round(Q[0] - 1.5), Math.round(Q[1])); ctx.stroke();
+        ctx.strokeStyle = rgba(MINT, a);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(P[0]), Math.round(P[1])); ctx.lineTo(Math.round(Q[0]), Math.round(Q[1])); ctx.stroke();
+      };
+      // longitudes
+      for (let a = 0; a < LAT; a++) {
+        for (let b = 0; b < LON; b++) {
+          drawSeg(projected[idx(a, b)], projected[idx(a + 1, b)], 0.5);
+        }
+      }
+      // latitudes
+      for (let a = 0; a <= LAT; a++) {
+        for (let b = 0; b < LON; b++) {
+          drawSeg(projected[idx(a, b)], projected[idx(a, b + 1)], 0.42);
+        }
+      }
+      // glowing near-face vertices
+      for (const P of projected) {
+        if (P[2] <= 0.1) continue;
+        const a = g * (P[2]) * 0.8;
+        if (a <= 0.04) continue;
+        ctx.fillStyle = rgba(WHITE, a);
+        ctx.shadowColor = rgba(CYAN, 0.9); ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(Math.round(P[0]), Math.round(P[1]), 1.6, 0, 6.2832); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // equatorial halo ring
+      ctx.strokeStyle = rgba(CYAN, 0.3 * g); ctx.lineWidth = 1.5;
+      ctx.shadowColor = rgba(CYAN, 0.6); ctx.shadowBlur = 14;
+      ctx.save(); ctx.translate(CX, CY); ctx.rotate(0); ctx.scale(1, st * 0.9 + 0.1);
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.02, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+      ctx.shadowBlur = 0;
+
+      // radar ticks orbiting the base ring
+      ctx.save();
+      ctx.translate(CX, by); ctx.scale(1, 0.28);
+      for (let i = 0; i < N_TICK; i++) {
+        const ang = (i / N_TICK) * Math.PI * 2 + spin * 0.6;
+        const long = (i % 4 === 0);
+        const r0 = r * (long ? 0.86 : 0.9), r1 = r * 0.92;
+        ctx.globalAlpha = (long ? 0.6 : 0.3) * g;
+        ctx.strokeStyle = rgba(long ? MINT : CYAN, 0.8);
+        ctx.lineWidth = long ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0);
+        ctx.lineTo(Math.cos(ang) * r1, Math.sin(ang) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    let GLOBE_R = 300;
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);                   // 0 -> 1 -> 0, full cover at t=0.5
+
+      // The materialize sweep crosses left->right over the first half, then
+      // the dematerialize sweep continues off-screen over the second half so
+      // the field reads as wiping in, holding, then wiping out.
+      const front = smooth(t);                               // 0 .. 1 across the whole stinger
+      const spin = t * 3.4;                                  // globe yaw advances with life
+
+      // (1) scanline wall + flooded field
+      drawScanWall(front, cover);
+      // (2) grid floor + constellation rez over the covered region
+      drawGridFloor(cover);
+      drawConstellation(t, cover);
+
+      // (3) the wireframe globe — presence peaks hard around full cover
+      const gPres = Math.pow(cover, 1.6);
+      drawGlobe(gPres, spin);
+
+      // (4) full-cover energy FLASH (cyan->mint) — the materialize/swap beat
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0.0, rgba(WHITE, 0.34 * flash));
+        fg.addColorStop(0.35, rgba(CYAN, 0.18 * flash));
+        fg.addColorStop(0.7, rgba(MINT, 0.06 * flash));
+        fg.addColorStop(1.0, rgba(CYAN, 0));
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

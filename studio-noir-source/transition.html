@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Studio Noir Broadcast Bar Swipe</title>
+  <!--
+    STUDIO NOIR stinger ("Cut To Air"). A prestige broadcast motion-graphics
+    wipe, restrained and noir — NOT a recolor of another theme. Two charcoal
+    broadcast SLABS drive in from the left & right behind a bright amber
+    LEADING-EDGE bar and meet at the centre seam; as they lock the screen is
+    a clean charcoal field fronted by a thin amber centre RULE. A raking
+    amber/white KEY-LIGHT beam sweeps across at the full-cover peak, a sparse
+    drift of fine key-light DUST streaks through, and crisp broadcast SAFE-AREA
+    hairlines snap in top & bottom. The slabs then retract the way they came
+    and the screen clears. Charcoal, steel, a single amber accent.
+    Transparent before & after, deterministic, sine-driven, ~1200ms. No glitch.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1200  total duration in ms (default 1200)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover seam).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1200;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (studio noir) ---- */
+    const STUDIO_BLACK = '#0D0F12', CHARCOAL = '#171B20', CHARCOAL_2 = '#10141A';
+    const STEEL = '#C0C6CC', AMBER = '#E3B23C', AMBER_LT = '#F4D88A', WHITE = '#F5F7F9';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const easeOut = (x) => 1 - Math.pow(1 - clamp01(x), 3);
+
+    /* ---- deterministic seeded RNG (mulberry32) — NO Math.random in frame fn ---- */
+    let seed = 0x4E01 >>> 0;
+    const rnd = () => {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* ---- fine key-light DUST streaks (film-grain motes caught in the beam):
+       deterministic function of t so the look is identical frame-to-frame and in
+       the export. Each mote streaks down-right; its window is staggered so the
+       drift builds with the cover and thins as the slabs retract. ---- */
+    const N_DUST = 70;
+    const dust = Array.from({ length: N_DUST }, () => ({
+      x0: R(W * 0.04, W * 0.96), y0: R(H * 0.02, H * 0.98),
+      dx: R(60, 240), dy: R(40, 180),
+      len: R(8, 30), s: R(0.8, 2.2),
+      lead: R(0, 0.34), span: R(0.42, 0.8), a: R(0.18, 0.62), tw: R(1.1, 2.6), ph: R(0, 6.2832),
+      amber: rnd() < 0.22,
+    }));
+
+    function drawDust(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      for (const d of dust) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = d.x0 + d.dx * lt;
+        const py = d.y0 + d.dy * lt;
+        const ends = Math.sin(lt * Math.PI);                 // 0 at ends, 1 mid
+        const twk = 0.55 + Math.sin(d.ph + lt * d.tw * 6.2832) * 0.45;
+        const a = d.a * ends * twk * lerp(0.4, 1, cover);
+        if (a <= 0.02) continue;
+        const x1 = Math.round(px), y1 = Math.round(py);
+        const x2 = Math.round(px - d.dx / d.len * 1.2), y2 = Math.round(py - d.dy / d.len * 1.2);
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = d.amber ? AMBER_LT : STEEL;
+        ctx.lineWidth = d.s;
+        ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x1, y1); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* ---- the broadcast SLABS: two charcoal panels drive in from the left &
+           right behind a bright amber leading edge and meet at the centre seam,
+           then retract. cover 0..1..0. Each panel reads as a slab of studio
+           charcoal with a faint vertical sheen, capped by an amber edge bar. ---- */
+    function drawSlabs(cover) {
+      if (cover <= 0.001) return;
+      const half = CX * cover;            // each slab covers this many px from its edge
+
+      // left slab
+      let g = ctx.createLinearGradient(0, 0, half, 0);
+      g.addColorStop(0.00, CHARCOAL_2);
+      g.addColorStop(0.62, CHARCOAL);
+      g.addColorStop(1.00, '#1C2026');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, Math.ceil(half), H);
+      // right slab (mirror)
+      g = ctx.createLinearGradient(W, 0, W - half, 0);
+      g.addColorStop(0.00, CHARCOAL_2);
+      g.addColorStop(0.62, CHARCOAL);
+      g.addColorStop(1.00, '#1C2026');
+      ctx.fillStyle = g;
+      ctx.fillRect(Math.floor(W - half), 0, Math.ceil(half) + 1, H);
+
+      // faint steel vertical sheen banding over each slab (broadcast panel texture)
+      ctx.save();
+      ctx.globalAlpha = 0.05 * cover;
+      ctx.strokeStyle = STEEL;
+      ctx.lineWidth = 1;
+      for (let x = 40; x < half; x += 96) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(W - x, 0); ctx.lineTo(W - x, H); ctx.stroke();
+      }
+      ctx.restore();
+
+      // a top + bottom steel HAIRLINE racing in along each slab (broadcast safe-area frame)
+      ctx.save();
+      ctx.globalAlpha = 0.5 * cover;
+      ctx.fillStyle = STEEL;
+      // top hairline at y=64, bottom at y=H-64, only across the covered width
+      ctx.fillRect(0, 63, Math.ceil(half), 1);
+      ctx.fillRect(0, H - 64, Math.ceil(half), 1);
+      ctx.fillRect(Math.floor(W - half), 63, Math.ceil(half) + 1, 1);
+      ctx.fillRect(Math.floor(W - half), H - 64, Math.ceil(half) + 1, 1);
+      ctx.restore();
+
+      // bright amber LEADING-EDGE bar on each slab's inner border (+ soft glow wash)
+      const edgeA = Math.sin(cover * Math.PI);               // strongest mid-sweep
+      if (edgeA > 0.02 && half > 2 && half < CX - 2) {
+        ctx.save();
+        ctx.shadowColor = AMBER;
+        ctx.shadowBlur = 40;
+        // soft wide amber wash behind the edge
+        ctx.globalAlpha = 0.30 * edgeA;
+        ctx.fillStyle = AMBER;
+        ctx.fillRect(Math.round(half) - 10, 0, 20, H);
+        ctx.fillRect(Math.round(W - half) - 10, 0, 20, H);
+        // crisp bright amber bar
+        ctx.shadowBlur = 24;
+        ctx.globalAlpha = 0.95 * edgeA;
+        ctx.fillStyle = AMBER_LT;
+        ctx.fillRect(Math.round(half) - 2, 0, 4, H);
+        ctx.fillRect(Math.round(W - half) - 2, 0, 4, H);
+        ctx.restore();
+      }
+    }
+
+    /* ---- the centre RULE + tally-dot seam node that locks at full cover: a thin
+           amber accent rule down the centre with a small pulsing amber node, the
+           noir broadcast "on air" signature where the two slabs meet. ---- */
+    function drawSeam(cover) {
+      const lock = Math.pow(cover, 1.6);                      // sharpens near full cover
+      if (lock <= 0.02) return;
+      ctx.save();
+
+      // thin amber centre rule, grows in height from the middle
+      const ruleH = lerp(0, H, smooth(cover));
+      ctx.shadowColor = AMBER;
+      ctx.shadowBlur = 22 * lock;
+      ctx.globalAlpha = 0.9 * lock;
+      const grad = ctx.createLinearGradient(CX, 0, CX, H);
+      grad.addColorStop(0, 'rgba(156,118,32,' + (0.0).toFixed(2) + ')');
+      grad.addColorStop(0.5, AMBER);
+      grad.addColorStop(1, 'rgba(156,118,32,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY - ruleH / 2);
+      ctx.lineTo(CX, CY + ruleH / 2);
+      ctx.stroke();
+
+      // small broadcast tally node at the seam centre (the "ON AIR" dot)
+      const nodeR = lerp(0, 13, lock);
+      ctx.globalAlpha = lock;
+      ctx.shadowBlur = 30 * lock;
+      ctx.fillStyle = AMBER;
+      ctx.beginPath(); ctx.arc(CX, CY, nodeR, 0, 6.2832); ctx.fill();
+      // bright core
+      ctx.globalAlpha = lock;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = WHITE;
+      ctx.beginPath(); ctx.arc(CX, CY, nodeR * 0.42, 0, 6.2832); ctx.fill();
+
+      // two short steel tick caps flanking the node (broadcast frame detail)
+      ctx.globalAlpha = 0.7 * lock;
+      ctx.strokeStyle = STEEL;
+      ctx.lineWidth = 2;
+      const tick = lerp(0, 60, lock);
+      ctx.beginPath(); ctx.moveTo(CX - 22, CY); ctx.lineTo(CX - 22 - tick, CY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(CX + 22, CY); ctx.lineTo(CX + 22 + tick, CY); ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---- raking amber/white KEY-LIGHT sweep: a soft diagonal beam from the
+           upper-right that rakes across the locked charcoal at the peak, the
+           signature studio key-light. ---- */
+    function drawKeySweep(t, cover) {
+      const beam = Math.exp(-Math.pow((t - 0.5) / 0.16, 2)) * cover;   // peaks at full cover
+      if (beam <= 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      // the beam sweeps left across the frame as t advances
+      const sweepX = lerp(W * 1.05, W * -0.05, smooth(t));
+      ctx.translate(sweepX, 0);
+      ctx.rotate(-0.36);                                       // rake from upper-right
+      const bw = 360;
+      const g = ctx.createLinearGradient(-bw, 0, bw, 0);
+      g.addColorStop(0.00, 'rgba(227,178,60,0)');
+      g.addColorStop(0.42, 'rgba(227,178,60,' + (0.10 * beam).toFixed(3) + ')');
+      g.addColorStop(0.50, 'rgba(245,247,249,' + (0.22 * beam).toFixed(3) + ')');
+      g.addColorStop(0.58, 'rgba(227,178,60,' + (0.10 * beam).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(227,178,60,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-bw, -H, bw * 2, H * 3);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawSlabs(cover);
+
+      // a cool vignette over the charcoal so the slabs read as deep studio panels
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(CX, CY, H * 0.16, CX, CY, H * 0.95);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(5,6,8,' + (0.62 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawSeam(cover);
+      drawKeySweep(t, cover);
+      drawDust(t, cover);
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 650; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+/* ============================================================
+   STUDIO NOIR — shared design system ("Cold Open")
+   A PRESTIGE BROADCAST motion-graphics package. A dark studio with
+   cool depth: a subtle volumetric KEY-LIGHT beam rakes down from the
+   upper right, a faint slow bokeh of out-of-focus studio lights drifts
+   far behind, fine FILM GRAIN + a soft vignette sit over everything.
+   The composition is a left-anchored LOWER-THIRD bar SYSTEM that slides
+   in: a small amber KICKER TAB, a charcoal slab TITLE block fronted by a
+   thin amber accent RULE, a clean TICKER strap pinned near the bottom,
+   and a small "ON AIR" tally with a pulsing amber dot, top-left. The
+   loading bar is a sleek thin amber broadcast progress strap. Charcoal,
+   steel, a single amber accent — restrained, expensive, noir.
+   Bespoke to THIS theme — shares only engine conventions w/ others.
+   ============================================================ */
+:root{
+  /* palette (token NAMES are stable across the source) */
+  --studio-black:#0D0F12;   /* near-black studio void */
+  --charcoal:#171B20;       /* charcoal panel / slab */
+  --steel:#C0C6CC;          /* cool steel / silver */
+  --amber:#E3B23C;          /* broadcast amber accent */
+  --white:#F5F7F9;          /* white text */
+  /* derived */
+  --charcoal-2:#10141A;                      /* deeper slab base */
+  --hair:rgba(192,198,204,.22);              /* steel hairline */
+  --hair-soft:rgba(192,198,204,.10);
+  --amber-glow:rgba(227,178,60,.55);
+  --amber-soft:rgba(227,178,60,.16);
+  --dim:rgba(192,198,204,.62);               /* dimmed steel text */
+  --slab:rgba(23,27,32,.92);                 /* lower-third slab fill */
+  --slab-edge:rgba(192,198,204,.14);
+  /* font stacks (system / web-safe ONLY — no CDN) */
+  --display:"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif;
+  --body:"Segoe UI",system-ui,Arial,sans-serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-slab:cubic-bezier(.22,1,.32,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--studio-black);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);
+  font-family:var(--body);
+  background:
+    radial-gradient(140% 100% at 78% -10%, rgba(227,178,60,.07), transparent 46%),
+    radial-gradient(120% 90% at 20% 20%, rgba(192,198,204,.05), transparent 55%),
+    linear-gradient(165deg, #14181E 0%, var(--studio-black) 50%, #090B0E 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- volumetric studio KEY-LIGHT beam raking down from upper-right ---- */
+.beam{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.7;
+  background:
+    linear-gradient(208deg,
+      transparent 28%,
+      rgba(227,178,60,.05) 40%,
+      rgba(245,247,249,.10) 49%,
+      rgba(227,178,60,.05) 58%,
+      transparent 70%);
+  -webkit-mask:radial-gradient(120% 90% at 82% 0%, #000 30%, transparent 80%);
+          mask:radial-gradient(120% 90% at 82% 0%, #000 30%, transparent 80%);
+  animation:beam 11s ease-in-out infinite;}
+@keyframes beam{0%,100%{opacity:.55;transform:translateX(0)}50%{opacity:.8;transform:translateX(-26px)}}
+
+/* ---- fine FILM GRAIN (animated jitter) over the whole frame ---- */
+.grain{position:absolute;inset:-50%;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
+  background-image:
+    repeating-radial-gradient(circle at 30% 30%, rgba(255,255,255,.6) 0 0.6px, transparent 0.6px 2px),
+    repeating-radial-gradient(circle at 70% 60%, rgba(255,255,255,.4) 0 0.5px, transparent 0.5px 2.4px);
+  background-size:140px 140px, 90px 90px;
+  animation:grain 1.1s steps(4) infinite;}
+@keyframes grain{
+  0%{transform:translate(0,0)} 25%{transform:translate(-14px,8px)}
+  50%{transform:translate(10px,-12px)} 75%{transform:translate(-8px,-6px)}
+  100%{transform:translate(6px,10px)}}
+
+/* ---- soft vignette ---- */
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 320px rgba(5,6,8,.86), inset 0 0 110px rgba(5,6,8,.5);}
+
+/* ---- a fine top + bottom safe-area hairline (broadcast frame) ---- */
+.frameline{position:absolute;left:64px;right:64px;height:1px;background:var(--hair);pointer-events:none;}
+.frameline--t{top:64px;} .frameline--b{bottom:118px;}
+
+/* ============================================================
+   ON AIR TALLY — top-left, a small slab with a pulsing amber dot
+   ============================================================ */
+.tally{position:absolute;left:64px;top:96px;display:flex;align-items:center;gap:14px;
+  padding:11px 20px 11px 16px;background:var(--slab);border:1px solid var(--slab-edge);
+  border-left:3px solid var(--amber);
+  box-shadow:0 14px 40px rgba(0,0,0,.5);
+  animation:tallyin .7s var(--ease-slab) both .15s;}
+.tally .dot{width:13px;height:13px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 0 0 var(--amber-glow);animation:tallypulse 1.9s ease-out infinite;}
+.tally .label{font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:.34em;
+  text-indent:.34em;text-transform:uppercase;color:var(--white);}
+@keyframes tallypulse{
+  0%{box-shadow:0 0 0 0 rgba(227,178,60,.6); transform:scale(1)}
+  70%{box-shadow:0 0 0 12px rgba(227,178,60,0); transform:scale(1.08)}
+  100%{box-shadow:0 0 0 0 rgba(227,178,60,0); transform:scale(1)}}
+@keyframes tallyin{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+
+/* a small top-right station mark on the steel frame */
+.station{position:absolute;right:64px;top:100px;display:flex;align-items:center;gap:12px;
+  font-family:var(--display);font-weight:700;letter-spacing:.4em;text-indent:.4em;
+  font-size:21px;color:var(--steel);text-transform:uppercase;opacity:.85;
+  animation:tallyin .7s var(--ease-slab) both .25s;}
+.station .bar{width:34px;height:2px;background:var(--amber);box-shadow:0 0 10px var(--amber-glow);}
+
+/* ============================================================
+   THE LOWER-THIRD BAR SYSTEM (the signature composition)
+   left-anchored stack: kicker tab -> title slab -> sub line
+   ============================================================ */
+.lower{position:absolute;left:120px;bottom:188px;width:1180px;}
+
+/* kicker TAB — small amber slab sitting on the title's accent rule */
+.kicker{display:inline-flex;align-items:center;gap:0;
+  padding:9px 22px;background:var(--amber);color:var(--studio-black);
+  font-family:var(--display);font-weight:700;font-size:25px;letter-spacing:.3em;
+  text-indent:.3em;text-transform:uppercase;white-space:nowrap;
+  box-shadow:0 10px 30px rgba(227,178,60,.22);
+  transform-origin:left center;
+  animation:kickerin .65s var(--ease-slab) both .55s;}
+@keyframes kickerin{from{opacity:0;transform:scaleX(.04)}to{opacity:1;transform:scaleX(1)}}
+
+/* the charcoal TITLE slab, fronted by a thin amber accent RULE */
+.titlewrap{position:relative;margin-top:-1px;padding:28px 56px 30px 44px;
+  background:linear-gradient(100deg, var(--slab) 0%, rgba(16,20,26,.86) 100%);
+  border:1px solid var(--slab-edge);border-top:none;
+  box-shadow:0 28px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(245,247,249,.04);
+  overflow:hidden;
+  animation:slabin .8s var(--ease-slab) both .5s;}
+/* the thin amber accent rule down the left of the slab */
+.titlewrap::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:linear-gradient(180deg,var(--amber),#9c7620);
+  box-shadow:0 0 18px var(--amber-glow);
+  transform-origin:top center;animation:rulein .6s var(--ease) both .62s;}
+/* a faint raked sheen across the slab */
+.titlewrap::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:linear-gradient(105deg, transparent 40%, rgba(245,247,249,.05) 50%, transparent 60%);}
+@keyframes slabin{from{opacity:0;transform:translateX(-46px)}to{opacity:1;transform:translateX(0)}}
+@keyframes rulein{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+/* the TITLE in the condensed grotesque, white, last line amber */
+.title{margin:0;font-family:var(--display);font-weight:700;
+  font-size:128px;line-height:.9;letter-spacing:.005em;text-transform:uppercase;
+  color:var(--white);text-shadow:0 2px 0 rgba(0,0,0,.4);}
+.title .line{display:block;overflow:hidden;}
+.title .line>span{display:block;transform:translateY(108%);
+  animation:lineup .85s var(--ease-slab) both;}
+.title .line:nth-child(1)>span{animation-delay:.66s;}
+.title .line:nth-child(2)>span{animation-delay:.76s;}
+.title .accent{color:var(--amber);
+  text-shadow:0 0 48px rgba(227,178,60,.45),0 2px 0 rgba(0,0,0,.4);}
+@keyframes lineup{from{transform:translateY(108%)}to{transform:translateY(0)}}
+
+/* subtitle — neutral sans, dimmed steel, generous tracking */
+.sub{margin:22px 0 0;font-family:var(--body);font-weight:400;
+  font-size:30px;letter-spacing:.16em;color:var(--dim);text-transform:none;
+  animation:fadeup .8s var(--ease) both 1s;}
+@keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* ============================================================
+   TICKER / STRAP near the bottom — clean broadcast lower strap
+   ============================================================ */
+.ticker{position:absolute;left:0;right:0;bottom:64px;height:46px;
+  background:linear-gradient(180deg, rgba(23,27,32,.94), rgba(13,15,18,.96));
+  border-top:1px solid var(--slab-edge);border-bottom:1px solid var(--slab-edge);
+  display:flex;align-items:center;overflow:hidden;
+  animation:slabin .8s var(--ease-slab) both .9s;}
+/* amber "tag" cell on the left of the strap */
+.ticker .tag{flex:none;height:100%;display:flex;align-items:center;padding:0 26px;
+  background:var(--amber);color:var(--studio-black);
+  font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:.26em;
+  text-indent:.26em;text-transform:uppercase;}
+.ticker .track{flex:1;overflow:hidden;position:relative;height:100%;}
+.ticker .scroll{position:absolute;top:0;left:0;height:100%;display:flex;align-items:center;
+  white-space:nowrap;will-change:transform;animation:tickerscroll 26s linear infinite;}
+.ticker .scroll span{font-family:var(--body);font-weight:500;font-size:21px;
+  letter-spacing:.1em;color:var(--steel);padding:0 38px;}
+.ticker .scroll .sep{color:var(--amber);font-weight:700;}
+@keyframes tickerscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ============================================================
+   LOADING BAR — a sleek thin amber broadcast progress strap
+   pinned just above the ticker; no numbers ever shown
+   ============================================================ */
+.bar{position:absolute;left:120px;right:120px;bottom:128px;height:3px;
+  background:var(--hair-soft);overflow:visible;
+  animation:fadeup .8s var(--ease) both 1.05s;}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg,#9c7620,var(--amber));
+  box-shadow:0 0 14px var(--amber-glow);}
+/* a bright leading head node on the strap */
+.bar .fill::after{content:"";position:absolute;right:-2px;top:50%;width:9px;height:9px;
+  border-radius:50%;transform:translate(50%,-50%);background:var(--amber);
+  box-shadow:0 0 16px var(--amber-glow);}
+/* end caps / tick marks on the track */
+.bar::before,.bar::after{content:"";position:absolute;top:-3px;width:1px;height:9px;background:var(--hair);}
+.bar::before{left:0;} .bar::after{right:0;}
+
+/* handle — steel, lower-right corner */
+.handle{position:absolute;right:120px;bottom:142px;
+  font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.22em;
+  text-indent:.22em;color:var(--steel);text-transform:none;opacity:.92;
+  animation:fadeup .8s var(--ease) both 1.1s;}
+
+/* ============================================================
+   RENDER MODE: freeze ALL entrances to their final state so the
+   headless pipeline captures a clean deterministic webm. Looping
+   ambient motion (beam/grain/tally pulse/ticker) is stilled too.
+   ============================================================ */
+#stage.render .beam,
+#stage.render .grain{animation:none!important;}
+#stage.render .grain{display:none;}
+#stage.render .tally,
+#stage.render .station,
+#stage.render .kicker,
+#stage.render .titlewrap,
+#stage.render .titlewrap::before,
+#stage.render .title .line>span,
+#stage.render .sub,
+#stage.render .ticker,
+#stage.render .ticker .scroll,
+#stage.render .bar,
+#stage.render .handle{animation:none!important;}
+#stage.render .tally .dot{animation:none!important;box-shadow:0 0 0 0 rgba(227,178,60,0)!important;transform:scale(1)!important;}
+#stage.render .tally,
+#stage.render .station,
+#stage.render .sub,
+#stage.render .ticker,
+#stage.render .bar,
+#stage.render .handle{opacity:1!important;transform:none!important;}
+#stage.render .kicker{opacity:1!important;transform:scaleX(1)!important;}
+#stage.render .titlewrap{opacity:1!important;transform:translateX(0)!important;}
+#stage.render .titlewrap::before{transform:scaleY(1)!important;}
+#stage.render .title .line>span{transform:translateY(0)!important;}

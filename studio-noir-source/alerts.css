@@ -1,0 +1,268 @@
+/* ============================================================
+   STUDIO NOIR — alert system ("Lower-Third Bug")
+   A prestige broadcast lower-third "alert bug": a charcoal slab
+   fronted by a thin amber accent RULE, an amber EVENT TAB sitting on
+   its top edge, a condensed-grotesque headline, an optional amber
+   AMOUNT, and a neutral-sans sub. A small "ON AIR" pip + an event
+   GLYPH chip anchor the left. Transparent background so it composites
+   over gameplay / the scene. Cohesive with shared.css tokens:
+   charcoal slab + steel hairline + a single broadcast amber accent,
+   film grain + a raked key-light sheen. Each event keeps the same
+   slab but gets a DISTINCT entrance motion (see alerts.js map +
+   the per-motion keyframes near the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --studio-black:#0D0F12; --charcoal:#171B20; --steel:#C0C6CC;
+  --amber:#E3B23C; --white:#F5F7F9;
+  /* derived */
+  --charcoal-2:#10141A;
+  --hair:rgba(192,198,204,.22);
+  --hair-soft:rgba(192,198,204,.10);
+  --amber-glow:rgba(227,178,60,.55);
+  --amber-soft:rgba(227,178,60,.16);
+  --dim:rgba(192,198,204,.62);
+  --slab:rgba(23,27,32,.94);
+  --slab-edge:rgba(192,198,204,.14);
+  /* fonts (system / web-safe ONLY — no CDN) */
+  --display:"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif;
+  --body:"Segoe UI",system-ui,Arial,sans-serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-slab:cubic-bezier(.22,1,.32,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);background:transparent;
+  font-family:var(--body);}
+
+/* one canvas for the key-light dust burst, sits behind the bug, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ============================================================
+   THE ALERT BUG — anchored lower-left, a broadcast lower-third slab.
+   Per-event entrance motion is applied to THIS element via a class
+   (.m-follower, .m-raid, ...) — see the motion keyframes below.
+   ============================================================ */
+.alert{position:absolute;left:96px;bottom:150px;width:880px;
+  display:grid;grid-template-columns:128px 1fr;align-items:stretch;
+  /* hidden until JS adds .show + a motion class */
+  opacity:0;will-change:transform,opacity;
+  filter:drop-shadow(0 30px 70px rgba(0,0,0,.6));}
+
+/* the amber accent RULE down the far left (the signature noir motif) */
+.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:linear-gradient(180deg,var(--amber),#9c7620);
+  box-shadow:0 0 18px var(--amber-glow);
+  transform-origin:top center;z-index:3;}
+
+/* ---- left GLYPH chip: charcoal tile w/ the event glyph ---- */
+.alert .chip{position:relative;background:linear-gradient(160deg,var(--charcoal) 0%,var(--charcoal-2) 100%);
+  border:1px solid var(--slab-edge);border-left:none;border-right:1px solid var(--hair-soft);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+/* a faint scanline glaze on the chip */
+.alert .chip::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);}
+.alert .chip .glyph{font-family:var(--display);font-weight:700;font-size:66px;line-height:1;
+  color:var(--amber);text-shadow:0 0 22px var(--amber-glow),0 2px 0 rgba(0,0,0,.4);
+  transform-origin:center;}
+/* a tiny pulsing ON-AIR pip top-left of the chip (broadcast tally) */
+.alert .pip{position:absolute;top:11px;left:11px;width:11px;height:11px;border-radius:50%;
+  background:var(--amber);box-shadow:0 0 0 0 var(--amber-glow);z-index:4;
+  animation:bugpip 1.9s ease-out infinite;}
+@keyframes bugpip{
+  0%{box-shadow:0 0 0 0 rgba(227,178,60,.6);transform:scale(1)}
+  70%{box-shadow:0 0 0 11px rgba(227,178,60,0);transform:scale(1.12)}
+  100%{box-shadow:0 0 0 0 rgba(227,178,60,0);transform:scale(1)}}
+
+/* ---- the charcoal SLAB body that holds the copy ---- */
+.alert .slab{position:relative;overflow:hidden;
+  background:linear-gradient(100deg,var(--slab) 0%, rgba(16,20,26,.9) 100%);
+  border:1px solid var(--slab-edge);border-left:none;
+  padding:24px 40px 24px 30px;min-width:0;
+  box-shadow:inset 0 1px 0 rgba(245,247,249,.04);}
+/* a faint raked key-light sheen sweeping across the slab */
+.alert .slab::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  opacity:.6;
+  background:linear-gradient(105deg, transparent 38%, rgba(245,247,249,.10) 49%, rgba(227,178,60,.05) 52%, transparent 64%);
+  animation:bugsheen 4.6s linear infinite;}
+@keyframes bugsheen{0%{transform:translateX(-26%)}100%{transform:translateX(26%)}}
+
+/* the amber EVENT TAB riding the top edge of the slab */
+.alert .tab{position:absolute;left:0;top:-1px;
+  display:inline-flex;align-items:center;height:30px;padding:0 18px;
+  background:var(--amber);color:var(--studio-black);
+  font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.26em;
+  text-indent:.26em;text-transform:uppercase;white-space:nowrap;z-index:2;
+  box-shadow:0 6px 18px rgba(227,178,60,.22);transform-origin:left center;}
+
+/* event KICKER line (small steel caps under the tab) */
+.alert .kick{margin:18px 0 4px;font-family:var(--display);font-weight:700;
+  font-size:21px;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase;
+  color:var(--steel);opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* big HEADLINE — condensed grotesque, white; clamped to one line so a
+   long handle never breaks the bug */
+.alert .name{margin:0;font-family:var(--display);font-weight:700;
+  font-size:62px;line-height:.94;letter-spacing:.01em;text-transform:uppercase;
+  color:var(--white);text-shadow:0 2px 0 rgba(0,0,0,.4);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* AMOUNT line (amber broadcast read) — hidden unless .has-amount.
+   Emphasized for cheer/donation/superchat: larger + amber glow. */
+.alert .amount{display:none;margin:8px 0 0;font-family:var(--display);font-weight:700;
+  font-size:40px;line-height:1;letter-spacing:.02em;color:var(--amber);
+  text-shadow:0 0 26px var(--amber-glow),0 2px 0 rgba(0,0,0,.4);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--white);}
+
+/* SUB line — neutral sans, dimmed steel */
+.alert .sub{margin:10px 0 0;font-family:var(--body);font-weight:400;
+  font-size:22px;letter-spacing:.14em;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a small station readout top-right of the slab (broadcast detail) */
+.alert .tagid{position:absolute;top:13px;right:24px;
+  font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.36em;
+  text-indent:.36em;color:var(--steel);opacity:.6;}
+.alert .tagrule{position:absolute;top:32px;right:24px;width:84px;height:1px;opacity:.6;
+  background:linear-gradient(90deg,transparent,var(--steel) 30%,var(--amber) 90%);}
+
+/* ============================================================
+   ENTRANCE / EXIT — JS adds .show + ONE per-event motion class, then
+   .hide near the end. The shared exit is a clean broadcast cut-out.
+   Each motion below is DISTINCT (see alerts.js EVENTS[].motion).
+   ============================================================ */
+.alert.show{opacity:1;}
+.alert.hide{animation:bug-out .42s var(--ease) forwards!important;}
+@keyframes bug-out{0%{opacity:1;transform:none}100%{opacity:0;transform:translateY(18px) scale(.985)}}
+
+/* default settle target for any motion's final state */
+.alert.show.m-follower,.alert.show.m-subscriber,.alert.show.m-member,
+.alert.show.m-cheer,.alert.show.m-donation,.alert.show.m-host,
+.alert.show.m-raid,.alert.show.m-like,.alert.show.m-share,
+.alert.show.m-star,.alert.show.m-superchat,.alert.show.m-supporter{transform:none;}
+
+/* 1) FOLLOWER — slide in from the left (the classic lower-third push) */
+.alert.show.m-follower{animation:m-follower .6s var(--ease-slab) both;}
+@keyframes m-follower{
+  0%{opacity:0;transform:translateX(-120px)}
+  70%{opacity:1;transform:translateX(14px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 2) SUBSCRIBER — rise up from below the safe-area (lower-third raise) */
+.alert.show.m-subscriber{animation:m-subscriber .62s var(--ease-slab) both;}
+@keyframes m-subscriber{
+  0%{opacity:0;transform:translateY(96px)}
+  72%{opacity:1;transform:translateY(-10px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 3) MEMBER — unfold: scaleX wipe open from the left edge (like the tab) */
+.alert.show.m-member{animation:m-member .6s var(--ease-slab) both;transform-origin:left center;}
+@keyframes m-member{
+  0%{opacity:0;transform:scaleX(.02)}
+  60%{opacity:1;transform:scaleX(1.015)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 4) CHEER — bright pop-in (scale up from 0.7 with a tiny overshoot) */
+.alert.show.m-cheer{animation:m-cheer .56s var(--ease-slab) both;transform-origin:left bottom;}
+@keyframes m-cheer{
+  0%{opacity:0;transform:scale(.72)}
+  62%{opacity:1;transform:scale(1.035)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 5) DONATION — drop in from above + a soft bounce-settle (amount lands hard) */
+.alert.show.m-donation{animation:m-donation .68s var(--ease-slab) both;}
+@keyframes m-donation{
+  0%{opacity:0;transform:translateY(-110px)}
+  58%{opacity:1;transform:translateY(16px)}
+  80%{transform:translateY(-6px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6) HOST — swing in: rotate from a hinge at the lower-left corner */
+.alert.show.m-host{animation:m-host .66s var(--ease-slab) both;transform-origin:left bottom;}
+@keyframes m-host{
+  0%{opacity:0;transform:rotate(-7deg) translateX(-70px)}
+  70%{opacity:1;transform:rotate(1.2deg) translateX(8px)}
+  100%{opacity:1;transform:rotate(0) translateX(0)}}
+
+/* 7) RAID — the big one: rush in from far left + overshoot, then a shake */
+.alert.show.m-raid{animation:m-raid .8s var(--ease-slab) both;}
+@keyframes m-raid{
+  0%{opacity:0;transform:translateX(-240px) scale(1.04)}
+  46%{opacity:1;transform:translateX(28px) scale(1)}
+  60%{transform:translateX(-14px)}
+  72%{transform:translateX(9px)}
+  84%{transform:translateX(-4px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 8) LIKE — quick fade + tiny lift (soft, unobtrusive) */
+.alert.show.m-like{animation:m-like .5s var(--ease) both;}
+@keyframes m-like{
+  0%{opacity:0;transform:translateY(22px) scale(.99)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 9) SHARE — skew-swipe in from the left (a fast "wipe" energy) */
+.alert.show.m-share{animation:m-share .56s var(--ease-slab) both;}
+@keyframes m-share{
+  0%{opacity:0;transform:translateX(-140px) skewX(10deg)}
+  68%{opacity:1;transform:translateX(10px) skewX(-2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10) STAR — zoom-in from slightly behind (scale down from 1.18) */
+.alert.show.m-star{animation:m-star .58s var(--ease-slab) both;transform-origin:left center;}
+@keyframes m-star{
+  0%{opacity:0;transform:scale(1.18)}
+  64%{opacity:1;transform:scale(.99)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 11) SUPERCHAT — slide up + scale (a deliberate, premium settle; amount big) */
+.alert.show.m-superchat{animation:m-superchat .72s var(--ease-slab) both;transform-origin:left bottom;}
+@keyframes m-superchat{
+  0%{opacity:0;transform:translateY(70px) scale(.9)}
+  66%{opacity:1;transform:translateY(-8px) scale(1.01)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 12) SUPPORTER — gentle expand from center (fade + scale from .92) */
+.alert.show.m-supporter{animation:m-supporter .6s var(--ease) both;transform-origin:left center;}
+@keyframes m-supporter{
+  0%{opacity:0;transform:scale(.92)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* secondary reveals (glyph pop + rule grow + copy rise) shared by all */
+.alert .chip .glyph{animation:bug-glyph .6s var(--ease-slab) both .12s;}
+@keyframes bug-glyph{0%{transform:scale(.4) rotate(-8deg);opacity:0}
+  60%{transform:scale(1.14) rotate(2deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+.alert::before{animation:bug-rule .5s var(--ease) both .1s;}
+@keyframes bug-rule{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.alert .tab{animation:bug-tab .5s var(--ease-slab) both .2s;}
+@keyframes bug-tab{from{opacity:0;transform:scaleX(.04)}to{opacity:1;transform:scaleX(1)}}
+.alert .kick{animation:bug-fade .5s var(--ease) both .26s;}
+.alert .name{animation:bug-fade .5s var(--ease) both .3s;}
+.alert.has-amount .amount{animation:bug-amount .55s var(--ease-slab) both .36s;}
+.alert .sub{animation:bug-fade .5s var(--ease) both .42s;}
+@keyframes bug-fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bug-amount{0%{opacity:0;transform:translateY(14px) scale(.86)}
+  60%{opacity:1;transform:translateY(0) scale(1.06)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze ALL CSS-driven motion. JS drives the bug's
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::before{animation:none!important;transform:scaleY(1)!important;}
+#stage.render .alert .slab::after{animation:none!important;display:none;}
+#stage.render .alert .chip .glyph{animation:none!important;transform:none!important;opacity:1!important;}
+#stage.render .alert .tab{animation:none!important;transform:scaleX(1)!important;opacity:1!important;}
+#stage.render .alert .kick,
+#stage.render .alert .name,
+#stage.render .alert .amount,
+#stage.render .alert .sub{animation:none!important;transform:none!important;opacity:1!important;}
+#stage.render .alert .pip{animation:none!important;box-shadow:0 0 0 0 rgba(227,178,60,0)!important;transform:scale(1)!important;}

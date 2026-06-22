@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Venom Surge Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name / amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box). Tick "no name" for the shipping
+    mode (the big line shows the EVENT label and the viewer name is hidden so your
+    alert platform overlays the live name).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background tabs
+    and the canvas frames will drop. Each clip takes ~5.4s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #04110A; color: #EAFFF2;
+      font-family: "Bahnschrift", "Segoe UI Semibold", "Segoe UI", Consolas, monospace; }
+    h1 { font-size: 22px; color: #C6FF00; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 0 0 16px rgba(198,255,0,.5); font-style: italic; }
+    p  { color: rgba(234,255,242,.62); line-height: 1.55; margin: 0 0 14px; max-width: 860px; }
+    code { color: #00FF66; background: rgba(0,255,102,.10); padding: 2px 6px; border-radius: 4px;
+      font-family: Consolas, "Courier New", monospace; }
+    label { color: #C6FF00; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: rgba(0,255,102,.06); color: #EAFFF2;
+      border: 1px solid #00FF66; border-radius: 6px; margin-right: 16px;
+      font-family: Consolas, "Courier New", monospace; }
+    input[type="text"] { width: 150px; }
+    .chk { display: inline-flex; align-items: center; gap: 8px; color: #0AE0FF; font-size: 14px;
+      letter-spacing: 1px; text-transform: uppercase; }
+    .chk input { margin: 0; }
+    button { font-size: 15px; padding: 13px 26px; background: #00FF66; color: #04110A;
+      border: 2px solid #C6FF00; border-radius: 10px; cursor: pointer; letter-spacing: 2px;
+      font-weight: bold; text-transform: uppercase; transform: skewX(-8deg);
+      font-family: "Bahnschrift", "Segoe UI Semibold", system-ui, sans-serif; }
+    button:hover:not(:disabled) { background: #C6FF00; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #0AE0FF; font-family: Consolas, "Courier New", monospace; }
+    .stage { background: rgba(0,255,102,.04); border: 1px solid rgba(0,255,102,.22); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 8px; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #04110A;
+      background-image:
+        linear-gradient(45deg, #0c1f15 25%, transparent 25%),
+        linear-gradient(-45deg, #0c1f15 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #0c1f15 75%),
+        linear-gradient(-45deg, transparent 75%, #0c1f15 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Venom Surge Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" type="text" value="NewViewer" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" type="text" value="500" /></span>
+    <label class="chk"><input id="nn" type="checkbox" /> no name (ship mode)</label>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css / shared.css)
+    const TOXIC_BLACK = '#04110A', GUNMETAL = '#101418';
+    const VENOM = '#00FF66', CYAN = '#0AE0FF', ACID = '#C6FF00', TEXT = '#EAFFF2', DIM = 'rgba(234,255,242,.58)';
+    const SLAB_EDGE = 'rgba(0,255,102,.40)', SLAB_EDGE_SOFT = 'rgba(0,255,102,.14)';
+    const SPARK = ['#00FF66', '#C6FF00', '#0AE0FF', '#EAFFF2'];
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    const DISPLAY = '"Arial Black","Arial Narrow Bold",Haettenschweiler,Impact,"Franklin Gothic Heavy",system-ui,sans-serif';
+    const TECH = '"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace';
+    const MONO = 'Consolas,ui-monospace,"SFMono-Regular",monospace';
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"›", kicker:"NEW FOLLOWER",   sub:"locked into the surge",  motes:18, bolts:2, amount:false },
+      subscriber: { glyph:"★", kicker:"NEW SUBSCRIBER", sub:"powered up — welcome", motes:24, bolts:3, amount:false },
+      member:     { glyph:"◆", kicker:"NEW MEMBER",     sub:"joined the squad",       motes:24, bolts:3, amount:false },
+      cheer:      { glyph:"⚡", kicker:"CHEER",          sub:"voltage incoming",       motes:30, bolts:4, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"$",      kicker:"DONATION",       sub:"fueling the stream",     motes:32, bolts:4, amount:true,  amtPre:"$" },
+      host:       { glyph:"»", kicker:"NOW HOSTING",    sub:"the gates swing open",   motes:36, bolts:4, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+      raid:       { glyph:"⚔", kicker:"RAID INCOMING",  sub:"the arena floods",       motes:48, bolts:6, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"▲", kicker:"NEW LIKE",       sub:"charge it up",           motes:14, bolts:1, amount:false },
+      share:      { glyph:"➤", kicker:"SHARED",         sub:"the surge spreads",      motes:20, bolts:2, amount:false },
+      star:       { glyph:"✦", kicker:"NEW STAR",       sub:"the arena lights up",    motes:26, bolts:3, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"✸", kicker:"SUPER CHAT",     sub:"high-voltage message",   motes:30, bolts:4, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"❖", kicker:"NEW SUPPORTER",  sub:"keeping the power on",   motes:26, bolts:3, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // sensible default amounts per event (matches the live demo)
+    const DEF_AMT = { cheer:"500", raid:"128", host:"42", star:"9", donation:"25", superchat:"25" };
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+
+    // ===== card geometry (mirrors alerts.css: left 96, bottom 140, 820 wide) =====
+    const CARD_W = 820, CARD_H = 202;
+    const CARD_X0 = 96;
+    const CARD_Y = H - 140 - CARD_H;
+
+    // ===== angular slashed-slab path (mirrors the clip-path) =====
+    function slabPath(x, y, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 34);
+      ctx.lineTo(x + 34, y);
+      ctx.lineTo(x + w - 90, y);
+      ctx.lineTo(x + w, y + 52);
+      ctx.lineTo(x + w, y + h - 34);
+      ctx.lineTo(x + w - 34, y + h);
+      ctx.lineTo(x + 90, y + h);
+      ctx.lineTo(x, y + h - 52);
+      ctx.closePath();
+    }
+    // glyph hazard tile (cut TL + BR)
+    function tilePath(x, y, s) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 22);
+      ctx.lineTo(x + 22, y);
+      ctx.lineTo(x + s, y);
+      ctx.lineTo(x + s, y + s - 22);
+      ctx.lineTo(x + s - 22, y + s);
+      ctx.lineTo(x, y + s);
+      ctx.closePath();
+    }
+
+    function drawMote(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot + Math.PI / 4);
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 10;
+      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s);
+      ctx.restore();
+    }
+    function drawBolt(x, y, ang, len, seg, sd, col, wMul) {
+      let bs = sd >>> 0;
+      const rr = () => { bs = (bs + 0x9E3779B9) | 0; let t = bs ^ (bs >>> 16); t = Math.imul(t, 0x21f0aaad); t ^= t >>> 15; return ((t >>> 0) % 1000) / 1000; };
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x), Math.round(y));
+      const step = len / seg, nx = Math.cos(ang), ny = Math.sin(ang), px = -ny, py = nx;
+      let cx = x, cy = y;
+      for (let i = 1; i <= seg; i++) {
+        const jag = (rr() - 0.5) * 34;
+        cx = x + nx * step * i + px * jag;
+        cy = y + ny * step * i + py * jag;
+        ctx.lineTo(Math.round(cx), Math.round(cy));
+        if (rr() > 0.76 && i < seg) {
+          const fang = ang + (rr() - 0.5) * 1.4;
+          const fl = step * (1 + rr());
+          ctx.moveTo(Math.round(cx), Math.round(cy));
+          ctx.lineTo(Math.round(cx + Math.cos(fang) * fl), Math.round(cy + Math.sin(fang) * fl));
+          ctx.moveTo(Math.round(cx), Math.round(cy));
+        }
+      }
+      ctx.strokeStyle = col; ctx.lineWidth = 1.6 * wMul;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.stroke();
+    }
+
+    // letter-space helper for canvas caps
+    function clampText(str, maxW, font) {
+      ctx.save(); ctx.font = font;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== the per-event entrance solver (mirror of alerts.js solve()) =====
+    // Returns a transform applied around the card centre, plus opacity.
+    function solve(type, ms, ENTER) {
+      const p = clamp01(ms / ENTER), e = easeOut(p);
+      let tx = 0, ty = 0, sx = 1, sy = 1, rot = 0, skx = 0, op = 1, blur = 0, originTL = false;
+      switch (type) {
+        case "follower": {
+          if (p < 0.6) tx = -1000 + easeOut(p / 0.6) * 1034; else tx = 34 - ((p - 0.6) / 0.4) * 34;
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        case "subscriber": {
+          if (p < 0.55) ty = -680 + easeOut(p / 0.55) * 706; else if (p < 0.78) ty = 26 - ((p - 0.55) / 0.23) * 38; else ty = -12 + ((p - 0.78) / 0.22) * 12;
+          op = clamp01(ms / (ENTER * 0.5)); break;
+        }
+        case "member": {
+          if (p < 0.62) ty = 620 - easeOut(p / 0.62) * 640; else ty = -20 + ((p - 0.62) / 0.38) * 20;
+          op = clamp01(ms / (ENTER * 0.5)); break;
+        }
+        case "cheer": {
+          sx = sy = 0.4 + e * 0.62 + Math.sin(p * Math.PI * 3) * 0.05 * (1 - p);
+          rot = Math.sin(p * Math.PI * 4) * 1.4 * (1 - p);
+          op = clamp01(ms / (ENTER * 0.4)); break;
+        }
+        case "donation": {
+          sx = sy = 1.9 - e * 0.94 + Math.sin(p * Math.PI) * 0.04 * (p > 0.55 ? 1 : 0);
+          blur = Math.max(0, 8 - p * 16);
+          op = clamp01(ms / (ENTER * 0.4)); break;
+        }
+        case "host": {
+          rot = -14 + e * 14; tx = -260 + e * 260; originTL = true;
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        case "raid": {
+          if (p < 0.52) tx = 1400 - easeOut(p / 0.52) * 1446; else if (p < 0.72) tx = -46 + ((p - 0.52) / 0.2) * 64; else tx = 18 - ((p - 0.72) / 0.28) * 18;
+          op = clamp01(ms / (ENTER * 0.4)); break;
+        }
+        case "like": {
+          if (p < 0.6) ty = 70 - easeOut(p / 0.6) * 78; else ty = -8 + ((p - 0.6) / 0.4) * 8;
+          sx = sy = 0.86 + e * 0.14;
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        case "share": {
+          if (p < 0.7) tx = 900 - easeOut(p / 0.7) * 922; else tx = -22 + ((p - 0.7) / 0.3) * 22;
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        case "star": {
+          sx = sy = 0.2 + e * 0.87; rot = -160 + e * 160;
+          op = clamp01(ms / (ENTER * 0.4)); break;
+        }
+        case "superchat": {
+          // flip on X — approximate with a vertical squash + slide
+          const rx = -88 + e * 88; ty = -120 + e * 120;
+          sy = Math.max(0.05, Math.cos(rx * Math.PI / 180)); originTL = "top";
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        case "supporter": {
+          sx = 0.02 + e * 0.98; sy = 0.7 + e * 0.3;
+          op = clamp01(ms / (ENTER * 0.45)); break;
+        }
+        default:
+          tx = -1000 + e * 1000; op = e;
+      }
+      return { tx, ty, sx, sy, rot, skx, op, blur, originTL };
+    }
+
+    // ===== draw the full card body at the resting position (then transformed by caller) =====
+    function drawCard(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const x = CARD_X0, y = CARD_Y, w = CARD_W, h = CARD_H;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      // slab body
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,255,102,0.16)'; ctx.shadowBlur = 50;
+      slabPath(x, y, w, h);
+      const body = ctx.createLinearGradient(x, y, x + w, y + h);
+      body.addColorStop(0, 'rgba(16,20,24,0.93)'); body.addColorStop(1, 'rgba(4,17,10,0.88)');
+      ctx.fillStyle = body; ctx.fill();
+      ctx.shadowBlur = 0;
+      // venom glow up the bottom-left corner
+      slabPath(x, y, w, h); ctx.save(); ctx.clip();
+      const rg = ctx.createRadialGradient(x, y + h, 0, x, y + h, w * 0.8);
+      rg.addColorStop(0, 'rgba(0,255,102,0.12)'); rg.addColorStop(0.64, 'rgba(0,255,102,0)');
+      ctx.fillStyle = rg; ctx.fillRect(x, y, w, h); ctx.restore();
+      // outer hairline edge
+      ctx.lineWidth = 1; ctx.strokeStyle = SLAB_EDGE;
+      slabPath(x + 0.5, y + 0.5, w - 1, h - 1); ctx.stroke();
+      // inner hairline echo
+      ctx.strokeStyle = SLAB_EDGE_SOFT;
+      slabPath(x + 9, y + 9, w - 18, h - 18); ctx.stroke();
+
+      // acid corner accent bar (top-right cut)
+      ctx.save();
+      ctx.translate(x + w - 90, y); ctx.transform(1, 0, Math.tan(-32 * Math.PI / 180), 1, 0, 0);
+      const ag = ctx.createLinearGradient(-130, 0, 0, 0);
+      ag.addColorStop(0, 'rgba(198,255,0,0)'); ag.addColorStop(0.6, ACID); ag.addColorStop(1, CYAN);
+      ctx.fillStyle = ag; ctx.shadowColor = ACID; ctx.shadowBlur = 16;
+      ctx.fillRect(-130, 0, 130, 5); ctx.restore(); ctx.shadowBlur = 0;
+
+      // left venom seam
+      const seam = ctx.createLinearGradient(0, y + 24, 0, y + h - 24);
+      seam.addColorStop(0, CYAN); seam.addColorStop(0.5, VENOM); seam.addColorStop(1, ACID);
+      ctx.fillStyle = seam; ctx.shadowColor = VENOM; ctx.shadowBlur = 14;
+      ctx.fillRect(x + 9, y + 24, 4, h - 48); ctx.shadowBlur = 0;
+
+      // bottom-left bracket tick
+      ctx.strokeStyle = VENOM; ctx.lineWidth = 3; ctx.shadowColor = VENOM; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(x + 18, y + h - 18 - 26); ctx.lineTo(x + 18, y + h - 18); ctx.lineTo(x + 18 + 26, y + h - 18);
+      ctx.stroke(); ctx.shadowBlur = 0;
+
+      // glyph hazard tile
+      const ts = 142, tx = x + 40, ty = y + (h - ts) / 2;
+      tilePath(tx, ty, ts);
+      const tg = ctx.createLinearGradient(tx, ty, tx + ts, ty + ts);
+      tg.addColorStop(0, 'rgba(16,20,24,0.95)'); tg.addColorStop(0.6, 'rgba(4,17,10,0.96)'); tg.addColorStop(1, TOXIC_BLACK);
+      ctx.fillStyle = tg; ctx.fill();
+      ctx.strokeStyle = SLAB_EDGE; ctx.lineWidth = 1; tilePath(tx + 0.5, ty + 0.5, ts - 1); ctx.stroke();
+      // glyph (skewed italic)
+      ctx.save();
+      ctx.translate(tx + ts / 2, ty + ts / 2);
+      ctx.transform(1, 0, Math.tan(-9 * Math.PI / 180), 1, 0, 0);
+      ctx.fillStyle = ACID; ctx.shadowColor = 'rgba(198,255,0,.55)'; ctx.shadowBlur = 22;
+      ctx.font = '900 italic 80px ' + DISPLAY;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cfg.glyph, 0, 4); ctx.restore(); ctx.shadowBlur = 0;
+
+      // meta column
+      const mx = tx + ts + 30;
+      const metaMaxW = (x + w) - mx - 44;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+      let curY = y + 46;
+      if (noname) {
+        // big line = the event label (shipping mode)
+        drawName(cfg.kicker, mx, y + 88, metaMaxW);
+        curY = y + 118;
+      } else {
+        // kicker tab
+        ctx.save();
+        ctx.transform(1, 0, Math.tan(-10 * Math.PI / 180), 1, 0, 0);
+        ctx.fillStyle = ACID; ctx.font = '700 19px ' + TECH;
+        ctx.shadowColor = 'rgba(198,255,0,.5)'; ctx.shadowBlur = 12;
+        ctx.fillText(spaced('VENOM · ' + cfg.kicker), mx + 18, curY);
+        ctx.restore(); ctx.shadowBlur = 0;
+        // diamond dot
+        ctx.save(); ctx.translate(mx + 6, curY - 7); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = VENOM; ctx.shadowColor = VENOM; ctx.shadowBlur = 10;
+        ctx.fillRect(-5, -5, 10, 10); ctx.restore(); ctx.shadowBlur = 0;
+        // name
+        drawName(name, mx, y + 102, metaMaxW);
+        curY = y + 132;
+      }
+
+      // amount (emphasised, gradient) OR push sub up
+      if (showAmount) {
+        ctx.save();
+        ctx.translate(mx, curY);
+        ctx.transform(1, 0, Math.tan(-9 * Math.PI / 180), 1, 0, 0);
+        ctx.font = '900 italic 38px ' + DISPLAY;
+        const amW = Math.min(ctx.measureText(amountStr).width, metaMaxW);
+        const ga = ctx.createLinearGradient(0, 0, amW, 0);
+        ga.addColorStop(0, VENOM); ga.addColorStop(0.6, ACID); ga.addColorStop(1, CYAN);
+        ctx.lineWidth = 3; ctx.strokeStyle = '#020A06';
+        ctx.strokeText(clampText(amountStr, metaMaxW, '900 italic 38px ' + DISPLAY), 0, 0);
+        ctx.fillStyle = ga; ctx.shadowColor = 'rgba(198,255,0,.55)'; ctx.shadowBlur = 18;
+        ctx.fillText(clampText(amountStr, metaMaxW, '900 italic 38px ' + DISPLAY), 0, 0);
+        ctx.restore(); ctx.shadowBlur = 0;
+        curY += 28;
+      }
+
+      // slashed rule
+      ctx.save();
+      ctx.translate(mx, curY + 2);
+      ctx.transform(1, 0, Math.tan(-32 * Math.PI / 180), 1, 0, 0);
+      const rg2 = ctx.createLinearGradient(0, 0, 200, 0);
+      rg2.addColorStop(0, VENOM); rg2.addColorStop(1, ACID);
+      ctx.fillStyle = rg2; ctx.shadowColor = VENOM; ctx.shadowBlur = 8;
+      ctx.fillRect(0, 0, 190, 3); ctx.restore(); ctx.shadowBlur = 0;
+      curY += 22;
+
+      // sub line
+      ctx.fillStyle = TEXT; ctx.globalAlpha = 0.58;
+      ctx.font = '600 21px ' + TECH;
+      ctx.fillText(clampText(cfg.sub.toUpperCase(), metaMaxW, '600 21px ' + TECH), mx, curY);
+      ctx.globalAlpha = 1;
+
+      // corner reg tag top-right
+      ctx.fillStyle = CYAN; ctx.globalAlpha = 0.82; ctx.font = '700 14px ' + MONO;
+      ctx.textAlign = 'right';
+      ctx.fillText(spaced('SYS // SURGE'), x + w - 30, y + 28); ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(0,255,102,0.7)'; ctx.lineWidth = 1; ctx.beginPath();
+      ctx.moveTo(x + w - 30 - 88, y + 40); ctx.lineTo(x + w - 30, y + 40); ctx.stroke();
+      ctx.textAlign = 'left';
+
+      ctx.restore();
+    }
+
+    function drawName(str, mx, baseY, maxW) {
+      ctx.save();
+      ctx.translate(mx, baseY);
+      ctx.transform(1, 0, Math.tan(-9 * Math.PI / 180), 1, 0, 0);
+      const font = '900 italic 62px ' + DISPLAY;
+      const s = clampText(String(str).toUpperCase(), maxW, font);
+      ctx.font = font; ctx.textAlign = 'left';
+      ctx.lineWidth = 3; ctx.strokeStyle = '#020A06'; ctx.strokeText(s, 0, 0);
+      ctx.fillStyle = TEXT; ctx.shadowColor = 'rgba(0,255,102,.3)'; ctx.shadowBlur = 20;
+      ctx.fillText(s, 0, 0); ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    function spaced(str) { return String(str).split('').join(' '); }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): enter 680 | hold to 4880 | exit 440 => ~5320ms total
+    const ENTER = 680, HOLD = 4200, EXIT = 440, HOLD_END = ENTER + HOLD, DUR = HOLD_END + EXIT;
+
+    function clipState(type, name, amount, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const amountStr = fmtAmount(cfg, amount);
+      const burst = []; const zaps = [];
+      let z1 = false, b1 = false, z2 = false, b2 = false;
+      const cx = CARD_X0 + 40 + 71, cy = CARD_Y + CARD_H / 2; // glyph-tile origin
+
+      function spawnBurst(n) {
+        for (let i = 0; i < n; i++) burst.push({
+          x: cx + R(-40, 100), y: cy + R(-70, 50),
+          vx: R(30, 220) / 60, vy: R(-230, -60) / 60, g: R(70, 150) / 3600,
+          s: R(2, 5), rot: R(0, 6.28), vr: R(-4, 4) / 60, a: 1, life: R(1.2, 2.4),
+          c: SPARK[(Math.random() * SPARK.length) | 0],
+        });
+      }
+      function spawnZaps(n) {
+        for (let i = 0; i < n; i++) zaps.push({
+          x: cx + R(-30, 40), y: cy + R(-40, 30),
+          ang: R(-1.4, 0.4), len: R(150, 360),
+          life: R(0.14, 0.26), max: 0.26, seed: (Math.random() * 1e9) | 0,
+          c: Math.random() < 0.5 ? CYAN : ACID,
+        });
+      }
+      function stepFx() {
+        for (let i = zaps.length - 1; i >= 0; i--) { zaps[i].life -= 1 / 30; if (zaps[i].life <= 0) zaps.splice(i, 1); }
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+          p.life -= 1 / 30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+      function drawFx() {
+        for (let i = zaps.length - 1; i >= 0; i--) {
+          const z = zaps[i]; const lit = Math.max(0, z.life / z.max);
+          ctx.globalAlpha = 0.4 + lit * 0.6;
+          ctx.shadowColor = z.c; ctx.shadowBlur = 16;
+          drawBolt(z.x, z.y, z.ang, z.len, 7, z.seed ^ ((zaps.length + i) * 97), z.c, 1.5);
+          ctx.shadowBlur = 8;
+          drawBolt(z.x, z.y, z.ang, z.len, 7, z.seed ^ ((zaps.length + i) * 97), TEXT, 0.6);
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      }
+
+      return function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // fx beats mirror the live timeline
+        if (ms >= 120 && !z1) { z1 = true; spawnZaps(cfg.bolts); }
+        if (ms >= 220 && !b1) { b1 = true; spawnBurst(cfg.motes); }
+        if (cfg.motes >= 32 && ms >= 620 && !z2) { z2 = true; spawnZaps(Math.max(2, Math.round(cfg.bolts * 0.6))); }
+        if (cfg.motes >= 32 && ms >= 620 && !b2) { b2 = true; spawnBurst(Math.round(cfg.motes * 0.6)); }
+        stepFx();
+        drawFx();
+
+        // card transform
+        let tf;
+        if (ms < ENTER) {
+          tf = solve(type, ms, ENTER);
+        } else if (ms < HOLD_END) {
+          tf = { tx: 0, ty: 0, sx: 1, sy: 1, rot: 0, op: 1, blur: 0, originTL: false };
+        } else {
+          const p = clamp01((ms - HOLD_END) / EXIT);
+          tf = { tx: -1000 * easeOut(p), ty: 0, sx: 1, sy: 1, rot: 0, skx: p * 8, op: 1 - p, blur: 0, originTL: false };
+        }
+        if (tf.op <= 0.01) return;
+
+        // pivot point (centre, or top-left for host, or top for superchat)
+        let px = CARD_X0 + CARD_W / 2, py = CARD_Y + CARD_H / 2;
+        if (tf.originTL === true) { px = CARD_X0; py = CARD_Y; }
+        else if (tf.originTL === "top") { py = CARD_Y; }
+
+        ctx.save();
+        ctx.globalAlpha = tf.op;
+        if (tf.blur) ctx.filter = 'blur(' + tf.blur.toFixed(1) + 'px)';
+        ctx.translate(px + (tf.tx || 0), py + (tf.ty || 0));
+        if (tf.rot) ctx.rotate(tf.rot * Math.PI / 180);
+        ctx.scale(tf.sx || 1, tf.sy || 1);
+        if (tf.skx) ctx.transform(1, 0, Math.tan((tf.skx) * Math.PI / 180), 1, 0, 0);
+        ctx.translate(-px, -py);
+        drawCard(type, name, amountStr, noname);
+        ctx.restore();
+        ctx.filter = 'none';
+      };
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value;
+      const r = clipState(type, document.getElementById('nm').value,
+        document.getElementById('am').value, document.getElementById('nn').checked);
+      r(1600);
+    }
+    sel.addEventListener('change', () => { const d = DEF_AMT[sel.value]; if (d) document.getElementById('am').value = d; preview(); });
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('nn').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const render = clipState(type, document.getElementById('nm').value,
+        document.getElementById('am').value, document.getElementById('nn').checked);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

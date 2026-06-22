@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Venom Surge (PNG generator)</title>
+  <!--
+    VENOM SURGE · "Toxic Arena" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the toxic-arena look (dark venom gradient + energy-core glow,
+    carbon hex-mesh, acid hazard chevron strips top/bottom, three diagonal
+    CLAW-SLASH tears on the -24deg axis, kinetic surge speed-lines + frozen
+    electric arc + rising embers, a CENTERED slashed gunmetal SLAB with a heavy
+    black italic OFFLINE title in a venom->acid->cyan gradient, a slashed rule,
+    corner void tags and an acid handle tab) onto a <canvas> and downloads it.
+
+    Everything random is drawn from a SEEDED LCG, so the field is identical on
+    every render (Math.random is never used) — re-running gives the same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --toxic-black:#04110A; --toxic-black2:#020A06;
+      --venom:#00FF66; --cyan:#0AE0FF; --gunmetal:#101418; --acid:#C6FF00;
+      --text:#EAFFF2; --dim:#7FA890;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace;
+      background:var(--toxic-black2);color:var(--text);padding:32px;}
+    h1{font-family:"Arial Black","Franklin Gothic Heavy",Impact,system-ui,sans-serif;font-weight:900;
+      font-style:italic;font-size:28px;color:var(--text);letter-spacing:.5px;margin:0 0 6px;
+      transform:skewX(-9deg);transform-origin:left;text-shadow:0 0 22px rgba(0,255,102,.32);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:860px;line-height:1.6;font-size:15px;}
+    .kicker{font-family:"Bahnschrift","Segoe UI Semibold",system-ui,sans-serif;letter-spacing:7px;
+      font-size:13px;font-weight:700;color:var(--acid);margin:0 0 14px;text-transform:uppercase;text-indent:7px;}
+    button{font-family:"Bahnschrift","Segoe UI Semibold",system-ui,sans-serif;font-weight:700;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--toxic-black);
+      background:linear-gradient(180deg,var(--venom),var(--acid));border:1px solid rgba(0,255,102,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(0,255,102,.25);transform:skewX(-8deg);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#08130D;padding:14px;border:1px solid #1c3327;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Consolas",ui-monospace,monospace;color:var(--acid);background:#0c1a12;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">VENOM SURGE · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the toxic-arena style — seeded so the
+    surge field and embers are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const TOXIC = '#04110A', TOXIC2 = '#020A06', GUNMETAL = '#101418';
+    const VENOM = '#00FF66', CYAN = '#0AE0FF', ACID = '#C6FF00';
+    const TEXT = '#EAFFF2', DIM = '#7FA890', OUTLINE = '#020A06';
+    const SLASH = -24 * Math.PI / 180, DX = Math.cos(SLASH), DY = Math.sin(SLASH);
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // angular SLASHED slab silhouette (mirrors shared.css .slab clip-path)
+    function slabPath(x, y, w, h, c, big) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + c);
+      ctx.lineTo(x + c, y);
+      ctx.lineTo(x + w - big, y);
+      ctx.lineTo(x + w, y + c * 1.5);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + big, y + h);
+      ctx.lineTo(x, y + h - c * 1.5);
+      ctx.closePath();
+    }
+
+    // one diagonal CLAW-SLASH tear: bright venom->acid seam + hard white core
+    function clawSeam(cx, cy, len, thick, scaleX) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(SLASH); ctx.scale(scaleX, 1);
+      // soft glow band
+      const half = len / 2;
+      const g = ctx.createLinearGradient(-half, 0, half, 0);
+      g.addColorStop(0.00, 'rgba(0,255,102,0)');
+      g.addColorStop(0.18, 'rgba(0,255,102,0.18)');
+      g.addColorStop(0.46, 'rgba(0,255,102,0.95)');
+      g.addColorStop(0.50, 'rgba(198,255,0,0.95)');
+      g.addColorStop(0.54, 'rgba(0,255,102,0.95)');
+      g.addColorStop(0.82, 'rgba(0,255,102,0.18)');
+      g.addColorStop(1.00, 'rgba(0,255,102,0)');
+      ctx.fillStyle = g;
+      ctx.shadowColor = 'rgba(0,255,102,0.65)'; ctx.shadowBlur = 26;
+      ctx.fillRect(-half, -thick / 2, len, thick);
+      // hard bright core line
+      ctx.shadowColor = ACID; ctx.shadowBlur = 12;
+      const cgrad = ctx.createLinearGradient(-half, 0, half, 0);
+      cgrad.addColorStop(0, 'rgba(234,255,242,0)');
+      cgrad.addColorStop(0.5, TEXT);
+      cgrad.addColorStop(0.52, ACID);
+      cgrad.addColorStop(1, 'rgba(234,255,242,0)');
+      ctx.fillStyle = cgrad;
+      ctx.fillRect(-half * 0.84, -1.4, len * 0.84, 2.8);
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    // esports corner bracket tick
+    function bracket(x, y, s, flipX, flipY) {
+      ctx.save();
+      ctx.translate(x, y); ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.strokeStyle = VENOM; ctx.lineWidth = 5; ctx.lineCap = 'square';
+      ctx.shadowColor = 'rgba(0,255,102,0.6)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(0, s); ctx.lineTo(0, 0); ctx.lineTo(s, 0); ctx.stroke();
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // deterministic jagged bolt (frozen electric arc)
+    function bolt(x, y, ang, len, seg, sd, col, w) {
+      let bs = sd >>> 0;
+      const rr = () => { bs = (bs + 0x9E3779B9) | 0; let t = bs ^ (bs >>> 16); t = Math.imul(t, 0x21f0aaad); t ^= t >>> 15; return ((t >>> 0) % 1000) / 1000; };
+      ctx.beginPath(); ctx.moveTo(Math.round(x), Math.round(y));
+      const step = len / seg, nx = Math.cos(ang), ny = Math.sin(ang), px = -ny, py = nx;
+      let cx = x, cy = y;
+      for (let i = 1; i <= seg; i++) {
+        const jag = (rr() - 0.5) * 44;
+        cx = x + nx * step * i + px * jag;
+        cy = y + ny * step * i + py * jag;
+        ctx.lineTo(Math.round(cx), Math.round(cy));
+        if (rr() > 0.78 && i < seg) {
+          const fang = ang + (rr() - 0.5) * 1.4, fl = step * (1 + rr());
+          ctx.moveTo(Math.round(cx), Math.round(cy));
+          ctx.lineTo(Math.round(cx + Math.cos(fang) * fl), Math.round(cy + Math.sin(fang) * fl));
+          ctx.moveTo(Math.round(cx), Math.round(cy));
+        }
+      }
+      ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x00FF66); // fixed seed (venom hex) -> identical scatter
+
+      // ---- BACKGROUND: dark toxic gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      grad.addColorStop(0, '#06160D'); grad.addColorStop(0.5, TOXIC); grad.addColorStop(1, TOXIC2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // stage radial set: venom core upper-centre + cyan/acid glows
+      bloom(W * 0.50, H * 0.52, W * 0.46, 'rgba(0,255,102,0.10)', 1);
+      bloom(W * 0.16, H * 0.14, W * 0.40, 'rgba(10,224,255,0.07)', 1);
+      bloom(W * 0.86, H * 0.88, W * 0.40, 'rgba(198,255,0,0.06)', 1);
+
+      // ---- CARBON HEX-MESH: diagonal hatch (mirrors .hexmesh) ----
+      ctx.save();
+      const mg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, W * 0.6);
+      mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0.25)');
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = 'rgba(0,255,102,0.05)'; ctx.lineWidth = 1;
+      for (let d = -H; d < W; d += 26) { ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + H * 1.7, H); ctx.stroke(); }
+      for (let d = 0; d < W + H * 1.7; d += 26) { ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d - H * 1.7, H); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(10,224,255,0.035)';
+      for (let y = 0; y < H; y += 45) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- SEEDED SURGE speed-lines streaking along the slash diagonal ----
+      ctx.save();
+      const cxw = W / 2, cyh = H / 2;
+      for (let i = 0; i < 40; i++) {
+        const p = rnd();
+        const off = R(rnd, -900, 900);
+        const len = R(rnd, 120, 460);
+        const a = R(rnd, 0.10, 0.42);
+        const w = R(rnd, 1, 3);
+        const hue = rnd();
+        const travel = (p - 0.5) * 2600;
+        const x = cxw + DX * travel + (-DY) * off;
+        const y = cyh + DY * travel + (DX) * off;
+        const ex = x + DX * len, ey = y + DY * len;
+        const col = hue < 0.62 ? '0,255,102' : (hue < 0.85 ? '198,255,0' : '10,224,255');
+        const g = ctx.createLinearGradient(x, y, ex, ey);
+        g.addColorStop(0, 'rgba(' + col + ',0)');
+        g.addColorStop(0.5, 'rgba(' + col + ',' + a.toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(' + col + ',0)');
+        ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(Math.round(x), Math.round(y)); ctx.lineTo(Math.round(ex), Math.round(ey)); ctx.stroke();
+      }
+      ctx.restore();
+
+      // ---- ACID HAZARD chevron strips raking top + bottom edges ----
+      drawHazardStrip(0, 16, false);
+      drawHazardStrip(H - 16, 16, true);
+
+      // ---- three diagonal CLAW-SLASH tears (shared -24deg axis) ----
+      clawSeam(W / 2 - 120, H / 2 - 300, 2200, 46, 0.92);
+      clawSeam(W / 2 + 40,  H / 2 - 40,  2200, 46, 1.00);
+      clawSeam(W / 2 + 200, H / 2 + 250, 2200, 46, 0.88);
+
+      // ---- frozen ELECTRIC ARCS (deterministic) ----
+      ctx.save();
+      ctx.shadowColor = 'rgba(10,224,255,0.9)'; ctx.shadowBlur = 18;
+      bolt(W * 0.22, H * 0.30, 1.9, 280, 7, 0xA17C3, CYAN, 2.6);
+      bolt(W * 0.22, H * 0.30, 1.9, 280, 7, 0xA17C3, TEXT, 1.1);
+      bolt(W * 0.80, H * 0.70, 4.4, 240, 7, 0x51FE2, CYAN, 2.6);
+      bolt(W * 0.80, H * 0.70, 4.4, 240, 7, 0x51FE2, TEXT, 1.1);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // ---- rising venom EMBERS ----
+      ctx.save();
+      for (let i = 0; i < 70; i++) {
+        const x = R(rnd, 10, W - 10), y = R(rnd, 10, H - 10);
+        const z = R(rnd, 0.4, 1.7), a = R(rnd, 0.25, 0.85), hue = rnd();
+        const col = hue < 0.6 ? VENOM : (hue < 0.85 ? ACID : CYAN);
+        ctx.globalAlpha = a; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 7 * z;
+        const sz = Math.max(1, Math.round(z * 1.8));
+        ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- DEEP VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.64);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,8,5,0.85)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTERED SLASHED SLAB — the signature composition
+      // ============================================================
+      const fw = 1180, fh = 600;
+      const fx = (W - fw) / 2, fy = (H - fh) / 2;
+      const cc = 46, big = 120;
+
+      // pulsing energy core glow behind the slab
+      bloom(W / 2, H / 2, 620, 'rgba(0,255,102,0.18)', 1);
+
+      // slab fill + soft drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.65)'; ctx.shadowBlur = 90; ctx.shadowOffsetY = 36;
+      slabPath(fx, fy, fw, fh, cc, big);
+      const sg = ctx.createLinearGradient(0, fy, 0, fy + fh);
+      sg.addColorStop(0, 'rgba(16,20,24,0.92)'); sg.addColorStop(1, 'rgba(4,17,10,0.88)');
+      ctx.fillStyle = sg; ctx.fill();
+      ctx.restore();
+
+      // inner hex wash clipped to the slab
+      ctx.save();
+      slabPath(fx, fy, fw, fh, cc, big); ctx.clip();
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(0,255,102,0.05)'; ctx.lineWidth = 1;
+      for (let d = fx - fh; d < fx + fw; d += 22) { ctx.beginPath(); ctx.moveTo(d, fy); ctx.lineTo(d + fh, fy + fh); ctx.stroke(); }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // outer venom border + inner hairline echo
+      ctx.strokeStyle = 'rgba(0,255,102,0.55)'; ctx.lineWidth = 1.6;
+      slabPath(fx + 0.8, fy + 0.8, fw - 1.6, fh - 1.6, cc, big); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,255,102,0.16)'; ctx.lineWidth = 1;
+      slabPath(fx + 14, fy + 14, fw - 28, fh - 28, cc - 6, big - 14); ctx.stroke();
+
+      // acid corner accent streak on the top-right cut (echo .slab::after)
+      ctx.save();
+      ctx.translate(fx + fw - big - 40, fy + 4); ctx.transform(1, 0, -0.62, 1, 0, 0);
+      const ag = ctx.createLinearGradient(0, 0, 170, 0);
+      ag.addColorStop(0, 'rgba(0,0,0,0)'); ag.addColorStop(0.6, ACID); ag.addColorStop(1, CYAN);
+      ctx.fillStyle = ag; ctx.shadowColor = ACID; ctx.shadowBlur = 16;
+      ctx.fillRect(0, 0, 170, 5);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // corner bracket ticks
+      bracket(fx + 26, fy + 26, 34, false, false);
+      bracket(fx + fw - 26, fy + fh - 26, 34, true, true);
+
+      // ---- slab content (centered) ----
+      const cx = W / 2;
+
+      // kicker — hazard tab with a diamond + spaced techy caps
+      ctx.save();
+      const kY = fy + 116, kw = 360, kh = 50;
+      ctx.fillStyle = 'rgba(0,255,102,0.07)';
+      ctx.fillRect(cx - kw / 2, kY - kh / 2, kw, kh);
+      ctx.fillStyle = VENOM; ctx.fillRect(cx - kw / 2 - 4, kY - kh / 2, 4, kh);
+      ctx.fillStyle = CYAN;  ctx.fillRect(cx + kw / 2, kY - kh / 2, 4, kh);
+      ctx.save(); ctx.translate(cx - kw / 2 + 30, kY); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = VENOM; ctx.shadowColor = VENOM; ctx.shadowBlur = 12; ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.font = '700 24px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = ACID;
+      ctx.shadowColor = 'rgba(198,255,0,0.5)'; ctx.shadowBlur = 14;
+      drawSpacedCentered('SIGNAL OFFLINE', cx + 16, kY, 8);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // big heavy black italic TITLE: OFFLINE (venom->acid->cyan + outline)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.translate(cx, fy + 290);
+      ctx.transform(1, 0, -0.16, 1, 0, 0); // skewX(~-9deg) forward
+      ctx.font = '900 italic 190px "Arial Black","Franklin Gothic Heavy",Impact,sans-serif';
+      ctx.lineJoin = 'round'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 12;
+      ctx.strokeText('OFFLINE', 0, 0);
+      const tg = ctx.createLinearGradient(-360, 0, 360, 0);
+      tg.addColorStop(0, VENOM); tg.addColorStop(0.6, ACID); tg.addColorStop(1, CYAN);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(198,255,0,0.5)'; ctx.shadowBlur = 50;
+      ctx.fillText('OFFLINE', 0, 0);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // slashed double rule with chevrons
+      ctx.save();
+      const ruY = fy + 396;
+      drawRule(cx, ruY, 520);
+      ctx.restore();
+
+      // subtitle — techy bold caps
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 30px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
+      ctx.fillStyle = DIM;
+      drawSpacedCentered('THE ARENA IS DARK — FOLLOW FOR THE NEXT SURGE', cx, fy + 470, 3);
+      ctx.restore();
+
+      // ---- corner void tags on the toxic field (outside the slab) ----
+      ctx.save();
+      ctx.font = '700 22px "Consolas",ui-monospace,monospace'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = VENOM; ctx.shadowColor = 'rgba(0,255,102,0.5)'; ctx.shadowBlur = 12;
+      ctx.textAlign = 'left';  drawSpaced('SYS // SURGE', 64, 70, 8);
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(10,224,255,0.5)';
+      ctx.textAlign = 'right'; drawSpacedRight('VOLT 100%', W - 64, 70, 8);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // ---- HANDLE (bottom-right, acid hazard tab) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.font = '700 28px "Bahnschrift","Segoe UI Semibold",system-ui,sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      const hw = ctx.measureText(handleAt).width + 40;
+      ctx.translate(W - 64, H - 56);
+      ctx.fillStyle = 'rgba(198,255,0,0.06)';
+      ctx.transform(1, 0, -0.18, 1, 0, 0);
+      ctx.fillRect(-hw, -34, hw, 46);
+      ctx.fillStyle = ACID; ctx.fillRect(-hw, 12, hw, 3);
+      ctx.shadowColor = 'rgba(198,255,0,0.55)'; ctx.shadowBlur = 14;
+      ctx.fillText(handleAt, -16, 0);
+      ctx.restore(); ctx.shadowBlur = 0;
+      ctx.font = '400 18px "Consolas",ui-monospace,monospace'; ctx.fillStyle = DIM;
+      ctx.textAlign = 'right';
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 28);
+    }
+
+    function drawHazardStrip(y, thick, flip) {
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      for (let hx = -20; hx < W + 40; hx += 44) {
+        ctx.fillStyle = ACID;
+        ctx.beginPath();
+        if (!flip) {
+          ctx.moveTo(hx, y); ctx.lineTo(hx + 22, y);
+          ctx.lineTo(hx + 22 - thick * 0.6, y + thick); ctx.lineTo(hx - thick * 0.6, y + thick);
+        } else {
+          ctx.moveTo(hx, y + thick); ctx.lineTo(hx + 22, y + thick);
+          ctx.lineTo(hx + 22 - thick * 0.6, y); ctx.lineTo(hx - thick * 0.6, y);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+      // edge fade mask
+      const m = ctx.createLinearGradient(0, 0, W, 0);
+      m.addColorStop(0, 'rgba(4,17,10,1)'); m.addColorStop(0.12, 'rgba(4,17,10,0)');
+      m.addColorStop(0.88, 'rgba(4,17,10,0)'); m.addColorStop(1, 'rgba(4,17,10,1)');
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-out';
+      // (destination-out won't help over prior layers; instead draw matching cover bars at the ends)
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = m;
+      ctx.fillRect(0, y, W, thick);
+      ctx.restore();
+    }
+
+    function drawRule(cx, y, w) {
+      ctx.save();
+      // seg a (long, venom->acid), skewed
+      ctx.translate(cx, y);
+      ctx.transform(1, 0, -0.62, 1, 0, 0);
+      const ga = ctx.createLinearGradient(-w / 2, 0, w * 0.1, 0);
+      ga.addColorStop(0, 'rgba(0,255,102,0)'); ga.addColorStop(0.6, VENOM); ga.addColorStop(1, ACID);
+      ctx.fillStyle = ga; ctx.shadowColor = 'rgba(0,255,102,0.55)'; ctx.shadowBlur = 12;
+      ctx.fillRect(-w / 2, -2, w * 0.55, 4);
+      // seg b (short cyan)
+      const gb = ctx.createLinearGradient(w * 0.22, 0, w / 2, 0);
+      gb.addColorStop(0, CYAN); gb.addColorStop(1, 'rgba(10,224,255,0)');
+      ctx.fillStyle = gb;
+      ctx.fillRect(w * 0.30, -2, w * 0.20, 4);
+      ctx.restore();
+      // chevrons in the gap
+      ctx.save();
+      ctx.fillStyle = ACID; ctx.shadowColor = ACID; ctx.shadowBlur = 12;
+      ctx.font = '900 26px "Arial Black",Impact,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.translate(cx + w * 0.07, y); ctx.transform(1, 0, -0.2, 1, 0, 0);
+      ctx.fillText('▸▸', 0, 0);
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cottagecore Bloom — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Cottagecore Bloom
+    "Pressed-Flower Herbarium" language:
+        - a cream PAPER card with a hand-cut deckled / torn edge
+        - a thin inner ruled herbarium frame (leaf green)
+        - a hand-drawn ivy sprig + a tiny pressed flower in a corner
+        - a thin leaf-green line icon (about, schedule, rules, ...)
+        - the label in a graceful old-style serif, warm ink
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Cottagecore Bloom palette (mirrors shared.css tokens) ---- */
+    :root{
+      --sage-bg:#E6EFD8; --meadow:#B7CE96; --leaf:#7DA453; --leaf-deep:#5E8038;
+      --cream:#FBF6E9; --paper-edge:#EFE7D2; --rose:#E2A0B4; --ink:#5A4A3A;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,"Avenir Next",system-ui,sans-serif;
+      color:var(--ink); padding:36px 32px 60px; min-height:100vh;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(255,250,222,.7), transparent 60%),
+        radial-gradient(760px 480px at 100% 110%, rgba(125,164,83,.20), transparent 60%),
+        linear-gradient(168deg, #EEF4E2, var(--sage-bg) 60%, #DBE7C6);
+    }
+    .kicker{
+      font-family:"Optima","Gill Sans","Segoe UI",Candara,system-ui,sans-serif;
+      letter-spacing:.42em; font-size:12px; font-weight:600;
+      color:var(--leaf-deep); text-transform:uppercase; margin:0 0 10px;
+      display:flex; align-items:center; gap:11px; text-indent:.42em;
+    }
+    .seed{width:9px;height:9px;border-radius:50% 0 50% 50%;background:var(--rose);
+      box-shadow:0 0 0 4px rgba(226,160,180,.22); transform:rotate(45deg);}
+    h1{font-family:"Iowan Old Style","Hoefler Text","Palatino Linotype",Palatino,Georgia,serif;
+      font-weight:600; font-size:33px; letter-spacing:.3px; margin:0 0 6px; color:var(--ink);}
+    p.lead{color:var(--ink-soft, rgba(90,74,58,.66)); margin:0 0 24px; max-width:740px; line-height:1.6;
+      font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; font-style:italic; font-size:17px;}
+    code{font-family:"Courier New",monospace; color:var(--leaf-deep);
+      background:rgba(125,164,83,.12); padding:2px 7px; border-radius:3px; font-style:normal;}
+    .toolbar{margin:0 0 30px; display:flex; gap:14px; flex-wrap:wrap;}
+    button{
+      font-family:"Optima","Gill Sans","Segoe UI",system-ui,sans-serif; font-weight:600;
+      font-size:13px; letter-spacing:2.4px; text-transform:uppercase;
+      padding:12px 24px; cursor:pointer; color:var(--cream);
+      background:linear-gradient(180deg, var(--leaf), var(--leaf-deep));
+      border:1px solid rgba(94,128,56,.6); border-radius:24px;
+      box-shadow:0 8px 22px rgba(94,128,56,.24);
+    }
+    button:hover{filter:brightness(1.05);}
+    .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(348px, 1fr)); gap:26px;}
+    .card{background:rgba(255,253,244,.6); padding:16px; border-radius:12px;
+      border:1px solid rgba(125,164,83,.30); box-shadow:0 6px 18px rgba(90,74,58,.08);}
+    /* checkerboard so the panel's transparent deckle is visible */
+    .frame{border-radius:8px; overflow:hidden; display:block;
+      background-color:#dfe9cc;
+      background-image:
+        linear-gradient(45deg, rgba(125,164,83,.12) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(125,164,83,.12) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(125,164,83,.12) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(125,164,83,.12) 75%);
+      background-size:16px 16px;
+      background-position:0 0, 0 8px, 8px -8px, -8px 0;}
+    canvas{display:block; width:320px; height:100px;}
+    .card-row{display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:12px;}
+    .card-row .name{font-family:"Optima","Gill Sans",system-ui,sans-serif; letter-spacing:2px;
+      color:rgba(90,74,58,.7); text-transform:uppercase;}
+    .card-row a{font-family:"Optima","Gill Sans",system-ui,sans-serif; letter-spacing:1px;
+      color:var(--leaf-deep); text-decoration:none;
+      border:1px solid rgba(125,164,83,.4); border-radius:18px; padding:5px 13px;}
+    .card-row a:hover{background:rgba(125,164,83,.16);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="seed"></span>COTTAGECORE BLOOM &middot; PANELS</p>
+  <h1>Cottagecore Bloom — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the pressed-flower herbarium style:
+    a cream deckled paper card, a thin ruled frame, a corner ivy sprig with a pressed flower,
+    and a leaf-green line icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- size + tokens (hex mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var SAGE = '#E6EFD8', MEADOW = '#B7CE96', LEAF = '#7DA453', LEAF_DEEP = '#5E8038';
+    var CREAM = '#FBF6E9', PAPER_EDGE = '#EFE7D2', ROSE = '#E2A0B4', INK = '#5A4A3A';
+    var INK_SOFT = 'rgba(90,74,58,0.6)';
+
+    // ---- Panel inventory (per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',      icon: 'leaf' },
+      { id: 'schedule',  title: 'SCHEDULE',   icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',      icon: 'list' },
+      { id: 'donations', title: 'DONATIONS',  icon: 'jar' },
+      { id: 'discord',   title: 'DISCORD',    icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',    icon: 'bird' },
+      { id: 'youtube',   title: 'YOUTUBE',    icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM',  icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',      icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',   icon: 'wreath' },
+      { id: 'subscribe', title: 'SUBSCRIBE',  icon: 'flower' },
+      { id: 'community', title: 'COMMUNITY',  icon: 'hands' }
+    ];
+
+    // ---- deckled (torn paper) edge path — the signature silhouette ----
+    // jitter is a small per-edge wobble; values are fixed (no Math.random).
+    function deckledPath(ctx, x, y, w, h, j) {
+      var topJ = [0,-1,1,-1.5,1,-1,1.5,-1,1,-1.5,0];
+      var botJ = [0,1,-1,1.5,-1,1,-1.5,1,-1,1,0];
+      var i, n = topJ.length, px;
+      ctx.beginPath();
+      // top edge L->R
+      for (i = 0; i < n; i++) { px = x + (w * i / (n - 1)); ctx.lineTo(px, y + topJ[i] * j); }
+      // right edge T->B
+      var rJ = [0,1,-1,1,-1,0];
+      for (i = 1; i < rJ.length; i++) ctx.lineTo(x + w + rJ[i] * j, y + (h * i / (rJ.length - 1)));
+      // bottom edge R->L
+      for (i = 0; i < n; i++) { px = x + (w * (n - 1 - i) / (n - 1)); ctx.lineTo(px, y + h + botJ[i] * j); }
+      // left edge B->T
+      var lJ = [0,-1,1,-1,1,0];
+      for (i = 1; i < lJ.length; i++) ctx.lineTo(x + lJ[i] * j, y + (h * (lJ.length - 1 - i) / (lJ.length - 1)));
+      ctx.closePath();
+    }
+
+    // ---- a hand-drawn ivy sprig (curving stem + leaves) into a corner ----
+    // ox,oy is the corner origin; fx,fy flips so it always curls inward.
+    function sprig(ctx, ox, oy, scale, fx, fy) {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(scale * (fx || 1), scale * (fy || 1));
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // stems
+      ctx.strokeStyle = LEAF; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(2, 2);
+      ctx.bezierCurveTo(14, 9, 26, 14, 36, 18);
+      ctx.bezierCurveTo(46, 22, 52, 30, 54, 38);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(2, 2);
+      ctx.bezierCurveTo(8, 14, 12, 24, 14, 34);
+      ctx.stroke();
+      // ivy leaves (filled)
+      leaf(ctx, 16, 11, 9, -0.5, LEAF);
+      leaf(ctx, 30, 17, 9, -0.1, LEAF_DEEP);
+      leaf(ctx, 11, 22, 8, 0.9, LEAF);
+      leaf(ctx, 44, 27, 9, 0.2, '#9CC56A');
+      // a pressed flower (dusty rose) on the tip
+      bloom(ctx, 52, 38, 4.2, ROSE);
+      ctx.restore();
+    }
+
+    // a single ivy leaf — teardrop, rotated
+    function leaf(ctx, x, y, r, rot, color) {
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(rot);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(r * 0.9, -r * 0.8, r * 1.7, 0);
+      ctx.quadraticCurveTo(r * 0.9, r * 0.9, 0, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // a small pressed flower: petals around a center
+    function bloom(ctx, x, y, r, petal) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = petal;
+      for (var k = 0; k < 6; k++) {
+        ctx.save(); ctx.rotate(k * Math.PI / 3);
+        ctx.beginPath();
+        ctx.ellipse(0, -r * 1.1, r * 0.5, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#E8C766'; // pollen heart
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ----
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+      var pad = 5;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // cream paper body, clipped to the deckled silhouette
+      ctx.save();
+      deckledPath(ctx, x, y, w, h, 3);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, y, 0, y + h);
+      bg.addColorStop(0, CREAM);
+      bg.addColorStop(1, PAPER_EDGE);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // faint warm paper grain (subtle striping)
+      ctx.fillStyle = 'rgba(90,74,58,0.02)';
+      for (var gy = y; gy < y + h; gy += 4) ctx.fillRect(0, gy, W, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = 'rgba(90,74,58,0.02)';
+      for (var gx = x; gx < x + w; gx += 5) ctx.fillRect(gx, 0, 1, H);
+      ctx.restore();
+
+      // a warm sun bloom upper-left
+      var sun = ctx.createRadialGradient(60, 8, 4, 60, 8, 130);
+      sun.addColorStop(0, 'rgba(255,250,222,0.55)');
+      sun.addColorStop(1, 'rgba(255,250,222,0)');
+      ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
+
+      // soft inner deckle shadow
+      var inner = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 180);
+      inner.addColorStop(0, 'rgba(176,160,130,0)');
+      inner.addColorStop(1, 'rgba(176,160,130,0.16)');
+      ctx.fillStyle = inner; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // thin inner ruled herbarium frame (leaf green)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(125,164,83,0.42)';
+      ctx.lineWidth = 1;
+      roundRect(ctx, x + 7, y + 7, w - 14, h - 14, 5); ctx.stroke();
+      ctx.restore();
+
+      // ivy sprig in the top-left corner of the card
+      sprig(ctx, x + 10, y + 8, 0.92, 1, 1);
+      // a tiny mirrored sprig flicked into the bottom-right
+      sprig(ctx, x + w - 10, y + h - 8, 0.62, -1, -1);
+
+      // leaf-green line icon, vertically centered, left zone
+      drawIcon(ctx, p.icon, 47, H / 2 + 2, 30);
+
+      // kicker above the title — spaced humanist caps, leaf green
+      ctx.save();
+      ctx.font = '600 8px "Optima","Gill Sans",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = LEAF_DEEP;
+      drawSpaced(ctx, 'HERBARIUM', 76, 34, 2.4);
+      ctx.restore();
+
+      // label in graceful old-style serif (warm ink), shrink-to-fit
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 27;
+      var maxW = W - 76 - 22;
+      ctx.font = '600 ' + size + 'px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1;
+        ctx.font = '600 ' + size + 'px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+      }
+      ctx.fillStyle = INK;
+      ctx.fillText(label, 76, 66);
+      ctx.restore();
+
+      // a delicate botanical underline (a sprig stroke with a rose center)
+      ctx.save();
+      var barX = 76, barY = 78, barW = W - 76 - 22;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(125,164,83,0)');
+      grad.addColorStop(0.2, LEAF);
+      grad.addColorStop(0.5, LEAF_DEEP);
+      grad.addColorStop(0.8, LEAF);
+      grad.addColorStop(1, 'rgba(125,164,83,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      // small budding leaves + a rose center dot
+      ctx.fillStyle = LEAF;
+      [barX + barW * 0.34, barX + barW * 0.66].forEach(function (lx) {
+        ctx.save(); ctx.translate(lx, barY); ctx.rotate(-0.5);
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.quadraticCurveTo(4, -4, 8, 0); ctx.quadraticCurveTo(4, 3, 0, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+      ctx.fillStyle = ROSE;
+      ctx.beginPath(); ctx.arc(barX + barW * 0.5, barY, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- thin leaf-green line icons (centred on cx,cy, ~s px box) ----
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = LEAF_DEEP;
+      ctx.fillStyle = LEAF_DEEP;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      switch (kind) {
+        case 'leaf': { // about — a single leaf with a vein
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.9);
+          ctx.bezierCurveTo(-h * 1.0, h * 0.1, -h * 0.4, -h * 0.95, 0, -h * 0.9);
+          ctx.bezierCurveTo(h * 0.4, -h * 0.95, h * 1.0, h * 0.1, 0, h * 0.9);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, h * 0.9); ctx.lineTo(0, -h * 0.7); ctx.stroke();
+          ctx.lineWidth = 1.1;
+          [0.2, -0.1, -0.4].forEach(function (t) {
+            ctx.beginPath(); ctx.moveTo(0, h * t); ctx.lineTo(h * 0.5, h * t - h * 0.28); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, h * t); ctx.lineTo(-h * 0.5, h * t - h * 0.28); ctx.stroke();
+          });
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h); ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            // little leaf bullet
+            ctx.save(); ctx.translate(-h * 0.8, ly);
+            ctx.beginPath();
+            ctx.moveTo(0, 0); ctx.quadraticCurveTo(3.4, -3.4, 6.8, 0); ctx.quadraticCurveTo(3.4, 2.6, 0, 0);
+            ctx.closePath(); ctx.fill(); ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.4, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'jar': { // donations — a little honey/flower jar
+          roundRect(ctx, -h * 0.7, -h * 0.5, s * 0.7, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.5, -h * 0.5); ctx.lineTo(-h * 0.5, -h * 0.8);
+          ctx.lineTo(h * 0.2, -h * 0.8); ctx.lineTo(h * 0.2, -h * 0.5);
+          ctx.stroke();
+          // heart inside
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.25, h * 0.12);
+          ctx.bezierCurveTo(-h * 0.55, -h * 0.18, -h * 0.1, -h * 0.32, -h * 0.25, -h * 0.02);
+          ctx.bezierCurveTo(-h * 0.4, -h * 0.32, h * 0.05, -h * 0.18, -h * 0.25, h * 0.12);
+          ctx.closePath();
+          ctx.fillStyle = ROSE; ctx.fill();
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'bird': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 6); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'wreath': { // sponsors — a laurel/flower wreath
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.66, Math.PI * 0.65, Math.PI * 2.35); ctx.stroke();
+          // leaves around the ring
+          ctx.lineWidth = 1.0;
+          for (var a = 0; a < 7; a++) {
+            var ang = -Math.PI * 0.65 - a * (Math.PI * 1.7 / 6);
+            var lx = Math.cos(ang) * h * 0.66, lyy = Math.sin(ang) * h * 0.66;
+            ctx.save(); ctx.translate(lx, lyy); ctx.rotate(ang + Math.PI / 2);
+            ctx.beginPath();
+            ctx.moveTo(0, 0); ctx.quadraticCurveTo(3.4, -3.4, 6.8, 0); ctx.quadraticCurveTo(3.4, 2.6, 0, 0);
+            ctx.closePath(); ctx.fill(); ctx.restore();
+          }
+          // rose at the top
+          ctx.fillStyle = ROSE;
+          ctx.beginPath(); ctx.arc(0, -h * 0.66, 2.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'flower': { // subscribe — a full pressed flower
+          ctx.fillStyle = ROSE;
+          for (var k = 0; k < 6; k++) {
+            ctx.save(); ctx.rotate(k * Math.PI / 3);
+            ctx.beginPath();
+            ctx.ellipse(0, -h * 0.55, h * 0.26, h * 0.55, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+          ctx.fillStyle = '#E8C766';
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.28, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'hands': { // community — a sprig held in cupped lines
+          // two cupping arcs
+          ctx.beginPath(); ctx.arc(-h * 0.05, h * 0.35, h * 0.7, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+          // a little stem rising with leaves
+          ctx.beginPath(); ctx.moveTo(0, h * 0.3); ctx.lineTo(0, -h * 0.7); ctx.stroke();
+          ctx.fillStyle = LEAF;
+          leaf(ctx, 0, -h * 0.2, h * 0.34, -0.5, LEAF);
+          leaf(ctx, 0, -h * 0.5, h * 0.34, Math.PI - 0.5, LEAF_DEEP);
+          ctx.fillStyle = ROSE;
+          ctx.beginPath(); ctx.arc(0, -h * 0.78, 2.6, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ----
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id); i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build);
+    else build();
+  })();
+  </script>
+</body>
+</html>

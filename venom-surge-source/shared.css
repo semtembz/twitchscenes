@@ -1,0 +1,282 @@
+/* ============================================================
+   VENOM SURGE — shared design system ("Toxic Arena")
+   Aggressive monster-energy / esports adrenaline. A dark toxic
+   arena built on a CARBON HEX-MESH texture, with three diagonal
+   CLAW-SLASH tears ripping across the frame — each tear reveals a
+   glowing venom-green energy seam beneath. Kinetic SURGE speed-lines
+   + crackling electric arcs sweep the void. Angular SLASHED slab
+   panels with hazard-skewed edges hold the message; a pulsing energy
+   CORE glow throbs behind it. The title is a heavy italic black sans
+   skewed forward for speed, filled venom-green -> acid-lime with a
+   hard dark outline; the last line is accented. The loading bar is a
+   charging ENERGY bar with a bright electric leading edge + crackle.
+   Mood: gamer, claws, voltage, surge. Bespoke to THIS theme — shares
+   ONLY the invisible engine conventions with other sources.
+   ============================================================ */
+:root{
+  /* palette (token NAMES are stable across this source) */
+  --toxic-black:#04110A;   /* toxic near-black base */
+  --venom:#00FF66;         /* venom green */
+  --cyan:#0AE0FF;          /* electric cyan */
+  --gunmetal:#101418;      /* gunmetal slab */
+  --acid:#C6FF00;          /* acid lime */
+  --text:#EAFFF2;          /* near-white text */
+  /* derived */
+  --venom-soft:rgba(0,255,102,.55);
+  --venom-dim:rgba(0,255,102,.18);
+  --cyan-soft:rgba(10,224,255,.55);
+  --acid-soft:rgba(198,255,0,.55);
+  --hazard:rgba(198,255,0,.85);
+  --slab-edge:rgba(0,255,102,.40);
+  --slab-edge-soft:rgba(0,255,102,.14);
+  --dim:rgba(234,255,242,.58);
+  --core:rgba(0,255,102,.30);
+  --display:"Arial Black","Arial Narrow Bold",Haettenschweiler,Impact,"Franklin Gothic Heavy",system-ui,sans-serif;
+  --tech:"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace;
+  --mono:Consolas,ui-monospace,"SFMono-Regular",monospace;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-snap:cubic-bezier(.12,.9,.2,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--toxic-black);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);
+  font-family:var(--tech);
+  background:
+    radial-gradient(80% 60% at 50% 52%, rgba(0,255,102,.10), transparent 60%),
+    radial-gradient(70% 55% at 16% 14%, rgba(10,224,255,.07), transparent 60%),
+    radial-gradient(70% 55% at 86% 88%, rgba(198,255,0,.06), transparent 60%),
+    linear-gradient(155deg, #06160D 0%, var(--toxic-black) 50%, #020A06 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- CARBON HEX-MESH texture behind everything ---- */
+.hexmesh{position:absolute;inset:0;pointer-events:none;opacity:.6;
+  background-color:transparent;
+  background-image:
+    repeating-linear-gradient(60deg,  rgba(0,255,102,.05) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(-60deg, rgba(0,255,102,.05) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(0deg,   rgba(10,224,255,.035) 0 1px, transparent 1px 45px);
+  -webkit-mask:radial-gradient(125% 100% at 50% 50%, #000 30%, rgba(0,0,0,.25) 100%);
+          mask:radial-gradient(125% 100% at 50% 50%, #000 30%, rgba(0,0,0,.25) 100%);}
+
+/* a hazard chevron strip raking along the very top + bottom edge */
+.hazard{position:absolute;left:0;right:0;height:14px;pointer-events:none;opacity:.7;
+  background:repeating-linear-gradient(115deg,
+    var(--acid) 0 22px, #04110A 22px 44px);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+          mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);}
+.hazard--t{top:0;} .hazard--b{bottom:0;transform:scaleX(-1);}
+
+/* ---- three diagonal CLAW-SLASH tears revealing venom energy ---- */
+.claws{position:absolute;inset:0;pointer-events:none;}
+.claw{position:absolute;left:50%;top:50%;width:2200px;height:46px;
+  transform-origin:center;
+  /* the tear: a bright venom seam edged by acid lime, fading at both tips */
+  background:linear-gradient(90deg,
+    transparent 0%, transparent 8%,
+    var(--venom-dim) 18%, var(--venom) 46%, var(--acid) 50%, var(--venom) 54%,
+    var(--venom-dim) 82%, transparent 92%, transparent 100%);
+  -webkit-mask:linear-gradient(180deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
+          mask:linear-gradient(180deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
+  filter:drop-shadow(0 0 22px var(--venom-soft)) drop-shadow(0 0 6px var(--acid));
+  opacity:.92;}
+.claw::after{/* a thin hard bright core line down the middle of the tear */
+  content:"";position:absolute;left:8%;right:8%;top:50%;height:2px;
+  transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,var(--text),var(--acid),var(--text),transparent);
+  box-shadow:0 0 12px var(--acid);}
+.claw--1{transform:translate(-50%,-50%) rotate(-24deg) translate(-120px,-300px) scaleX(.92);
+  animation:slash 1s var(--ease-snap) both .15s;}
+.claw--2{transform:translate(-50%,-50%) rotate(-24deg) translate(40px,-40px);
+  animation:slash 1s var(--ease-snap) both .28s;}
+.claw--3{transform:translate(-50%,-50%) rotate(-24deg) translate(200px,250px) scaleX(.88);
+  animation:slash 1s var(--ease-snap) both .41s;}
+@keyframes slash{
+  0%{opacity:0;clip-path:inset(0 100% 0 0);}
+  55%{opacity:1;}
+  100%{opacity:.92;clip-path:inset(0 0 0 0);}}
+
+/* ---- pulsing energy CORE glow behind the message ---- */
+.core{position:absolute;left:50%;top:50%;width:1180px;height:1180px;
+  transform:translate(-50%,-50%);pointer-events:none;mix-blend-mode:screen;
+  background:radial-gradient(circle at 50% 50%,
+    var(--core) 0%, rgba(0,255,102,.12) 26%, rgba(10,224,255,.06) 46%, transparent 64%);
+  animation:corepulse 2.6s ease-in-out infinite;}
+@keyframes corepulse{0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(.98);}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.04);}}
+
+/* ---- the angular SLASHED SLAB panel holding the message ---- */
+.slab{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1240px;padding:78px 110px 86px;text-align:center;
+  background:
+    linear-gradient(160deg, rgba(16,20,24,.92), rgba(4,17,10,.86));
+  border:1px solid var(--slab-edge);
+  box-shadow:0 40px 120px rgba(0,0,0,.65),
+    inset 0 0 80px rgba(0,255,102,.06),
+    0 0 60px rgba(0,255,102,.12);
+  /* hazard-skewed angular slab — sharp cut corners (gamer panel) */
+  clip-path:polygon(0 46px, 46px 0, calc(100% - 120px) 0, 100% 70px,
+    100% calc(100% - 46px), calc(100% - 46px) 100%, 120px 100%, 0 calc(100% - 70px));
+  animation:slabin .9s var(--ease) both .1s;}
+/* inner hairline echo of the slab */
+.slab::before{content:"";position:absolute;inset:10px;pointer-events:none;
+  border:1px solid var(--slab-edge-soft);clip-path:inherit;}
+/* a bright acid corner accent bar streaking the top-right cut */
+.slab::after{content:"";position:absolute;top:0;right:120px;width:160px;height:5px;
+  background:linear-gradient(90deg,transparent,var(--acid),var(--cyan));
+  box-shadow:0 0 16px var(--acid);transform:skewX(-32deg);transform-origin:top right;}
+@keyframes slabin{from{opacity:0;transform:translate(-50%,-50%) scale(.95) translateY(18px);}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1) translateY(0);}}
+
+/* corner bracket ticks on the slab (esports registration marks) */
+.bracket{position:absolute;width:34px;height:34px;pointer-events:none;
+  border:3px solid var(--venom);filter:drop-shadow(0 0 8px var(--venom-soft));
+  animation:brk .6s var(--ease) both .55s;}
+.bracket--tl{left:26px;top:26px;border-right:0;border-bottom:0;}
+.bracket--br{right:26px;bottom:26px;border-left:0;border-top:0;}
+@keyframes brk{from{opacity:0;}to{opacity:1;}}
+
+/* ---- KICKER: spaced techy caps in a small hazard tab ---- */
+.kicker{display:inline-flex;align-items:center;gap:14px;
+  font-family:var(--tech);font-weight:700;font-size:26px;letter-spacing:.42em;
+  text-transform:uppercase;text-indent:.42em;color:var(--acid);
+  padding:9px 22px;margin:0 0 6px;position:relative;
+  background:rgba(0,255,102,.07);
+  border-left:4px solid var(--venom);border-right:4px solid var(--cyan);
+  transform:skewX(-10deg);
+  text-shadow:0 0 18px rgba(198,255,0,.5);
+  animation:rise .7s var(--ease) both .4s;}
+.kicker .dot{width:11px;height:11px;background:var(--venom);transform:skewX(10deg) rotate(45deg);
+  box-shadow:0 0 14px var(--venom);animation:blip 1.3s steps(1) infinite;}
+@keyframes blip{0%,60%{opacity:1;}61%,100%{opacity:.25;}}
+
+/* ---- the heavy italic black TITLE, skewed forward for speed ---- */
+.title{margin:14px 0 6px;font-family:var(--display);font-weight:900;
+  font-size:188px;line-height:.84;letter-spacing:-.01em;text-transform:uppercase;
+  font-style:italic;transform:skewX(-9deg);transform-origin:center;
+  color:var(--text);
+  /* hard dark outline for the heavy block letters */
+  text-shadow:
+     4px 0 0 #020A06, -4px 0 0 #020A06, 0 4px 0 #020A06, 0 -4px 0 #020A06,
+     3px 3px 0 #020A06, -3px 3px 0 #020A06, 3px -3px 0 #020A06, -3px -3px 0 #020A06,
+     0 0 48px rgba(0,255,102,.35);}
+.title .line{display:block;animation:slamin .7s var(--ease-snap) both;}
+.title .line--1{animation-delay:.5s;}
+.title .line--2{animation-delay:.62s;}
+/* accented last line: venom-green -> acid-lime gradient fill */
+.title .accent{display:block;animation:slamin .7s var(--ease-snap) both .74s;
+  background:linear-gradient(96deg, var(--venom) 0%, var(--acid) 60%, var(--cyan) 105%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:2px #020A06;
+  filter:drop-shadow(0 0 36px rgba(198,255,0,.55)) drop-shadow(0 3px 1px rgba(0,0,0,.5));}
+@keyframes slamin{from{opacity:0;transform:skewX(-9deg) translateX(-60px) scale(1.04);}
+  to{opacity:1;transform:skewX(-9deg) translateX(0) scale(1);}}
+
+/* a slashed double rule beneath the title */
+.rule{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px auto 0;
+  width:520px;animation:rise .7s var(--ease) both .82s;}
+.rule .seg{height:4px;background:linear-gradient(90deg,transparent,var(--venom),var(--acid));
+  transform:skewX(-32deg);box-shadow:0 0 12px var(--venom-soft);}
+.rule .seg--a{width:60%;} .rule .seg--b{width:18%;background:linear-gradient(90deg,var(--cyan),transparent);}
+.rule .chev{color:var(--acid);font-weight:900;font-size:22px;transform:skewX(-12deg);
+  text-shadow:0 0 12px var(--acid);}
+
+/* ---- SUB: techy bold mono caption ---- */
+.sub{margin:24px 0 0;font-family:var(--tech);font-weight:600;font-size:30px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+  animation:rise .7s var(--ease) both .9s;}
+
+/* ---- the charging ENERGY BAR (no numbers) ---- */
+.bar{position:relative;margin:42px auto 0;width:680px;height:18px;
+  background:rgba(0,255,102,.08);
+  border:1px solid var(--slab-edge);
+  /* angled hazard-cut ends */
+  clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
+  animation:rise .7s var(--ease) both .98s;}
+.bar .track{position:absolute;inset:0;
+  background:repeating-linear-gradient(115deg,
+    rgba(0,255,102,.10) 0 6px, transparent 6px 16px);}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg, var(--venom) 0%, var(--acid) 78%, var(--cyan) 100%);
+  box-shadow:0 0 22px var(--venom-soft), inset 0 0 14px rgba(255,255,255,.25);
+  clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);}
+/* bright electric leading edge with crackle */
+.bar .fill::after{content:"";position:absolute;right:-3px;top:-5px;bottom:-5px;width:9px;
+  background:linear-gradient(180deg,var(--cyan),var(--text),var(--acid));
+  box-shadow:0 0 18px var(--cyan), 0 0 34px var(--venom);
+  animation:edge .5s steps(2) infinite;}
+@keyframes edge{0%{opacity:1;transform:scaleY(1);}50%{opacity:.7;transform:scaleY(.82);}}
+/* a fast scanning sheen sweeping the bar while charging */
+.bar .surge{position:absolute;top:0;bottom:0;width:120px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  mix-blend-mode:screen;animation:surge 1.5s linear infinite;}
+@keyframes surge{0%{left:-120px;}100%{left:680px;}}
+
+/* shared little rise-in for text rows */
+@keyframes rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---- corner labels on the toxic void (outside the slab) ---- */
+.tag{position:absolute;font-family:var(--mono);font-weight:700;font-size:19px;
+  letter-spacing:.4em;text-indent:.4em;color:var(--venom);opacity:.78;
+  text-shadow:0 0 12px var(--venom-soft);}
+.tag--tl{left:60px;top:44px;}
+.tag--tr{right:60px;top:44px;text-indent:0;color:var(--cyan);
+  text-shadow:0 0 12px var(--cyan-soft);}
+
+/* ---- handle — acid lime, lower-right hazard tab ---- */
+.handle{position:absolute;right:60px;bottom:42px;
+  font-family:var(--tech);font-weight:700;font-size:27px;letter-spacing:.2em;
+  text-indent:.2em;color:var(--acid);padding:7px 18px;transform:skewX(-10deg);
+  background:rgba(198,255,0,.06);border-bottom:3px solid var(--acid);
+  text-shadow:0 0 14px var(--acid-soft);}
+
+/* status pill (used by other screens; harmless here) */
+.status{position:absolute;left:60px;bottom:42px;display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-weight:700;font-size:19px;letter-spacing:.3em;
+  text-indent:.3em;color:var(--venom);text-transform:uppercase;}
+.status .led{width:11px;height:11px;background:var(--venom);transform:rotate(45deg);
+  box-shadow:0 0 12px var(--venom);animation:blip 1.3s steps(1) infinite;}
+
+/* ============================================================
+   RENDER MODE (?render=1): freeze ALL entrance animations to their
+   FINAL state so the headless pipeline captures a clean deterministic
+   webm. Looping ambient pulses are stilled too (frame stepping drives
+   the canvas + bar; CSS must not move on its own).
+   ============================================================ */
+#stage.render .slab,
+#stage.render .claw,
+#stage.render .bracket,
+#stage.render .kicker,
+#stage.render .title .line,
+#stage.render .title .accent,
+#stage.render .rule,
+#stage.render .sub,
+#stage.render .bar,
+#stage.render .core,
+#stage.render .kicker .dot,
+#stage.render .status .led,
+#stage.render .bar .fill::after,
+#stage.render .bar .surge{animation:none!important;}
+#stage.render .bar .surge{display:none;}
+#stage.render .slab{opacity:1;transform:translate(-50%,-50%) scale(1) translateY(0);}
+#stage.render .core{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#stage.render .bracket{opacity:1;}
+#stage.render .kicker,
+#stage.render .rule,
+#stage.render .sub,
+#stage.render .bar{opacity:1;transform:translateY(0);}
+#stage.render .kicker{transform:skewX(-10deg);}      /* keep skew, drop the rise */
+#stage.render .title .line,
+#stage.render .title .accent{opacity:1;transform:skewX(-9deg) translateX(0) scale(1);}
+#stage.render .claw--1{opacity:.92;clip-path:inset(0 0 0 0);
+  transform:translate(-50%,-50%) rotate(-24deg) translate(-120px,-300px) scaleX(.92);}
+#stage.render .claw--2{opacity:.92;clip-path:inset(0 0 0 0);
+  transform:translate(-50%,-50%) rotate(-24deg) translate(40px,-40px);}
+#stage.render .claw--3{opacity:.92;clip-path:inset(0 0 0 0);
+  transform:translate(-50%,-50%) rotate(-24deg) translate(200px,250px) scaleX(.88);}
+#stage.render .kicker .dot{opacity:1;}
+#stage.render .status .led{opacity:1;}

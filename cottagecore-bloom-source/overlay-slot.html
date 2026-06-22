@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Cottagecore Bloom — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Cottagecore Bloom language: a small
+       pressed-paper handle SLOT lower-left (deckled cream chip with an ivy
+       sprig + leaf dot "ON AIR"), a tiny herbarium monogram top-right, and a
+       hand-drawn ivy corner sprig top-left. Most of the screen stays
+       transparent so gameplay shows through. All decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=ON%20AIR  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no page chrome, no meadow gradient, no dapple/vign/sunbeam */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few very subtle drifting seeds/pollen (low alpha), no opaque bg */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* ---- pressed-paper handle SLOT, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:56px;height:66px;pointer-events:none;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 26px;
+      color:var(--ink);
+      /* cream paper chip with a faint warm grain, same family as the card */
+      background:
+        repeating-linear-gradient(94deg, rgba(90,74,58,.018) 0 2px, transparent 2px 5px),
+        linear-gradient(176deg, var(--cream) 0%, var(--paper-edge) 100%);
+      box-shadow:0 14px 34px -10px var(--paper-shadow), 0 4px 12px rgba(90,74,58,.10),
+        inset 0 0 30px rgba(239,231,210,.6);
+      border-radius:12px;
+      /* a hand-cut deckled paper edge (mini version of the card) */
+      clip-path:polygon(
+        0% 12%, 4% 4%, 12% 9%, 22% 3%, 33% 8%, 45% 2%, 57% 7%, 69% 2%, 80% 8%, 90% 3%, 97% 9%, 100% 16%,
+        100% 84%, 97% 92%, 90% 97%, 80% 92%, 69% 98%, 57% 93%, 45% 98%, 33% 92%, 22% 97%, 12% 91%, 4% 96%, 0% 88%);
+      animation:slotin 1s var(--ease) both .15s;}
+    /* faint inner ruled herbarium frame */
+    .slot::before{content:"";position:absolute;inset:7px;border:1px solid rgba(125,164,83,.30);
+      border-radius:6px;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,253,244,.5);}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+
+    /* a tiny ivy sprig tucked into the slot's left, in the theme's stroke language */
+    .slot .twig{width:40px;height:40px;flex:none;}
+    .slot .twig svg{width:100%;height:100%;display:block;overflow:visible;}
+    .slot .twig .leaf{transform-box:fill-box;transform-origin:0% 50%;animation:sway 6s var(--ease-soft) infinite;}
+    .slot .twig .leaf:nth-child(3n){animation-duration:7.4s;animation-delay:-1.6s;}
+
+    /* "ON AIR" tag — gentle humanist caps + a pulsing leaf dot */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,"Avenir Next",system-ui,sans-serif;
+      letter-spacing:.30em;font-size:18px;font-weight:600;text-transform:uppercase;
+      color:var(--leaf-deep);text-indent:.30em;}
+    .slot .tag .dot{width:11px;height:11px;border-radius:50%;background:var(--leaf);flex:none;
+      box-shadow:0 0 0 4px rgba(125,164,83,.22);animation:pulse 2.4s var(--ease-soft) infinite;}
+
+    /* thin botanical divider rule (a stem with a tiny rose bud) between tag + handle */
+    .slot .div{position:relative;width:1px;height:34px;flex:none;
+      background:linear-gradient(180deg,transparent,var(--vine),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;
+      background:var(--rose);transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(226,160,180,.22);}
+
+    /* handle — graceful old-style serif in warm ink */
+    .slot .who{
+      font-family:"Iowan Old Style","Hoefler Text","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+      font-weight:600;letter-spacing:.02em;font-size:30px;color:var(--ink);white-space:nowrap;
+      text-shadow:0 1px 0 rgba(255,253,244,.7);}
+
+    /* tiny herbarium monogram, top-right */
+    .mono-tr{position:absolute;top:46px;right:60px;pointer-events:none;display:flex;align-items:center;gap:13px;
+      font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,system-ui,sans-serif;
+      letter-spacing:.40em;font-size:18px;color:var(--leaf-deep);text-indent:.40em;opacity:.82;
+      animation:fadeup .9s var(--ease) both .28s;}
+    .mono-tr .bud{width:9px;height:9px;border-radius:50%;background:var(--rose);flex:none;
+      box-shadow:0 0 0 3px rgba(226,160,180,.20);}
+
+    /* a single hand-drawn ivy corner sprig, top-left, low key */
+    .corner{position:absolute;left:-10px;top:-14px;width:230px;height:230px;pointer-events:none;
+      opacity:.9;filter:drop-shadow(0 3px 4px rgba(90,74,58,.14));
+      transform-origin:top left;animation:sprigin 1.2s var(--ease) both .35s;}
+    .corner svg{width:100%;height:100%;display:block;}
+    .corner .leaf{transform-box:fill-box;transform-origin:0% 50%;animation:sway 6.4s var(--ease-soft) infinite;}
+    .corner .leaf:nth-child(2n){animation-duration:7.6s;animation-delay:-1.4s;}
+    .corner .leaf:nth-child(3n){animation-duration:5.8s;animation-delay:-2.8s;}
+    .corner .bloom{transform-box:fill-box;transform-origin:50% 50%;animation:breathe 5.2s var(--ease-soft) infinite;}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,
+    #stage.render .mono-tr,
+    #stage.render .corner{animation:none!important;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .mono-tr{opacity:.82;}
+    #stage.render .corner{opacity:.9;transform:none;}
+    #stage.render .slot .tag .dot,
+    #stage.render .slot .twig .leaf,
+    #stage.render .corner .leaf,
+    #stage.render .corner .bloom{animation:none!important;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- hand-drawn ivy corner sprig, top-left -->
+    <span class="corner" aria-hidden="true">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#7DA453" stroke-width="2.4" stroke-linecap="round">
+          <path d="M8 8 C 30 22, 52 30, 74 36 S 104 50, 112 70"/>
+          <path d="M8 8 C 18 30, 26 50, 30 74"/>
+        </g>
+        <g>
+          <path class="leaf" d="M30 24 q14 -10 26 -2 q-8 14 -24 12 q-6 -6 -2 -10z" fill="#7DA453"/>
+          <path class="leaf" d="M52 38 q16 -6 28 6 q-12 12 -28 6 q-4 -8 0 -12z" fill="#5E8038"/>
+          <path class="leaf" d="M22 46 q-12 6 -10 22 q16 0 20 -14 q-4 -8 -10 -8z" fill="#7DA453"/>
+          <path class="leaf" d="M84 52 q14 0 22 12 q-12 10 -26 2 q-2 -10 4 -14z" fill="#9CC56A"/>
+        </g>
+        <g class="bloom">
+          <circle cx="92" cy="78" r="3.2" fill="#5A4A3A"/>
+          <g fill="#E2A0B4">
+            <ellipse cx="92" cy="69" rx="3.4" ry="6"/>
+            <ellipse cx="101" cy="78" rx="6" ry="3.4"/>
+            <ellipse cx="92" cy="87" rx="3.4" ry="6"/>
+            <ellipse cx="83" cy="78" rx="6" ry="3.4"/>
+          </g>
+        </g>
+        <g class="bloom">
+          <circle cx="40" cy="20" r="2.6" fill="#7DA453"/>
+          <g fill="#FBF6E9" stroke="#E7DEC4" stroke-width="0.8">
+            <ellipse cx="40" cy="13" rx="2.8" ry="5"/>
+            <ellipse cx="47" cy="20" rx="5" ry="2.8"/>
+            <ellipse cx="40" cy="27" rx="2.8" ry="5"/>
+            <ellipse cx="33" cy="20" rx="5" ry="2.8"/>
+          </g>
+        </g>
+      </svg>
+    </span>
+
+    <div class="mono-tr" aria-hidden="true"><span class="bud"></span>HERBARIUM</div>
+
+    <div class="slot">
+      <span class="twig" aria-hidden="true">
+        <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#7DA453" stroke-width="2.2" stroke-linecap="round">
+            <path d="M20 36 L20 10"/>
+            <path d="M20 18 q-9 -4 -13 -11"/>
+            <path d="M20 22 q9 -4 13 -11"/>
+          </g>
+          <path class="leaf" d="M9 9 q-5 -4 -6 -9 q7 0 9 6 q-1 3 -3 3z" fill="#7DA453"/>
+          <path class="leaf" d="M31 9 q5 -4 6 -9 q-7 0 -9 6 q1 3 3 3z" fill="#5E8038"/>
+          <circle cx="20" cy="7" r="3.2" fill="#E2A0B4"/>
+        </svg>
+      </span>
+      <span class="tag"><span class="dot"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;            // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a FEW subtle drifting dandelion seeds + pollen (low alpha) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = (cv && cv.width) || 1920, H = (cv && cv.height) || 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const seeds = Array.from({ length: Math.max(0, num("seeds_n", 7)) }, () => ({
+      x: R(0, W), y: R(0, H), vy: -R(7, 15) / 60, sway: R(0.5, 1.5),
+      ph: R(0, 6.28), rot: R(0, 6.28), spin: R(-0.4, 0.4) / 60, sz: R(0.7, 1.3), a: R(0.5, 0.85),
+    }));
+    const pollen = Array.from({ length: Math.max(0, num("pollen", 40)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: -R(3, 10) / 60, sway: R(0.3, 1.1),
+      ph: R(0, 6.28), tw: R(0.5, 1.5), a: R(0.2, 0.55), warm: Math.random() < 0.7,
+    }));
+    function drawSeed(s){
+      const sc = s.sz;
+      ctx.save();
+      ctx.translate(Math.round(s.x), Math.round(s.y)); ctx.rotate(s.rot); ctx.globalAlpha = s.a;
+      ctx.strokeStyle = "#FBF6E9"; ctx.lineWidth = 1; ctx.lineCap = "round";
+      const tuftR = 8 * sc;
+      for (let i = 0; i < 11; i++){
+        const ang = -Math.PI / 2 + (i - 5) * 0.20;
+        ctx.globalAlpha = s.a * 0.5;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * tuftR, Math.sin(ang) * tuftR - 2 * sc); ctx.stroke();
+      }
+      ctx.globalAlpha = s.a * 0.28; ctx.fillStyle = "#FFFDF4";
+      ctx.beginPath(); ctx.arc(0, -tuftR * 0.45, tuftR * 0.6, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = s.a; ctx.strokeStyle = "#B7A98C"; ctx.lineWidth = 1.5 * sc;
+      ctx.beginPath(); ctx.moveTo(0, 1 * sc); ctx.lineTo(0, 6 * sc); ctx.stroke();
+      ctx.restore();
+    }
+    let life = 0;
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      life += dt;                                  // frame-driven so render mode is deterministic
+      const breeze = Math.sin(life * 0.35) * 0.6 + 0.5;
+      for (const m of pollen){
+        m.ph += 0.045 * dt * 60; m.y += m.vy * dt * 60;
+        m.x += (Math.sin(m.ph) * m.sway + breeze * 0.5) * dt * 60 * 0.6;
+        if (m.y < -10){ m.y = H + 10; m.x = R(0, W); }
+        if (m.x < -10) m.x = W + 10; if (m.x > W + 10) m.x = -10;
+        const tw = 0.55 + Math.sin(m.ph * m.tw) * 0.45;
+        ctx.globalAlpha = m.a * tw; ctx.fillStyle = m.warm ? "#FBEFC9" : "#FBF6E9";
+        const sz = Math.max(1, Math.round(m.z * 1.6));
+        ctx.fillRect(Math.round(m.x), Math.round(m.y), sz, sz);
+      }
+      for (const s of seeds){
+        s.ph += 0.02 * dt * 60; s.rot += s.spin * dt * 60; s.y += s.vy * dt * 60;
+        s.x += (Math.sin(s.ph) * s.sway + breeze * 0.7) * dt * 60 * 0.5;
+        if (s.y < -30){ s.y = H + 30; s.x = R(0, W); }
+        if (s.x < -30) s.x = W + 30; if (s.x > W + 30) s.x = -30;
+        drawSeed(s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__bloomDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

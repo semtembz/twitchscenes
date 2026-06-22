@@ -1,0 +1,304 @@
+/* ============================================================
+   VENOM SURGE — alert system ("Toxic Arena")
+   An angular SLASHED slab "callout" that JOLTS in from the lower-left,
+   holds, then snaps out. TRANSPARENT background so it composites over
+   gameplay / the scene. Cohesive with shared.css tokens: hazard-skewed
+   cut-corner slab, venom-green hairline edge + acid corner accent
+   streak, a glyph hazard tile, skewed techy caps kicker, a heavy
+   italic black NAME skewed forward, an optional emphasized AMOUNT in
+   the venom->acid gradient, a slashed double rule + corner reg tag.
+   The live canvas spits an ELECTRIC-ARC + venom-ember burst.
+   Per-event DISTINCT entrance motion is driven by .ev-<type> classes.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --toxic-black:#04110A;
+  --venom:#00FF66;
+  --cyan:#0AE0FF;
+  --gunmetal:#101418;
+  --acid:#C6FF00;
+  --text:#EAFFF2;
+  /* derived */
+  --venom-soft:rgba(0,255,102,.55);
+  --venom-dim:rgba(0,255,102,.18);
+  --cyan-soft:rgba(10,224,255,.55);
+  --acid-soft:rgba(198,255,0,.55);
+  --hazard:rgba(198,255,0,.85);
+  --slab-edge:rgba(0,255,102,.40);
+  --slab-edge-soft:rgba(0,255,102,.14);
+  --dim:rgba(234,255,242,.58);
+  --core:rgba(0,255,102,.30);
+  --display:"Arial Black","Arial Narrow Bold",Haettenschweiler,Impact,"Franklin Gothic Heavy",system-ui,sans-serif;
+  --tech:"Bahnschrift","Segoe UI Semibold","Segoe UI",Consolas,ui-monospace,monospace;
+  --mono:Consolas,ui-monospace,"SFMono-Regular",monospace;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-snap:cubic-bezier(.12,.9,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--tech);}
+
+/* one canvas for the electric-arc / ember burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ============================================================
+   THE ALERT CARD — angular slashed slab, anchored lower-left
+   ============================================================ */
+.alert{position:absolute;left:96px;bottom:140px;width:820px;padding:30px 40px;
+  background:
+    radial-gradient(120% 130% at 0% 100%, rgba(0,255,102,.12), transparent 64%),
+    linear-gradient(155deg, rgba(16,20,24,.93), rgba(4,17,10,.88));
+  border:1px solid var(--slab-edge);
+  box-shadow:0 40px 110px rgba(0,0,0,.62),
+    0 0 60px rgba(0,255,102,.12),
+    inset 0 0 70px rgba(0,255,102,.05);
+  /* hazard-skewed angular slab — sharp cut corners (gamer panel) */
+  clip-path:polygon(0 34px, 34px 0, calc(100% - 90px) 0, 100% 52px,
+    100% calc(100% - 34px), calc(100% - 34px) 100%, 90px 100%, 0 calc(100% - 52px));
+  display:grid;grid-template-columns:142px 1fr;gap:30px;align-items:center;
+  /* base hidden state; per-event .ev-* + .show drives the entrance */
+  opacity:0;will-change:transform,opacity;
+  transform:translateX(-1000px);}
+
+/* inner hairline echo of the slab clip */
+.alert::before{content:"";position:absolute;inset:9px;border:1px solid var(--slab-edge-soft);
+  clip-path:inherit;pointer-events:none;}
+/* bright acid corner accent bar streaking the top-right cut */
+.alert::after{content:"";position:absolute;top:0;right:90px;width:130px;height:5px;
+  background:linear-gradient(90deg,transparent,var(--acid),var(--cyan));
+  box-shadow:0 0 16px var(--acid);transform:skewX(-32deg);transform-origin:top right;
+  pointer-events:none;}
+
+/* a thin venom seam down the left edge — the surge accent */
+.alert .seam{position:absolute;left:9px;top:24px;bottom:24px;width:4px;
+  background:linear-gradient(180deg,var(--cyan),var(--venom) 50%,var(--acid));
+  box-shadow:0 0 16px var(--venom-soft);pointer-events:none;}
+
+/* corner registration tick (esports mark), bottom-left of the card */
+.alert .brk{position:absolute;left:18px;bottom:18px;width:26px;height:26px;
+  border:3px solid var(--venom);border-right:0;border-top:0;
+  filter:drop-shadow(0 0 8px var(--venom-soft));pointer-events:none;
+  animation:al-brk .5s var(--ease) both .35s;}
+
+/* ============================================================
+   GLYPH HAZARD TILE — angular cut-corner tile with hex glaze
+   ============================================================ */
+.alert .art{width:142px;height:142px;position:relative;overflow:hidden;
+  background:
+    repeating-linear-gradient(115deg, rgba(0,255,102,.08) 0 2px, transparent 2px 12px),
+    linear-gradient(150deg, rgba(16,20,24,.95) 0%, rgba(4,17,10,.96) 60%, var(--toxic-black) 100%);
+  border:1px solid var(--slab-edge);
+  clip-path:polygon(0 22px, 22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,255,102,.12), inset 0 0 26px rgba(0,255,102,.12),
+    0 8px 24px rgba(0,0,0,.45);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:900;font-style:italic;font-size:80px;
+  color:var(--acid);transform:skewX(-9deg);
+  text-shadow:0 0 22px var(--acid-soft), 0 2px 1px rgba(0,0,0,.5);
+  animation:al-glyph .6s var(--ease-snap) both .2s;}
+/* faint scanline glaze on the tile */
+.alert .art::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);}
+@keyframes al-glyph{0%{transform:skewX(-9deg) scale(.3) rotate(-12deg);opacity:0;}
+  60%{transform:skewX(-9deg) scale(1.16) rotate(2deg);opacity:1;}
+  100%{transform:skewX(-9deg) scale(1) rotate(0);opacity:1;}}
+@keyframes al-brk{from{opacity:0;}to{opacity:1;}}
+
+/* ============================================================
+   META COLUMN
+   ============================================================ */
+.alert .meta{min-width:0;}
+
+/* skewed techy-caps kicker tab ("VENOM · NEW FOLLOWER") */
+.alert .kick{display:inline-flex;align-items:center;gap:12px;
+  font-family:var(--tech);font-weight:700;font-size:19px;letter-spacing:.34em;
+  text-transform:uppercase;text-indent:.34em;color:var(--acid);
+  padding:6px 16px;margin:0 0 10px;position:relative;transform:skewX(-10deg);
+  background:rgba(0,255,102,.07);
+  border-left:4px solid var(--venom);border-right:4px solid var(--cyan);
+  text-shadow:0 0 14px var(--acid-soft);
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:al-rise .55s var(--ease) both .3s;}
+.alert .kick .dot{width:10px;height:10px;background:var(--venom);
+  transform:skewX(10deg) rotate(45deg);box-shadow:0 0 12px var(--venom);flex:none;
+  animation:al-blip 1.3s steps(1,end) infinite;}
+@keyframes al-blip{0%,60%{opacity:1;}61%,100%{opacity:.25;}}
+
+/* big NAME — heavy italic black sans skewed forward, clamped to one line */
+.alert .name{font-family:var(--display);font-weight:900;font-style:italic;
+  font-size:62px;line-height:.92;letter-spacing:-.01em;margin:0 0 8px;
+  text-transform:uppercase;color:var(--text);transform:skewX(-9deg);transform-origin:left center;
+  text-shadow:
+     3px 0 0 #020A06, -3px 0 0 #020A06, 0 3px 0 #020A06, 0 -3px 0 #020A06,
+     0 0 42px rgba(0,255,102,.3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:al-slam .5s var(--ease-snap) both .42s;}
+
+/* amount line (venom->acid->cyan gradient) — hidden unless .has-amount */
+.alert .amount{font-family:var(--display);font-weight:900;font-style:italic;
+  font-size:38px;line-height:1;letter-spacing:0;margin:0 0 6px;display:none;
+  transform:skewX(-9deg);transform-origin:left center;
+  background:linear-gradient(96deg, var(--venom) 0%, var(--acid) 60%, var(--cyan) 108%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:1.5px #020A06;
+  filter:drop-shadow(0 0 18px var(--acid-soft));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;animation:al-amount .55s var(--ease-snap) both .5s;}
+
+/* slashed double rule beneath name/amount */
+.alert .rule{display:flex;align-items:center;gap:10px;margin:2px 0 8px;width:300px;max-width:100%;
+  animation:al-rise .55s var(--ease) both .56s;}
+.alert .rule .seg{height:3px;background:linear-gradient(90deg,var(--venom),var(--acid));
+  transform:skewX(-32deg);box-shadow:0 0 10px var(--venom-soft);}
+.alert .rule .seg--a{width:64%;} .alert .rule .seg--b{width:16%;background:linear-gradient(90deg,var(--cyan),transparent);}
+.alert .rule .chev{color:var(--acid);font-weight:900;font-size:18px;transform:skewX(-12deg);
+  text-shadow:0 0 10px var(--acid);font-family:var(--display);}
+
+/* techy mono sub line */
+.alert .sub{font-family:var(--tech);font-weight:600;font-size:21px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:al-rise .55s var(--ease) both .62s;}
+
+/* corner reg tag top-right of the card (system readout) */
+.alert .tagid{position:absolute;top:18px;right:30px;font-family:var(--mono);font-weight:700;
+  font-size:14px;letter-spacing:.32em;text-indent:.32em;color:var(--cyan);opacity:.82;
+  text-shadow:0 0 10px var(--cyan-soft);pointer-events:none;}
+/* small tag rule under it */
+.alert .tagrule{position:absolute;top:40px;right:30px;width:88px;height:1px;opacity:.7;
+  background:linear-gradient(90deg,transparent,var(--venom) 40%,var(--acid));pointer-events:none;}
+
+/* shared text rise-in */
+@keyframes al-rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes al-slam{from{opacity:0;transform:skewX(-9deg) translateX(-50px) scale(1.06);}
+  to{opacity:1;transform:skewX(-9deg) translateX(0) scale(1);}}
+@keyframes al-amount{0%{opacity:0;transform:skewX(-9deg) scale(.7);}
+  60%{opacity:1;transform:skewX(-9deg) scale(1.12);}
+  100%{opacity:1;transform:skewX(-9deg) scale(1);}}
+
+/* ============================================================
+   PER-EVENT DISTINCT ENTRANCE MOTIONS
+   Each event gets a unique .ev-<type> entrance keyframe. The shared
+   exit (.hide) snaps the card back off lower-left.
+   ============================================================ */
+.alert.hide{animation:al-out .42s var(--ease) forwards;}
+@keyframes al-out{0%{opacity:1;transform:translateX(0) translateY(0) scale(1) rotate(0);}
+  100%{opacity:0;transform:translateX(-1000px) skewX(8deg);}}
+
+/* 1) FOLLOWER — hard JOLT in from the left with an overshoot snap */
+.alert.ev-follower.show{animation:ev-follower .58s var(--ease-snap) forwards;}
+@keyframes ev-follower{
+  0%{opacity:0;transform:translateX(-1000px) skewX(10deg);}
+  60%{opacity:1;transform:translateX(34px) skewX(-3deg);}
+  100%{opacity:1;transform:translateX(0) skewX(0);}}
+
+/* 2) SUBSCRIBER — DROP-SLAM from above, settle with a bounce */
+.alert.ev-subscriber.show{animation:ev-subscriber .62s var(--ease-snap) forwards;}
+@keyframes ev-subscriber{
+  0%{opacity:0;transform:translateY(-680px) scale(1.06);}
+  55%{opacity:1;transform:translateY(26px) scale(.99);}
+  78%{transform:translateY(-12px) scale(1.005);}
+  100%{opacity:1;transform:translateY(0) scale(1);}}
+
+/* 3) MEMBER — SURGE up from below the floor */
+.alert.ev-member.show{animation:ev-member .6s var(--ease-snap) forwards;}
+@keyframes ev-member{
+  0%{opacity:0;transform:translateY(620px) skewY(2deg);}
+  62%{opacity:1;transform:translateY(-20px) skewY(-.6deg);}
+  100%{opacity:1;transform:translateY(0) skewY(0);}}
+
+/* 4) CHEER — SHAKE-IN: zooms in then judders (bits energy) */
+.alert.ev-cheer.show{animation:ev-cheer .72s var(--ease-snap) forwards;}
+@keyframes ev-cheer{
+  0%{opacity:0;transform:scale(.4) rotate(-3deg);}
+  45%{opacity:1;transform:scale(1.08) rotate(1.2deg);}
+  60%{transform:scale(.99) rotate(-1.4deg);}
+  72%{transform:scale(1.02) rotate(1deg);}
+  84%{transform:scale(1) rotate(-.5deg);}
+  100%{opacity:1;transform:scale(1) rotate(0);}}
+
+/* 5) DONATION — POWER ZOOM from far, big amount punch */
+.alert.ev-donation.show{animation:ev-donation .64s var(--ease-snap) forwards;}
+@keyframes ev-donation{
+  0%{opacity:0;transform:scale(1.9);filter:blur(8px);}
+  55%{opacity:1;transform:scale(.96);filter:blur(0);}
+  78%{transform:scale(1.02);}
+  100%{opacity:1;transform:scale(1);}}
+
+/* 6) HOST — SWING in (rotate from the top-left pivot) */
+.alert.ev-host.show{transform-origin:top left;animation:ev-host .66s var(--ease) forwards;}
+@keyframes ev-host{
+  0%{opacity:0;transform:rotate(-14deg) translateX(-260px);}
+  60%{opacity:1;transform:rotate(3deg) translateX(0);}
+  100%{opacity:1;transform:rotate(0) translateX(0);}}
+
+/* 7) RAID — CHARGE-IN from the right + heavy overshoot (the room fills) */
+.alert.ev-raid.show{animation:ev-raid .7s var(--ease-snap) forwards;}
+@keyframes ev-raid{
+  0%{opacity:0;transform:translateX(1400px) skewX(-16deg) scale(1.04);}
+  52%{opacity:1;transform:translateX(-46px) skewX(6deg) scale(1);}
+  72%{transform:translateX(18px) skewX(-2deg);}
+  100%{opacity:1;transform:translateX(0) skewX(0);}}
+
+/* 8) LIKE — soft POP + gentle float up */
+.alert.ev-like.show{animation:ev-like .56s var(--ease) forwards;}
+@keyframes ev-like{
+  0%{opacity:0;transform:translateY(70px) scale(.86);}
+  60%{opacity:1;transform:translateY(-8px) scale(1.03);}
+  100%{opacity:1;transform:translateY(0) scale(1);}}
+
+/* 9) SHARE — SLIDE-THROUGH from right to rest (word travels) */
+.alert.ev-share.show{animation:ev-share .58s var(--ease) forwards;}
+@keyframes ev-share{
+  0%{opacity:0;transform:translateX(900px) skewX(-8deg);}
+  70%{opacity:1;transform:translateX(-22px) skewX(2deg);}
+  100%{opacity:1;transform:translateX(0) skewX(0);}}
+
+/* 10) STAR — SPIN-IN scale-up with a twist */
+.alert.ev-star.show{animation:ev-star .66s var(--ease-snap) forwards;}
+@keyframes ev-star{
+  0%{opacity:0;transform:scale(.2) rotate(-160deg);}
+  65%{opacity:1;transform:scale(1.07) rotate(8deg);}
+  100%{opacity:1;transform:scale(1) rotate(0);}}
+
+/* 11) SUPERCHAT — FLIP-IN on X (a note dropped on the desk), amount punch */
+.alert.ev-superchat.show{transform-origin:center top;animation:ev-superchat .64s var(--ease) forwards;}
+@keyframes ev-superchat{
+  0%{opacity:0;transform:perspective(900px) rotateX(-88deg) translateY(-120px);}
+  60%{opacity:1;transform:perspective(900px) rotateX(10deg) translateY(0);}
+  100%{opacity:1;transform:perspective(900px) rotateX(0) translateY(0);}}
+
+/* 12) SUPPORTER — EXPAND from a thin slit (clip-reveal + scaleX) */
+.alert.ev-supporter.show{animation:ev-supporter .6s var(--ease) forwards;}
+@keyframes ev-supporter{
+  0%{opacity:0;transform:scaleX(.02) scaleY(.7);}
+  55%{opacity:1;transform:scaleX(1.04) scaleY(1.02);}
+  100%{opacity:1;transform:scaleX(1) scaleY(1);}}
+
+/* ============================================================
+   RENDER MODE: freeze CSS-driven motion (JS drives transform/opacity
+   deterministically through __renderAdvance).
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .glyph{animation:none!important;transform:skewX(-9deg) scale(1) rotate(0);opacity:1;}
+#stage.render .alert .kick,
+#stage.render .alert .name,
+#stage.render .alert .amount,
+#stage.render .alert .rule,
+#stage.render .alert .sub,
+#stage.render .alert .brk{animation:none!important;}
+#stage.render .alert .kick{opacity:1;transform:skewX(-10deg);}
+#stage.render .alert .name{opacity:1;transform:skewX(-9deg) translateX(0) scale(1);}
+#stage.render .alert.has-amount .amount{opacity:1;transform:skewX(-9deg) scale(1);}
+#stage.render .alert .rule,
+#stage.render .alert .sub{opacity:1;transform:translateY(0);}
+#stage.render .alert .brk{opacity:1;}
+#stage.render .alert .kick .dot{animation:none!important;opacity:1;}

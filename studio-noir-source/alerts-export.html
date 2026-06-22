@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Studio Noir Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    Tick "No name (shipping)" to bake the EVENT headline (e.g. NEW FOLLOWER) and
+    hide the viewer name — that's how the pack ships (your alert platform overlays
+    the live name).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.3s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0D0F12; color: #F5F7F9;
+      font-family: "Segoe UI", system-ui, Arial, sans-serif; }
+    h1 { font-family: "Bahnschrift","DIN Condensed","Arial Narrow",Impact,sans-serif;
+      font-size: 24px; color: #E3B23C; letter-spacing: 4px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: #C0C6CC; line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #F5F7F9; background: #171B20; padding: 2px 6px; border-radius: 3px; }
+    label { color: #E3B23C; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px;
+      font-family: "Bahnschrift","DIN Condensed","Arial Narrow",Impact,sans-serif; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #10141A; color: #F5F7F9;
+      border: 1px solid #C0C6CC; border-radius: 4px; margin-right: 16px; }
+    input[type="text"] { width: 150px; }
+    button { font-family: "Bahnschrift","DIN Condensed","Arial Narrow",Impact,sans-serif;
+      font-size: 16px; padding: 13px 28px; background: #E3B23C;
+      color: #0D0F12; border: 1px solid #E3B23C; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #f0c455; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .chk { display: flex; align-items: center; gap: 7px; }
+    .chk input { width: auto; margin: 0; }
+    .chk label { margin: 0; }
+    #status { color: #E3B23C; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #171B20; }
+    .checker {
+      background-color: #0D0F12;
+      background-image:
+        linear-gradient(45deg, #171B20 25%, transparent 25%),
+        linear-gradient(-45deg, #171B20 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #171B20 75%),
+        linear-gradient(-45deg, transparent 75%, #171B20 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Studio Noir Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below; when it finishes
+     your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" type="text" value="NewViewer" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" type="text" value="5" /></span>
+    <span class="chk"><input id="noname" type="checkbox" /><label for="noname">No name (shipping)</label></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const STUDIO_BLACK = '#0D0F12', CHARCOAL = '#171B20', CHARCOAL2 = '#10141A',
+          STEEL = '#C0C6CC', AMBER = '#E3B23C', WHITE = '#F5F7F9';
+    const DUST = ['#E3B23C', '#C0C6CC', '#F5F7F9', '#9c7620'];
+    const DISPLAY = '"Bahnschrift","DIN Condensed","Arial Narrow",Impact,system-ui,sans-serif';
+    const BODY = '"Segoe UI",system-ui,Arial,sans-serif';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"+",  kicker:"NEW FOLLOWER",  sub:"welcome to the broadcast", motion:"follower",   motes:18, amount:false },
+      subscriber: { glyph:"▲", kicker:"NEW SUBSCRIBER", sub:"thanks for subscribing", motion:"subscriber", motes:22, amount:false },
+      member:     { glyph:"◈", kicker:"NEW MEMBER", sub:"welcome to the crew",      motion:"member",     motes:22, amount:false },
+      cheer:      { glyph:"◆", kicker:"CHEER",      sub:"thanks for the bits",      motion:"cheer",      motes:26, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"■", kicker:"DONATION",   sub:"most generous of you",     motion:"donation",   motes:28, amount:true,  amtPre:"$" },
+      host:       { glyph:"▶", kicker:"NOW HOSTING", sub:"we are on the air",       motion:"host",       motes:34, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+      raid:       { glyph:"»", kicker:"INCOMING RAID", sub:"the studio fills at once", motion:"raid",    motes:48, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"♥", kicker:"NEW LIKE",   sub:"much appreciated",         motion:"like",       motes:14, amount:false },
+      share:      { glyph:"↗", kicker:"SHARED",     sub:"word goes out live",       motion:"share",      motes:18, amount:false },
+      star:       { glyph:"★", kicker:"NEW STAR",   sub:"top of the rundown",       motion:"star",       motes:24, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"◉", kicker:"SUPER CHAT", sub:"a note for the desk",      motion:"superchat",  motes:30, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"❖", kicker:"NEW SUPPORTER", sub:"you keep us on the air", motion:"supporter", motes:24, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== bug geometry (matches alerts.css: left 96, bottom 150, 880 wide) =====
+    const CHIP_W = 128;
+    const BUG_W = 880, BUG_H = 196;
+    const BUG_X0 = 96;                  // resting left
+    const BUG_Y = H - 150 - BUG_H;      // bottom:150 -> top y
+
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // per-motion transform (mirror of alerts.js motionTransform): returns
+    // {dx, dy, sx, sy, rot, skew} applied around the bug's left/bottom-ish origin
+    function motionTransform(motion, p) {
+      const e = easeOut(p);
+      const m = { dx: 0, dy: 0, sx: 1, sy: 1, rot: 0, skew: 0, op: Math.min(1, p / 0.5) };
+      switch (motion) {
+        case "follower":   m.dx = -120 + e * 120; break;
+        case "subscriber": m.dy = 96 - e * 96; break;
+        case "member":     m.sx = 0.02 + e * 0.98; break;
+        case "cheer":      m.sx = m.sy = 0.72 + e * 0.28; break;
+        case "donation":   m.dy = -110 + e * 110; break;
+        case "host":       m.rot = -7 + e * 7; m.dx = -70 + e * 70; break;
+        case "raid":       m.dx = -240 + e * 240; m.sx = m.sy = 1.04 - e * 0.04; break;
+        case "like":       m.dy = 22 - e * 22; break;
+        case "share":      m.dx = -140 + e * 140; m.skew = 10 - e * 10; break;
+        case "star":       m.sx = m.sy = 1.18 - e * 0.18; break;
+        case "superchat":  m.dy = 70 - e * 70; m.sx = m.sy = 0.9 + e * 0.1; break;
+        case "supporter":  m.sx = m.sy = 0.92 + e * 0.08; break;
+        default:           m.dx = -120 + e * 120; break;
+      }
+      return m;
+    }
+
+    function drawMote(p) {
+      ctx.save();
+      ctx.translate(Math.round(p.x), Math.round(p.y)); ctx.rotate(p.rot + Math.PI / 4);
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 8;
+      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s);
+      ctx.restore();
+    }
+
+    // clamp a string to a pixel width with a given font
+    function clampText(str, font, maxW) {
+      ctx.save(); ctx.font = font;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): in .7 | hold to 4900 | out .42  => ~5320ms total
+    const T_IN = 700, T_HOLD_END = 4900, T_OUT = 420;
+    const DUR = T_HOLD_END + T_OUT;
+
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const burst = [];
+      let spawned1 = false, spawned2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n) {
+        const ox = 180, oy = H - 250;
+        for (let i = 0; i < n; i++) burst.push({
+          x: ox + R(-40, 140), y: oy + R(-70, 70),
+          vx: R(30, 230)/60, vy: R(-180, -40)/60, g: R(80,150)/3600,
+          s: R(1, 4), rot: R(0, 6.28), vr: R(-3, 3)/60, a: 1, life: R(1.2, 2.4),
+          c: DUST[(Math.random() * DUST.length) | 0],
+        });
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      return function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // motion transform + opacity
+        let m, op;
+        if (ms < T_IN) { m = motionTransform(cfg.motion, ms / T_IN); op = m.op; }
+        else if (ms < T_HOLD_END) { m = { dx:0, dy:0, sx:1, sy:1, rot:0, skew:0 }; op = 1; }
+        else {
+          const t = Math.min(1, (ms - T_HOLD_END) / T_OUT);
+          m = { dx:0, dy:t*18, sx:1-t*0.015, sy:1-t*0.015, rot:0, skew:0 }; op = 1 - t;
+        }
+
+        // bursts (staggered like the live JS)
+        if (!spawned1 && ms >= 200) { spawn(cfg.motes); spawned1 = true; }
+        if (!spawned2 && cfg.motes >= 30 && ms >= 560) { spawn(Math.round(cfg.motes * 0.55)); spawned2 = true; }
+        stepBurst();
+        if (op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+        if (op <= 0.01) return;
+
+        ctx.save();
+        ctx.globalAlpha = op;
+        // apply the bug transform around its left/bottom origin
+        const ox = BUG_X0, oy = BUG_Y + BUG_H;
+        ctx.translate(ox + m.dx, oy + m.dy);
+        ctx.rotate(m.rot * Math.PI / 180);
+        ctx.transform(1, 0, Math.tan(m.skew * Math.PI / 180), 1, 0, 0); // skewX
+        ctx.scale(m.sx, m.sy);
+        ctx.translate(-ox, -oy);
+
+        const x = BUG_X0, y = BUG_Y;
+
+        // ---- left glyph CHIP ----
+        const cg = ctx.createLinearGradient(x, y, x, y + BUG_H);
+        cg.addColorStop(0, CHARCOAL); cg.addColorStop(1, CHARCOAL2);
+        ctx.fillStyle = cg; ctx.fillRect(x, y, CHIP_W, BUG_H);
+        ctx.strokeStyle = 'rgba(192,198,204,0.14)'; ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, CHIP_W - 1, BUG_H - 1);
+        // glyph
+        ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 22;
+        ctx.font = '700 66px ' + DISPLAY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.glyph, x + CHIP_W / 2, y + BUG_H / 2 + 2);
+        ctx.shadowBlur = 0;
+        // on-air pip top-left of chip
+        ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.6)'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(x + 16, y + 16, 5.5, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+
+        // ---- the charcoal SLAB body ----
+        const sx0 = x + CHIP_W, sw = BUG_W - CHIP_W;
+        const sg = ctx.createLinearGradient(sx0, y, sx0 + sw, y + BUG_H);
+        sg.addColorStop(0, 'rgba(23,27,32,0.94)'); sg.addColorStop(1, 'rgba(16,20,26,0.9)');
+        ctx.fillStyle = sg; ctx.fillRect(sx0, y, sw, BUG_H);
+        ctx.strokeStyle = 'rgba(192,198,204,0.14)'; ctx.lineWidth = 1;
+        ctx.strokeRect(sx0 + 0.5, y + 0.5, sw - 1, BUG_H - 1);
+
+        // amber accent RULE down the far left
+        ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 14;
+        ctx.fillRect(x, y, 5, BUG_H); ctx.shadowBlur = 0;
+
+        // amber EVENT TAB riding the slab's top edge
+        const tabH = 30, tabPad = 18;
+        ctx.font = '700 18px ' + DISPLAY; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+        const tabTxt = spacedCaps('ON AIR', 0.26);
+        const tabW = ctx.measureText(tabTxt).width + tabPad * 2;
+        ctx.fillStyle = AMBER; ctx.fillRect(sx0, y - 1, tabW, tabH);
+        ctx.fillStyle = STUDIO_BLACK;
+        ctx.fillText(tabTxt, sx0 + tabPad, y - 1 + tabH / 2 + 1);
+
+        // station readout top-right of the slab
+        ctx.fillStyle = STEEL; ctx.globalAlpha = op * 0.6; ctx.textAlign = 'right';
+        ctx.font = '700 15px ' + DISPLAY;
+        ctx.fillText(spacedCaps('STUDIO NOIR', 0.36), sx0 + sw - 24, y + 20);
+        ctx.strokeStyle = AMBER; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(sx0 + sw - 24 - 84, y + 33); ctx.lineTo(sx0 + sw - 24, y + 33); ctx.stroke();
+        ctx.globalAlpha = op;
+
+        // ---- meta copy ----
+        const mx = sx0 + 30;
+        const maxCopyW = sw - 30 - 40;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+        // kicker (steel caps) — or hidden in noname (headline carries the event)
+        let nameY = y + 110;
+        if (!noname) {
+          ctx.fillStyle = STEEL; ctx.globalAlpha = op * 0.92;
+          ctx.font = '700 21px ' + DISPLAY;
+          ctx.fillText(spacedCaps(cfg.kicker, 0.3), mx, y + 60);
+          ctx.globalAlpha = op;
+        } else {
+          nameY = y + 96;
+        }
+
+        // headline (white condensed) — noname => the event label; else the viewer name
+        const headTxt = noname ? cfg.kicker : (name || 'NewViewer').toUpperCase();
+        const headFont = '700 62px ' + DISPLAY;
+        ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 0;
+        ctx.font = headFont;
+        ctx.fillText(clampText(headTxt, headFont, maxCopyW), mx, nameY);
+
+        // amount (amber, emphasized) then sub — or just sub
+        let subY = noname ? y + 138 : y + 152;
+        if (showAmount) {
+          const amtFont = '700 40px ' + DISPLAY;
+          ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(227,178,60,0.55)'; ctx.shadowBlur = 22;
+          ctx.font = amtFont;
+          ctx.fillText(clampText(amountStr, amtFont, maxCopyW), mx, nameY + 48);
+          ctx.shadowBlur = 0;
+          subY = nameY + 86;
+        }
+        // sub (neutral sans, dim steel)
+        ctx.fillStyle = 'rgba(192,198,204,0.62)'; ctx.font = '400 22px ' + BODY;
+        ctx.fillText(clampText(cfg.sub, '400 22px ' + BODY, maxCopyW), mx, subY);
+
+        ctx.restore();
+      };
+    }
+
+    // letter-space a string for canvas (approximate the CSS tracking)
+    function spacedCaps(str, em) {
+      const px = Math.max(1, Math.round((em || 0.2) * 14));
+      const gap = ' '.repeat(1);
+      return String(str).split('').join(gap);
+    }
+
+    // ===== preview a static frame so you see the look before recording =====
+    function preview() {
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const noname = document.getElementById('noname').checked;
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, noname);
+      r(1800); // mid-hold frame
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const noname = document.getElementById('noname').checked;
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr, noname);
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

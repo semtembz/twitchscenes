@@ -84,6 +84,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "mythforge-keep-source", "5590"],
       "port": 5590
+    },
+    {
+      "name": "hologrid-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "hologrid-source", "5591"],
+      "port": 5591
+    },
+    {
+      "name": "cottagecore-bloom-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "cottagecore-bloom-source", "5592"],
+      "port": 5592
+    },
+    {
+      "name": "studio-noir-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "studio-noir-source", "5593"],
+      "port": 5593
+    },
+    {
+      "name": "venom-surge-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "venom-surge-source", "5594"],
+      "port": 5594
     }
   ]
 }

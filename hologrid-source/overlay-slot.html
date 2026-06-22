@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Hologrid — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Hologrid language: a chamfered holo
+       readout slot lower-left (blinking mint LED status + @handle), bright
+       corner targeting brackets in all four corners, a faint telemetry tick
+       row top-right, and a few drifting data motes hugging the slot. Most of
+       the screen stays transparent so gameplay shows through.
+       Optional URL params: ?handle=@you   ?tag=LIVE -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no space background, no full-bleed deck dressing */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few faint drifting data motes (low alpha), additive holo glow */
+    canvas.bg{pointer-events:none;opacity:.55;mix-blend-mode:screen;}
+
+    /* ---- chamfered HOLO READOUT SLOT, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:58px;height:58px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 22px;
+      background:
+        linear-gradient(180deg, rgba(54,194,255,.07), rgba(27,43,107,.20)),
+        var(--panel);
+      border:1px solid var(--panel-edge);
+      box-shadow:
+        0 22px 60px rgba(2,4,10,.5),
+        inset 0 1px 0 rgba(234,242,255,.10),
+        inset 0 0 50px rgba(27,43,107,.32),
+        0 0 30px rgba(54,194,255,.10);
+      /* sci-fi chamfer: cut top-right + bottom-left to match the .panel motif */
+      clip-path:polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+      animation:slotin .9s var(--ease) both .15s;}
+    /* glowing multi-stop top hairline (panel signature) */
+    .slot::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;pointer-events:none;
+      background:linear-gradient(90deg,transparent,var(--cyan) 28%,var(--mint) 50%,var(--violet) 72%,transparent);
+      box-shadow:0 0 14px rgba(54,194,255,.6);opacity:.9;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+
+    /* bright corner brackets hugging the slot (HUD targeting marks) */
+    .slot .br{position:absolute;width:16px;height:16px;pointer-events:none;}
+    .slot .br::before,.slot .br::after{content:"";position:absolute;background:var(--bracket);
+      box-shadow:0 0 8px rgba(54,194,255,.7);}
+    .slot .br::before{width:16px;height:2px;} .slot .br::after{width:2px;height:16px;}
+    .slot .br.tl{left:-4px;top:-4px;}     .slot .br.tl::before{left:0;top:0;}    .slot .br.tl::after{left:0;top:0;}
+    .slot .br.br2{right:-4px;bottom:-4px;}.slot .br.br2::before{right:0;bottom:0;}.slot .br.br2::after{right:0;bottom:0;}
+
+    /* status tag — blinking mint LED + spaced mono caps */
+    .slot .tag{display:flex;align-items:center;gap:13px;
+      font-family:var(--mono);letter-spacing:.42em;font-size:17px;font-weight:600;
+      text-transform:uppercase;color:var(--cyan);text-indent:.42em;
+      text-shadow:0 0 16px rgba(54,194,255,.4);}
+    .slot .tag .led{width:9px;height:9px;border-radius:50%;background:var(--mint);
+      box-shadow:0 0 12px var(--mint);animation:blink 1.8s steps(1,end) infinite;}
+    @keyframes blink{0%,72%{opacity:1}73%,100%{opacity:.25}}
+
+    /* thin cyan divider with a small diamond tick between tag and handle */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--hair),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--cyan);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px rgba(54,194,255,.5);}
+
+    /* handle — mint mono, glowing */
+    .slot .who{font-family:var(--mono);font-weight:600;letter-spacing:.16em;font-size:28px;
+      color:var(--mint);text-shadow:0 2px 0 rgba(2,4,10,.3),0 0 22px rgba(91,255,208,.4);
+      white-space:nowrap;}
+
+    /* faint telemetry tick row, top-right (HUD readouts) */
+    .tele{position:absolute;top:44px;right:60px;display:flex;align-items:center;gap:14px;
+      font-family:var(--mono);letter-spacing:.30em;font-size:15px;color:rgba(54,194,255,.42);
+      text-indent:.30em;animation:fade .9s var(--ease) both .25s;}
+    .tele .led{width:8px;height:8px;border-radius:50%;background:var(--cyan);
+      box-shadow:0 0 10px var(--cyan);animation:blink 2.4s steps(1,end) infinite;}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+
+    /* bright deck targeting brackets in all four screen corners (registration motif) */
+    .corner{position:absolute;width:42px;height:42px;pointer-events:none;opacity:.85;
+      animation:fade 1s var(--ease) both .35s;}
+    .corner::before,.corner::after{content:"";position:absolute;background:var(--hair);
+      box-shadow:0 0 6px rgba(54,194,255,.4);}
+    .corner::before{width:42px;height:1px;} .corner::after{width:1px;height:42px;}
+    .c-tl{left:40px;top:40px;}  .c-tl::before{left:0;top:0;}  .c-tl::after{left:0;top:0;}
+    .c-tr{right:40px;top:40px;} .c-tr::before{right:0;top:0;} .c-tr::after{right:0;top:0;}
+    .c-bl{left:40px;bottom:40px;}  .c-bl::before{left:0;bottom:0;}  .c-bl::after{left:0;bottom:0;}
+    .c-br{right:40px;bottom:40px;} .c-br::before{right:0;bottom:0;} .c-br::after{right:0;bottom:0;}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .tele,#stage.render .corner{animation:none!important;}
+    #stage.render .slot .tag .led,#stage.render .tele .led{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .tele{opacity:1;}
+    #stage.render .corner{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- bright deck targeting brackets in all four corners -->
+    <span class="corner c-tl" aria-hidden="true"></span>
+    <span class="corner c-tr" aria-hidden="true"></span>
+    <span class="corner c-bl" aria-hidden="true"></span>
+    <span class="corner c-br" aria-hidden="true"></span>
+
+    <!-- faint telemetry tick row, top-right -->
+    <div class="tele" aria-hidden="true"><span class="led"></span>GRID-07 &middot; AZ 128.4&deg; &middot; EL +07.2&deg;</div>
+
+    <!-- chamfered holo readout slot, lower-left -->
+    <div class="slot">
+      <span class="br tl" aria-hidden="true"></span>
+      <span class="br br2" aria-hidden="true"></span>
+      <span class="tag"><span class="led" aria-hidden="true"></span><span class="tagtxt">LIVE</span></span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + status tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tagtxt");
+    if (tag && tagEl) tagEl.textContent = tag;
+
+    /* ---- canvas: a FEW subtle drifting data motes (cyan/mint/violet) hugging the slot ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const TINT = ["#36C2FF", "#5BFFD0", "#B66BFF"];
+    const motes = Array.from({ length: Math.max(0, num("motes", 30)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.5), vy: R(-9, -3) / 60, sway: R(0.3, 1.1),
+      ph: R(0, 6.28), a: R(0.18, 0.6), tint: TINT[(Math.random() * 3) | 0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const m of motes){
+        m.y += m.vy * dt * 60; m.ph += 0.04 * dt * 60; m.x += Math.sin(m.ph) * m.sway * 0.6;
+        if (m.y < -10){ m.y = H + 10; m.x = Math.random() * W; }
+        if (m.x < -10) m.x = W + 10; if (m.x > W + 10) m.x = -10;
+        const tw = 0.55 + Math.sin(m.ph * 1.6) * 0.45;
+        ctx.globalAlpha = m.a * tw;
+        ctx.fillStyle = m.tint;
+        const s = Math.max(1, Math.round(m.z * 1.6));
+        ctx.fillRect(Math.round(m.x), Math.round(m.y), s, s);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+    window.__holoDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

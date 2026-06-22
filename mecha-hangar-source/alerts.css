@@ -1,0 +1,248 @@
+/* ============================================================
+   MECHA HANGAR — alert system ("Bay Comms")
+   A riveted STEEL alert POD that mounts into the lower-left of the
+   bay: a heavy chamfered steel chassis with a hazard-stripe header
+   rail, four corner BOLTS, a stamped glyph TILE, a stencil/condensed
+   EVENT line, a mono HANDLE/NAME, an optional amber AMOUNT readout,
+   a mono sub, and a small CHARGE bar that sweeps once. Behind it a
+   transparent canvas throws white-hot welding SPARKS that arc + cool
+   to amber. Background is TRANSPARENT — the pod composites over the
+   scene/gameplay. Per-event entrance motion is driven from alerts.js
+   so each of the 12 events lands DISTINCTLY.
+   Cohesive with shared.css tokens (gunmetal/steel/amber/red, hazard
+   stripes, bolts, stencil + mono type, --ease-mech).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --gunmetal:#101417; --steel:#1E2A33; --amber:#F5A623; --red:#FF4D2E;
+  --steel-lt:#C8D2D9; --text:#E8EEF2;
+  --steel-hi:#2C3C47; --steel-lo:#0B1014; --rivet:#3A4A55; --rivet-hi:#5E727F;
+  --amber-soft:rgba(245,166,35,.18); --amber-glow:rgba(245,166,35,.55);
+  --red-glow:rgba(255,77,46,.5);
+  --line:rgba(200,210,217,.16); --line-amber:rgba(245,166,35,.42);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --ease-mech:cubic-bezier(.85,0,.15,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — the pod composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;}
+
+/* one canvas for the welding-spark/ember burst, behind the pod, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---------------------------------------------------------------
+   THE ALERT POD — anchored lower-left of the bay
+   --------------------------------------------------------------- */
+.alert{position:absolute;left:96px;bottom:140px;width:806px;
+  /* the chassis itself; per-event entrance handled via JS-set classes */
+  background:
+    linear-gradient(180deg, rgba(30,42,51,.94), rgba(16,22,27,.96)),
+    repeating-linear-gradient(0deg, rgba(11,16,20,.5) 0 1px, transparent 1px 22px);
+  border:2px solid rgba(11,16,20,.9);
+  box-shadow:
+    inset 0 0 0 2px var(--steel-hi),
+    inset 0 0 70px rgba(0,0,0,.6),
+    0 30px 80px rgba(0,0,0,.6),
+    0 0 0 2px rgba(0,0,0,.7);
+  /* chamfered corners, echoing the bay blast-door */
+  clip-path:polygon(26px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 26px),
+    calc(100% - 26px) 100%,12px 100%,0 calc(100% - 12px),0 26px);
+  /* hidden + nudged offscreen-left until JS sets a state */
+  opacity:0;transform:translateX(-980px);
+  will-change:transform,opacity;
+  padding:0;}
+
+/* hazard-stripe header rail across the top of the pod */
+.alert .rail{position:absolute;left:0;right:0;top:0;height:12px;z-index:4;pointer-events:none;
+  background:repeating-linear-gradient(45deg, var(--amber) 0 16px, #14171A 16px 32px);
+  box-shadow:inset 0 -2px 4px rgba(0,0,0,.6);opacity:.96;}
+
+/* the four corner bolt plates (echo shared.css .bolt) */
+.alert .rivet{position:absolute;width:20px;height:20px;z-index:5;pointer-events:none;
+  background:linear-gradient(135deg, var(--steel-hi), var(--steel) 55%, var(--steel-lo));
+  border:1px solid rgba(11,16,20,.85);border-radius:3px;
+  box-shadow:0 1px 3px rgba(0,0,0,.6), inset 0 1px 0 rgba(94,114,127,.5);}
+.alert .rivet::before{content:"";position:absolute;inset:0;margin:auto;width:6px;height:6px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--rivet-hi), var(--rivet) 60%, #1c252b);}
+.alert .rivet.r1{left:9px;top:20px;} .alert .rivet.r2{right:9px;top:20px;}
+.alert .rivet.r3{left:9px;bottom:9px;} .alert .rivet.r4{right:9px;bottom:9px;}
+
+/* an amber edge seam down the left — the "mount" glow */
+.alert .edge{position:absolute;left:0;top:24px;bottom:8px;width:3px;z-index:4;
+  background:linear-gradient(180deg,transparent,var(--amber),transparent);
+  box-shadow:0 0 14px var(--amber-glow);}
+
+/* the body grid: stamped glyph tile + meta column */
+.alert .body{position:relative;z-index:3;
+  display:grid;grid-template-columns:158px 1fr;gap:30px;align-items:center;
+  padding:40px 46px 34px;}
+
+/* a slow amber light-sweep across the steel face */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.5;
+  background:linear-gradient(115deg, transparent 42%, rgba(245,166,35,.12) 49%, rgba(255,210,122,.05) 51%, transparent 60%);
+  animation:al-sweep 4.5s linear infinite;z-index:2;}
+@keyframes al-sweep{0%{transform:translateX(-26%)}100%{transform:translateX(26%)}}
+
+/* ---------------------------------------------------------------
+   STAMPED GLYPH TILE — chamfered steel plate with the event glyph
+   --------------------------------------------------------------- */
+.alert .tile{position:relative;width:158px;height:158px;overflow:hidden;
+  background:
+    radial-gradient(120% 120% at 30% 24%, rgba(44,60,71,.7), transparent 60%),
+    linear-gradient(150deg, rgba(30,42,51,.96) 0%, rgba(16,22,27,.98) 60%, var(--gunmetal) 100%);
+  border:2px solid rgba(11,16,20,.9);
+  box-shadow:inset 0 0 0 1px var(--steel-hi), inset 0 0 26px rgba(0,0,0,.6), 0 6px 18px rgba(0,0,0,.5);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);}
+/* brushed-grain + segment lines on the tile */
+.alert .tile::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 5px);}
+.alert .tile .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:84px;line-height:1;color:var(--amber);
+  text-shadow:0 0 22px rgba(245,166,35,.55), 0 2px 0 rgba(11,16,20,.9);
+  animation:glyph-stamp .6s var(--ease-mech) both .14s;}
+@keyframes glyph-stamp{0%{transform:scale(1.5);opacity:0}55%{transform:scale(.92)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* the EVENT/kicker line — stencil/condensed caps, amber, wide tracking */
+.alert .kick{font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
+  letter-spacing:.34em;font-size:21px;font-weight:700;text-transform:uppercase;color:var(--amber);
+  display:flex;align-items:center;gap:12px;margin:0 0 8px;white-space:nowrap;text-indent:.34em;
+  text-shadow:0 0 14px rgba(245,166,35,.35);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:none;text-indent:0;
+  box-shadow:0 0 10px var(--red-glow);animation:al-reddot 1.2s steps(1) infinite;}
+@keyframes al-reddot{0%,50%{opacity:1}51%,100%{opacity:.25}}
+
+/* big NAME/handle — heavy condensed stencil, light steel, stamped; one line */
+.alert .name{font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
+  font-size:74px;line-height:.9;font-weight:800;letter-spacing:.01em;margin:2px 0 8px;
+  text-transform:uppercase;color:var(--steel-lt);
+  text-shadow:0 3px 0 #0B1014, 0 0 2px rgba(0,0,0,.8), 0 8px 22px rgba(0,0,0,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount readout (amber charged) — hidden unless .has-amount; emphasized */
+.alert .amount{font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
+  font-size:40px;font-weight:800;letter-spacing:.02em;margin:0 0 6px;display:none;line-height:1;
+  background:linear-gradient(180deg, #FFD27A 0%, var(--amber) 52%, #C97A12 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(11,16,20,.9)) drop-shadow(0 0 26px rgba(245,166,35,.55));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;animation:amt-charge .7s var(--ease-mech) both .26s;}
+@keyframes amt-charge{0%{opacity:0;transform:translateY(8px) scale(1.12)}100%{opacity:1;transform:none}}
+
+/* mono sub line — telemetry caption */
+.alert .sub{font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;
+  font-size:20px;letter-spacing:.18em;text-transform:uppercase;color:var(--steel-lt);opacity:.78;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;}
+
+/* small CHARGE bar at the very bottom — sweeps once during the hold */
+.alert .charge{position:absolute;left:14px;right:14px;bottom:14px;height:6px;z-index:3;
+  background:
+    repeating-linear-gradient(90deg, rgba(11,16,20,.9) 0 1px, transparent 1px 28px),
+    linear-gradient(180deg, #0B1014, #050708);
+  border:1px solid var(--steel-hi);overflow:hidden;}
+.alert .charge .lvl{position:absolute;left:0;top:0;bottom:0;width:0;
+  background:
+    repeating-linear-gradient(45deg, rgba(11,16,20,.5) 0 6px, transparent 6px 12px),
+    linear-gradient(90deg, var(--amber), #FFD27A);
+  box-shadow:0 0 12px var(--amber-glow);}
+.alert.show .charge .lvl{animation:al-charge 4s linear .55s forwards;}
+@keyframes al-charge{from{width:0}to{width:100%}}
+
+/* bay designation tag, upper-right of the pod (mono) */
+.alert .tag{position:absolute;top:22px;right:24px;z-index:4;
+  font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
+  font-size:14px;letter-spacing:.3em;color:rgba(200,210,217,.6);text-indent:.3em;}
+
+/* ---------------------------------------------------------------
+   ENTRANCE / EXIT — base classes. alerts.js adds a per-event
+   modifier (.m-<event>) so EACH of the 12 events lands distinctly.
+   .show plays the chosen entrance; .hide plays the shared exit.
+   --------------------------------------------------------------- */
+.alert.show{animation:al-in .6s var(--ease) forwards;}
+.alert.hide{animation:al-out .46s var(--ease-mech) forwards;}
+@keyframes al-in{0%{opacity:0;transform:translateX(-980px)}70%{opacity:1;transform:translateX(20px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes al-out{0%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-980px)}}
+
+/* ---- 12 DISTINCT entrance motions (one per event) ---- */
+/* follower — bolt-slam in from the left dock */
+.alert.show.m-follower{animation:m-follower .6s var(--ease) forwards;}
+@keyframes m-follower{0%{opacity:0;transform:translateX(-980px)}72%{opacity:1;transform:translateX(22px)}100%{opacity:1;transform:translateX(0)}}
+
+/* subscriber — drops down from above & locks (heavy mech settle) */
+.alert.show.m-subscriber{animation:m-subscriber .66s var(--ease-mech) forwards;}
+@keyframes m-subscriber{0%{opacity:0;transform:translateY(-560px)}68%{opacity:1;transform:translateY(26px)}84%{transform:translateY(-10px)}100%{opacity:1;transform:translateY(0)}}
+
+/* member — rises up from the bay floor */
+.alert.show.m-member{animation:m-member .62s var(--ease) forwards;}
+@keyframes m-member{0%{opacity:0;transform:translateY(420px)}70%{opacity:1;transform:translateY(-18px)}100%{opacity:1;transform:translateY(0)}}
+
+/* cheer — charge-zoom: punches in from small with a kick */
+.alert.show.m-cheer{animation:m-cheer .58s var(--ease-mech) forwards;transform-origin:left center;}
+@keyframes m-cheer{0%{opacity:0;transform:scale(.55)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
+
+/* donation — overshoot slam from the left then recoil (big arrival) */
+.alert.show.m-donation{animation:m-donation .7s var(--ease-mech) forwards;}
+@keyframes m-donation{0%{opacity:0;transform:translateX(-980px)}56%{opacity:1;transform:translateX(46px)}74%{transform:translateX(-14px)}100%{opacity:1;transform:translateX(0)}}
+
+/* host — wide unfold: stretches open horizontally */
+.alert.show.m-host{animation:m-host .64s var(--ease) forwards;transform-origin:left center;}
+@keyframes m-host{0%{opacity:0;transform:scaleX(.12)}62%{opacity:1;transform:scaleX(1.04)}100%{opacity:1;transform:scaleX(1)}}
+
+/* raid — hard mechanical shake-in (biggest arrival) */
+.alert.show.m-raid{animation:m-raid .72s var(--ease-mech) forwards;}
+@keyframes m-raid{0%{opacity:0;transform:translateX(-980px)}48%{opacity:1;transform:translateX(0)}58%{transform:translateX(-22px)}66%{transform:translateX(16px)}74%{transform:translateX(-10px)}82%{transform:translateX(7px)}90%{transform:translateX(-3px)}100%{opacity:1;transform:translateX(0)}}
+
+/* like — quick light bounce in from the left */
+.alert.show.m-like{animation:m-like .54s var(--ease) forwards;}
+@keyframes m-like{0%{opacity:0;transform:translateX(-980px) translateY(0)}62%{opacity:1;transform:translateX(0) translateY(-16px)}80%{transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+
+/* share — diagonal slide in from lower-left (sent outward feel) */
+.alert.show.m-share{animation:m-share .6s var(--ease) forwards;}
+@keyframes m-share{0%{opacity:0;transform:translate(-760px,560px)}72%{opacity:1;transform:translate(18px,-12px)}100%{opacity:1;transform:translate(0,0)}}
+
+/* star — spin-in with a settle (the marquee turns on) */
+.alert.show.m-star{animation:m-star .66s var(--ease-mech) forwards;transform-origin:left center;}
+@keyframes m-star{0%{opacity:0;transform:rotate(-7deg) scale(.7)}64%{opacity:1;transform:rotate(2deg) scale(1.03)}100%{opacity:1;transform:rotate(0) scale(1)}}
+
+/* superchat — slides DOWN from the top rail then locks (priority msg) */
+.alert.show.m-superchat{animation:m-superchat .68s var(--ease-mech) forwards;}
+@keyframes m-superchat{0%{opacity:0;transform:translateY(-620px) scale(.96)}66%{opacity:1;transform:translateY(22px) scale(1)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* supporter — calm fade + push from the left (steady arrival) */
+.alert.show.m-supporter{animation:m-supporter .7s var(--ease) forwards;}
+@keyframes m-supporter{0%{opacity:0;transform:translateX(-220px)}100%{opacity:1;transform:translateX(0)}}
+
+/* ---------------------------------------------------------------
+   RENDER MODE: freeze CSS-driven motion; JS drives transform/opacity
+   deterministically via __renderAdvance.
+   --------------------------------------------------------------- */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide,
+#stage.render .alert.show.m-follower,
+#stage.render .alert.show.m-subscriber,
+#stage.render .alert.show.m-member,
+#stage.render .alert.show.m-cheer,
+#stage.render .alert.show.m-donation,
+#stage.render .alert.show.m-host,
+#stage.render .alert.show.m-raid,
+#stage.render .alert.show.m-like,
+#stage.render .alert.show.m-share,
+#stage.render .alert.show.m-star,
+#stage.render .alert.show.m-superchat,
+#stage.render .alert.show.m-supporter{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .kick .dot{animation:none!important;}
+#stage.render .alert.has-amount .amount{animation:none!important;}
+#stage.render .alert.show .charge .lvl{animation:none!important;}

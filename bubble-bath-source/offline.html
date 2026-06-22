@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Bubble Bath (PNG generator)</title>
+  <!--
+    BUBBLE BATH · "Soap & Shimmer" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the soap-&-shimmer look (bright vertical aqua bath gradient
+    washed with pink/mint/lemon glows, ~40 rising iridescent soap bubbles with
+    soap-film rainbow rims + specular dots, tiny 4-point sparkles, and the
+    signature CENTERED squishy translucent JELLY PANEL with a glossy white
+    border + mint inner ring, inner top gloss, a frozen holographic sheen bar,
+    a 3-dot soap crest, a periwinkle "WE'RE OFFLINE" title with a pink glossy
+    accent, a bubbly underline, and a soft subtitle) onto a <canvas> and
+    downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the bubble / sparkle
+    scatter is identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --sky-aqua:#D9F4FF; --mint-aqua:#A0E7E5; --bubblegum:#FFB7D5;
+      --lemon:#FFF4C2; --periwinkle:#6C7AE0; --ink:#3A4A7A; --aqua-deep:#BDEBFB;
+      --display:"Quicksand","Comfortaa","Varela Round","Segoe UI Variable","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+      --body:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--body);color:var(--ink);padding:32px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(255,183,213,0.30), transparent 60%),
+        radial-gradient(760px 520px at 100% 110%, rgba(160,231,229,0.40), transparent 60%),
+        linear-gradient(180deg, var(--sky-aqua), #CDEFFB 55%, var(--aqua-deep));}
+    h1{font-family:var(--display);font-weight:700;font-size:28px;color:var(--ink);
+      letter-spacing:.3px;margin:0 0 6px;text-shadow:0 2px 0 #fff,0 8px 20px rgba(108,122,224,.22);}
+    p.lead{color:rgba(58,74,122,.8);margin:0 0 22px;max-width:820px;line-height:1.6;
+      font-weight:600;font-size:16px;}
+    .kicker{font-family:var(--display);font-weight:700;letter-spacing:6px;font-size:13px;
+      color:var(--periwinkle);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:2px;
+      text-transform:uppercase;padding:13px 28px;color:#fff;
+      background:linear-gradient(180deg,#8C97E8,var(--periwinkle));
+      border:2px solid rgba(255,255,255,.85);border-radius:999px;cursor:pointer;
+      box-shadow:0 10px 26px rgba(108,122,224,.30);}
+    button:hover{filter:brightness(1.06);}
+    .preview{margin-top:22px;background:rgba(255,255,255,.5);padding:14px;
+      border:1px solid rgba(255,255,255,.85);border-radius:14px;display:inline-block;
+      box-shadow:0 10px 30px rgba(108,122,224,.16);}
+    canvas{display:block;width:960px;height:540px;border-radius:8px;}
+    code{font-family:"Courier New",monospace;color:var(--periwinkle);
+      background:rgba(255,255,255,.6);padding:2px 6px;border-radius:6px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">BUBBLE BATH · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the soap-&amp;-shimmer style — seeded so the
+    bubbles and sparkles are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const SKY = '#D9F4FF', MINT = '#A0E7E5', PINK = '#FFB7D5', LEMON = '#FFF4C2';
+    const PERI = '#6C7AE0', INK = '#3A4A7A', AQUA_DEEP = '#BDEBFB';
+    const RIMS = ['rgba(255,183,213,A)','rgba(160,231,229,A)','rgba(255,244,194,A)','rgba(108,122,224,A)','rgba(189,235,251,A)'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft radial bloom ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- an iridescent soap bubble (body + 2-arc rim + outer ring + spec dot) ----
+    function bubble(x, y, r, hue, a) {
+      x = Math.round(x); y = Math.round(y);
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+      g.addColorStop(0,    'rgba(255,255,255,' + (a * 0.6).toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(217,244,255,' + (a * 0.32).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(160,231,229,' + (a * 0.10).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      const rimA = (a * 0.6).toFixed(3);
+      ctx.lineWidth = Math.max(1.4, r * 0.06);
+      ctx.strokeStyle = RIMS[hue % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = RIMS[(hue + 2) % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 3.4, 6.2, false); ctx.stroke();
+      ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(255,255,255,' + (a * 0.5).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      const hx = Math.round(x - r * 0.36), hy = Math.round(y - r * 0.4), hr = Math.max(2, r * 0.18);
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, 'rgba(255,255,255,' + Math.min(0.95, a + 0.35).toFixed(3) + ')');
+      hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+
+    // ---- tiny 4-point sparkle ----
+    function sparkle(x, y, len, a) {
+      x = Math.round(x); y = Math.round(y);
+      ctx.strokeStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+      ctx.lineWidth = Math.max(1, len * 0.22); ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - len, y); ctx.lineTo(x + len, y);
+      ctx.moveTo(x, y - len); ctx.lineTo(x, y + len);
+      ctx.stroke();
+    }
+
+    // 3-dot soap crest (pink / mint / periwinkle gradient dots)
+    function crest(cx, cy) {
+      const cols = [PINK, MINT, PERI];
+      const gx = [-30, 0, 30];
+      for (let i = 0; i < 3; i++) {
+        const x = cx + gx[i];
+        const g = ctx.createRadialGradient(x - 4, cy - 4, 1, x, cy, 11);
+        g.addColorStop(0, '#fff'); g.addColorStop(0.7, cols[i]); g.addColorStop(1, cols[i]);
+        ctx.save();
+        ctx.shadowColor = cols[i]; ctx.shadowBlur = 16;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, cy, 9, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xB0BB1E); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: bright vertical aqua bath gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, SKY); grad.addColorStop(0.52, '#CDEFFB'); grad.addColorStop(1, AQUA_DEEP);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // soft pink / mint / lemon radial glows washing the bath
+      bloom(W * 0.50, H * 0.06, W * 0.62, 'rgba(234,251,255,0.9)', 1);
+      bloom(W * 0.16, H * 0.92, W * 0.46, 'rgba(255,183,213,0.30)', 1);
+      bloom(W * 0.86, H * 0.96, W * 0.46, 'rgba(160,231,229,0.45)', 1);
+      bloom(W * 0.88, H * 0.08, W * 0.40, 'rgba(255,244,194,0.40)', 1);
+
+      // ---- SEEDED RISING IRIDESCENT BUBBLES (~40), bigger nearer the floor ----
+      const bubs = [];
+      for (let i = 0; i < 40; i++) {
+        bubs.push({ x: R(rnd, 20, W - 20), y: R(rnd, 20, H - 20), r: R(rnd, 12, 80),
+                    hue: (rnd() * RIMS.length) | 0, a: R(rnd, 0.30, 0.62) });
+      }
+      bubs.sort((p, q) => p.r - q.r); // small (far) first, big (near) drawn last
+      for (const b of bubs) bubble(b.x, b.y, b.r, b.hue, b.a);
+
+      // ---- SEEDED 4-POINT SPARKLE TWINKLES ----
+      for (let i = 0; i < 60; i++) {
+        sparkle(R(rnd, 10, W - 10), R(rnd, 10, H - 10), R(rnd, 3, 9), R(rnd, 0.25, 0.8));
+      }
+
+      // ---- soap-film shimmer wash (very soft diagonal striping) ----
+      ctx.save();
+      ctx.globalAlpha = 0.4; ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      for (let y = -10; y < H; y += 12) {
+        ctx.save(); ctx.translate(0, y); ctx.transform(1, 0, -0.5, 1, 0, 0);
+        ctx.fillRect(0, 0, W + 600, 3); ctx.restore();
+      }
+      ctx.restore(); ctx.globalAlpha = 1;
+
+      // ---- soft vignette (keeps the headline legible) ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(108,122,224,0.18)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+      // floor tint
+      const fl = ctx.createLinearGradient(0, H * 0.7, 0, H);
+      fl.addColorStop(0, 'rgba(160,231,229,0)'); fl.addColorStop(1, 'rgba(160,231,229,0.30)');
+      ctx.fillStyle = fl; ctx.fillRect(0, H * 0.7, W, H * 0.3);
+
+      // ============================================================
+      // CENTERED SQUISHY JELLY PANEL — the signature composition
+      // ============================================================
+      const fw = 1160, fh = 640;
+      const fx = (W - fw) / 2, fy = (H - fh) / 2;
+      const rad = 78;
+      const cx = W / 2;
+
+      // soft periwinkle drop-shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(108,122,224,0.28)'; ctx.shadowBlur = 90; ctx.shadowOffsetY = 40;
+      roundRect(fx, fy, fw, fh, rad);
+      ctx.fillStyle = 'rgba(255,255,255,0.42)';
+      ctx.fill();
+      ctx.restore();
+
+      // jelly body fill, clipped to the rounded silhouette
+      ctx.save();
+      roundRect(fx, fy, fw, fh, rad); ctx.clip();
+      const jg = ctx.createLinearGradient(0, fy, 0, fy + fh);
+      jg.addColorStop(0, 'rgba(255,255,255,0.46)');
+      jg.addColorStop(1, 'rgba(217,244,255,0.30)');
+      ctx.fillStyle = jg; ctx.fillRect(fx, fy, fw, fh);
+
+      // inner glows inside the jelly
+      bloom(cx, fy + 40, 620, 'rgba(255,255,255,0.5)', 1);
+      bloom(fx + 120, fy + fh - 60, 360, 'rgba(160,231,229,0.4)', 1);
+      bloom(fx + fw - 120, fy + 40, 360, 'rgba(255,183,213,0.3)', 1);
+
+      // inner top gloss highlight (the wet look)
+      const gl = ctx.createLinearGradient(0, fy + 8, 0, fy + fh * 0.40);
+      gl.addColorStop(0, 'rgba(255,255,255,0.7)');
+      gl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gl;
+      roundRect(fx + 70, fy + 24, fw - 140, fh * 0.38, 60); ctx.fill();
+
+      // frozen holographic sheen bar (skewed, screen blend)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.translate(fx + fw * 0.58, 0); ctx.transform(1, 0, -0.32, 1, 0, 0);
+      const sh = ctx.createLinearGradient(-120, 0, 260, 0);
+      sh.addColorStop(0,   'rgba(255,183,213,0)');
+      sh.addColorStop(0.35,'rgba(255,244,194,0.35)');
+      sh.addColorStop(0.55,'rgba(160,231,229,0.30)');
+      sh.addColorStop(0.75,'rgba(108,122,224,0.16)');
+      sh.addColorStop(1,   'rgba(108,122,224,0)');
+      ctx.fillStyle = sh; ctx.fillRect(-120, fy - 80, 380, fh + 160);
+      ctx.restore();
+      ctx.restore(); // end clip
+
+      // ---- frame content (centered) ----
+
+      // 3-dot soap crest
+      crest(cx, fy + 96);
+
+      // kicker pill — periwinkle spaced caps in a soft white pill
+      ctx.save();
+      ctx.font = '700 26px "Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif';
+      const kicker = "TAKING A SOAK";
+      const kw = spacedWidth(kicker, 10);
+      const pillW = kw + 64, pillH = 50, pillY = fy + 138;
+      roundRect(cx - pillW / 2, pillY, pillW, pillH, 25);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = PERI;
+      drawSpacedCentered(kicker, cx, pillY + pillH / 2 + 1, 10);
+      ctx.restore();
+
+      // big heavy rounded TITLE: WE'RE (periwinkle, white+mint stacked drop) + OFFLINE (pink glossy)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 132px "Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,sans-serif';
+      const t1y = fy + 300;
+      // stacked drop (white then mint) under periwinkle
+      ctx.fillStyle = '#fff';        ctx.fillText("WE'RE", cx, t1y + 3);
+      ctx.fillStyle = 'rgba(160,231,229,0.55)'; ctx.fillText("WE'RE", cx, t1y + 9);
+      ctx.shadowColor = 'rgba(108,122,224,0.28)'; ctx.shadowBlur = 26;
+      ctx.fillStyle = PERI;          ctx.fillText("WE'RE", cx, t1y);
+      ctx.shadowBlur = 0;
+
+      // OFFLINE — glossy pink vertical gradient accent
+      const t2y = fy + 430;
+      const tg = ctx.createLinearGradient(0, t2y - 110, 0, t2y + 10);
+      tg.addColorStop(0, '#FFE3EF'); tg.addColorStop(0.38, PINK);
+      tg.addColorStop(0.72, '#F58FBC'); tg.addColorStop(1, '#E06BA0');
+      ctx.fillStyle = '#fff'; ctx.fillText('OFFLINE', cx, t2y + 3); // white lift
+      ctx.shadowColor = 'rgba(255,183,213,0.55)'; ctx.shadowBlur = 30;
+      ctx.fillStyle = tg; ctx.fillText('OFFLINE', cx, t2y);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // bubbly underline rule with bubble end-caps
+      ctx.save();
+      const ruY = fy + 480, ruW = 300;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(160,231,229,0)'); ug.addColorStop(0.22, MINT);
+      ug.addColorStop(0.5, PINK); ug.addColorStop(0.78, MINT); ug.addColorStop(1, 'rgba(160,231,229,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      bubble(cx - ruW / 2, ruY, 11, 1, 0.9);
+      bubble(cx + ruW / 2, ruY, 11, 0, 0.9);
+      ctx.restore();
+
+      // subtitle — soft lowercase ink
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 32px "Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(58,74,122,0.62)';
+      ctx.fillText('[ your text here ]', cx, fy + 545);
+      ctx.restore();
+
+      // the glossy white jelly BORDER (on top, not clipped) + mint inner ring
+      roundRect(fx + 3, fy + 3, fw - 6, fh - 6, rad - 2);
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+      roundRect(fx + 12, fy + 12, fw - 24, fh - 24, rad - 10);
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(160,231,229,0.55)'; ctx.stroke();
+
+      // ---- corner soap-tag (top-left on the bath) ----
+      ctx.save();
+      ctx.font = '700 22px "Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(58,74,122,0.55)'; ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left'; drawSpaced('BUBBLE BATH', 70, 80, 9);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, periwinkle pill) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.font = '700 30px "Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif';
+      const hw = ctx.measureText(handleAt).width;
+      const hpW = hw + 56, hpH = 60, hpX = W - 70 - hpW, hpY = H - 70 - hpH;
+      roundRect(hpX, hpY, hpW, hpH, 30);
+      ctx.fillStyle = 'rgba(255,255,255,0.58)'; ctx.fill();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = PERI;
+      ctx.fillText(handleAt, hpX + hpW / 2, hpY + hpH / 2 + 1);
+      ctx.restore();
+      // small twitch.tv line under the pill
+      ctx.save();
+      ctx.font = '600 18px "Quicksand","Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(58,74,122,0.5)'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('twitch.tv/' + handleClean, W - 70, H - 36);
+      ctx.restore();
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

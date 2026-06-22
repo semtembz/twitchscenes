@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Tracking Error — Star Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="star">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <span class="seam" aria-hidden="true"></span>
+      <span class="tick tl" aria-hidden="true"></span><span class="tick tr" aria-hidden="true"></span>
+      <span class="tick bl" aria-hidden="true"></span><span class="tick br" aria-hidden="true"></span>
+      <span class="tagid" aria-hidden="true"><span class="rdot"></span>REC&nbsp;&middot;&nbsp;CH&nbsp;03</span>
+      <div class="art" aria-hidden="true"><div class="glyph" id="glyph">★</div></div>
+      <div class="meta">
+        <p class="kick"><span id="kick-label">NEW STAR</span></p>
+        <h1 class="name" id="name">Viewer</h1>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub">[ your text here ]</p>
+      </div>
+      <span class="ubar" aria-hidden="true"><i></i></span>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

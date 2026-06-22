@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Halftone Havoc (PNG generator)</title>
+  <!--
+    HALFTONE HAVOC · comic-book ACTION-PAGE PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE in heavy comic
+    caps + a STREAMER kicker; right = a comic tagline. The centre is decorative only
+    — a faint halftone "POW" starburst + speed lines — so the player can sit over it
+    without hiding anything important.
+
+    Everything random is drawn from a SEEDED PRNG, so the halftone / speed lines are
+    identical on every render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it
+    is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --paper:#FFFFFF; --paper-2:#F4F2EA; --ink:#111111;
+      --pop-yellow:#FFD400; --comic-red:#FF3B30; --comic-blue:#1E63FF;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Arial","Helvetica",system-ui,sans-serif;
+      background:var(--paper-2);color:var(--ink);padding:32px;}
+    h1{font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;font-weight:900;
+      font-size:34px;color:var(--ink);letter-spacing:-.01em;margin:0 0 6px;text-transform:uppercase;
+      transform:rotate(-1.5deg);text-shadow:4px 4px 0 var(--pop-yellow), 6px 6px 0 var(--ink);}
+    p.lead{color:#333;margin:14px 0 22px;max-width:840px;line-height:1.55;
+      font-family:"Arial",Helvetica,sans-serif;font-size:16px;font-weight:600;}
+    .kicker{font-family:"Arial Black",Impact,system-ui,sans-serif;letter-spacing:.18em;
+      font-size:13px;font-weight:900;color:var(--ink);margin:0 0 14px;text-transform:uppercase;}
+    button{font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;font-size:14px;
+      letter-spacing:.12em;text-transform:uppercase;padding:14px 28px;color:var(--paper);
+      background:var(--comic-red);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);
+      cursor:pointer;transform:rotate(-1deg);}
+    button:hover{filter:brightness(1.05);}
+    button:active{transform:translate(3px,3px) rotate(-1deg);box-shadow:2px 2px 0 var(--ink);}
+    .preview{margin-top:22px;background:#fff;padding:12px;border:3px solid var(--ink);
+      box-shadow:8px 8px 0 var(--ink);display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits so you
+       can confirm the L/R blocks stay clear. NOT part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:172px;border:3px dashed rgba(17,17,17,0.4);
+      background:rgba(255,255,255,0.4);pointer-events:none;
+      color:rgba(17,17,17,0.62);display:flex;align-items:center;justify-content:center;
+      font-family:"Arial Black",Impact,system-ui,sans-serif;font-size:12px;letter-spacing:.12em;}
+    code{font-family:"Courier New",monospace;color:var(--ink);font-weight:700;
+      background:var(--pop-yellow);padding:2px 6px;border:2px solid var(--ink);}
+  </style>
+</head>
+<body>
+  <p class="kicker">HALFTONE HAVOC · PROFILE BANNER</p>
+  <h1>Profile Banner Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the comic action-page style — seeded so the
+    halftone and speed lines are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const PAPER = '#FFFFFF', PAPER2 = '#F4F2EA', INK = '#111111';
+    const YEL = '#FFD400', RED = '#FF3B30', BLU = '#1E63FF';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- tiny seeded PRNG (mulberry32) — NEVER Math.random, reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const Rr = (rnd, a, b) => a + rnd() * (b - a);
+
+    function cellColour(ix, iy) {
+      const h = ((ix * 73856093) ^ (iy * 19349663)) >>> 0;
+      const m = h % 100;
+      if (m < 58) return INK;
+      if (m < 73) return RED;
+      if (m < 88) return BLU;
+      return YEL;
+    }
+
+    function burstPath(cx, cy, R0, spikes, jag, rot) {
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const rr = (i % 2 === 0) ? R0 : R0 * jag;
+        const a = rot + i * Math.PI / spikes;
+        const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    // ---- spaced caps helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    // ---- a comic title line: hard colour offset + ink outline + ink fill, tilted ----
+    function comicLine(text, cx, cy, size, fillColor, offColor, off, rot) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '900 ' + size + 'px "Arial Black",Impact,Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+      ctx.fillStyle = offColor; ctx.fillText(text, off, off);
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = INK; ctx.lineWidth = size * 0.05;
+      ctx.strokeText(text, 0, 0);
+      ctx.fillStyle = fillColor; ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+
+    // ---- a centred branding block: comic kicker tag, comic title, mono sub ----
+    function block(cx, kickerLabel, kickerColor, titleText, titleSize, titleFill, titleOff, subText) {
+      // kicker — inked tag with spaced caps
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 24px "Arial",Helvetica,system-ui,sans-serif';
+      const kw = spacedWidth(kickerLabel, 6);
+      const kpx = 20, kpy = 13, ky = 118;
+      ctx.fillStyle = INK; ctx.fillRect(cx - kw / 2 - kpx + 5, ky - kpy + 5, kw + kpx * 2, kpy * 2);
+      ctx.fillStyle = kickerColor; ctx.fillRect(cx - kw / 2 - kpx, ky - kpy, kw + kpx * 2, kpy * 2);
+      ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.strokeRect(cx - kw / 2 - kpx, ky - kpy, kw + kpx * 2, kpy * 2);
+      ctx.fillStyle = PAPER;
+      drawSpacedCentered(kickerLabel, cx, ky + 1, 6);
+      ctx.restore();
+
+      // title — comic caps, hard offset, ink outline, tilted
+      comicLine(titleText, cx, 222, titleSize, titleFill, titleOff, 7, -0.04);
+
+      // accent underline bar w/ halftone dots under the title
+      ctx.save();
+      const ruW = Math.min(420, titleSize * 6);
+      const bx = cx - ruW / 2, by = 296;
+      ctx.fillStyle = titleOff; ctx.fillRect(bx, by, ruW, 10);
+      ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(bx, by, ruW, 10);
+      ctx.save(); ctx.beginPath(); ctx.rect(bx, by, ruW, 10); ctx.clip();
+      ctx.fillStyle = 'rgba(17,17,17,0.85)';
+      for (let dx = bx + 6; dx < bx + ruW; dx += 12) { ctx.beginPath(); ctx.arc(dx, by + 5, 2.4, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+      ctx.restore();
+
+      // subtitle — bold mono caps
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 22px "Courier New",monospace';
+      ctx.fillStyle = INK;
+      drawSpacedCentered(subText, cx, 352, 2);
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x4E4B53); // seed -> identical scatter every render
+
+      const CX = W / 2, CY = H / 2;
+
+      // ---- BACKGROUND: bright white comic PAGE w/ corner newsprint warmth ----
+      const bg = ctx.createRadialGradient(CX, CY, H * 0.2, CX, CY, W * 0.6);
+      bg.addColorStop(0, PAPER); bg.addColorStop(0.55, PAPER); bg.addColorStop(1, PAPER2);
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // ---- (a) radial SPEED lines from centre (decorative, faint) ----
+      const reach = Math.sqrt(CX * CX + CY * CY) + 40;
+      ctx.save();
+      ctx.lineCap = 'round';
+      const NS = 56;
+      let ang = 0;
+      for (let i = 0; i < NS; i++) {
+        ang += (6.2832 / NS) * Rr(rnd, 0.55, 1.45);
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        const inner = Rr(rnd, 0.30, 0.52);
+        const flick = Rr(rnd, 0.4, 1.0);
+        const r0 = reach * inner;
+        const r1 = reach * (inner + (1 - inner) * (0.5 + flick * 0.5));
+        ctx.strokeStyle = 'rgba(17,17,17,' + (0.05 + flick * 0.06).toFixed(3) + ')';
+        ctx.lineWidth = Rr(rnd, 1.5, 6);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(CX + ca * r0), Math.round(CY + sa * r0));
+        ctx.lineTo(Math.round(CX + ca * r1), Math.round(CY + sa * r1));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // ---- (b) HALFTONE dot grid: open centre, inky toward L/R edges ----
+      const GRID = 30, MAXR = GRID * 0.6;
+      for (let iy = 0, gy = GRID / 2; gy < H + GRID; gy += GRID, iy++) {
+        for (let ix = 0, gx = GRID / 2; gx < W + GRID; gx += GRID, ix++) {
+          // horizontal falloff: dense near L/R, open in the wide centre band
+          const hx = Math.min(1, Math.abs(gx - CX) / (W * 0.5) * 1.25);
+          const vy = Math.min(1, Math.abs(gy - CY) / (H * 0.5));
+          const rad = Math.min(1, Math.max(hx, vy * 0.55));
+          const r = (0.14 + rad * 0.95) * MAXR;
+          if (r < 0.5) continue;
+          ctx.globalAlpha = Math.min(1, 0.16 + rad * 0.7);
+          ctx.fillStyle = cellColour(ix, iy);
+          ctx.beginPath();
+          ctx.arc(Math.round(gx), Math.round(gy), r, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- (c) faint decorative "POW" starburst dead-centre (behind player) ----
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = YEL;
+      burstPath(CX, CY, 150, 14, 0.6, -0.12); ctx.fill();
+      ctx.globalAlpha = 0.4;
+      ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+      burstPath(CX, CY, 150, 14, 0.6, -0.12); ctx.stroke();
+      ctx.restore();
+
+      // ---- (d) page-glow over the L/R identity zones to keep text crisp ----
+      [W * 0.21, W * 0.79].forEach((gx) => {
+        const g = ctx.createRadialGradient(gx, CY, 30, gx, CY, 360);
+        g.addColorStop(0, 'rgba(255,255,255,0.92)');
+        g.addColorStop(0.6, 'rgba(255,255,255,0.65)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = (handle.startsWith('@') ? handle : '@' + handle).toUpperCase();
+      const handleClean = handle.replace(/^@/, '');
+      // shrink handle to fit the left third
+      let hSize = 90;
+      ctx.font = '900 ' + hSize + 'px "Arial Black",Impact,sans-serif';
+      while (ctx.measureText(handleAt).width > 600 && hSize > 38) {
+        hSize -= 2; ctx.font = '900 ' + hSize + 'px "Arial Black",Impact,sans-serif';
+      }
+      block(400, 'STREAMER', RED, handleAt, hSize, INK, BLU, 'TWITCH.TV/' + handleClean.toUpperCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — neutral placeholders the buyer edits ----
+      block(1520, '[ KICKER ]', BLU, '[ TAGLINE ]', 88, RED, YEL, '[ YOUR TEXT HERE ]');
+
+      // ---- accent dash rails flanking the centre clear-zone (comic ticks) ----
+      ctx.fillStyle = INK;
+      for (let yy = 70; yy < H - 56; yy += 18) { ctx.fillRect(688, yy, 4, 9); ctx.fillRect(1228, yy, 4, 9); }
+      // a small accent diamond capping each rail
+      [[690, 56, RED], [1230, 56, BLU], [690, H - 50, BLU], [1230, H - 50, RED]].forEach(([x, y, col]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = col; ctx.fillRect(-6, -6, 12, 12);
+        ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.strokeRect(-6, -6, 12, 12);
+        ctx.restore();
+      });
+
+      // ============================================================
+      // PANEL GUTTER BORDER (bold black comic frame) + tags
+      // ============================================================
+      const m = 22;
+      ctx.save();
+      ctx.strokeStyle = INK; ctx.lineWidth = 9;
+      ctx.strokeRect(m + 5, m + 5, W - (m + 5) * 2, H - (m + 5) * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeRect(m + 18, m + 18, W - (m + 18) * 2, H - (m + 18) * 2);
+      ctx.restore();
+
+      // corner registration tags
+      ctx.save();
+      ctx.fillStyle = INK; ctx.globalAlpha = 0.8; ctx.textBaseline = 'alphabetic';
+      ctx.font = '900 17px "Arial Black",Impact,system-ui,sans-serif';
+      ctx.textAlign = 'left';  drawSpacedFrom('ISSUE #01', 52, 56, 3);
+      ctx.textAlign = 'right'; drawSpacedRight('// YOUR TEXT //', W - 52, H - 40, 3);
+      ctx.restore();
+    }
+
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

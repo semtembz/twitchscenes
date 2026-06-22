@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Bubble Bath Soap-Foam Flood &amp; Pop</title>
+  <!--
+    BUBBLE BATH stinger ("Soap & Shimmer"). A wave of iridescent soap bubbles
+    FLOODS up from the bottom of the screen — a rising foam wall of translucent
+    aqua/white bubbles, each with a two-arc soap-film rainbow rim + a white
+    specular dot. The foam crests and fully covers the frame at the mid point
+    (t=0.5), where an iridescent soap-film SHEEN flash (pink->lemon->mint->
+    periwinkle) sweeps across and the surface shimmers. Then the whole field
+    POPS — every bubble bursts into a quick expanding ring + a 7-dot colored
+    spray — and the soap drains away, leaving the screen clear.
+    Bright, bouncy, aqua-pop, soap-shimmer. Bespoke to THIS theme.
+
+    Transparent before & after, deterministic (seeded RNG, NO Math.random in the
+    frame fn), sine-driven cover = sin(t*PI) (0 -> 1 -> 0, full cover at t=0.5).
+
+    Plays ONCE on load, then clears.
+      ?loop=1     loop it (for previewing)
+      ?ms=1300    total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover crest).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (bubble bath) ---- */
+    const SKY = '#D9F4FF', AQUA_DEEP = '#BDEBFB', MINT = '#A0E7E5';
+    const PINK = '#FFB7D5', LEMON = '#FFF4C2', PERI = '#6C7AE0', INK = '#3A4A7A';
+    // iridescent soap-film rim hues (as rgb triplets so we can vary alpha)
+    const RIMS = [
+      [255, 183, 213],   // bubblegum pink
+      [160, 231, 229],   // mint aqua
+      [255, 244, 194],   // soft lemon
+      [108, 122, 224],   // periwinkle
+      [189, 235, 251],   // pale aqua
+    ];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a.toFixed(3) + ')';
+
+    /* ---- deterministic seeded RNG (mulberry32-ish) used ONCE up front to lay
+       out a stable field of bubbles. NO Math.random anywhere in the frame fn. ---- */
+    let _s = 0xB0BB1E >>> 0;
+    const srnd = () => {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const R = (a, b) => a + srnd() * (b - a);
+
+    /* ---- the flood: a wall of bubbles, each anchored to a column band and a
+       depth row. The foam fills bottom->top as cover rises; at the crest the
+       whole frame is soap; then each bubble pops + the field drains. Every
+       bubble's full motion is a deterministic function of (t, cover), so frames
+       are stable and the export matches exactly. ---- */
+    const N = 150;
+    const bubbles = Array.from({ length: N }, () => {
+      const r = R(20, 96);
+      const fillOrder = srnd();            // 0 = floods in first (bottom), 1 = last (top)
+      return {
+        bx: R(-40, W + 40),                // base x (column)
+        amp: R(14, 60), swf: R(0.7, 1.8), phase: R(0, 6.2832),   // horizontal sway
+        r,
+        // resting height inside the foam wall once flooded: deeper order = higher up
+        restY: lerp(H + r, H * 0.10 - r, fillOrder),
+        order: fillOrder,                  // staggers flood-in & pop-out
+        hue: (srnd() * RIMS.length) | 0,
+        hue2: (srnd() * RIMS.length) | 0,
+        a: R(0.45, 0.85),                  // body alpha
+        rot: R(0, 6.2832),                 // pop-spray rotation
+        popJit: R(-0.10, 0.10),            // per-bubble pop timing jitter
+      };
+    });
+
+    /* ---- a single whole soap bubble (translucent body + two-arc iridescent
+           soap-film rim + crisp ring + upper-left specular dot) ---- */
+    function drawBubble(x, y, r, b, alpha) {
+      x = Math.round(x); y = Math.round(y);
+      const a = b.a * alpha;
+      if (a <= 0.02 || r <= 1) return;
+      // translucent body
+      const g = ctx.createRadialGradient(x - r * 0.32, y - r * 0.32, r * 0.1, x, y, r);
+      g.addColorStop(0.00, 'rgba(255,255,255,' + (a * 0.62).toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(217,244,255,' + (a * 0.34).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(160,231,229,' + (a * 0.12).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      // soap-film rainbow rim — two arcs of different iridescent hues
+      const rimA = a * 0.62;
+      ctx.lineWidth = Math.max(1.6, r * 0.07);
+      ctx.strokeStyle = rgba(RIMS[b.hue], rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = rgba(RIMS[b.hue2], rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 3.4, 6.2, false); ctx.stroke();
+      // crisp outer ring
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (a * 0.55).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      // upper-left white specular highlight dot
+      const hx = Math.round(x - r * 0.36), hy = Math.round(y - r * 0.4), hr = Math.max(2, r * 0.18);
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, 'rgba(255,255,255,' + Math.min(0.95, a + 0.35).toFixed(3) + ')');
+      hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+
+    /* ---- a bubble mid-pop: an expanding ring + a 7-dot colored spray ---- */
+    function drawPop(x, y, r, b, prog) {
+      x = Math.round(x); y = Math.round(y);
+      const rr = r * (1 + prog * 1.4);
+      const a = (1 - prog) * b.a * 0.9;
+      if (a <= 0.02) return;
+      ctx.strokeStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+      ctx.lineWidth = Math.max(1.5, r * 0.05);
+      ctx.beginPath(); ctx.arc(x, y, rr, 0, 6.2832); ctx.stroke();
+      const n = 7;
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * 6.2832 + b.rot;
+        const dx = Math.round(x + Math.cos(ang) * rr);
+        const dy = Math.round(y + Math.sin(ang) * rr);
+        ctx.fillStyle = rgba(RIMS[(b.hue + i) % RIMS.length], a);
+        ctx.beginPath(); ctx.arc(dx, dy, Math.max(1.6, r * 0.10 * (1 - prog)), 0, 6.2832); ctx.fill();
+      }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);                 // 0 -> 1 -> 0, full cover at t=0.5
+      if (cover <= 0.001) {
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+        return;
+      }
+      const rising = t < 0.5;                               // flooding in vs draining/popping out
+
+      /* --- soapy bath water wash flooding up behind the bubbles. Its top edge
+             follows the cover so the screen is full aqua at the crest. --- */
+      const waterTop = lerp(H + 30, -30, cover);
+      if (cover > 0.02) {
+        const wg = ctx.createLinearGradient(0, waterTop, 0, H);
+        wg.addColorStop(0.00, 'rgba(234,251,255,' + (0.0).toFixed(3) + ')');
+        wg.addColorStop(0.10, 'rgba(217,244,255,' + (0.55 * cover).toFixed(3) + ')');
+        wg.addColorStop(0.55, 'rgba(205,239,251,' + (0.88 * cover).toFixed(3) + ')');
+        wg.addColorStop(1.00, 'rgba(189,235,251,' + (0.96 * cover).toFixed(3) + ')');
+        ctx.fillStyle = wg;
+        ctx.fillRect(0, Math.round(waterTop), W, H - Math.round(waterTop) + 2);
+        // soft pink/mint/lemon radial glows so the wash is aqua-pop, not flat
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const glow = (gx, gy, c, gr) => {
+          const rg = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+          rg.addColorStop(0, rgba(c, 0.22 * cover)); rg.addColorStop(1, rgba(c, 0));
+          ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+        };
+        glow(W * 0.18, H * 0.86, PINK, 720);
+        glow(W * 0.84, H * 0.92, MINT, 760);
+        glow(W * 0.88, H * 0.16, LEMON, 640);
+        ctx.restore();
+      }
+
+      /* --- the foam wall of bubbles. As cover rises each bubble lifts from below
+             the screen to its resting slot (staggered by order); past the crest
+             every bubble pops + the field drains. --- */
+      const floodFrac = smooth((t / 0.5));                 // 0..1 across the first half
+      const drainFrac = smooth(((t - 0.5) / 0.5));         // 0..1 across the second half
+
+      for (const b of bubbles) {
+        const sway = Math.sin(b.phase + t * b.swf * 6.2832) * b.amp;
+        const x = b.bx + sway;
+
+        if (rising) {
+          // float up from below the screen to the resting slot; staggered by order
+          // (lower order = floods first). lift in [0..1] per bubble.
+          const lift = smooth(clamp01((floodFrac - b.order * 0.45) / 0.55));
+          const y = lerp(H + b.r + 60, b.restY, lift);
+          // gentle bouncy overshoot near the top of each bubble's lift
+          const over = Math.sin(lift * Math.PI) * 6 * (1 - lift);
+          drawBubble(x, y - over, b.r, b, lerp(0.2, 1, lift));
+        } else {
+          // POP, then drain. each bubble pops in a staggered window after the crest.
+          const popStart = 0.04 + b.order * 0.30 + b.popJit * 0.10;
+          const popLen = 0.34;
+          const pp = (drainFrac - popStart) / popLen;
+          if (pp < 0) {
+            // not popped yet — still sitting in the foam, drifting + slowly sinking
+            const sink = drainFrac * 40;
+            drawBubble(x, b.restY + sink, b.r, b, lerp(1, 0.8, drainFrac));
+          } else if (pp < 1) {
+            drawPop(x, b.restY, b.r, b, smooth(pp));
+          }
+          // pp >= 1: gone
+        }
+      }
+
+      /* --- iridescent soap-film SHEEN flash sweeping across at the crest, plus a
+             soft white shimmer bloom (pink->lemon->mint->periwinkle). --- */
+      const peak = Math.exp(-Math.pow((t - 0.5) / 0.085, 2));   // strongest at full cover
+      if (peak > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        // diagonal soap-film sheen band swinging across the frame
+        const sweep = lerp(-0.5, 1.5, smooth(t));            // moves left->right through the crest
+        const bx = sweep * W;
+        const sg = ctx.createLinearGradient(bx - 520, 0, bx + 520, H);
+        sg.addColorStop(0.00, rgba(PINK, 0));
+        sg.addColorStop(0.28, rgba(PINK, 0.30 * peak));
+        sg.addColorStop(0.46, rgba(LEMON, 0.42 * peak));
+        sg.addColorStop(0.60, rgba(MINT, 0.38 * peak));
+        sg.addColorStop(0.78, rgba(PERI, 0.22 * peak));
+        sg.addColorStop(1.00, rgba(PERI, 0));
+        ctx.fillStyle = sg;
+        ctx.fillRect(0, 0, W, H);
+        // soft central shimmer bloom
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.6);
+        fg.addColorStop(0, 'rgba(255,255,255,' + (0.40 * peak).toFixed(3) + ')');
+        fg.addColorStop(0.5, rgba(MINT, 0.16 * peak));
+        fg.addColorStop(1, rgba(MINT, 0));
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

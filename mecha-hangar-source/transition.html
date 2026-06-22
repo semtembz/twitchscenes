@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Mecha Hangar Blast-Door Slam</title>
+  <!--
+    MECHA HANGAR stinger ("Bay Lockdown"). Two heavy riveted-STEEL blast-door
+    shutters, edged with diagonal AMBER/BLACK HAZARD stripes, drive in from the
+    TOP and BOTTOM and SLAM together at the centre seam. On impact a white-hot
+    seam flares, a burst of welding SPARKS and embers kicks off the meeting edge
+    (additive, white-hot core cooling to amber/red, gravity arcs), the warning
+    BEACON flashes, and the whole frame jolts. The doors then retract apart and
+    the bay clears. Transparent before & after, deterministic, sine-driven, ~1300ms.
+    Heavy machinery, hazard, reactor — no glitch, no recolor of another theme.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover slam).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (mecha hangar) ---- */
+    const GUNMETAL = '#101417', STEEL = '#1E2A33', STEEL_HI = '#2C3C47', STEEL_LO = '#0B1014';
+    const STEEL_LT = '#C8D2D9', AMBER = '#F5A623', AMBER_LT = '#FFD27A', RED = '#FF4D2E';
+    const HAZ_DARK = '#14171A';
+    const SPARK_COLS = ['#FFFFFF', '#FFF3D6', AMBER_LT, AMBER, '#FF8A3C', RED];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const ri = Math.round;
+
+    /* ---- deterministic seeded RNG (used ONLY at setup, never in the frame fn) ---- */
+    let seed = 0x4d3c4 >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* ---- a fixed burst of welding sparks born at the centre seam on slam.
+       Each spark's position is a deterministic function of t (seeded params),
+       so the look is identical frame-to-frame and in the export. They ignite
+       around the impact (t≈0.5), arc out with gravity + drag, and fade. ---- */
+    const N_SPARK = 150;
+    const sparks = Array.from({ length: N_SPARK }, () => {
+      const side = rnd() < 0.5 ? -1 : 1;               // which leaf edge it flies from
+      const ang = R(-0.95, 0.95) * (Math.PI / 2);      // fan out mostly sideways/up-down
+      const spd = R(620, 1750);
+      return {
+        x0: CX + R(-46, 46),
+        y0: CY + side * R(0, 5),
+        vx: Math.cos(ang) * spd * (rnd() < 0.5 ? -1 : 1),
+        vy: Math.sin(ang) * spd * side - R(60, 360),   // slight upward bias
+        g: R(1500, 2700),                              // gravity px/s^2
+        drag: R(1.4, 2.4),
+        size: R(1.3, 3.6),
+        len: R(8, 30),                                 // motion-streak length factor
+        ci: (rnd() * SPARK_COLS.length) | 0,
+        ignite: 0.5 + R(-0.02, 0.05),                  // born right at the slam
+        life: R(0.18, 0.46),                           // seconds of glow
+      };
+    });
+
+    /* ---- fine industrial dust/embers loosened from the doors, drifting slowly ---- */
+    const N_DUST = 46;
+    const dust = Array.from({ length: N_DUST }, () => ({
+      x0: R(W * 0.18, W * 0.82), amp: R(20, 90), swf: R(0.6, 1.8), phase: R(0, 6.2832),
+      rise: R(40, 150), s: R(1.0, 2.6), a: R(0.18, 0.5),
+      lead: R(0.42, 0.6), span: R(0.35, 0.55), tw: R(1.0, 2.2),
+    }));
+
+    /* draw a hazard-striped riveted STEEL shutter slab covering [0..h] from the
+       top (sign=-1 → from bottom). edgeY is the inner (meeting) edge. */
+    function drawShutter(fromTop, depth) {
+      if (depth <= 0.5) return;
+      const edgeY = fromTop ? depth : H - depth;
+      const y0 = fromTop ? 0 : edgeY;
+      const h  = depth;
+
+      // steel face
+      const g = ctx.createLinearGradient(0, y0, 0, y0 + h);
+      if (fromTop) {
+        g.addColorStop(0.00, STEEL_LO);
+        g.addColorStop(0.30, STEEL);
+        g.addColorStop(0.80, STEEL_HI);
+        g.addColorStop(1.00, '#34454F');
+      } else {
+        g.addColorStop(0.00, '#34454F');
+        g.addColorStop(0.20, STEEL_HI);
+        g.addColorStop(0.70, STEEL);
+        g.addColorStop(1.00, STEEL_LO);
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(0, ri(y0), W, ri(h) + 1);
+
+      // vertical panel seams + brushed grain
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = STEEL_LO;
+      for (let x = 120; x < W; x += 240) ctx.fillRect(ri(x), ri(y0), 2, ri(h) + 1);
+      ctx.globalAlpha = 0.10;
+      ctx.fillStyle = STEEL_HI;
+      for (let x = 0; x < W; x += 6) ctx.fillRect(ri(x), ri(y0), 1, ri(h) + 1);
+      ctx.restore();
+
+      // rivet rows near the leading edge
+      const rivY = fromTop ? edgeY - 26 : edgeY + 26;
+      if (rivY > 6 && rivY < H - 6) {
+        ctx.save();
+        for (let x = 60; x < W; x += 96) {
+          ctx.beginPath();
+          ctx.fillStyle = '#5E727F';
+          ctx.arc(ri(x), ri(rivY), 3.2, 0, 6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.fillStyle = STEEL_LO;
+          ctx.arc(ri(x) + 1, ri(rivY) + 1, 1.4, 0, 6.2832); ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // diagonal AMBER/BLACK hazard band running along the leading (inner) edge
+      const bandH = 30;
+      const by = fromTop ? edgeY - bandH : edgeY;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, ri(by), W, bandH);
+      ctx.clip();
+      const stripeW = 52, off = (fromTop ? 0 : 26);
+      for (let x = -bandH; x < W + bandH; x += stripeW) {
+        ctx.fillStyle = AMBER;
+        ctx.beginPath();
+        ctx.moveTo(x + off, by);
+        ctx.lineTo(x + off + 26, by);
+        ctx.lineTo(x + off + 26 - bandH, by + bandH);
+        ctx.lineTo(x + off - bandH, by + bandH);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = HAZ_DARK;
+        ctx.beginPath();
+        ctx.moveTo(x + off + 26, by);
+        ctx.lineTo(x + off + 52, by);
+        ctx.lineTo(x + off + 52 - bandH, by + bandH);
+        ctx.lineTo(x + off + 26 - bandH, by + bandH);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+
+      // dark groove + steel bevel highlight on the very leading edge
+      ctx.fillStyle = STEEL_LO;
+      ctx.fillRect(0, ri(edgeY) - (fromTop ? 2 : 0), W, 2);
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = STEEL_LT;
+      ctx.fillRect(0, fromTop ? ri(edgeY) - 4 : ri(edgeY) + 2, W, 1);
+      ctx.restore();
+    }
+
+    /* the glowing centre SEAM where the two shutters meet — flares at full cover */
+    function drawSeam(cover, gap) {
+      const heat = Math.pow(cover, 1.6);               // 0..1, peaks at slam
+      if (heat <= 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      // wide amber wash
+      const wash = ctx.createLinearGradient(0, CY - 120, 0, CY + 120);
+      wash.addColorStop(0.0, 'rgba(245,166,35,0)');
+      wash.addColorStop(0.5, 'rgba(245,166,35,' + (0.5 * heat).toFixed(3) + ')');
+      wash.addColorStop(1.0, 'rgba(245,166,35,0)');
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, ri(CY - 120), W, 240);
+      // white-hot core line (thin once the doors are fully shut)
+      const core = ctx.createLinearGradient(0, CY - 18, 0, CY + 18);
+      core.addColorStop(0.0, 'rgba(255,243,214,0)');
+      core.addColorStop(0.5, 'rgba(255,255,255,' + (0.95 * heat).toFixed(3) + ')');
+      core.addColorStop(1.0, 'rgba(255,243,214,0)');
+      ctx.fillStyle = core;
+      const ch = 4 + (1 - cover) * 0; // stays thin
+      ctx.fillRect(0, ri(CY - 18), W, 36);
+      ctx.restore();
+    }
+
+    /* the welding spark burst + drifting dust around the slam */
+    function drawSparks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';      // additive, white-hot
+      for (const s of sparks) {
+        const age = t - s.ignite;
+        if (age <= 0) continue;
+        const lt = age / s.life;                      // 0..1 over its life
+        if (lt >= 1) continue;
+        // exponential-drag motion: position integral of v0*e^(-drag*age) + gravity
+        const k = s.drag;
+        const ex = (1 - Math.exp(-k * age)) / k;
+        const px = s.x0 + s.vx * ex;
+        const py = s.y0 + s.vy * ex + 0.5 * s.g * age * age;
+        if (py > H + 30 || px < -30 || px > W + 30) continue;
+        const fade = (1 - lt) * (1 - lt);
+        const col = SPARK_COLS[s.ci];
+        // motion streak (trail) along velocity
+        const vmag = Math.hypot(s.vx, s.vy) * Math.exp(-k * age) + s.g * age;
+        const ux = (s.vx * Math.exp(-k * age)) / (vmag || 1);
+        const uy = (s.vy * Math.exp(-k * age) + s.g * age) / (vmag || 1);
+        const tl = s.len * (0.4 + 0.6 * fade);
+        ctx.globalAlpha = 0.85 * fade;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = s.size;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ri(px), ri(py));
+        ctx.lineTo(ri(px - ux * tl), ri(py - uy * tl));
+        ctx.stroke();
+        // hot head
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#FFF3D6';
+        ctx.beginPath();
+        ctx.arc(ri(px), ri(py), s.size * 0.8, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // settling industrial dust in the late phase
+      ctx.save();
+      for (const d of dust) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = d.x0 + Math.sin(d.phase + lt * d.swf * 6.2832) * d.amp;
+        const py = CY + (lt - 0.5) * d.rise;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.55 + Math.sin(d.phase + lt * d.tw * 6.2832) * 0.45;
+        const a = d.a * ends * twk;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = AMBER_LT;
+        ctx.beginPath();
+        ctx.arc(ri(px), ri(py), d.s, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);             // 0 -> 1 -> 0, full cover at t=0.5
+      const depth = (CY) * cover;                       // how far each shutter has driven in
+
+      // a heavy mechanical JOLT of the whole frame right at the slam
+      const jolt = Math.exp(-Math.pow((t - 0.5) / 0.035, 2));
+      const jdx = jolt * Math.sin(t * 380) * 9;
+      const jdy = jolt * Math.cos(t * 410) * 6;
+      ctx.save();
+      ctx.translate(ri(jdx), ri(jdy));
+
+      // the two riveted-steel hazard shutters driving in
+      drawShutter(true,  depth);   // from top
+      drawShutter(false, depth);   // from bottom
+
+      // glowing seam where they meet (only meaningful once nearly shut)
+      drawSeam(cover, (H - 2 * depth));
+
+      ctx.restore();
+
+      // sparks + dust burst from the centre on impact (not jolted, sit in world space)
+      drawSparks(t, cover);
+
+      // amber BEACON flash washing the bay at the slam
+      const beacon = Math.exp(-Math.pow((t - 0.5) / 0.07, 2));
+      if (beacon > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const bg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        bg.addColorStop(0.0, 'rgba(245,166,35,' + (0.34 * beacon).toFixed(3) + ')');
+        bg.addColorStop(0.4, 'rgba(255,210,122,' + (0.14 * beacon).toFixed(3) + ')');
+        bg.addColorStop(1.0, 'rgba(245,166,35,0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }         // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }    // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

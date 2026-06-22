@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Halftone Havoc — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one HALFTONE HAVOC comic-PANEL webcam frame. Place your
+       camera BEHIND this overlay; the inside of the frame is fully transparent so the
+       camera shows through. The frame is a bold black comic gutter (thick ink border
+       + paper gap + inner rule), with a jagged yellow "ON CAM" starburst top-left, a
+       printer-mark panel tag top-right, and a blue inked @handle nameplate clipped to
+       the bottom edge. A few inky halftone chips drift around the frame.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?chips=20 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint inky halftone chips drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%) rotate(-1.4deg);
+      animation:camin .55s var(--pop) both .1s;}
+    .cam.lower{top:auto;bottom:104px;transform:translateX(-50%) rotate(-1.4deg);}
+
+    /* bold black comic-GUTTER border; INSIDE stays transparent (cam shows through).
+       Thick ink + paper gap + ink (mirrors the .panel gutter language) + hard offset. */
+    .frame{position:absolute;inset:0;background:transparent;
+      border:9px solid var(--ink);
+      box-shadow:
+        0 0 0 4px var(--paper),
+        0 0 0 7px var(--ink),
+        12px 13px 0 rgba(17,17,17,.30);}
+    /* inner thin printed rule (transparent inside) */
+    .frame::after{content:"";position:absolute;inset:11px;border:3px solid var(--ink);opacity:.85;}
+
+    /* small pop-colour corner notches tucked at each frame corner */
+    .notch{position:absolute;width:26px;height:26px;background:var(--comic-red);
+      box-shadow:0 0 0 3px var(--ink);z-index:2;
+      animation:wcin .5s var(--ease) both .3s;}
+    .notch.tl{left:-13px;top:-13px;}
+    .notch.tr{right:-13px;top:-13px;background:var(--comic-blue);transform:rotate(45deg);}
+    .notch.bl{left:-13px;bottom:-13px;background:var(--pop-yellow);transform:rotate(45deg);}
+    .notch.br{right:-13px;bottom:-13px;background:var(--comic-red);}
+    @keyframes wcin{from{opacity:0;transform:scale(.5)}to{opacity:1}}
+
+    /* jagged comic "ON CAM" starburst, top-left over the frame edge */
+    .burst-cam{position:absolute;left:-34px;top:-44px;width:182px;height:108px;z-index:3;
+      display:grid;place-items:center;filter:drop-shadow(5px 6px 0 var(--ink));
+      transform:rotate(-6deg);animation:burstin .55s var(--pop) both .26s;}
+    .burst-cam svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+    .burst-cam .sf{fill:var(--pop-yellow);}
+    .burst-cam .sl{fill:none;stroke:var(--ink);stroke-width:6;stroke-linejoin:round;}
+    .burst-cam .lbl{position:relative;z-index:2;
+      font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;
+      font-weight:900;font-size:30px;letter-spacing:.01em;line-height:.86;
+      text-transform:uppercase;color:var(--ink);transform:rotate(3deg);
+      -webkit-text-stroke:1.5px var(--ink);text-align:center;}
+    .burst-cam .lbl .red{color:var(--comic-red);display:block;font-size:20px;letter-spacing:.06em;}
+    @keyframes burstin{0%{opacity:0;transform:rotate(-6deg) scale(.4)}70%{opacity:1}100%{opacity:1;transform:rotate(-6deg) scale(1)}}
+
+    /* printer-mark PANEL tag, top-right above the frame */
+    .panel-tag{position:absolute;right:6px;top:-40px;
+      font-family:"Arial Black",Impact,system-ui,sans-serif;
+      font-size:19px;font-weight:900;letter-spacing:.18em;color:var(--ink);opacity:.82;
+      transform:rotate(-1deg);animation:wcin .55s var(--ease) both .34s;
+      text-shadow:2px 2px 0 var(--ink-line);}
+
+    /* handle nameplate — blue inked comic tag clipped to the bottom edge */
+    .tag{position:absolute;left:50%;bottom:-26px;transform:translateX(-50%) rotate(-1.6deg);
+      display:inline-block;white-space:nowrap;z-index:3;
+      font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;
+      font-size:30px;letter-spacing:.05em;color:var(--paper);
+      background:var(--comic-blue);padding:9px 26px;
+      border:3px solid var(--ink);box-shadow:5px 6px 0 var(--ink);
+      animation:wcin .55s var(--pop) both .4s;}
+    /* a tiny red drop-spark on the nameplate corner */
+    .tag::after{content:"";position:absolute;right:-9px;top:-9px;width:16px;height:16px;
+      background:var(--comic-red);box-shadow:0 0 0 3px var(--ink);transform:rotate(45deg);}
+
+    /* render mode: freeze entrances to a clean final state */
+    #stage.render .cam,#stage.render .notch,#stage.render .burst-cam,
+    #stage.render .panel-tag,#stage.render .tag{animation:none!important;opacity:1!important;}
+    #stage.render .cam{transform:translate(-50%,-50%) rotate(-1.4deg);}
+    #stage.render .cam.lower{transform:translateX(-50%) rotate(-1.4deg);}
+    #stage.render .notch.tr,#stage.render .notch.bl{transform:rotate(45deg);}
+    #stage.render .burst-cam{transform:rotate(-6deg) scale(1);}
+    #stage.render .tag{transform:translateX(-50%) rotate(-1.6deg);}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <span class="notch tl" aria-hidden="true"></span>
+      <span class="notch tr" aria-hidden="true"></span>
+      <span class="notch bl" aria-hidden="true"></span>
+      <span class="notch br" aria-hidden="true"></span>
+
+      <span class="burst-cam" aria-hidden="true">
+        <svg viewBox="0 0 182 108" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+          <polygon class="sf" points="8,34 30,26 26,6 52,20 70,4 82,24 108,12 106,34 138,28 126,50 158,46 138,64 168,74 138,82 150,104 118,92 108,106 92,88 70,104 60,82 32,92 40,68 10,72 26,56 4,52" />
+          <polygon class="sl" points="8,34 30,26 26,6 52,20 70,4 82,24 108,12 106,34 138,28 126,50 158,46 138,64 168,74 138,82 150,104 118,92 108,106 92,88 70,104 60,82 32,92 40,68 10,72 26,56 4,52" />
+        </svg>
+        <span class="lbl">ON<span class="red">CAM</span></span>
+      </span>
+
+      <div class="panel-tag" aria-hidden="true">PANEL 1/1</div>
+
+      <div class="tag"><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: faint inky halftone CHIPS drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const INK = "#111111", YEL = "#FFD400", RED = "#FF3B30", BLU = "#1E63FF";
+    const COLS = [INK, INK, INK, RED, BLU, YEL];
+    const R = (a, b) => a + Math.random() * (b - a);
+    const N = Math.max(0, num("chips", 20));
+    const chips = Array.from({ length: N }, () => {
+      const a = R(0, 6.2832), sp = R(8, 24) / 60;
+      return {
+        x: R(0, W), y: R(0, H),
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        s: R(3, 8), rot: R(0, 6.283), vr: R(-2, 2) / 60,
+        a2: R(0.10, 0.32), col: COLS[(Math.random() * COLS.length) | 0],
+        dotty: Math.random() < 0.4,
+      };
+    });
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of chips){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.rot += p.vr * dt * 60;
+        if (p.x < -14) p.x = W + 14; if (p.x > W + 14) p.x = -14;
+        if (p.y < -14) p.y = H + 14; if (p.y > H + 14) p.y = -14;
+        ctx.globalAlpha = p.a2;
+        ctx.fillStyle = p.col;
+        const x = Math.round(p.x), y = Math.round(p.y);
+        if (p.dotty){
+          ctx.beginPath(); ctx.arc(x, y, Math.max(1, p.s * 0.55), 0, 6.2832); ctx.fill();
+        } else {
+          const c = Math.cos(p.rot) * p.s, s2 = Math.sin(p.rot) * p.s;
+          ctx.beginPath();
+          ctx.moveTo(x + c, y + s2); ctx.lineTo(x - s2, y + c);
+          ctx.lineTo(x - c, y - s2); ctx.lineTo(x + s2, y - c);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__halftoneDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

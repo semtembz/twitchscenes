@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Halftone Havoc — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the HALFTONE HAVOC comic language: a bold inked
+       speech-bubble tag lower-left (yellow "LIVE" burst + blue @handle tag), thin
+       comic-gutter corner brackets, and a small printer-mark issue tag top-right.
+       Behind the strip only, a SPARSE drift of inky halftone chips (low alpha) —
+       most of the screen stays transparent so gameplay shows through.
+       Optional URL params: ?handle=@you  ?tag=LIVE  ?chips=22 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: kill the white comic page + page glow/grain */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* sparse inky halftone chips only — pinned behind the HUD, low alpha */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin comic-gutter CORNER BRACKETS (decoration only) ---- */
+    .bracket{position:absolute;width:96px;height:96px;pointer-events:none;
+      border:0 solid var(--ink);opacity:.9;
+      filter:drop-shadow(4px 4px 0 rgba(17,17,17,.18));
+      animation:hb-in .5s var(--ease) both;}
+    .bracket--tl{left:46px;top:46px;border-top-width:9px;border-left-width:9px;}
+    .bracket--tr{right:46px;top:46px;border-top-width:9px;border-right-width:9px;animation-delay:.05s;}
+    .bracket--bl{left:46px;bottom:46px;border-bottom-width:9px;border-left-width:9px;animation-delay:.1s;}
+    .bracket--br{right:46px;bottom:46px;border-bottom-width:9px;border-right-width:9px;animation-delay:.15s;}
+    /* a small pop-colour notch tucked inside each bracket */
+    .bracket::after{content:"";position:absolute;width:18px;height:18px;background:var(--comic-red);
+      box-shadow:0 0 0 3px var(--ink);}
+    .bracket--tl::after{left:14px;top:14px;}
+    .bracket--tr::after{right:14px;top:14px;background:var(--comic-blue);}
+    .bracket--bl::after{left:14px;bottom:14px;background:var(--pop-yellow);}
+    .bracket--br::after{right:14px;bottom:14px;background:var(--comic-red);}
+    @keyframes hb-in{from{opacity:0;transform:scale(.7)}to{opacity:.9;transform:scale(1)}}
+
+    /* ---- inked HUD strip, lower-left: yellow LIVE burst + blue handle tag ---- */
+    .slot{position:absolute;left:60px;bottom:58px;display:flex;align-items:center;gap:18px;
+      transform:rotate(-1.6deg);animation:slotin .55s var(--pop) both .18s;}
+
+    /* the LIVE burst — jagged comic starburst (small POW-style action tag) */
+    .live{position:relative;display:inline-grid;place-items:center;width:152px;height:96px;
+      filter:drop-shadow(5px 6px 0 var(--ink));}
+    .live svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+    .live .sf{fill:var(--pop-yellow);}
+    .live .sl{fill:none;stroke:var(--ink);stroke-width:6;stroke-linejoin:round;}
+    .live .lbl{position:relative;z-index:2;
+      font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;
+      font-weight:900;font-size:34px;letter-spacing:.01em;line-height:.9;
+      text-transform:uppercase;color:var(--ink);transform:rotate(-5deg);
+      -webkit-text-stroke:1.5px var(--ink);}
+    /* the LIVE dot pulses (red ink) */
+    .live .dot{position:absolute;left:8px;top:50%;width:13px;height:13px;border-radius:50%;
+      background:var(--comic-red);box-shadow:0 0 0 3px var(--ink);transform:translateY(-50%);
+      animation:livepulse 1.4s steps(2,jump-none) infinite;z-index:3;}
+    @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+    /* the handle — blue inked comic tag */
+    .who{display:inline-block;
+      font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;
+      font-size:32px;letter-spacing:.05em;color:var(--paper);
+      background:var(--comic-blue);padding:9px 22px;
+      border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);
+      transform:rotate(1deg);white-space:nowrap;}
+
+    /* ---- printer-mark issue tag, top-right (matches the .issue corner tags) ---- */
+    .issue-tr{position:absolute;right:70px;top:62px;
+      font-family:"Arial Black",Impact,system-ui,sans-serif;
+      font-size:20px;font-weight:900;letter-spacing:.18em;color:var(--ink);opacity:.8;
+      transform:rotate(-1.2deg);animation:hb-in .55s var(--ease) both .22s;
+      text-shadow:2px 2px 0 var(--ink-line);}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .bracket,#stage.render .issue-tr{animation:none!important;}
+    #stage.render .live .dot{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:rotate(-1.6deg);}
+    #stage.render .bracket{opacity:.9;transform:scale(1);}
+    #stage.render .issue-tr{opacity:.8;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <span class="bracket bracket--tl" aria-hidden="true"></span>
+    <span class="bracket bracket--tr" aria-hidden="true"></span>
+    <span class="bracket bracket--bl" aria-hidden="true"></span>
+    <span class="bracket bracket--br" aria-hidden="true"></span>
+
+    <div class="issue-tr" aria-hidden="true">// HALFTONE HAVOC //</div>
+
+    <div class="slot">
+      <span class="live" aria-hidden="true">
+        <svg viewBox="0 0 152 96" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+          <polygon class="sf" points="6,30 26,22 22,4 44,16 60,2 70,20 92,10 90,30 116,24 106,44 132,40 116,56 140,66 116,72 126,92 100,82 92,94 78,78 60,92 52,72 28,82 34,62 8,66 22,50 2,46" />
+          <polygon class="sl" points="6,30 26,22 22,4 44,16 60,2 70,20 92,10 90,30 116,24 106,44 132,40 116,56 140,66 116,72 126,92 100,82 92,94 78,78 60,92 52,72 28,82 34,62 8,66 22,50 2,46" />
+        </svg>
+        <span class="dot"></span>
+        <span class="lbl">LIVE</span>
+      </span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + LIVE tag text ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), lbl = document.querySelector(".live .lbl");
+    if (tag && lbl) lbl.textContent = tag;
+
+    /* ---- canvas: a SPARSE drift of inky halftone CHIPS (low alpha) hugging the
+       lower-left HUD — tiny rotating ink diamonds + dots in the pop colours ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const INK = "#111111", YEL = "#FFD400", RED = "#FF3B30", BLU = "#1E63FF";
+    const COLS = [INK, INK, INK, RED, BLU, YEL];
+    const R = (a, b) => a + Math.random() * (b - a);
+    // bias the spawn toward the lower-left where the HUD sits
+    const N = Math.max(0, num("chips", 22));
+    const chips = Array.from({ length: N }, () => {
+      const a = R(0, 6.2832), sp = R(8, 26) / 60;
+      return {
+        x: R(0, W * 0.5), y: R(H * 0.45, H),
+        vx: Math.cos(a) * sp + 0.15, vy: Math.sin(a) * sp - 0.25,
+        s: R(3, 8), rot: R(0, 6.283), vr: R(-2, 2) / 60,
+        a2: R(0.10, 0.34), col: COLS[(Math.random() * COLS.length) | 0],
+        dotty: Math.random() < 0.4,
+      };
+    });
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of chips){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.rot += p.vr * dt * 60;
+        if (p.x < -14) p.x = W * 0.6; if (p.x > W + 14) p.x = -14;
+        if (p.y < -14) p.y = H + 14; if (p.y > H + 14) p.y = -14;
+        ctx.globalAlpha = p.a2;
+        ctx.fillStyle = p.col;
+        const x = Math.round(p.x), y = Math.round(p.y);
+        if (p.dotty){
+          ctx.beginPath(); ctx.arc(x, y, Math.max(1, p.s * 0.55), 0, 6.2832); ctx.fill();
+        } else {
+          // a small rotated ink diamond (action grit)
+          const c = Math.cos(p.rot) * p.s, s2 = Math.sin(p.rot) * p.s;
+          ctx.beginPath();
+          ctx.moveTo(x + c, y + s2); ctx.lineTo(x - s2, y + c);
+          ctx.lineTo(x - c, y - s2); ctx.lineTo(x + s2, y - c);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    window.__halftoneDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

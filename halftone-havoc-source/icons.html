@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Halftone Havoc Icon Set — generator</title>
+  <!--
+    A consistent set of 18 stand-alone TRANSPARENT PNG icons in the HALFTONE
+    HAVOC comic action-page language: HEAVY INK shapes with a hard offset
+    colour drop-shadow (pop-yellow / comic-red / comic-blue) and a thick ink
+    outline, on a fully transparent background. Each icon is 200 x 200 px.
+
+    The set shares ONE ink weight, ONE hard-shadow offset and ONE outline so
+    they read as a matched comic set:
+      - SOCIAL  : Twitch, YouTube, Twitter/X, Instagram, Discord, TikTok,
+                  Kick, Patreon, PayPal/donate, Steam
+      - LABELS  : follow (heart), subscribe (star), bits/cheer (gem),
+                  raid (flag), host (broadcast), like (thumb), share (nodes),
+                  member (crown)
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or a single Download under any icon).
+      3. Drop the transparent PNGs into overlays, panels, alert boxes, etc.
+
+    Pure canvas vectors (no baked-in text / fonts), crisp at the export size.
+  -->
+  <style>
+    :root{
+      --paper:#FFFFFF; --paper-2:#F4F2EA; --ink:#111111;
+      --pop-yellow:#FFD400; --comic-red:#FF3B30; --comic-blue:#1E63FF;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; font-family:"Arial","Helvetica",system-ui,sans-serif;
+      background:
+        radial-gradient(1100px 700px at 30% -10%, rgba(255,212,0,.16), transparent 60%),
+        radial-gradient(900px 600px at 100% 110%, rgba(30,99,255,.12), transparent 60%),
+        var(--paper-2);
+      color:var(--ink); padding:32px; min-height:100vh;
+    }
+    h1{ font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif; font-weight:900;
+      font-size:38px; color:var(--ink); letter-spacing:-.01em; margin:0 0 6px; text-transform:uppercase;
+      transform:rotate(-1.5deg); text-shadow:4px 4px 0 var(--pop-yellow), 6px 6px 0 var(--ink); }
+    p.lead{ color:#333; margin:14px 0 22px; max-width:780px; line-height:1.55;
+      font-family:"Arial",Helvetica,sans-serif; font-size:16px; font-weight:600; }
+    .toolbar{ margin:0 0 26px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+    button{
+      font-family:"Arial Black",Impact,system-ui,sans-serif; font-weight:900; font-size:13px; letter-spacing:.1em;
+      text-transform:uppercase; padding:12px 24px; color:var(--paper);
+      background:var(--comic-red); border:3px solid var(--ink); box-shadow:5px 5px 0 var(--ink);
+      cursor:pointer; transform:rotate(-1deg);
+    }
+    button:hover{ filter:brightness(1.05); }
+    button:active{ transform:translate(3px,3px) rotate(-1deg); box-shadow:2px 2px 0 var(--ink); }
+    .section{ margin:18px 0 10px; font-family:"Arial Black",Impact,system-ui,sans-serif; letter-spacing:.14em;
+      font-size:13px; color:var(--ink); text-transform:uppercase;
+      border-top:3px solid var(--ink); padding-top:18px; }
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:18px; margin-bottom:10px; }
+    .card{
+      background:var(--paper); padding:12px 12px 10px; border:3px solid var(--ink);
+      box-shadow:5px 5px 0 var(--ink);
+      display:flex; flex-direction:column; align-items:center;
+      --c:rgba(17,17,17,0.06);
+    }
+    .canvas-wrap{
+      overflow:hidden;
+      background-image:
+        linear-gradient(45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--c) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--c) 75%);
+      background-size:16px 16px;
+      background-position:0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas{ display:block; width:126px; height:126px; }
+    .card .name{ margin-top:9px; font-family:"Arial Black",Impact,system-ui,sans-serif; font-size:11px;
+      letter-spacing:.06em; color:var(--ink); text-align:center; }
+    .card a{ margin-top:6px; font-family:"Arial Black",Impact,system-ui,sans-serif; font-size:10px;
+      color:var(--paper); text-decoration:none; background:var(--comic-blue);
+      border:2px solid var(--ink); padding:5px 11px; box-shadow:2px 2px 0 var(--ink); }
+    .card a:hover{ filter:brightness(1.08); }
+  </style>
+</head>
+<body>
+  <h1>Halftone Havoc Icon Set</h1>
+  <p class="lead">
+    18 transparent PNG icons in one cohesive comic action-page style &mdash; heavy ink shapes
+    with a hard pop-colour offset shadow &amp; a thick ink outline, shared weight throughout.
+    Each is 200&times;200 with its own Download, plus a Download-all. Drop them into overlays,
+    panels, or alert boxes.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+
+  <div class="section">Social platforms</div>
+  <div class="grid" id="grid-social"></div>
+
+  <div class="section">Stream labels &amp; events</div>
+  <div class="grid" id="grid-label"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- Tokens (shared across every icon so the set stays cohesive) ----
+    const SIZE   = 200;          // export px (square, transparent)
+    const PAD    = 34;           // safe margin (room for the hard offset shadow)
+    const STROKE = 11;           // ONE ink weight for all icons (heavy comic line)
+    const RADIUS = 14;           // ONE corner radius for all rounded joins
+    const OFF    = 7;            // hard offset-shadow distance (down-right)
+    const INK    = '#111111';
+    const PAPER  = '#FFFFFF';
+    const YEL    = '#FFD400';
+    const RED    = '#FF3B30';
+    const BLU    = '#1E63FF';
+
+    // The usable drawing box (everything is authored inside this square).
+    const BOX = { x: PAD, y: PAD, w: SIZE - PAD * 2, h: SIZE - PAD * 2 };
+
+    // ---------------------------------------------------------------------
+    // Comic pen: draws the path TWICE — first as a hard offset colour shadow,
+    // then as ink (stroke or fill) on top. Every icon shares cap/join/weight,
+    // the offset distance, and the outline, so they read as a matched set.
+    //   opts.accent  -> the hard shadow colour (YEL / RED / BLU)
+    //   opts.fill    -> fill instead of stroke
+    //   opts.weight  -> override stroke weight
+    //   opts.noShadow-> skip the offset pass (used for small interior marks)
+    // ---------------------------------------------------------------------
+    function pen(ctx, build, opts) {
+      opts = opts || {};
+      const accent = opts.accent || null;
+      const w = opts.weight || STROKE;
+
+      // (1) hard offset shadow pass (pop colour)
+      if (accent && !opts.noShadow) {
+        ctx.save();
+        ctx.translate(OFF, OFF);
+        ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = accent; ctx.fillStyle = accent;
+        ctx.beginPath(); build(ctx);
+        if (opts.fill) ctx.fill(); else ctx.stroke();
+        ctx.restore();
+      }
+
+      // (2) ink pass on top
+      ctx.save();
+      ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = opts.color || INK; ctx.fillStyle = opts.color || INK;
+      ctx.beginPath(); build(ctx);
+      if (opts.fill) ctx.fill(); else ctx.stroke();
+      ctx.restore();
+    }
+
+    // rounded-rect path appended to the current ctx path
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // a regular n-pointed star path
+    function starPath(ctx, cx, cy, outer, inner, points) {
+      for (let i = 0; i < points * 2; i++) {
+        const rad = (i % 2 === 0) ? outer : inner;
+        const a = -Math.PI / 2 + (i * Math.PI) / points;
+        const px = cx + Math.cos(a) * rad;
+        const py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    // a deco diamond path centered at (cx, cy) with half-diagonal d
+    function diamondPath(ctx, cx, cy, d) {
+      ctx.moveTo(cx, cy - d); ctx.lineTo(cx + d, cy); ctx.lineTo(cx, cy + d); ctx.lineTo(cx - d, cy); ctx.closePath();
+    }
+
+    // =====================================================================
+    // ICON DRAWERS — each receives (ctx, accent) and draws inside BOX.
+    // `accent` is the icon's hard offset-shadow pop colour (assigned below).
+    // =====================================================================
+    const ICONS = {
+      // ---- SOCIAL ----
+      twitch(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + RADIUS, b.y);
+          c.lineTo(b.x + b.w, b.y);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.62);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.52, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + RADIUS);
+          c.arcTo(b.x, b.y, b.x + RADIUS, b.y, RADIUS);
+          c.closePath();
+        }, { accent: ac });
+        const ey = b.y + b.h * 0.30, eh = b.h * 0.26;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.40, ey); c.lineTo(b.x + b.w * 0.40, ey + eh); }, { weight: STROKE - 3, noShadow: true });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.64, ey); c.lineTo(b.x + b.w * 0.64, ey + eh); }, { weight: STROKE - 3, noShadow: true });
+      },
+
+      youtube(ctx, ac) {
+        const b = BOX;
+        const ry = b.y + b.h * 0.16, rh = b.h * 0.68;
+        pen(ctx, c => roundRectPath(c, b.x, ry, b.w, rh, RADIUS + 6), { accent: ac });
+        const cx = b.x + b.w / 2, cy = ry + rh / 2, t = rh * 0.30;
+        pen(ctx, c => {
+          c.moveTo(cx - t * 0.85, cy - t);
+          c.lineTo(cx + t * 1.15, cy);
+          c.lineTo(cx - t * 0.85, cy + t);
+          c.closePath();
+        }, { fill: true, noShadow: true });
+      },
+
+      'twitter-x'(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x, b.y); c.lineTo(b.x + b.w, b.y + b.h); }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x + b.w, b.y); c.lineTo(b.x, b.y + b.h); }, { accent: ac });
+      },
+
+      instagram(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y, b.w, b.h, RADIUS + 14), { accent: ac });
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.24, 0, Math.PI * 2); }, { noShadow: true });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.78, b.y + b.h * 0.22, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, noShadow: true });
+      },
+
+      discord(ctx, ac) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.50;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.quadraticCurveTo(cx, b.y + b.h * 0.06, b.x + b.w * 0.84, b.y + b.h * 0.20);
+          c.quadraticCurveTo(b.x + b.w * 1.02, b.y + b.h * 0.62, b.x + b.w * 0.80, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.20, b.y + b.h * 0.88);
+          c.quadraticCurveTo(b.x - b.w * 0.02, b.y + b.h * 0.62, b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.closePath();
+        }, { accent: ac });
+        pen(ctx, c => { c.arc(cx - b.w * 0.16, cy, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, noShadow: true });
+        pen(ctx, c => { c.arc(cx + b.w * 0.16, cy, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, noShadow: true });
+      },
+
+      tiktok(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.lineTo(b.x + b.w * 0.58, b.y + b.h * 0.66);
+          c.arc(b.x + b.w * 0.40, b.y + b.h * 0.66, b.w * 0.18, 0, Math.PI * 2);
+        }, { accent: ac });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.quadraticCurveTo(b.x + b.w * 0.78, b.y + b.h * 0.04, b.x + b.w * 0.92, b.y + b.h * 0.22);
+        }, { noShadow: true });
+      },
+
+      kick(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y); c.lineTo(b.x + b.w * 0.18, b.y + b.h); }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y + b.h * 0.50); c.lineTo(b.x + b.w * 0.60, b.y + b.h * 0.06); }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.36, b.y + b.h * 0.36); c.lineTo(b.x + b.w * 0.78, b.y + b.h); }, { accent: ac });
+      },
+
+      patreon(ctx, ac) {
+        const b = BOX;
+        pen(ctx, c => { c.arc(b.x + b.w * 0.62, b.y + b.h * 0.40, b.w * 0.30, 0, Math.PI * 2); }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.10, b.y); c.lineTo(b.x + b.w * 0.10, b.y + b.h); }, { accent: ac });
+      },
+
+      paypal(ctx, ac) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); }, { accent: ac });
+        pen(ctx, c => {
+          c.moveTo(cx + b.w * 0.14, cy - b.h * 0.22);
+          c.quadraticCurveTo(cx - b.w * 0.22, cy - b.h * 0.30, cx - b.w * 0.16, cy - b.h * 0.02);
+          c.quadraticCurveTo(cx + b.w * 0.22, cy + b.h * 0.04, cx + b.w * 0.14, cy + b.h * 0.24);
+          c.quadraticCurveTo(cx - b.w * 0.20, cy + b.h * 0.32, cx - b.w * 0.16, cy + b.h * 0.10);
+        }, { weight: STROKE - 3, noShadow: true });
+        pen(ctx, c => { c.moveTo(cx - b.w * 0.02, cy - b.h * 0.34); c.lineTo(cx - b.w * 0.02, cy + b.h * 0.36); }, { weight: STROKE - 5, noShadow: true });
+      },
+
+      steam(ctx, ac) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); }, { accent: ac });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.66, b.y + b.h * 0.34, b.w * 0.16, 0, Math.PI * 2); }, { noShadow: true });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.30, b.y + b.h * 0.66, b.w * 0.10, 0, Math.PI * 2); }, { noShadow: true });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.30, b.y + b.h * 0.66); c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.34); }, { weight: STROKE - 4, noShadow: true });
+      },
+
+      // ---- LABELS / EVENTS ----
+      follow(ctx, ac) { // heart
+        const b = BOX;
+        const cx = b.x + b.w / 2, top = b.y + b.h * 0.20;
+        pen(ctx, c => {
+          c.moveTo(cx, b.y + b.h * 0.94);
+          c.lineTo(b.x + b.w * 0.08, top + b.h * 0.18);
+          c.arc(b.x + b.w * 0.29, top, b.w * 0.21, Math.PI * 0.95, Math.PI * 1.95);
+          c.arc(b.x + b.w * 0.71, top, b.w * 0.21, Math.PI * 1.05, Math.PI * 2.05);
+          c.lineTo(cx, b.y + b.h * 0.94);
+          c.closePath();
+        }, { accent: ac });
+      },
+
+      subscribe(ctx, ac) { // star
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.54;
+        pen(ctx, c => starPath(c, cx, cy, b.w * 0.46, b.w * 0.19, 5), { accent: ac });
+      },
+
+      'bits-cheer'(ctx, ac) { // gem / diamond
+        const b = BOX;
+        const cx = b.x + b.w / 2;
+        const top = b.y + b.h * 0.06, mid = b.y + b.h * 0.34, bot = b.y + b.h * 0.96;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.22, top);
+          c.lineTo(b.x + b.w * 0.78, top);
+          c.lineTo(b.x + b.w, mid);
+          c.lineTo(cx, bot);
+          c.lineTo(b.x, mid);
+          c.closePath();
+        }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x, mid); c.lineTo(b.x + b.w, mid); }, { weight: STROKE - 5, noShadow: true });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.22, top); c.lineTo(cx, mid); c.lineTo(b.x + b.w * 0.78, top); }, { weight: STROKE - 5, noShadow: true });
+        pen(ctx, c => { c.moveTo(cx, mid); c.lineTo(cx, bot); }, { weight: STROKE - 5, noShadow: true });
+      },
+
+      raid(ctx, ac) { // flag
+        const b = BOX;
+        const px = b.x + b.w * 0.18;
+        pen(ctx, c => { c.moveTo(px, b.y); c.lineTo(px, b.y + b.h); }, { accent: ac });
+        pen(ctx, c => {
+          c.moveTo(px, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.26);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.46);
+          c.lineTo(px, b.y + b.h * 0.46);
+          c.closePath();
+        }, { accent: ac });
+      },
+
+      host(ctx, ac) { // broadcast / signal
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.62;
+        pen(ctx, c => { c.moveTo(cx, cy); c.lineTo(cx, b.y); }, { accent: ac });
+        pen(ctx, c => { c.arc(cx, cy, STROKE * 0.7, 0, Math.PI * 2); }, { fill: true, noShadow: true });
+        for (let i = 1; i <= 2; i++) {
+          const r = b.w * (0.14 + i * 0.16);
+          pen(ctx, c => { c.arc(cx, cy, r, Math.PI * 1.20, Math.PI * 1.80); }, { weight: STROKE - 3, noShadow: true });
+        }
+      },
+
+      like(ctx, ac) { // thumbs up
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y + b.h * 0.42, b.w * 0.26, b.h * 0.58, RADIUS - 4), { accent: ac });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.32, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.32, b.y + b.h * 0.46);
+          c.lineTo(b.x + b.w * 0.50, b.y + b.h * 0.18);
+          c.quadraticCurveTo(b.x + b.w * 0.58, b.y, b.x + b.w * 0.64, b.y + b.h * 0.10);
+          c.quadraticCurveTo(b.x + b.w * 0.70, b.y + b.h * 0.22, b.x + b.w * 0.58, b.y + b.h * 0.40);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.40);
+          c.quadraticCurveTo(b.x + b.w, b.y + b.h * 0.46, b.x + b.w * 0.94, b.y + b.h * 0.70);
+          c.quadraticCurveTo(b.x + b.w * 0.90, b.y + b.h, b.x + b.w * 0.70, b.y + b.h);
+          c.closePath();
+        }, { accent: ac });
+      },
+
+      share(ctx, ac) { // three-node share graph
+        const b = BOX;
+        const a = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.12 };
+        const d = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.88 };
+        const e = { x: b.x + b.w * 0.16, y: b.y + b.h * 0.50 };
+        const rN = STROKE * 1.1;
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(a.x, a.y); }, { weight: STROKE - 4, accent: ac });
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(d.x, d.y); }, { weight: STROKE - 4, accent: ac });
+        [a, d, e].forEach(n => pen(ctx, c => { c.arc(n.x, n.y, rN, 0, Math.PI * 2); }, { accent: ac }));
+      },
+
+      member(ctx, ac) { // crown
+        const b = BOX;
+        const baseY = b.y + b.h * 0.80, topY = b.y + b.h * 0.12, midY = b.y + b.h * 0.44;
+        pen(ctx, c => {
+          c.moveTo(b.x, baseY);
+          c.lineTo(b.x, midY);
+          c.lineTo(b.x + b.w * 0.27, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w * 0.50, topY);
+          c.lineTo(b.x + b.w * 0.73, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w, midY);
+          c.lineTo(b.x + b.w, baseY);
+          c.closePath();
+        }, { accent: ac });
+        pen(ctx, c => { c.moveTo(b.x, baseY); c.lineTo(b.x + b.w, baseY); }, { weight: STROKE - 4, noShadow: true });
+        pen(ctx, c => diamondPath(c, b.x + b.w * 0.50, b.y + b.h * 0.52, STROKE * 0.7), { fill: true, noShadow: true });
+      },
+    };
+
+    // Display labels + which grid each belongs to + its hard-shadow pop colour.
+    // Colours rotate through the three pops so the set has comic variety but
+    // stays cohesive (same ink + outline + offset everywhere).
+    const SOCIAL = [
+      ['twitch', 'TWITCH', BLU], ['youtube', 'YOUTUBE', RED], ['twitter-x', 'TWITTER / X', BLU],
+      ['instagram', 'INSTAGRAM', RED], ['discord', 'DISCORD', BLU], ['tiktok', 'TIKTOK', RED],
+      ['kick', 'KICK', YEL], ['patreon', 'PATREON', RED], ['paypal', 'DONATE', YEL], ['steam', 'STEAM', BLU],
+    ];
+    const LABEL = [
+      ['follow', 'FOLLOW', RED], ['subscribe', 'SUBSCRIBE', YEL], ['bits-cheer', 'BITS / CHEER', BLU],
+      ['raid', 'RAID', RED], ['host', 'HOST', BLU], ['like', 'LIKE', YEL], ['share', 'SHARE', RED], ['member', 'MEMBER', YEL],
+    ];
+
+    const made = []; // { canvas, id }
+
+    function renderIcon(id, accent) {
+      const cv = document.createElement('canvas');
+      cv.width = SIZE; cv.height = SIZE;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, SIZE, SIZE); // fully transparent background
+      const fn = ICONS[id];
+      if (fn) fn(ctx, accent);
+      return cv;
+    }
+
+    function buildGrid(targetId, list) {
+      const grid = document.getElementById(targetId);
+      for (const [id, label, accent] of list) {
+        const cv = renderIcon(id, accent);
+        const card = document.createElement('div'); card.className = 'card';
+        const wrap = document.createElement('div'); wrap.className = 'canvas-wrap';
+        wrap.appendChild(cv);
+        const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = label;
+        const dl = document.createElement('a'); dl.href = '#'; dl.textContent = 'Download';
+        dl.addEventListener('click', e => { e.preventDefault(); save(cv, id); });
+        card.appendChild(wrap); card.appendChild(nm); card.appendChild(dl);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id });
+      }
+    }
+
+    function save(canvas, id) {
+      const a = document.createElement('a');
+      a.download = 'icon-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', () => {
+      let i = 0;
+      const next = () => { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); };
+      next();
+    });
+
+    buildGrid('grid-social', SOCIAL);
+    buildGrid('grid-label', LABEL);
+    window.__exportAssets = () => made.map(m => ({ name: m.id, dataURL: m.canvas.toDataURL('image/png') }));
+  })();
+  </script>
+</body>
+</html>

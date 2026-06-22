@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Tracking Error — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- animated analog VHS noise field -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- rolling tube brightness band + tracking tear bands -->
+    <div class="rollbar" aria-hidden="true"></div>
+    <div class="tracking-bands" aria-hidden="true">
+      <span class="tband b1"></span>
+      <span class="tband b2"></span>
+      <span class="tband b3"></span>
+    </div>
+
+    <!-- VHS OSD chrome -->
+    <div class="osd osd--rec" aria-hidden="true">
+      <span class="rec-dot"></span><span class="rec-lbl">REC</span>
+    </div>
+    <div class="osd osd--mode" aria-hidden="true"><span class="sp">SP</span>&nbsp;LP&nbsp;EP</div>
+    <div class="osd osd--play" aria-hidden="true"><span class="tri">&#9654;</span> PLAY</div>
+    <div class="osd osd--tc" aria-hidden="true">
+      <span class="lab">TIMECODE</span>00:00:00:00
+    </div>
+    <div class="osd osd--tracking" aria-hidden="true">TRACKING</div>
+
+    <!-- center stack: kicker + title + sub -->
+    <main class="center">
+      <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+           placeholder — type your own text in, or delete the whole line to remove it.
+           (Or set ?kicker=...&sub=... at render time; use =- to remove one.) -->
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+      <!-- HEADLINE = the standard scene message, never the theme name -->
+      <h1 class="title">
+        <span class="line">STARTING</span>
+        <span class="line lg accent chroma">SOON</span>
+      </h1>
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+    </main>
+
+    <!-- handle (kept above the strap, bottom-right) -->
+    <div class="handle" id="handle">@yourhandle</div>
+
+    <!-- loading = tape-progress / timecode strap (the real 60s timer) -->
+    <section class="strap" aria-hidden="true">
+      <div class="strap-head">
+        <span>TAPE&nbsp;01 &middot; CH 03</span>
+        <span class="tcd">00:00:00:00</span>
+      </div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+    </section>
+
+    <!-- CRT scanlines + curvature vignette sit on top of everything -->
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="curve" aria-hidden="true"></div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

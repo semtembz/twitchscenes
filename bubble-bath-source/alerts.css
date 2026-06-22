@@ -1,0 +1,213 @@
+/* ============================================================
+   BUBBLE BATH — alert system ("Soap & Shimmer")
+   A squishy translucent JELLY capsule that pops/bounces in, holds,
+   then deflates out. TRANSPARENT background so the alert composites
+   over gameplay / the scene below it. Cohesive with shared.css tokens:
+   glossy rounded jelly fill, thick white border + mint inner ring, a
+   soft periwinkle drop-shadow, an inner top gloss highlight, a
+   holographic iridescent sheen sweep, a 3-dot soap crest, a rounded
+   periwinkle kicker, the heavy rounded NAME, an optional pink AMOUNT,
+   a bubbly rule, and a soft sub line. Twelve events each get a
+   DISTINCT entrance motion (see [data-motion] blocks below).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --sky-aqua:#D9F4FF; --mint-aqua:#A0E7E5; --bubblegum:#FFB7D5;
+  --lemon:#FFF4C2; --periwinkle:#6C7AE0; --ink:#3A4A7A;
+  --aqua-deep:#BDEBFB;
+  --jelly:rgba(255,255,255,.62); --jelly-2:rgba(217,244,255,.46);
+  --jelly-edge:rgba(255,255,255,.92); --jelly-edge-2:rgba(160,231,229,.6);
+  --gloss:rgba(255,255,255,.75);
+  --peri-soft:rgba(108,122,224,.55); --pink-soft:rgba(255,183,213,.6);
+  --ink-soft:rgba(58,74,122,.6); --shadow:rgba(108,122,224,.30);
+  --display:"Quicksand","Comfortaa","Varela Round","Segoe UI Variable","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+  --body:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+  --ease:cubic-bezier(.34,1.56,.4,1);     /* overshoot / bouncy */
+  --ease-soft:cubic-bezier(.22,1,.32,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:var(--body);}
+
+/* one canvas for the soap-bubble burst, sits BEHIND the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: a squishy jelly capsule, lower-left of stage ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:820px;
+  padding:38px 52px 40px 44px;
+  display:grid;grid-template-columns:148px 1fr;gap:34px;align-items:center;
+  border-radius:60px;
+  background:linear-gradient(180deg, var(--jelly) 0%, var(--jelly-2) 100%);
+  border:6px solid var(--jelly-edge);
+  box-shadow:
+    0 36px 80px var(--shadow),
+    0 10px 26px rgba(108,122,224,.18),
+    inset 0 4px 0 rgba(255,255,255,.92),
+    inset 0 -26px 52px rgba(160,231,229,.28),
+    inset 0 0 0 2px var(--jelly-edge-2);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  overflow:hidden;
+  color:var(--ink);
+  /* start hidden + tiny; per-motion @keyframes animate it in */
+  opacity:0;transform:scale(.6);transform-origin:50% 80%;
+  will-change:transform,opacity;}
+
+/* inner top gloss highlight (the squishy "wet" reflection) */
+.alert::before{content:"";position:absolute;left:5%;right:5%;top:5%;height:34%;
+  border-radius:50px;pointer-events:none;z-index:4;
+  background:linear-gradient(180deg, var(--gloss) 0%, rgba(255,255,255,0) 100%);
+  opacity:.7;filter:blur(2px);}
+
+/* holographic iridescent sheen sweeping across the capsule */
+.alert::after{content:"";position:absolute;top:-60%;bottom:-60%;left:-40%;width:42%;
+  pointer-events:none;mix-blend-mode:screen;z-index:5;
+  transform:skewX(-18deg);
+  background:linear-gradient(90deg, transparent 0%,
+    rgba(255,183,213,.0) 8%, rgba(255,183,213,.34) 28%,
+    rgba(255,244,194,.42) 46%, rgba(160,231,229,.38) 60%,
+    rgba(108,122,224,.2) 74%, transparent 100%);
+  animation:alert-sheen 4.6s ease-in-out infinite 1s;}
+@keyframes alert-sheen{0%{left:-46%;opacity:0}16%{opacity:1}58%{opacity:1}82%{left:120%;opacity:0}100%{left:120%;opacity:0}}
+
+/* ---- the soap-bubble glyph tile (a round bubble badge) ---- */
+.alert .art{position:relative;z-index:2;width:148px;height:148px;border-radius:50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.2) 26%, transparent 46%),
+    radial-gradient(circle at 70% 78%, rgba(160,231,229,.7), transparent 60%),
+    linear-gradient(160deg, rgba(255,183,213,.6) 0%, rgba(189,235,251,.7) 60%, rgba(160,231,229,.7) 100%);
+  border:4px solid rgba(255,255,255,.92);
+  box-shadow:
+    inset 0 0 0 2px rgba(160,231,229,.55),
+    inset 0 -10px 22px rgba(108,122,224,.16),
+    0 10px 22px rgba(108,122,224,.2);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.alert .art .glyph{font-size:74px;line-height:1;color:#fff;
+  text-shadow:0 2px 0 rgba(108,122,224,.35), 0 0 22px rgba(255,255,255,.8);
+  animation:glyph-pop .8s var(--ease) both .2s;}
+@keyframes glyph-pop{0%{transform:scale(.3) rotate(-18deg);opacity:0}60%{transform:scale(1.16) rotate(4deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+
+/* meta column */
+.alert .meta{position:relative;z-index:2;min-width:0;}
+
+/* kicker — soft rounded periwinkle caps with a leading bubble dot */
+.alert .kick{font-family:var(--display);font-weight:700;
+  letter-spacing:.3em;font-size:21px;text-transform:uppercase;color:var(--periwinkle);
+  display:flex;align-items:center;gap:13px;margin-bottom:8px;white-space:nowrap;text-indent:.3em;
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dot{width:13px;height:13px;border-radius:50%;flex:none;text-indent:0;
+  background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 72%);
+  box-shadow:0 0 12px var(--pink-soft);
+  animation:dotpulse 1.7s ease-in-out infinite;}
+@keyframes dotpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.28);opacity:.65}}
+
+/* big NAME — heavy rounded, periwinkle, clamped to one line so a long
+   handle never breaks the capsule */
+.alert .name{font-family:var(--display);font-weight:700;
+  font-size:62px;line-height:1.0;letter-spacing:-.01em;margin:2px 0 8px;
+  text-transform:uppercase;color:var(--periwinkle);
+  text-shadow:0 2px 0 #fff, 0 5px 0 rgba(160,231,229,.5), 0 10px 18px rgba(108,122,224,.22);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line — glossy pink gradient, hidden unless .has-amount.
+   Pops with a little squish so donation/cheer/superchat emphasize it. */
+.alert .amount{font-family:var(--display);font-weight:700;font-size:40px;letter-spacing:.01em;
+  margin-bottom:6px;display:none;line-height:1;
+  background:linear-gradient(180deg,#FFE3EF 0%,var(--bubblegum) 40%,#F58FBC 74%,#E06BA0 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 0 #fff) drop-shadow(0 4px 14px rgba(255,183,213,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transform-origin:left center;}
+.alert.has-amount .amount{display:block;animation:amount-pop .9s var(--ease) both .5s;}
+@keyframes amount-pop{0%{transform:scale(.4);opacity:0}55%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+
+/* soft sub line — lowercase ink */
+.alert .sub{font-family:var(--body);font-weight:600;font-size:24px;letter-spacing:.01em;
+  color:var(--ink-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* corner soap-tag (top-right) + a little bubbly rule under it */
+.alert .tagid{position:absolute;top:24px;right:30px;z-index:3;
+  font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.34em;
+  color:var(--ink-soft);opacity:.8;text-indent:.34em;}
+.alert .tagrule{position:absolute;top:48px;right:30px;z-index:3;width:92px;height:6px;border-radius:999px;opacity:.85;
+  background:linear-gradient(90deg, transparent, var(--mint-aqua) 30%, var(--bubblegum) 70%, transparent);}
+
+/* =========================================================================
+   ENTRANCE / HOLD / EXIT — JS toggles .show then .hide. Each event sets
+   data-motion on .alert; the rule below selects the matching @keyframes so
+   every event reads as a DISTINCT motion. Exit is a shared gentle deflate.
+   All animate transform/opacity ONLY.
+   ========================================================================= */
+.alert.hide{animation:alert-out .5s var(--ease-soft) forwards!important;}
+@keyframes alert-out{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.62) translateY(26px)}}
+
+/* 1 follower — gentle BUBBLE-UP from below, soft overshoot */
+.alert[data-motion="bubbleup"].show{animation:m-bubbleup .8s var(--ease) forwards;}
+@keyframes m-bubbleup{0%{opacity:0;transform:translateY(120px) scale(.7)}60%{opacity:1;transform:translateY(-12px) scale(1.04)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 2 subscriber — JELLY squish: drops, splats wide, settles */
+.alert[data-motion="squish"].show{animation:m-squish .85s var(--ease) forwards;}
+@keyframes m-squish{0%{opacity:0;transform:translateY(-90px) scale(.8,.8)}45%{opacity:1;transform:translateY(0) scale(1.14,.82)}70%{transform:scale(.94,1.08)}100%{opacity:1;transform:scale(1,1)}}
+
+/* 3 member — POP-IN scale from a tiny dot, springy overshoot */
+.alert[data-motion="popin"].show{animation:m-popin .8s var(--ease) forwards;}
+@keyframes m-popin{0%{opacity:0;transform:scale(.2)}55%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+
+/* 4 cheer — bright FIZZ: rises with a quick jitter/sparkle wobble */
+.alert[data-motion="fizz"].show{animation:m-fizz .9s var(--ease-soft) forwards;}
+@keyframes m-fizz{0%{opacity:0;transform:translateY(60px) scale(.84) rotate(-2deg)}40%{opacity:1;transform:translateY(0) scale(1.02) rotate(1.4deg)}60%{transform:rotate(-1deg)}78%{transform:rotate(.6deg)}100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
+
+/* 5 donation — generous SPLASH: drops in from above + bounces */
+.alert[data-motion="splash"].show{animation:m-splash .95s var(--ease) forwards;}
+@keyframes m-splash{0%{opacity:0;transform:translateY(-160px) scale(.78)}50%{opacity:1;transform:translateY(0) scale(1.06,.94)}72%{transform:translateY(-14px) scale(.98,1.04)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 6 host — door SWING in from the left with a tilt */
+.alert[data-motion="swing"].show{animation:m-swing .85s var(--ease) forwards;transform-origin:0% 80%;}
+@keyframes m-swing{0%{opacity:0;transform:translateX(-260px) rotate(-9deg) scale(.9)}60%{opacity:1;transform:translateX(0) rotate(3deg) scale(1.02)}100%{opacity:1;transform:translateX(0) rotate(0) scale(1)}}
+
+/* 7 raid — big SURGE up from far below with a strong overshoot */
+.alert[data-motion="surge"].show{animation:m-surge .95s var(--ease) forwards;}
+@keyframes m-surge{0%{opacity:0;transform:translateY(260px) scale(.62)}50%{opacity:1;transform:translateY(-30px) scale(1.1)}74%{transform:translateY(8px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 8 like — quick HEARTBEAT double-bounce in place */
+.alert[data-motion="heartbeat"].show{animation:m-heartbeat .9s var(--ease) forwards;}
+@keyframes m-heartbeat{0%{opacity:0;transform:scale(.5)}30%{opacity:1;transform:scale(1.16)}48%{transform:scale(.96)}66%{transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — SLIDE-glide in from the right, smooth */
+.alert[data-motion="glide"].show{animation:m-glide .8s var(--ease-soft) forwards;}
+@keyframes m-glide{0%{opacity:0;transform:translateX(240px) scale(.94)}100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 10 star — SPIN-in with a sparkle twirl + overshoot */
+.alert[data-motion="twirl"].show{animation:m-twirl .9s var(--ease) forwards;}
+@keyframes m-twirl{0%{opacity:0;transform:scale(.4) rotate(-26deg)}60%{opacity:1;transform:scale(1.1) rotate(5deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+
+/* 11 superchat — emphatic ZOOM-punch from large -> settle (amount hero) */
+.alert[data-motion="zoom"].show{animation:m-zoom .85s var(--ease) forwards;}
+@keyframes m-zoom{0%{opacity:0;transform:scale(1.6)}45%{opacity:1;transform:scale(.94)}70%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — soft WOBBLE float-in (drift + gentle rock) */
+.alert[data-motion="wobble"].show{animation:m-wobble 1s var(--ease-soft) forwards;}
+@keyframes m-wobble{0%{opacity:0;transform:translateY(70px) rotate(-3deg) scale(.9)}45%{opacity:1;transform:translateY(0) rotate(2deg) scale(1.02)}70%{transform:rotate(-1.4deg)}100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
+
+/* a gentle idle jiggle once settled (live only; frozen in render) */
+.alert.settled{animation:alert-idle 5.5s ease-in-out infinite!important;}
+@keyframes alert-idle{0%,100%{transform:scale(1,1)}25%{transform:scale(1.01,.99)}50%{transform:scale(.992,1.008)}75%{transform:scale(1.006,.994)}}
+
+/* =========================================================================
+   RENDER MODE: freeze ALL CSS-driven motion (JS drives transform/opacity
+   + the burst canvas deterministically via __renderAdvance).
+   ========================================================================= */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide,
+#stage.render .alert.settled{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .kick .dot{animation:none!important;}
+#stage.render .alert.has-amount .amount{animation:none!important;}

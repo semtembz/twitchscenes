@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Bubble Bath — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the Bubble Bath language: a squishy glossy
+       JELLY pill lower-left carrying a soap "ON AIR" crest + @handle, plus a
+       tiny soap-tag top-right. A FEW faint drifting iridescent bubbles hug the
+       pill; the rest of the screen stays transparent so gameplay shows through.
+       Optional URL params: ?handle=@you   ?tag=ON%20AIR -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: drop the page bg, the bath gradient + all washes */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few faint drifting iridescent bubbles hug the HUD (low alpha) */
+    canvas.bg{pointer-events:none;opacity:.7;}
+
+    /* ---- squishy glossy JELLY pill, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:56px;height:74px;z-index:3;
+      display:flex;align-items:center;gap:22px;padding:0 34px 0 28px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(217,244,255,.40) 100%);
+      border:5px solid var(--jelly-edge);
+      box-shadow:
+        0 22px 50px var(--shadow),
+        0 8px 18px rgba(108,122,224,.16),
+        inset 0 3px 0 rgba(255,255,255,.9),
+        inset 0 -14px 30px rgba(160,231,229,.30),
+        inset 0 0 0 2px var(--jelly-edge-2);
+      -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+      overflow:hidden;
+      animation:slotin .95s var(--ease) both .15s, slotjig 6.5s ease-in-out infinite 1.1s;}
+    /* inner top gloss highlight (the "wet" reflection) */
+    .slot::before{content:"";position:absolute;left:5%;right:5%;top:6%;height:40%;
+      border-radius:999px;pointer-events:none;
+      background:linear-gradient(180deg, var(--gloss) 0%, rgba(255,255,255,0) 100%);
+      opacity:.7;filter:blur(1px);}
+    /* a slow iridescent sheen sweeps along the pill */
+    .slot::after{content:"";position:absolute;top:-60%;bottom:-60%;left:-30%;width:38%;
+      pointer-events:none;mix-blend-mode:screen;transform:skewX(-18deg);
+      background:linear-gradient(90deg, transparent 0%,
+        rgba(255,183,213,.28) 30%, rgba(255,244,194,.38) 50%,
+        rgba(160,231,229,.30) 68%, transparent 100%);
+      animation:slotsheen 5.6s ease-in-out infinite 1.4s;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-30px) scale(.9)}to{opacity:1;transform:none}}
+    @keyframes slotjig{0%,100%{transform:scale(1,1)}25%{transform:scale(1.015,.985)}
+      50%{transform:scale(.99,1.012)}75%{transform:scale(1.01,.99)}}
+    @keyframes slotsheen{0%{left:-38%;opacity:0}18%{opacity:1}60%{opacity:1}82%{left:120%;opacity:0}100%{left:120%;opacity:0}}
+
+    /* "ON AIR" tag — rounded spaced caps + a soap bubble dot */
+    .slot .tag{position:relative;z-index:2;display:flex;align-items:center;gap:13px;
+      font-family:var(--display);font-weight:700;
+      letter-spacing:.32em;font-size:19px;text-transform:uppercase;
+      color:var(--periwinkle);text-indent:.32em;}
+    .slot .tag .bub{width:14px;height:14px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 70%);
+      box-shadow:0 0 14px var(--pink-soft);
+      animation:soappulse 2.2s ease-in-out infinite;}
+    @keyframes soappulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.22);opacity:.6}}
+
+    /* a soft bubbly divider between tag and handle */
+    .slot .div{position:relative;z-index:2;width:8px;height:8px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+      box-shadow:0 0 10px rgba(160,231,229,.7);}
+
+    /* handle — heavy rounded periwinkle */
+    .slot .who{position:relative;z-index:2;
+      font-family:var(--display);font-weight:700;letter-spacing:.05em;font-size:30px;
+      color:var(--periwinkle);white-space:nowrap;
+      text-shadow:0 2px 0 #fff, 0 5px 0 rgba(160,231,229,.45), 0 8px 16px rgba(108,122,224,.2);}
+
+    /* tiny soap-tag, top-right */
+    .mono-tr{position:absolute;top:48px;right:62px;z-index:3;display:flex;align-items:center;gap:13px;
+      font-family:var(--display);font-weight:700;
+      letter-spacing:.34em;font-size:19px;color:var(--ink-soft);text-indent:.34em;opacity:.85;
+      animation:fade .9s var(--ease) both .25s;}
+    .mono-tr .bub{width:11px;height:11px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+      box-shadow:0 0 12px rgba(160,231,229,.7);}
+    @keyframes fade{from{opacity:0}to{opacity:.85}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .mono-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .bub{animation:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .mono-tr{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="mono-tr" aria-hidden="true"><span class="bub"></span>[ your text here ]</div>
+
+    <div class="slot">
+      <span class="tag"><span class="bub"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;            // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- canvas: a FEW faint drifting iridescent bubbles (low alpha) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const RIMS = [
+      "rgba(255,183,213,A)", "rgba(160,231,229,A)", "rgba(255,244,194,A)",
+      "rgba(108,122,224,A)", "rgba(189,235,251,A)",
+    ];
+    const R = (a, b) => a + Math.random() * (b - a);
+    function makeBub(below){
+      const r = R(8, 30);
+      return {
+        x:R(0,W), y: below ? R(H+10,H+220) : R(-20,H+20), r,
+        vy:-(R(6,18)+r*0.16)/60, ph:R(0,6.28), ps:R(0.4,1.1), sway:R(5,16),
+        x0:0, hue:(Math.random()*RIMS.length)|0, a:R(0.18,0.40),
+      };
+    }
+    const bubbles = Array.from({ length: Math.max(0, num("bubbles", 16)) }, () => {
+      const b = makeBub(false); b.x0 = b.x; return b;
+    });
+    function drawBub(b){
+      const x = Math.round(b.x), y = Math.round(b.y), r = b.r;
+      const g = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.1, x, y, r);
+      g.addColorStop(0, `rgba(255,255,255,${(b.a*0.55).toFixed(3)})`);
+      g.addColorStop(0.55, `rgba(217,244,255,${(b.a*0.30).toFixed(3)})`);
+      g.addColorStop(1, `rgba(160,231,229,${(b.a*0.10).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      const rimA = (0.5*b.a).toFixed(3);
+      ctx.lineWidth = Math.max(1.2, r*0.06);
+      ctx.strokeStyle = RIMS[b.hue].replace("A", rimA);
+      ctx.beginPath(); ctx.arc(x, y, r-ctx.lineWidth*0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = RIMS[(b.hue+2)%RIMS.length].replace("A", rimA);
+      ctx.beginPath(); ctx.arc(x, y, r-ctx.lineWidth*0.5, 3.4, 6.2, false); ctx.stroke();
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = `rgba(255,255,255,${(b.a*0.45).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      const hx = Math.round(x-r*0.36), hy = Math.round(y-r*0.4), hr = Math.max(2, r*0.18);
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, `rgba(255,255,255,${Math.min(0.9, b.a+0.35).toFixed(3)})`);
+      hg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const b of bubbles){
+        b.y += b.vy * dt * 60; b.ph += b.ps * dt; b.x = b.x0 + Math.sin(b.ph) * b.sway;
+        if (b.y < -b.r-20){ Object.assign(b, makeBub(true)); b.x0 = b.x; continue; }
+        drawBub(b);
+      }
+    }
+    window.__bubbleDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

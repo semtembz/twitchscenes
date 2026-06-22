@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mecha Hangar — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- one canvas: rising welding sparks + dust in the light shafts + reactor heat-haze -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- riveted steel plating backdrop -->
+    <div class="plating" aria-hidden="true"></div>
+
+    <!-- raking light shafts + sweeping warning beacon -->
+    <div class="shafts" aria-hidden="true"></div>
+    <div class="beacon" aria-hidden="true"></div>
+
+    <!-- diagonal amber/black hazard stripe bands on every edge -->
+    <div class="hazard hazard--t" aria-hidden="true"></div>
+    <div class="hazard hazard--b" aria-hidden="true"></div>
+    <div class="hazard hazard--l" aria-hidden="true"></div>
+    <div class="hazard hazard--r" aria-hidden="true"></div>
+
+    <!-- heavy steel outer frame + corner bolt plates -->
+    <div class="frame-steel" aria-hidden="true"></div>
+    <div class="bolt bolt--tl" aria-hidden="true"></div>
+    <div class="bolt bolt--tr" aria-hidden="true"></div>
+    <div class="bolt bolt--bl" aria-hidden="true"></div>
+    <div class="bolt bolt--br" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&tag3=...&tag4=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+    <div class="desig is-slot" data-slot="tag"><span class="dot"></span>[ your text here ]</div>
+    <div class="stencil stencil--tl is-slot" data-slot="tag2">[ your text here ]</div>
+    <div class="stencil stencil--tr is-slot" data-slot="tag3">[ your text here ]</div>
+    <div class="stencil stencil--bl is-slot" data-slot="tag4">[ your text here ]</div>
+
+    <!-- central BLAST-DOOR / bay — the signature element -->
+    <main class="bay">
+      <div class="leaf leaf--l" aria-hidden="true"></div>
+      <div class="leaf leaf--r" aria-hidden="true"></div>
+      <div class="seam" aria-hidden="true"></div>
+
+      <div class="content">
+        <!-- warning triangle + kicker -->
+        <div class="alertrow">
+          <span class="tri" aria-hidden="true">
+            <svg viewBox="0 0 34 30" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17 2 L32 28 L2 28 Z" fill="none" stroke="#F5A623" stroke-width="2.4" stroke-linejoin="round"/>
+              <rect x="15.6" y="11" width="2.8" height="9" rx="1" fill="#F5A623"/>
+              <rect x="15.6" y="22.4" width="2.8" height="2.8" rx="1" fill="#F5A623"/>
+            </svg>
+          </span>
+          <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+        </div>
+
+        <!-- the headline: the MESSAGE, not the theme name -->
+        <h1 class="title">
+          <span class="line">BE RIGHT</span>
+          <span class="line accent">BACK</span>
+        </h1>
+
+        <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+
+        <!-- telemetry readout block + hazard charge gauge (no numbers) -->
+        <div class="telemetry">
+          <div class="readouts" aria-hidden="true">
+            <span class="ro">PWR&nbsp; <b>NOMINAL</b></span>
+            <span class="ro">COOLANT&nbsp; <b>STABLE</b></span>
+            <span class="ro ro--red">IGNITION&nbsp; <b id="status" data-done="READY">BOOTING UP</b></span>
+          </div>
+          <div class="gauge" aria-hidden="true">
+            <div class="gauge-ticks"></div>
+            <div class="fill" id="fill"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- vignette for legibility -->
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- handle -->
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

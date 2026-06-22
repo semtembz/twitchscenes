@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Halftone Havoc (PNG generator)</title>
+  <!--
+    HALFTONE HAVOC · comic-book ACTION-PAGE OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the action-page look onto a <canvas> and downloads it as a
+    PNG: bright white paper as the star, a generative HALFTONE dot field (open
+    in the clean centre, inky toward the edges), radial SPEED lines bursting
+    from centre, a bold black PANEL gutter border with printer registration
+    tags, a jagged yellow comic STARBURST holding the kicker, the heavy comic
+    TITLE "OFFLINE" (ink + blue offset) over the accent line "BACK SOON"
+    (comic red + yellow offset), an inked subtitle tag, and a blue inked handle.
+
+    Everything random is drawn from a SEEDED PRNG, so the dots / speed lines /
+    specks are identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --paper:#FFFFFF; --paper-2:#F4F2EA; --ink:#111111;
+      --pop-yellow:#FFD400; --comic-red:#FF3B30; --comic-blue:#1E63FF;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Arial","Helvetica",system-ui,sans-serif;
+      background:var(--paper-2);color:var(--ink);padding:32px;}
+    h1{font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;font-weight:900;
+      font-size:34px;color:var(--ink);letter-spacing:-.01em;margin:0 0 6px;text-transform:uppercase;
+      transform:rotate(-1.5deg);text-shadow:4px 4px 0 var(--pop-yellow), 6px 6px 0 var(--ink);}
+    p.lead{color:#333;margin:14px 0 22px;max-width:820px;line-height:1.55;
+      font-family:"Arial",Helvetica,sans-serif;font-size:16px;font-weight:600;}
+    .kicker{font-family:"Arial Black",Impact,system-ui,sans-serif;letter-spacing:.18em;
+      font-size:13px;font-weight:900;color:var(--ink);margin:0 0 14px;text-transform:uppercase;}
+    button{font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;font-size:14px;
+      letter-spacing:.12em;text-transform:uppercase;padding:14px 28px;color:var(--paper);
+      background:var(--comic-red);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);
+      cursor:pointer;transform:rotate(-1deg);}
+    button:hover{filter:brightness(1.05);}
+    button:active{transform:translate(3px,3px) rotate(-1deg);box-shadow:2px 2px 0 var(--ink);}
+    .preview{margin-top:22px;background:#fff;padding:12px;border:3px solid var(--ink);
+      box-shadow:8px 8px 0 var(--ink);display:inline-block;}
+    canvas{display:block;width:960px;height:540px;}
+    code{font-family:"Courier New",monospace;color:var(--ink);font-weight:700;
+      background:var(--pop-yellow);padding:2px 6px;border:2px solid var(--ink);}
+  </style>
+</head>
+<body>
+  <p class="kicker">HALFTONE HAVOC · OFFLINE SCREEN</p>
+  <h1>Offline Screen Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the comic action-page style — seeded so the
+    halftone dots and speed lines are reproducible. Pass <code>?handle=@you</code> to set the
+    handle. Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const PAPER = '#FFFFFF', PAPER2 = '#F4F2EA', INK = '#111111';
+    const YEL = '#FFD400', RED = '#FF3B30', BLU = '#1E63FF';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- tiny seeded PRNG (mulberry32) — NEVER Math.random, reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const Rr = (rnd, a, b) => a + rnd() * (b - a);
+
+    // deterministic per-cell halftone colour (mostly ink + pop accents)
+    function cellColour(ix, iy) {
+      const h = ((ix * 73856093) ^ (iy * 19349663)) >>> 0;
+      const m = h % 100;
+      if (m < 58) return INK;
+      if (m < 73) return RED;
+      if (m < 88) return BLU;
+      return YEL;
+    }
+
+    // ---- jagged comic STARBURST polygon ----
+    function burstPath(cx, cy, R0, spikes, jag, rot) {
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const rr = (i % 2 === 0) ? R0 : R0 * jag;
+        const a = rot + i * Math.PI / spikes;
+        const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    // ---- spaced caps helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    // ---- a comic title line: hard colour offset shadow + ink outline + ink fill, tilted ----
+    function comicLine(text, cx, cy, size, fillColor, offColor, ox, oy, rot) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '900 ' + size + 'px "Arial Black",Impact,Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+      // hard offset shadow (the pop colour)
+      ctx.fillStyle = offColor;
+      ctx.fillText(text, ox, oy);
+      // ink outline
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = INK; ctx.lineWidth = size * 0.045;
+      ctx.strokeText(text, 0, 0);
+      // fill
+      ctx.fillStyle = fillColor;
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x48414C); // "HAL" seed -> identical scatter every render
+
+      // ---- BACKGROUND: bright white comic PAGE w/ faint newsprint warmth at corners ----
+      const bg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, W * 0.62);
+      bg.addColorStop(0, PAPER); bg.addColorStop(0.52, PAPER); bg.addColorStop(1, PAPER2);
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      const CX = W / 2, CY = H / 2;
+
+      // ---- (a) radial SPEED / focus lines bursting from centre (faint ink) ----
+      const reach = Math.sqrt(CX * CX + CY * CY) + 40;
+      ctx.save();
+      ctx.lineCap = 'round';
+      const NS = 64;
+      let ang = 0;
+      for (let i = 0; i < NS; i++) {
+        ang += (6.2832 / NS) * Rr(rnd, 0.55, 1.45);
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        const inner = Rr(rnd, 0.40, 0.60);
+        const flick = Rr(rnd, 0.4, 1.0);
+        const r0 = reach * inner;
+        const r1 = reach * (inner + (1 - inner) * (0.55 + flick * 0.45));
+        ctx.strokeStyle = 'rgba(17,17,17,' + (0.05 + flick * 0.06).toFixed(3) + ')';
+        ctx.lineWidth = Rr(rnd, 1.5, 6.5);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(CX + ca * r0), Math.round(CY + sa * r0));
+        ctx.lineTo(Math.round(CX + ca * r1), Math.round(CY + sa * r1));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // ---- (b) HALFTONE dot grid: open in the centre, inky toward the edges ----
+      const GRID = 46, MAXR = GRID * 0.62;
+      for (let iy = 0, gy = GRID / 2; gy < H + GRID; gy += GRID, iy++) {
+        for (let ix = 0, gx = GRID / 2; gx < W + GRID; gx += GRID, ix++) {
+          const dx = (gx - CX) / W, dy = (gy - CY) / H;
+          const rad = Math.min(1, Math.sqrt(dx * dx + dy * dy) * 1.7);
+          const r = (0.20 + rad * 0.92) * MAXR;
+          if (r < 0.6) continue;
+          ctx.globalAlpha = Math.min(1, 0.20 + rad * 0.7);
+          ctx.fillStyle = cellColour(ix, iy);
+          ctx.beginPath();
+          ctx.arc(Math.round(gx), Math.round(gy), r, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- (c) inky action specks ----
+      ctx.save();
+      ctx.fillStyle = INK;
+      for (let i = 0; i < 46; i++) {
+        const x = Rr(rnd, 60, W - 60), y = Rr(rnd, 60, H - 60);
+        const s = Rr(rnd, 3, 8), rot = Rr(rnd, 0, 6.283);
+        ctx.globalAlpha = Rr(rnd, 0.18, 0.5);
+        const c = Math.cos(rot) * s, s2 = Math.sin(rot) * s;
+        ctx.beginPath();
+        ctx.moveTo(x + c, y + s2); ctx.lineTo(x - s2, y + c);
+        ctx.lineTo(x - c, y - s2); ctx.lineTo(x + s2, y - c);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- (d) soft white page-glow keeping the headline crisp ----
+      const glow = ctx.createRadialGradient(CX, CY * 0.96, 60, CX, CY * 0.96, W * 0.46);
+      glow.addColorStop(0, 'rgba(255,255,255,0.94)');
+      glow.addColorStop(0.55, 'rgba(255,255,255,0.7)');
+      glow.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTRED COMIC COMPOSITION
+      // ============================================================
+
+      // ---- jagged yellow STARBURST holding the kicker "OFF AIR!" ----
+      const bX = CX, bY = 300;
+      ctx.save();
+      // hard offset ink shadow
+      ctx.fillStyle = INK;
+      burstPath(bX + 9, bY + 10, 150, 14, 0.62, -0.14); ctx.fill();
+      // yellow fill
+      ctx.fillStyle = YEL;
+      burstPath(bX, bY, 150, 14, 0.62, -0.14); ctx.fill();
+      // ink outline
+      ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 7;
+      burstPath(bX, bY, 150, 14, 0.62, -0.14); ctx.stroke();
+      // kicker text inside (tilted comic caps)
+      ctx.save();
+      ctx.translate(bX, bY); ctx.rotate(-0.07);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '900 70px "Arial Black",Impact,Haettenschweiler,system-ui,sans-serif';
+      ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+      ctx.strokeText('OFF AIR!', 0, 0);
+      ctx.fillStyle = INK; ctx.fillText('OFF AIR!', 0, 0);
+      ctx.restore();
+      ctx.restore();
+
+      // ---- the heavy comic TITLE: "OFFLINE" (ink + blue offset) ----
+      comicLine('OFFLINE', CX, 560, 168, INK, BLU, 9, 9, -0.05);
+      // accent line "BACK SOON" (comic red + yellow offset)
+      comicLine('BACK SOON', CX, 730, 150, RED, YEL, 9, 9, -0.05);
+
+      // ---- inked subtitle tag ----
+      ctx.save();
+      ctx.translate(CX, 838); ctx.rotate(-0.024);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 34px "Arial",Helvetica,system-ui,sans-serif';
+      const subText = '[ your text here ]';
+      const tw = ctx.measureText(subText).width;
+      const padX = 34, padY = 18;
+      // tag box: red drop shadow then ink box
+      ctx.fillStyle = RED; ctx.fillRect(-tw / 2 - padX + 8, -padY + 8 - 2, tw + padX * 2, padY * 2 + 4);
+      ctx.fillStyle = INK; ctx.fillRect(-tw / 2 - padX, -padY - 2, tw + padX * 2, padY * 2 + 4);
+      ctx.fillStyle = PAPER;
+      // letter-spaced
+      ctx.font = '800 34px "Arial",Helvetica,system-ui,sans-serif';
+      drawSpacedCentered(subText, 0, 2, 4);
+      ctx.restore();
+
+      // ============================================================
+      // PANEL GUTTER BORDER (bold black comic frame) + printer tags
+      // ============================================================
+      const m = 34;
+      ctx.save();
+      // outer thick rule
+      ctx.strokeStyle = INK; ctx.lineWidth = 10;
+      ctx.strokeRect(m + 5, m + 5, W - (m + 5) * 2, H - (m + 5) * 2);
+      // paper gap + thin ink rule (the printed double frame)
+      ctx.lineWidth = 7;
+      ctx.strokeRect(m + 18, m + 18, W - (m + 18) * 2, H - (m + 18) * 2);
+      // inner hairline
+      ctx.lineWidth = 3;
+      ctx.strokeRect(m + 32, m + 32, W - (m + 32) * 2, H - (m + 32) * 2);
+      ctx.restore();
+
+      // ---- corner registration tags on the gutter ----
+      ctx.save();
+      ctx.fillStyle = INK; ctx.textBaseline = 'alphabetic';
+      ctx.font = '900 20px "Arial Black",Impact,system-ui,sans-serif';
+      ctx.globalAlpha = 0.82;
+      ctx.textAlign = 'left';  drawSpacedFrom('ISSUE #01', 70, 70, 4);
+      ctx.textAlign = 'left';  // PANEL tag, right-aligned manually
+      const pt = 'PANEL 1/1';
+      ctx.textAlign = 'right'; drawSpacedRight(pt, W - 70, 70, 4);
+      ctx.textAlign = 'left';  drawSpacedFrom('// YOUR TEXT //', 70, H - 60, 4);
+      ctx.restore();
+
+      // registration cross-tick top-right inner corner
+      ctx.save();
+      ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.globalAlpha = 0.7;
+      const rx = W - 90, ry = 110;
+      ctx.beginPath();
+      ctx.moveTo(rx - 12, ry); ctx.lineTo(rx + 12, ry);
+      ctx.moveTo(rx, ry - 12); ctx.lineTo(rx, ry + 12); ctx.stroke();
+      ctx.beginPath(); ctx.arc(rx, ry, 8, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+
+      // ---- HANDLE: blue inked tag, lower right ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      ctx.save();
+      ctx.translate(W - 230, H - 96); ctx.rotate(-0.035);
+      ctx.font = '900 34px "Arial Black",Impact,system-ui,sans-serif';
+      const hw = ctx.measureText(handleAt).width;
+      const hpx = 22, hpy = 12;
+      // ink shadow then blue tag then ink border
+      ctx.fillStyle = INK; ctx.fillRect(-hpx + 5, -28 + 5, hw + hpx * 2, 44);
+      ctx.fillStyle = BLU; ctx.fillRect(-hpx, -28, hw + hpx * 2, 44);
+      ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(-hpx, -28, hw + hpx * 2, 44);
+      ctx.fillStyle = PAPER; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.fillText(handleAt, 0, -4);
+      ctx.restore();
+    }
+
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

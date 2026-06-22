@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Tracking Error (PNG generator)</title>
+  <!--
+    TRACKING ERROR · VHS/CRT PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + a REC kicker;
+    right = a STAND BY tape tagline. The centre is decorative only — a faint OSD
+    "no signal" tracking band + snow — so the player can sit over it without hiding
+    anything important.
+
+    Everything random is from a SEEDED LCG (never Math.random) so the snow / smear
+    is identical on every render.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it
+    is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --crt-black:#0F0F0F; --crt-black-2:#070707;
+      --phosphor:#E8E8E8; --rec-red:#FF0033; --chroma-cyan:#19C3FF;
+      --caution:#FFE600; --dim:rgba(232,232,232,.55);
+      --osd:"Consolas","Courier New",ui-monospace,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--osd);background:var(--crt-black-2);color:var(--phosphor);padding:32px;}
+    h1{font-family:var(--osd);font-weight:700;font-size:26px;letter-spacing:.04em;margin:0 0 6px;
+      text-shadow:-3px 0 0 rgba(255,0,51,.7),3px 0 0 rgba(25,195,255,.6);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:860px;line-height:1.6;font-size:15px;}
+    .kicker{font-family:var(--osd);letter-spacing:.5em;font-size:13px;color:var(--caution);
+      margin:0 0 14px;text-transform:uppercase;}
+    button{font-family:var(--osd);font-weight:700;font-size:14px;letter-spacing:.2em;text-transform:uppercase;
+      padding:13px 26px;color:var(--crt-black);background:var(--caution);
+      border:2px solid rgba(15,15,15,.6);border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(255,230,0,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0c0c0c;padding:14px;border:1px solid #242424;border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(255,230,0,0.45);
+      background:rgba(15,15,15,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(232,232,232,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:var(--osd);font-size:12px;letter-spacing:.18em;}
+    code{font-family:var(--osd);color:var(--caution);background:#161616;padding:2px 6px;border-radius:2px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">TRACKING ERROR · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the VHS/CRT analog style — seeded so the snow and
+    smear are reproducible. Identity sits on the <strong>left</strong>, the tagline on the
+    <strong>right</strong>; the centre is decorative so Twitch's offline player can sit over it.
+    Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W=1920, H=480;
+    const params=new URLSearchParams(location.search);
+    const CRT_BLACK='#0F0F0F', CRT_BLACK2='#070707';
+    const PHOSPHOR='#E8E8E8', REC_RED='#FF0033', CHROMA_CYAN='#19C3FF', CAUTION='#FFE600';
+    const DIM='rgba(232,232,232,0.55)';
+
+    const cv=document.getElementById('c');
+    const ctx=cv.getContext('2d');
+
+    function makeRand(seed){let s=seed>>>0;return ()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};}
+    const R=(rnd,a,b)=>a+rnd()*(b-a);
+
+    function drawSpaced(str,x,y,sp){let cx=x;for(const ch of str){ctx.fillText(ch,cx,y);cx+=ctx.measureText(ch).width+sp;}}
+    function spacedWidth(str,sp){let t=0;for(const ch of str)t+=ctx.measureText(ch).width+sp;return t-sp;}
+    function drawSpacedCentered(str,x,y,sp){const t=spacedWidth(str,sp);const prev=ctx.textAlign;ctx.textAlign='left';drawSpaced(str,x-t/2,y,sp);ctx.textAlign=prev;}
+
+    // bold-condensed chroma-split title line centered at (cx,cy)
+    function chromaTitle(text,cx,cy,size,scaleX){
+      ctx.save();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 '+size+'px "Arial Narrow",Impact,"Haettenschweiler",system-ui,sans-serif';
+      ctx.translate(cx,cy); ctx.scale(scaleX,1);
+      ctx.fillStyle='rgba(255,0,51,0.9)'; ctx.fillText(text,-7/scaleX,0);
+      ctx.fillStyle='rgba(25,195,255,0.85)'; ctx.fillText(text,7/scaleX,0);
+      ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=7;
+      ctx.fillStyle=PHOSPHOR; ctx.fillText(text,0,0);
+      ctx.restore();
+    }
+
+    // a branding block: caution-chip kicker, chroma title, dim mono sub
+    function block(cx,kicker,title,titleSize,sub){
+      // caution-chip kicker
+      ctx.save();
+      ctx.font='700 22px "Consolas","Courier New",monospace';
+      const kw=spacedWidth(kicker,6)+34;
+      ctx.fillStyle=CAUTION; ctx.fillRect(cx-kw/2,118,kw,38);
+      ctx.strokeStyle='rgba(15,15,15,0.6)'; ctx.lineWidth=2; ctx.strokeRect(cx-kw/2,118,kw,38);
+      ctx.fillStyle=CRT_BLACK; ctx.textAlign='center'; ctx.textBaseline='middle';
+      drawSpacedCentered(kicker,cx,138,6);
+      ctx.restore();
+
+      // chroma title
+      chromaTitle(title,cx,224,titleSize,0.84);
+
+      // caution dashed rule under the title
+      ctx.save();
+      const ruW=Math.min(360,titleSize*4.4);
+      ctx.strokeStyle='rgba(255,230,0,0.6)'; ctx.lineWidth=2; ctx.setLineDash([10,6]);
+      ctx.beginPath(); ctx.moveTo(cx-ruW/2,290); ctx.lineTo(cx+ruW/2,290); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // dim mono sub
+      ctx.save();
+      ctx.fillStyle=DIM; ctx.font='700 22px "Consolas","Courier New",monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      drawSpacedCentered(sub,cx,332,8);
+      ctx.restore();
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd=makeRand(0xFFE600); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: CRT tube black, radial center-bright wash ----
+      const bg=ctx.createRadialGradient(W*0.5,H*0.4,40,W*0.5,H*0.4,W*0.6);
+      bg.addColorStop(0,'#191919'); bg.addColorStop(0.5,'#111');
+      bg.addColorStop(0.78,CRT_BLACK); bg.addColorStop(1,CRT_BLACK2);
+      ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+      // ---- SNOW field ----
+      for(let i=0;i<360;i++){
+        const x=Math.round(R(rnd,0,W)), y=Math.round(R(rnd,0,H));
+        const lum=R(rnd,0.04,0.28);
+        ctx.fillStyle='rgba(232,232,232,'+lum.toFixed(3)+')';
+        ctx.fillRect(x,y,1,1);
+      }
+
+      // ---- centre tracking band ("no signal" smear over the player zone) ----
+      ctx.save();
+      ctx.globalCompositeOperation='screen';
+      const bandY=H*0.5-46;
+      const cband=ctx.createLinearGradient(0,bandY,0,bandY+92);
+      cband.addColorStop(0,'rgba(0,0,0,0)'); cband.addColorStop(0.5,'rgba(25,195,255,0.10)'); cband.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=cband; ctx.fillRect(560,bandY,800,92);
+      const rband=ctx.createLinearGradient(0,bandY+14,0,bandY+106);
+      rband.addColorStop(0,'rgba(0,0,0,0)'); rband.addColorStop(0.5,'rgba(255,0,51,0.09)'); rband.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=rband; ctx.fillRect(560,bandY+14,800,92);
+      ctx.restore();
+
+      // faint decorative TRACKING label in the centre
+      ctx.save();
+      ctx.globalAlpha=0.5;
+      ctx.fillStyle=CHROMA_CYAN; ctx.font='700 26px "Consolas","Courier New",monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(25,195,255,0.5)'; ctx.shadowBlur=12;
+      drawSpacedCentered('TRACKING',W/2,H/2,14);
+      ctx.restore();
+
+      // ---- dropout streaks scattered in the L/R thirds ----
+      ctx.save();
+      for(let i=0;i<10;i++){
+        const onLeft=i%2===0;
+        const dw=R(rnd,80,260);
+        const dx=onLeft?R(rnd,30,620-dw):R(rnd,W-620,W-30-dw);
+        const dy=Math.round(R(rnd,30,H-30));
+        ctx.fillStyle='rgba(232,232,232,'+R(rnd,0.08,0.20).toFixed(3)+')';
+        ctx.fillRect(Math.round(dx),dy,Math.round(dw),1);
+        ctx.fillStyle='rgba(255,0,51,0.5)'; ctx.fillRect(Math.round(dx)-2,dy,2,1);
+        ctx.fillStyle='rgba(25,195,255,0.5)'; ctx.fillRect(Math.round(dx+dw),dy,2,1);
+      }
+      ctx.restore();
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle=params.get('handle')||'@YOURHANDLE';
+      const handleAt=handle.startsWith('@')?handle:'@'+handle;
+      const handleClean=handle.replace(/^@/,'');
+      block(400,'● REC',handleAt.toUpperCase(),74,'twitch.tv/'+handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: editable tagline (centre ~ x=1520) ----
+      // 'TRACKING' kicker is OSD chrome; the title + sub are editable placeholders.
+      block(1520,'TRACKING','[ your text here ]',54,'[ your text here ]');
+
+      // ---- dense SCANLINES (multiply) ----
+      ctx.save();
+      ctx.globalCompositeOperation='multiply';
+      ctx.fillStyle='rgba(0,0,0,0.48)';
+      for(let y=0;y<H;y+=3) ctx.fillRect(0,y,W,1);
+      ctx.restore();
+
+      // ---- caution tick rails flanking the centre clear-zone ----
+      ctx.fillStyle='rgba(255,230,0,0.5)';
+      for(let yy=70;yy<H-60;yy+=16){ ctx.fillRect(672,yy,3,8); ctx.fillRect(1245,yy,3,8); }
+      // little red REC dots capping each rail
+      ctx.save();
+      ctx.fillStyle=REC_RED; ctx.shadowColor='rgba(255,0,51,0.6)'; ctx.shadowBlur=8;
+      [[673,60],[1246,60],[673,H-58],[1246,H-58]].forEach(([x,y])=>{
+        ctx.beginPath(); ctx.arc(x,y,5,0,6.2832); ctx.fill();
+      });
+      ctx.restore();
+
+      // ---- VIGNETTE + glass glare ----
+      const vig=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,W*0.55);
+      vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.72)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+      ctx.save();
+      ctx.globalCompositeOperation='screen';
+      const glare=ctx.createRadialGradient(W*0.5,-80,30,W*0.5,-80,W*0.45);
+      glare.addColorStop(0,'rgba(232,232,232,0.06)'); glare.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=glare; ctx.fillRect(0,0,W,H*0.6);
+      ctx.restore();
+    }
+
+    function download(){
+      const a=document.createElement('a');
+      a.download='profile-banner.png';
+      a.href=cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click',download);
+    window.__exportAssets=()=>[{name:'profile-banner',dataURL:document.getElementById('c').toDataURL('image/png')}];
+    draw();
+  </script>
+</body>
+</html>

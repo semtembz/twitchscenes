@@ -1,0 +1,256 @@
+/* ============================================================
+   TRACKING ERROR — alert system ("Signal Insert")
+   A VHS / CRT alert "INSERT CARD" that splices onto the picture like
+   a tape edit: an OSD insert panel framed in a hairline phosphor box
+   with a blinking REC dot, a chunky condensed event headline carrying
+   the hard RGB chroma-split, a mono OSD strap (timecode + tape id), and
+   a red tape-progress underline. Background is TRANSPARENT so the alert
+   composites over gameplay / the scene below it. A real canvas renders
+   the analog NOISE / chroma-smear burst behind the card.
+
+   Each event gets a DISTINCT motion (alerts.js choreography map). The
+   card NEVER bakes the theme name; ?noname=1 ships the event headline
+   ("NEW FOLLOWER") with the viewer name hidden.
+
+   Cohesive with shared.css tokens: CRT-black, phosphor white, REC red,
+   chroma cyan, caution yellow; condensed --display title + --osd mono.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --crt-black:#0F0F0F;     /* CRT tube black */
+  --crt-black-2:#070707;
+  --phosphor:#E8E8E8;      /* phosphor white */
+  --rec-red:#FF0033;       /* REC / record red */
+  --chroma-cyan:#19C3FF;   /* chroma-shift cyan */
+  --caution:#FFE600;       /* caution yellow OSD */
+  /* derived */
+  --osd-dim:rgba(232,232,232,.55);
+  --hair:rgba(232,232,232,.20);
+  --hair-soft:rgba(232,232,232,.12);
+  --red-glow:rgba(255,0,51,.6);
+  --cyan-glow:rgba(25,195,255,.55);
+  --panel:rgba(11,11,11,.80);
+  --panel2:rgba(7,7,7,.66);
+  /* font stacks (system / web-safe ONLY — no CDN) */
+  --osd:"Consolas","Courier New",ui-monospace,monospace;
+  --display:"Arial Narrow",Impact,"Haettenschweiler",system-ui,sans-serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — the alert composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--phosphor);background:transparent;
+  font-family:var(--osd);}
+
+/* one canvas for the analog noise / chroma-smear burst, behind the card */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ============================================================
+   THE INSERT CARD — anchored bottom-left, an OSD panel that the
+   per-event choreography (alerts.js) animates via .show / classes.
+   ============================================================ */
+.alert{position:absolute;left:96px;bottom:128px;width:868px;padding:30px 40px 26px;
+  background:
+    linear-gradient(180deg, rgba(232,232,232,.05), transparent 40%),
+    linear-gradient(150deg, var(--panel), var(--panel2));
+  border:2px solid var(--hair);
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.62),
+    inset 0 0 70px rgba(0,0,0,.55),
+    inset 0 0 0 1px rgba(232,232,232,.05);
+  display:grid;grid-template-columns:128px 1fr;gap:30px;align-items:center;
+  /* hidden by default; .show + per-event class drives the entrance */
+  opacity:0;will-change:transform,opacity,filter;
+  overflow:hidden;}
+
+/* dense scanlines baked into the card so it reads as the same tube signal */
+.alert::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;
+  mix-blend-mode:multiply;opacity:.6;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.45) 0 1px, transparent 1px 3px);}
+/* a slow phosphor light-sweep travelling across the card (frozen in render) */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;mix-blend-mode:screen;
+  opacity:.5;
+  background:linear-gradient(115deg, transparent 42%, rgba(232,232,232,.12) 49%, rgba(25,195,255,.05) 51%, transparent 60%);
+  animation:alert-sweep 4.2s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-30%)}100%{transform:translateX(30%)}}
+
+/* a red tape "seam" down the left edge — the record accent */
+.alert .seam{position:absolute;left:0;top:0;bottom:0;width:5px;z-index:5;
+  background:linear-gradient(180deg,var(--rec-red),#cc0029);
+  box-shadow:0 0 16px var(--red-glow);}
+
+/* corner ticks (OSD framing brackets) */
+.alert .tick{position:absolute;width:18px;height:18px;z-index:5;pointer-events:none;
+  border:2px solid var(--osd-dim);}
+.alert .tick.tl{left:8px;top:8px;border-right:0;border-bottom:0;}
+.alert .tick.tr{right:8px;top:8px;border-left:0;border-bottom:0;}
+.alert .tick.bl{left:8px;bottom:8px;border-right:0;border-top:0;}
+.alert .tick.br{right:8px;bottom:8px;border-left:0;border-top:0;}
+
+/* top-right OSD tag (REC dot + tape id) */
+.alert .tagid{position:absolute;top:16px;right:26px;z-index:6;display:flex;align-items:center;gap:12px;
+  font-family:var(--osd);font-weight:700;font-size:18px;letter-spacing:.26em;color:var(--osd-dim);
+  text-shadow:0 0 1px rgba(0,0,0,.9);}
+.alert .tagid .rdot{width:14px;height:14px;border-radius:50%;background:var(--rec-red);
+  box-shadow:0 0 12px var(--red-glow);animation:rdotblink 1.05s steps(1,end) infinite;}
+@keyframes rdotblink{0%,55%{opacity:1}56%,100%{opacity:.15}}
+
+/* ============================================================
+   GLYPH PLATE — an OSD tile (corner-bracketed) with the event glyph
+   ============================================================ */
+.alert .art{width:128px;height:128px;position:relative;overflow:hidden;z-index:2;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.4) 0 1px, transparent 1px 3px),
+    linear-gradient(150deg, rgba(25,195,255,.10), rgba(15,15,15,.95) 60%, var(--crt-black-2));
+  border:2px solid var(--hair);
+  box-shadow:inset 0 0 0 1px rgba(232,232,232,.06), inset 0 0 30px rgba(0,0,0,.7);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:700;font-size:78px;color:var(--phosphor);
+  /* the glyph carries a small chroma-split too, so it matches the title */
+  text-shadow:-3px 0 0 var(--rec-red),3px 0 0 var(--chroma-cyan);}
+/* a caution corner notch on the plate */
+.alert .art::after{content:"";position:absolute;left:0;bottom:0;width:0;height:0;
+  border-style:solid;border-width:0 0 22px 22px;border-color:transparent transparent var(--caution) transparent;opacity:.85;}
+
+/* meta column */
+.alert .meta{min-width:0;z-index:2;position:relative;}
+
+/* kicker — caution-yellow OSD chip (the small "CH 03 · NEW FOLLOWER" line) */
+.alert .kick{display:inline-flex;align-items:center;gap:12px;
+  font-family:var(--osd);font-weight:700;font-size:18px;
+  letter-spacing:.3em;text-indent:.3em;text-transform:uppercase;
+  color:var(--crt-black);background:var(--caution);
+  padding:6px 16px 5px;margin:0 0 12px;max-width:100%;
+  box-shadow:0 0 0 2px rgba(15,15,15,.5),0 0 16px rgba(255,230,0,.3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* big HEADLINE — condensed display, chroma-split, clamped to one line */
+.alert .name{margin:0 0 6px;font-family:var(--display);font-weight:700;font-stretch:condensed;
+  text-transform:uppercase;line-height:.9;letter-spacing:.01em;font-size:80px;color:var(--phosphor);
+  text-shadow:-4px 0 0 var(--rec-red),4px 0 0 var(--chroma-cyan),
+    -8px 0 1px rgba(255,0,51,.3),8px 0 1px rgba(25,195,255,.28);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line — phosphor mono, hidden unless .has-amount; emphasized for $/bits */
+.alert .amount{display:none;font-family:var(--osd);font-weight:700;font-size:38px;
+  letter-spacing:.04em;margin:2px 0 6px;color:var(--phosphor);
+  text-shadow:0 0 14px var(--cyan-glow),-2px 0 0 var(--rec-red),2px 0 0 var(--chroma-cyan);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--caution);-webkit-text-fill-color:var(--caution);
+  text-shadow:0 0 14px rgba(255,230,0,.4);}
+
+/* sub — dim phosphor mono italic-ish caption line */
+.alert .sub{margin:0;font-family:var(--osd);font-weight:700;font-size:22px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--osd-dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* tape-progress UNDERLINE pinned to the card's bottom (decorative tick window) */
+.alert .ubar{position:absolute;left:30px;right:30px;bottom:14px;height:8px;z-index:5;
+  background:rgba(232,232,232,.08);border:1px solid var(--hair-soft);overflow:hidden;}
+.alert .ubar::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(90deg, transparent 0 26px, rgba(15,15,15,.6) 26px 28px);}
+.alert .ubar i{position:absolute;left:0;top:0;bottom:0;width:0;z-index:1;
+  background:repeating-linear-gradient(90deg, var(--rec-red) 0 10px, #cc0029 10px 20px);
+  box-shadow:0 0 12px var(--red-glow);
+  animation:ubar-fill 4.6s linear forwards;}
+@keyframes ubar-fill{0%{width:0}100%{width:100%}}
+
+/* ============================================================
+   ENTRANCE — base; alerts.js adds .show + a per-event class so each
+   event has a DISTINCT motion. These are the 12 keyframed entrances.
+   The card holds, then alerts.js adds .hide for the splice-out.
+   ============================================================ */
+.alert.show{opacity:1;}
+
+/* common exit: collapse like a tape edit (scaleY snap + fade) */
+.alert.hide{animation:a-out .42s var(--ease) forwards!important;}
+@keyframes a-out{0%{opacity:1;transform:none}
+  40%{opacity:1;transform:scaleY(.06) translateY(0)}
+  100%{opacity:0;transform:scaleY(.02) translateY(8px)}}
+
+/* 1 FOLLOWER — splice-in: scaleY snap open from a thin tape line */
+.alert.ev-follower.show{animation:a-splice .5s var(--ease) forwards;}
+@keyframes a-splice{0%{opacity:0;transform:scaleY(.04)}
+  55%{opacity:1;transform:scaleY(1.06)}80%{transform:scaleY(.98)}100%{opacity:1;transform:scaleY(1)}}
+
+/* 2 SUBSCRIBER — drop in from above with a hard landing bounce */
+.alert.ev-subscriber.show{animation:a-drop .56s var(--ease) forwards;}
+@keyframes a-drop{0%{opacity:0;transform:translateY(-260px)}
+  60%{opacity:1;transform:translateY(18px)}80%{transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
+
+/* 3 MEMBER — zoom punch-in from center (scale up from small) */
+.alert.ev-member.show{animation:a-punch .5s var(--ease) forwards;transform-origin:left center;}
+@keyframes a-punch{0%{opacity:0;transform:scale(.4)}
+  60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
+
+/* 4 CHEER — rapid horizontal glitch-stutter slide from the left */
+.alert.ev-cheer.show{animation:a-stutter .6s steps(1,end) forwards;}
+@keyframes a-stutter{
+  0%{opacity:0;transform:translateX(-180px)}
+  12%{opacity:1;transform:translateX(40px)}24%{transform:translateX(-30px)}
+  38%{transform:translateX(22px)}54%{transform:translateX(-14px)}
+  70%{transform:translateX(8px)}86%{transform:translateX(-3px)}100%{opacity:1;transform:translateX(0)}}
+
+/* 5 DONATION — chroma-split shear: skews in while RGB fringe widens then locks */
+.alert.ev-donation.show{animation:a-shear .62s var(--ease) forwards;}
+@keyframes a-shear{0%{opacity:0;transform:translateX(-90px) skewX(14deg)}
+  55%{opacity:1;transform:translateX(10px) skewX(-4deg)}100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 6 HOST — wide horizontal "wipe" open (scaleX from a vertical line) */
+.alert.ev-host.show{animation:a-wipe .56s var(--ease) forwards;transform-origin:left center;}
+@keyframes a-wipe{0%{opacity:0;transform:scaleX(.02)}
+  60%{opacity:1;transform:scaleX(1.03)}100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 RAID — big slam from the right + recoil shake (the biggest motion) */
+.alert.ev-raid.show{animation:a-slam .7s var(--ease) forwards;}
+@keyframes a-slam{
+  0%{opacity:0;transform:translateX(760px) scale(1.12)}
+  46%{opacity:1;transform:translateX(-26px) scale(1)}
+  58%{transform:translateX(16px)}68%{transform:translateX(-10px)}
+  78%{transform:translateX(6px)}88%{transform:translateX(-3px)}100%{opacity:1;transform:translateX(0)}}
+
+/* 8 LIKE — gentle float up + settle */
+.alert.ev-like.show{animation:a-float .58s var(--ease) forwards;}
+@keyframes a-float{0%{opacity:0;transform:translateY(120px) scale(.96)}
+  70%{opacity:1;transform:translateY(-10px) scale(1)}100%{opacity:1;transform:translateY(0)}}
+
+/* 9 SHARE — slide out from behind (push from left small + blur clear) */
+.alert.ev-share.show{animation:a-push .56s var(--ease) forwards;}
+@keyframes a-push{0%{opacity:0;transform:translateX(-120px) scale(.94);filter:blur(6px)}
+  70%{opacity:1;transform:translateX(8px) scale(1);filter:blur(0)}100%{opacity:1;transform:translateX(0)}}
+
+/* 10 STAR — vertical roll-down like a tube losing vertical hold, then snaps */
+.alert.ev-star.show{animation:a-roll .66s steps(1,end) forwards;}
+@keyframes a-roll{
+  0%{opacity:0;transform:translateY(-200px)}
+  20%{opacity:1;transform:translateY(60px)}
+  40%{transform:translateY(-30px)}55%{transform:translateY(40px)}
+  70%{transform:translateY(-12px)}85%{transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+
+/* 11 SUPERCHAT — zoom from huge (slams down to size) emphasizing the amount */
+.alert.ev-superchat.show{animation:a-zoomdown .56s var(--ease) forwards;transform-origin:left center;}
+@keyframes a-zoomdown{0%{opacity:0;transform:scale(1.6)}
+  55%{opacity:1;transform:scale(.96)}78%{transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+
+/* 12 SUPPORTER — diagonal flip-in (rotate + slide from lower-left) */
+.alert.ev-supporter.show{animation:a-flip .6s var(--ease) forwards;transform-origin:left bottom;}
+@keyframes a-flip{0%{opacity:0;transform:translate(-80px,80px) rotate(-6deg)}
+  60%{opacity:1;transform:translate(8px,-6px) rotate(1.5deg)}100%{opacity:1;transform:translate(0,0) rotate(0)}}
+
+/* ============================================================
+   RENDER MODE: freeze CSS-driven motion. alerts.js drives transform /
+   opacity deterministically via __renderAdvance, and the canvas keeps
+   stepping. Entrances land on final state; loops are stilled.
+   ============================================================ */
+#stage.render .alert{opacity:1!important;}
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none!important;display:none;}
+#stage.render .alert .tagid .rdot{animation:none!important;opacity:1!important;}
+#stage.render .alert .ubar i{animation:none!important;}

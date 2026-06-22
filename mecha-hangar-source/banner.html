@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Mecha Hangar (PNG generator)</title>
+  <!--
+    MECHA HANGAR · "Launch Bay 07" industrial PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER stencil;
+    right = a hangar tagline. The centre is decorative only — a faint steel blast-arch +
+    glowing seam + ember haze — so the player can sit over it without hiding anything.
+
+    Everything random is drawn from a SEEDED LCG, so the embers / dust are identical on
+    every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --gunmetal:#101417; --steel:#1E2A33; --amber:#F5A623; --red:#FF4D2E;
+      --steel-lt:#C8D2D9; --text:#E8EEF2; --steel-hi:#2C3C47; --steel-lo:#0B1014;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;
+      background:#0A0E11;color:var(--text);padding:32px;}
+    h1{font-weight:800;font-size:28px;color:var(--steel-lt);letter-spacing:.04em;margin:0 0 6px;
+      text-transform:uppercase;text-shadow:0 2px 0 #0B1014, 0 0 22px rgba(200,210,217,.18);}
+    p.lead{color:var(--steel-lt);opacity:.8;margin:0 0 22px;max-width:860px;line-height:1.6;
+      font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;font-size:14px;}
+    .kicker{font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;letter-spacing:.4em;
+      font-size:13px;color:var(--amber);margin:0 0 14px;text-transform:uppercase;text-indent:.4em;}
+    button{font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;font-weight:700;font-size:14px;
+      letter-spacing:.18em;text-transform:uppercase;padding:14px 28px;color:var(--gunmetal);
+      background:linear-gradient(180deg, #FFD27A, var(--amber));border:1px solid rgba(11,16,20,.6);
+      border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(245,166,35,.22), inset 0 1px 0 rgba(255,255,255,.4);}
+    button:hover{filter:brightness(1.07);}
+    .preview{margin-top:22px;background:#0d1216;padding:14px;border:1px solid #243038;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:170px;border:2px dashed rgba(245,166,35,0.45);
+      background:rgba(16,22,27,0.4);pointer-events:none;border-radius:6px;
+      color:rgba(200,210,217,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Consolas","SFMono-Regular",monospace;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;color:var(--amber);background:#141d23;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">LAUNCH BAY 07 · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the industrial launch-bay style — seeded so the
+    embers and dust are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    const GUNMETAL = '#101417', STEEL = '#1E2A33', AMBER = '#F5A623', RED = '#FF4D2E';
+    const STEEL_LT = '#C8D2D9', STEEL_HI = '#2C3C47', STEEL_LO = '#0B1014';
+    const RIVET = '#3A4A55', RIVET_HI = '#5E727F';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- riveted steel plating fill ----
+    function plating(x, y, w, h) {
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, '#1A242C'); g.addColorStop(1, '#11181D');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(11,16,20,0.8)'; ctx.lineWidth = 2;
+      for (let gx = x; gx <= x + w; gx += 240) { ctx.beginPath(); ctx.moveTo(gx + 0.5, y); ctx.lineTo(gx + 0.5, y + h); ctx.stroke(); }
+      for (let gy = y; gy <= y + h; gy += 168) { ctx.beginPath(); ctx.moveTo(x, gy + 0.5); ctx.lineTo(x + w, gy + 0.5); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,255,255,0.012)';
+      for (let gg = y; gg < y + h; gg += 5) ctx.fillRect(x, gg, w, 2);
+    }
+
+    // ---- hazard band (diagonal amber/black) into a clipped rect ----
+    function hazardBand(x, y, w, h, dir) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      const span = w + h, step = 52;
+      for (let d = -h; d < span; d += step) {
+        ctx.fillStyle = AMBER;
+        ctx.beginPath();
+        if (dir > 0) { ctx.moveTo(x + d, y + h); ctx.lineTo(x + d + 26, y + h); ctx.lineTo(x + d + 26 + h, y); ctx.lineTo(x + d + h, y); }
+        else         { ctx.moveTo(x + d, y); ctx.lineTo(x + d + 26, y); ctx.lineTo(x + d + 26 + h, y + h); ctx.lineTo(x + d + h, y + h); }
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(11,16,20,0.9)'; ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    }
+
+    function boltPlate(cx, cy, r) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cx - r, cy - r, r * 2, r * 2);
+      const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+      g.addColorStop(0, STEEL_HI); g.addColorStop(0.55, STEEL); g.addColorStop(1, STEEL_LO);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(11,16,20,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+      const bg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, 0, cx, cy, r * 0.4);
+      bg.addColorStop(0, RIVET_HI); bg.addColorStop(0.6, RIVET); bg.addColorStop(1, '#1c252b');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(cx, cy, r * 0.34, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- faint central BLAST-ARCH (behind the offline player) ----
+    function drawArch(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.6;
+      // steel arch (chamfered shoulders + two pilasters)
+      ctx.strokeStyle = 'rgba(94,114,127,0.6)'; ctx.lineWidth = 4;
+      ctx.shadowColor = 'rgba(11,16,20,0.8)'; ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(-100, 90);
+      ctx.lineTo(-100, -40);
+      ctx.lineTo(-72, -68);
+      ctx.lineTo(-46, -68);
+      ctx.lineTo(0, -100);
+      ctx.lineTo(46, -68);
+      ctx.lineTo(72, -68);
+      ctx.lineTo(100, -40);
+      ctx.lineTo(100, 90);
+      ctx.stroke();
+      // glowing amber seam down the centre of the arch
+      ctx.shadowColor = 'rgba(245,166,35,0.55)'; ctx.shadowBlur = 18;
+      const seam = ctx.createLinearGradient(0, -90, 0, 90);
+      seam.addColorStop(0, 'rgba(245,166,35,0)'); seam.addColorStop(0.5, AMBER); seam.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.strokeStyle = seam; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, -90); ctx.lineTo(0, 90); ctx.stroke();
+      // keystone hazard diamond at the apex
+      ctx.shadowBlur = 12; ctx.fillStyle = AMBER;
+      ctx.save(); ctx.translate(0, -100); ctx.rotate(Math.PI / 4); ctx.fillRect(-9, -9, 18, 18);
+      ctx.fillStyle = STEEL_LO; ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    // ---- a centred branding block: stencil kicker + amber LED, big condensed title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText, accent) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with flanking hazard diamonds
+      ctx.font = '700 22px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(245,166,35,0.35)'; ctx.shadowBlur = 12;
+      drawSpacedCentered(kickerLabel, cx, 126, 8);
+      const kw = spacedWidth(kickerLabel, 8);
+      ctx.shadowColor = 'rgba(245,166,35,0.6)'; ctx.shadowBlur = 8; ctx.fillStyle = AMBER;
+      [cx - kw / 2 - 22, cx + kw / 2 + 22].forEach(dx => {
+        ctx.save(); ctx.translate(dx, 126); ctx.rotate(Math.PI / 4); ctx.fillRect(-5, -5, 10, 10); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+
+      // title — heavy condensed stencil, embossed; accent line gets amber gradient
+      ctx.font = '800 ' + titleSize + 'px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.fillStyle = STEEL_LO; ctx.fillText(titleText, cx, 224);   // emboss
+      if (accent) {
+        const tg = ctx.createLinearGradient(0, 200 - titleSize / 2, 0, 200 + titleSize / 2);
+        tg.addColorStop(0, '#FFD27A'); tg.addColorStop(0.52, AMBER); tg.addColorStop(1, '#C97A12');
+        ctx.fillStyle = tg; ctx.shadowColor = 'rgba(245,166,35,0.5)'; ctx.shadowBlur = 30;
+      } else {
+        const tg = ctx.createLinearGradient(0, 200 - titleSize / 2, 0, 200 + titleSize / 2);
+        tg.addColorStop(0, '#E8EEF2'); tg.addColorStop(0.6, STEEL_LT); tg.addColorStop(1, '#8a97a0');
+        ctx.fillStyle = tg; ctx.shadowColor = 'rgba(200,210,217,0.3)'; ctx.shadowBlur = 24;
+      }
+      ctx.fillText(titleText, cx, 220);
+      ctx.shadowBlur = 0;
+
+      // amber underline rule + leading spark
+      const ruW = Math.min(380, titleSize * 4.2);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(245,166,35,0)'); ug.addColorStop(0.5, AMBER); ug.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.fillStyle = ug; ctx.fillRect(cx - ruW / 2, 286, ruW, 3);
+      ctx.fillStyle = '#FFF3D6'; ctx.shadowColor = 'rgba(255,232,176,0.9)'; ctx.shadowBlur = 8;
+      ctx.fillRect(cx + ruW / 2 - 6, 284, 4, 7);
+      ctx.shadowBlur = 0;
+
+      // subtitle — mono telemetry
+      ctx.font = '20px "Consolas","SFMono-Regular",monospace';
+      ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.72; ctx.textAlign = 'center';
+      drawSpacedCentered(subText, cx, 330, 2);
+      ctx.globalAlpha = 1;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x1E2A33); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: gunmetal gradient + plating ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#131A20'); grad.addColorStop(0.6, GUNMETAL); grad.addColorStop(1, '#0A0E11');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.9; plating(0, 0, W, H); ctx.globalAlpha = 1;
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(40,58,71,0.45)', 1);
+      bloom(W / 2, H / 2, 460, 'rgba(245,166,35,0.12)', 1);
+      bloom(W * 0.16, H * 0.42, 360, 'rgba(40,58,71,0.4)', 1);
+      bloom(W * 0.84, H * 0.42, 360, 'rgba(40,58,71,0.4)', 1);
+
+      // ---- faint central blast-arch ----
+      drawArch(W / 2, H / 2 + 30, 1.2);
+
+      // ---- SEEDED welding embers scattered into the LEFT and RIGHT thirds ----
+      const EMBER = ['#FFF3D6', '#FFD27A', AMBER, '#FF7A3C', RED];
+      ctx.save();
+      for (let i = 0; i < 64; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 640) : R(rnd, W - 640, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.6, 1.9), a = R(rnd, 0.3, 0.9);
+        const c = EMBER[(rnd() * EMBER.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 6 * z;
+        ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(z * 1.6)), Math.max(1, Math.round(z * 1.6)));
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(5,8,10,0.7)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- HAZARD bands top + bottom (over the plating) ----
+      const HB = 24;
+      hazardBand(0, 0, W, HB, +1);
+      hazardBand(0, H - HB, W, HB, -1);
+
+      // ---- corner bolt plates ----
+      [[HB + 30, HB + 30], [W - HB - 30, HB + 30], [HB + 30, H - HB - 30], [W - HB - 30, H - HB - 30]]
+        .forEach(([bx, by]) => boltPlate(bx, by, 22));
+
+      // ---- LEFT BLOCK: identity (centre ~ x=420) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(420, 'STREAMER', handleAt.toUpperCase(), 78, 'twitch.tv/' + handleClean.toLowerCase(), true);
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1500) — editable text slots ----
+      block(1500, '[ your text here ]', '[ YOUR TEXT HERE ]', 60, '[ your text here ]', false);
+
+      // ---- hazard tick rails flanking the centre clear-zone ----
+      for (let yy = 64; yy < H - 64; yy += 16) {
+        ctx.fillStyle = (Math.round(yy / 16) % 2 === 0) ? AMBER : '#14171A';
+        ctx.fillRect(700, yy, 4, 9);
+        ctx.fillRect(1216, yy, 4, 9);
+      }
+      // hazard diamonds capping each rail
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(245,166,35,0.6)'; ctx.shadowBlur = 8;
+      [[702, 50], [1218, 50], [702, H - 50], [1218, H - 50]].forEach(([x, y]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-5, -5, 10, 10); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

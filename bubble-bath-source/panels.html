@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bubble Bath — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Bubble Bath
+    "Soap & Shimmer" language:
+        - a squishy translucent JELLY card (rounded, glossy white border +
+          mint inner ring, soft periwinkle drop-shadow) on a soap-checker frame
+        - an inner top gloss highlight (the wet look) + a couple of tiny
+          iridescent soap bubbles floating in the corner
+        - a rounded "soap-bubble" line icon (heart, calendar, list, ...)
+        - the label in the heavy ROUNDED system stack, periwinkle, soft glow
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Bubble Bath "Soap & Shimmer" palette ---- */
+    :root {
+      --sky-aqua:#D9F4FF; --mint-aqua:#A0E7E5; --bubblegum:#FFB7D5;
+      --lemon:#FFF4C2; --periwinkle:#6C7AE0; --ink:#3A4A7A; --aqua-deep:#BDEBFB;
+      --display:"Quicksand","Comfortaa","Varela Round","Segoe UI Variable","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+      --body:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: var(--body); color: var(--ink);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(255,183,213,0.30), transparent 60%),
+        radial-gradient(760px 520px at 100% 110%, rgba(160,231,229,0.40), transparent 60%),
+        radial-gradient(620px 440px at 88% 6%, rgba(255,244,194,0.35), transparent 60%),
+        linear-gradient(180deg, var(--sky-aqua), #CDEFFB 55%, var(--aqua-deep));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: var(--display); font-weight: 700;
+      letter-spacing: 6px; font-size: 12px; color: var(--periwinkle);
+      text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 6px;
+    }
+    .bub { width: 11px; height: 11px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 70%);
+      box-shadow: 0 0 12px rgba(255,183,213,0.7); }
+    h1 { font-family: var(--display); font-weight: 700; font-size: 33px;
+      letter-spacing: .3px; margin: 0 0 6px; color: var(--ink);
+      text-shadow: 0 2px 0 #fff, 0 8px 22px rgba(108,122,224,0.22); }
+    p.lead { color: rgba(58,74,122,0.78); margin: 0 0 24px; max-width: 720px;
+      line-height: 1.6; font-weight: 600; font-size: 16px; }
+    code { font-family: "Courier New", monospace; color: var(--periwinkle);
+      background: rgba(255,255,255,0.6); padding: 2px 7px; border-radius: 6px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: var(--display); font-weight: 700; font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase; padding: 12px 24px;
+      cursor: pointer; color: #fff;
+      background: linear-gradient(180deg, #8C97E8, var(--periwinkle));
+      border: 2px solid rgba(255,255,255,0.85); border-radius: 999px;
+      box-shadow: 0 8px 22px rgba(108,122,224,0.30);
+    }
+    button:hover { filter: brightness(1.06); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(255,255,255,0.55); padding: 16px; border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.85);
+      box-shadow: 0 8px 24px rgba(108,122,224,0.14);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 12px; overflow: hidden; display: block;
+      background-color: #EAFBFF;
+      background-image:
+        linear-gradient(45deg, rgba(160,231,229,0.30) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(160,231,229,0.30) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(160,231,229,0.30) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(160,231,229,0.30) 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: var(--display); font-weight: 700; letter-spacing: 2px;
+      color: rgba(58,74,122,0.7); text-transform: uppercase; }
+    .card-row a { font-family: var(--display); font-weight: 700; letter-spacing: 1px;
+      color: var(--periwinkle); text-decoration: none;
+      border: 1px solid rgba(108,122,224,0.35); border-radius: 999px; padding: 5px 14px; }
+    .card-row a:hover { background: rgba(108,122,224,0.12); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="bub"></span>BUBBLE BATH · PANELS</p>
+  <h1>Bubble Bath — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the soap-&amp;-shimmer style:
+    a squishy translucent jelly card with a glossy border, a wet top gloss, a couple of
+    floating iridescent bubbles, and a rounded line icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror shared.css design tokens) ----
+    var W = 320, H = 100;
+    var SKY = '#D9F4FF', MINT = '#A0E7E5', PINK = '#FFB7D5', LEMON = '#FFF4C2';
+    var PERI = '#6C7AE0', INK = '#3A4A7A', AQUA_DEEP = '#BDEBFB';
+    var DISPLAY = '700 27px "Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,"Trebuchet MS",sans-serif';
+    var RIMS = ['rgba(255,183,213,A)','rgba(160,231,229,A)','rgba(255,244,194,A)','rgba(108,122,224,A)','rgba(189,235,251,A)'];
+
+    // ---- Panel inventory (per the design brief — 12 labels) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',      icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',   icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',      icon: 'list' },
+      { id: 'donations', title: 'DONATIONS',  icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',    icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',    icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',    icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM',  icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',      icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',   icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE',  icon: 'star' },
+      { id: 'community', title: 'COMMUNITY',  icon: 'community' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // a soft radial bloom (no global wash; used inside the card)
+    function bloom(ctx, cx, cy, rad, color, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, color.replace('A', alpha));
+      g.addColorStop(1, color.replace('A', 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+    }
+
+    // a decorative iridescent soap bubble (translucent body + soap-film rim + spec dot)
+    function bubble(ctx, x, y, r, hue, a) {
+      x = Math.round(x); y = Math.round(y);
+      var g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+      g.addColorStop(0,    'rgba(255,255,255,' + (a * 0.6).toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(217,244,255,' + (a * 0.32).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(160,231,229,' + (a * 0.10).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      // two-arc soap-film rainbow rim
+      var rimA = (a * 0.6).toFixed(3);
+      ctx.lineWidth = Math.max(1, r * 0.07);
+      ctx.strokeStyle = RIMS[hue % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = RIMS[(hue + 2) % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth * 0.5, 3.4, 6.2, false); ctx.stroke();
+      // crisp outer ring
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,' + (a * 0.55).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      // specular dot
+      var hx = Math.round(x - r * 0.36), hy = Math.round(y - r * 0.4), hr = Math.max(1.5, r * 0.2);
+      var hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, 'rgba(255,255,255,' + Math.min(0.95, a + 0.4).toFixed(3) + ')');
+      hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+      var rad = 26;
+
+      // soft periwinkle drop-shadow under the jelly card
+      ctx.save();
+      ctx.shadowColor = 'rgba(108,122,224,0.30)';
+      ctx.shadowBlur = 18; ctx.shadowOffsetY = 7;
+      roundRectPath(ctx, x, y, w, h, rad);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fill();
+      ctx.restore();
+
+      // jelly body fill, clipped to the rounded silhouette
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, rad);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, y, 0, y + h);
+      bg.addColorStop(0, 'rgba(255,255,255,0.62)');
+      bg.addColorStop(1, 'rgba(217,244,255,0.46)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // soft iridescent glows inside the jelly
+      bloom(ctx, 250, 8, 150, 'rgba(255,183,213,A)', 0.26);
+      bloom(ctx, 46, 92, 120, 'rgba(160,231,229,A)', 0.30);
+      bloom(ctx, 300, 96, 110, 'rgba(255,244,194,A)', 0.22);
+
+      // soap-film shimmer striping (very soft diagonal)
+      ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      for (var sy = y - 6; sy < y + h; sy += 7) {
+        ctx.save(); ctx.translate(0, sy); ctx.transform(1, 0, -0.45, 1, 0, 0);
+        ctx.fillRect(0, 0, W + 60, 2); ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+
+      // inner TOP gloss highlight (the squishy "wet" reflection)
+      var gl = ctx.createLinearGradient(0, y + 4, 0, y + h * 0.42);
+      gl.addColorStop(0, 'rgba(255,255,255,0.75)');
+      gl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gl;
+      roundRectPath(ctx, x + 10, y + 5, w - 20, h * 0.42, rad - 6);
+      ctx.fill();
+
+      // a holographic sheen bar swept across (frozen, skewed)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.translate(W * 0.62, 0); ctx.transform(1, 0, -0.34, 1, 0, 0);
+      var sh = ctx.createLinearGradient(-30, 0, 70, 0);
+      sh.addColorStop(0,   'rgba(255,183,213,0)');
+      sh.addColorStop(0.4, 'rgba(255,244,194,0.30)');
+      sh.addColorStop(0.6, 'rgba(160,231,229,0.26)');
+      sh.addColorStop(1,   'rgba(108,122,224,0)');
+      ctx.fillStyle = sh;
+      ctx.fillRect(-30, -20, 100, H + 40);
+      ctx.restore();
+
+      ctx.restore(); // end clip
+
+      // two decorative iridescent bubbles drifting in the right corner area
+      bubble(ctx, W - 30, 24, 13, 0, 0.7);
+      bubble(ctx, W - 52, 46, 8,  1, 0.6);
+      bubble(ctx, W - 18, 60, 6,  2, 0.55);
+
+      // rounded soap-bubble line icon (left)
+      drawIcon(ctx, p.icon, 30, H / 2 + 2, 34);
+
+      // kicker above the title — spaced rounded caps
+      ctx.save();
+      ctx.font = '700 9px "Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(58,74,122,0.55)';
+      drawSpaced(ctx, 'BUBBLE BATH', 66, 32, 2.4);
+      ctx.restore();
+
+      // label in heavy rounded sans (periwinkle) with a soft glow + white lift
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 27, maxW = W - 66 - 22;
+      ctx.font = '700 ' + size + 'px "Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1;
+        ctx.font = '700 ' + size + 'px "Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,sans-serif';
+      }
+      var ty = 70;
+      // white lift under the ink/peri for the glossy soap pop
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText(label, 66, ty + 1.4);
+      ctx.shadowColor = 'rgba(108,122,224,0.35)'; ctx.shadowBlur = 12;
+      ctx.fillStyle = PERI;
+      ctx.fillText(label, 66, ty);
+      ctx.restore();
+
+      // bubbly underline rule with bubble end-caps under the label
+      ctx.save();
+      var barX = 66, barY = 80, barW = Math.min(W - 66 - 22, ctx.measureText ? 180 : 180);
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(160,231,229,0)');
+      grad.addColorStop(0.22, MINT);
+      grad.addColorStop(0.5, PINK);
+      grad.addColorStop(0.78, MINT);
+      grad.addColorStop(1, 'rgba(160,231,229,0)');
+      ctx.lineWidth = 3.4; ctx.lineCap = 'round'; ctx.strokeStyle = grad;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      // bubble end-caps
+      bubble(ctx, barX, barY, 5, 1, 0.85);
+      bubble(ctx, barX + barW, barY, 5, 0, 0.85);
+      ctx.restore();
+
+      // the glossy white jelly border (drawn on top, not clipped) + mint inner ring
+      ctx.save();
+      roundRectPath(ctx, x + 1.5, y + 1.5, w - 3, h - 3, rad - 1);
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+      roundRectPath(ctx, x + 5.5, y + 5.5, w - 11, h - 11, rad - 5);
+      ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(160,231,229,0.6)'; ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- rounded line icons (soft, bubbly, periwinkle) --------------------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = PERI; ctx.fillStyle = PERI;
+      ctx.lineWidth = 2.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(108,122,224,0.4)'; ctx.shadowBlur = 6;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          roundRectLocal(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.32); ctx.lineTo(h, -h * 0.32);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);  ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.42, 1.4, 0, 6.2832);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath(); ctx.arc(-h * 0.78, ly, 2.2, 0, 6.2832); ctx.fill(); // bubble bullet
+            ctx.beginPath(); ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.55) + 'px "Quicksand","Segoe UI",sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2.1, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2.1, 0, 6.2832); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRectLocal(ctx, -h, -h * 0.7, s, s * 0.85, 7); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRectLocal(ctx, -h, -h * 0.55, s, s * 0.95, 8); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.7, 0, 6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, 6.2832); ctx.stroke();
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85); ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);  ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 2.1, 0, 6.2832); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr, Y = Math.sin(ang) * rr;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'community': {
+          // three little bubble-heads (a soapy cluster)
+          ctx.beginPath(); ctx.arc(0, -h * 0.35, h * 0.34, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.6, h * 0.05, h * 0.28, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.6, h * 0.05, h * 0.28, 0, 6.2832); ctx.stroke();
+          // shoulders arcs
+          ctx.beginPath(); ctx.arc(0, h * 0.95, h * 0.5, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.6, h * 1.15, h * 0.42, Math.PI * 1.2, Math.PI * 1.85); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.6, h * 1.15, h * 0.42, Math.PI * 1.15, Math.PI * 1.8); ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRectLocal(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

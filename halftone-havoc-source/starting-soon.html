@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Halftone Havoc — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the generative comic page: halftone dots + speed lines + ink specks -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="page-glow" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- bold black panel border (the comic gutter) -->
+    <div class="panel" aria-hidden="true"></div>
+    <div class="regmark regmark--tl" aria-hidden="true">ISSUE #01</div>
+    <div class="regmark regmark--tr" aria-hidden="true">PANEL 1/1</div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?kicker=...&sub=...&tag=...&tag2=... at render time; use =- to remove one.) -->
+    <div class="issue is-slot" data-slot="tag" aria-hidden="true">[ your text here ]</div>
+
+    <main class="page">
+      <!-- jagged comic STARBURST holding the kicker -->
+      <div class="burst" aria-hidden="false">
+        <svg viewBox="0 0 430 206" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" aria-hidden="true">
+          <polygon class="star-fill" points="215,2 248,44 300,18 297,70 360,58 332,104 404,116 343,140 388,184 318,170 318,204 268,176 232,200 205,160 168,200 142,168 96,196 96,160 38,180 76,138 12,124 70,100 26,62 86,68 80,20 132,42 168,8 196,46" />
+          <polygon class="star-line" points="215,2 248,44 300,18 297,70 360,58 332,104 404,116 343,140 388,184 318,170 318,204 268,176 232,200 205,160 168,200 142,168 96,196 96,160 38,180 76,138 12,124 70,100 26,62 86,68 80,20 132,42 168,8 196,46" />
+        </svg>
+        <p class="kicker is-slot" id="kicker" data-slot="kicker">[ your text here ]</p>
+      </div>
+
+      <!-- HEADLINE = the MESSAGE, never the theme name -->
+      <h1 class="title">
+        <span class="l l1">STARTING</span>
+        <span class="l l2">SOON</span>
+      </h1>
+
+      <p class="sub is-slot" data-slot="sub">[ your text here ]</p>
+
+      <!-- inked CHARGE bar that fills with halftone dots (no numbers) -->
+      <div class="bar" aria-hidden="true">
+        <div class="fill" id="fill"></div>
+        <div class="status is-slot" id="status" data-slot="tag2">[ your text here ]</div>
+      </div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

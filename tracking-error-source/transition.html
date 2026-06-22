@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Tracking Error VHS Tracking-Roll Wipe</title>
+  <!--
+    TRACKING ERROR stinger ("Tracking…"). The picture loses sync: a wall of
+    fine luminance SNOW floods in, a thick rolling TRACKING band sweeps the
+    screen and the whole frame "rolls" vertically (analog vertical-hold loss),
+    chroma TEARS into red/cyan fringes, and white DROPOUT streaks slash across.
+    At full cover (t=0.5) the picture is solid CRT-black snow with a hot
+    red/cyan chroma-split flash bar; then the tube re-locks, the snow thins and
+    the rolling band slides off, clearing to transparent. NOT synthwave, NOT
+    8-bit — this is analog tape losing tracking.
+
+    Transparent before & after, deterministic (seeded RNG, NO Math.random in the
+    frame fn), sine-driven, ~1100ms. Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1100  total duration in ms (default 1100)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (full cover).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1100;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (tracking error) ---- */
+    const CRT_BLACK = '#0F0F0F', CRT_BLACK2 = '#070707';
+    const PHOSPHOR = '#E8E8E8', REC_RED = '#FF0033', CHROMA_CYAN = '#19C3FF';
+    const CAUTION = '#FFE600';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (used ONLY to build the static field +
+       dropout schedule up-front; the per-frame fn re-derives everything from
+       these fixed arrays + t, so frames are stable in preview AND export). ---- */
+    let seed = 0x7A11;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* fixed snow specks: each has a home cell, a flicker phase, and a vertical
+       "roll" coupling so the whole field appears to roll when tracking is lost. */
+    const N_SNOW = 720;
+    const snow = Array.from({ length: N_SNOW }, () => ({
+      x: (rnd() * W) | 0,
+      y: (rnd() * H) | 0,
+      s: (R(1, 3.2)) | 0 || 1,                 // speck size 1..3 px
+      base: R(0.35, 1.0),                       // base luminance
+      fph: R(0, 6.2832), ffr: R(2.0, 7.0),      // flicker phase + freq
+      roll: R(0.6, 1.4),                        // how strongly it rides the roll
+    }));
+
+    /* dropout streaks: bright white horizontal tears with a red/cyan leading
+       fringe. Each fires in a small t-window at a fixed y, sweeping across. */
+    const N_DROP = 9;
+    const drops = Array.from({ length: N_DROP }, () => ({
+      y: (R(H * 0.06, H * 0.94)) | 0,
+      h: (R(3, 11)) | 0,
+      lead: R(0.10, 0.82),                      // when it starts
+      span: R(0.06, 0.16),                      // how long it lives
+      dir: rnd() < 0.5 ? 1 : -1,
+      len: R(0.45, 1.05),                       // fraction of width it spans
+      a: R(0.5, 0.95),
+    }));
+
+    /* a few jittering tracking tear-bands that snap to vertical positions */
+    const N_BAND = 3;
+    const bands = Array.from({ length: N_BAND }, () => ({
+      yA: R(0.12, 0.45), yB: R(0.5, 0.85),
+      h: R(14, 46), ph: R(0, 6.2832), fr: R(3, 6),
+      a: R(0.3, 0.7),
+    }));
+
+    /* ---- the analog SNOW field. density follows cover; the whole field rolls
+       vertically (offset grows then unwinds) to read as vertical-hold loss. ---- */
+    function drawSnow(t, cover) {
+      if (cover <= 0.01) return;
+      // rolling offset: ramps up with cover, plus a steady creep across the clip
+      const roll = (cover * 520 + t * 240) % H;
+      const flickT = t * 6.2832;
+      const dens = cover;                        // fraction of specks shown
+      ctx.save();
+      for (let i = 0; i < N_SNOW; i++) {
+        const p = snow[i];
+        // deterministic "is this speck on this frame" — phase-gated, not random
+        const fl = 0.5 + 0.5 * Math.sin(p.fph + flickT * p.ffr);
+        if (fl > dens) continue;                 // sparser when cover is low
+        const y = ((p.y + roll * p.roll) % H + H) % H;
+        const lum = p.base * (0.55 + 0.45 * fl);
+        const g = (lum * 255) | 0;
+        ctx.globalAlpha = Math.min(1, lum * cover + 0.05);
+        ctx.fillStyle = 'rgb(' + g + ',' + g + ',' + g + ')';
+        ctx.fillRect(p.x, y | 0, p.s, p.s);
+      }
+      ctx.restore();
+    }
+
+    /* ---- a CRT-black wash behind the snow so the picture reads as a tube, not
+       loose specks on nothing. Soft-edged so it stays transparent at the rim. ---- */
+    function drawTube(cover) {
+      if (cover <= 0.02) return;
+      ctx.save();
+      const g = ctx.createRadialGradient(CX, CY, H * 0.10, CX, CY, H * 0.95);
+      g.addColorStop(0.00, 'rgba(20,20,20,' + (0.96 * cover).toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(15,15,15,' + (0.94 * cover).toFixed(3) + ')');
+      g.addColorStop(0.85, 'rgba(7,7,7,'  + (0.85 * cover).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(7,7,7,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    /* ---- the signature TRACKING band: a thick horizontal smear that sweeps
+       down the screen, dragging a cyan ghost above + red ghost below (chroma
+       tear) and a torn bright seam. Position is a deterministic fn of t. ---- */
+    function drawTrackingBand(t, cover) {
+      if (cover <= 0.02) return;
+      // sweep from above the top to below the bottom over the clip
+      const y = lerp(-260, H + 260, t);
+      const bh = lerp(120, 300, cover);          // taller at full cover
+      const a = cover;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      // cyan ghost (shifted up)
+      ctx.globalAlpha = 0.45 * a;
+      ctx.fillStyle = CHROMA_CYAN;
+      ctx.fillRect(0, (y - 14) | 0, W, bh | 0);
+      // red ghost (shifted down)
+      ctx.globalAlpha = 0.42 * a;
+      ctx.fillStyle = REC_RED;
+      ctx.fillRect(0, (y + 14) | 0, W, bh | 0);
+
+      // bright torn smear core
+      const cg = ctx.createLinearGradient(0, y, 0, y + bh);
+      cg.addColorStop(0.0, 'rgba(232,232,232,0)');
+      cg.addColorStop(0.5, 'rgba(232,232,232,' + (0.55 * a).toFixed(3) + ')');
+      cg.addColorStop(1.0, 'rgba(232,232,232,0)');
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = cg;
+      ctx.fillRect(0, y | 0, W, bh | 0);
+
+      // a torn bright seam line riding the band (jagged via deterministic steps)
+      ctx.globalAlpha = 0.8 * a;
+      ctx.fillStyle = PHOSPHOR;
+      const seamY = y + bh * 0.5;
+      let x = 0;
+      while (x < W) {
+        const seg = 40 + ((Math.sin((x * 0.013) + t * 30) * 0.5 + 0.5) * 90 | 0);
+        const dy = (Math.sin((x * 0.02) + t * 22) * 5) | 0;
+        ctx.fillRect(x, (seamY + dy) | 0, seg, 3);
+        x += seg + 18;
+      }
+      ctx.restore();
+    }
+
+    /* ---- jittering tracking tear-bands (smaller, snapping) over the picture ---- */
+    function drawTearBands(t, cover) {
+      if (cover <= 0.05) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const b of bands) {
+        const ph = 0.5 + 0.5 * Math.sin(b.ph + t * 6.2832 * b.fr);
+        const y = lerp(b.yA, b.yB, ph) * H;
+        ctx.globalAlpha = b.a * cover * (0.4 + 0.6 * ph);
+        const g = ctx.createLinearGradient(0, y, W, y);
+        g.addColorStop(0.0, 'rgba(232,232,232,0)');
+        g.addColorStop(0.2, 'rgba(232,232,232,0.5)');
+        g.addColorStop(0.5, 'rgba(25,195,255,0.45)');
+        g.addColorStop(0.65, 'rgba(255,0,51,0.4)');
+        g.addColorStop(1.0, 'rgba(232,232,232,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, y | 0, W, b.h | 0);
+      }
+      ctx.restore();
+    }
+
+    /* ---- white DROPOUT streaks: hot tears that slash across with a red/cyan
+           leading fringe. Each lives in its fixed t-window. ---- */
+    function drawDropouts(t, cover) {
+      ctx.save();
+      for (const d of drops) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const env = Math.sin(lt * Math.PI);       // 0 at ends, 1 mid
+        if (env <= 0.02) continue;
+        const reach = W * d.len;
+        // leading edge position sweeping in d.dir
+        const headX = d.dir > 0 ? lerp(-reach, W, lt) : lerp(W, -reach, lt);
+        const tailX = headX - d.dir * reach;
+        const x0 = Math.min(headX, tailX), x1 = Math.max(headX, tailX);
+        const a = d.a * env * Math.min(1, cover + 0.2);
+        ctx.globalCompositeOperation = 'screen';
+        // white body
+        ctx.globalAlpha = a;
+        ctx.fillStyle = PHOSPHOR;
+        ctx.fillRect(x0 | 0, d.y, (x1 - x0) | 0, d.h);
+        // chroma fringe at the leading edge
+        const fx = (d.dir > 0 ? x1 : x0) | 0;
+        ctx.globalAlpha = a * 0.9;
+        ctx.fillStyle = CHROMA_CYAN;
+        ctx.fillRect(fx - 6, d.y - 2, 8, d.h + 4);
+        ctx.fillStyle = REC_RED;
+        ctx.fillRect(fx + (d.dir > 0 ? 4 : -10), d.y - 2, 6, d.h + 4);
+      }
+      ctx.restore();
+    }
+
+    /* ---- dense scanline multiply over the picture so it reads as CRT ---- */
+    function drawScanlines(cover) {
+      if (cover <= 0.04) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.5 * cover;
+      ctx.fillStyle = '#000';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawTube(cover);
+      drawSnow(t, cover);
+      drawScanlines(cover);
+      drawTearBands(t, cover);
+      drawTrackingBand(t, cover);
+      drawDropouts(t, cover);
+
+      // hot red/cyan chroma-split flash bar at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const bandH = 220;
+        const yTop = CY - bandH / 2;
+        // cyan slab (left-shifted) + red slab (right-shifted) -> chroma split
+        ctx.globalAlpha = 0.6 * flash;
+        ctx.fillStyle = CHROMA_CYAN;
+        ctx.fillRect(-18, yTop | 0, W, bandH);
+        ctx.globalAlpha = 0.55 * flash;
+        ctx.fillStyle = REC_RED;
+        ctx.fillRect(18, yTop | 0, W, bandH);
+        // bright phosphor core
+        const fg = ctx.createLinearGradient(0, yTop, 0, yTop + bandH);
+        fg.addColorStop(0.0, 'rgba(232,232,232,0)');
+        fg.addColorStop(0.5, 'rgba(232,232,232,' + (0.85 * flash).toFixed(3) + ')');
+        fg.addColorStop(1.0, 'rgba(232,232,232,0)');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, yTop | 0, W, bandH);
+        // a caution-yellow tracking tick at the edges of the flash
+        ctx.globalAlpha = 0.5 * flash;
+        ctx.fillStyle = CAUTION;
+        ctx.fillRect(0, (yTop - 4) | 0, W, 3);
+        ctx.fillRect(0, (yTop + bandH + 1) | 0, W, 3);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

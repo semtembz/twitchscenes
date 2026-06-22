@@ -1,0 +1,267 @@
+/* ============================================================
+   BUBBLE BATH — shared design system ("Soap & Shimmer")
+   A bright AQUA-POP bubble bath. The composition is a CENTERED,
+   squishy translucent JELLY / glass panel floating in a warm aqua
+   bath, with a holographic iridescent SHEEN sweeping across it, a
+   thick glossy rounded border + an inner gloss highlight, and a
+   gentle jiggle/wobble. Rising IRIDESCENT BUBBLES (soap-film rainbow
+   rims + white specular dots) + tiny sparkle/twinkle accents fill the
+   field on a single canvas. The title is heavy rounded sans in
+   periwinkle/pink with a glossy shine; the loading bar is a rounded
+   bubbly TUBE that fills with liquid + tiny bubbles. Bouncy, bright,
+   soap-shimmer. Bespoke to THIS theme — shares only engine
+   conventions (the invisible plumbing) with the other sources.
+   ============================================================ */
+:root{
+  /* palette (token NAMES are stable across this source) */
+  --sky-aqua:#D9F4FF;      /* sky-aqua bath bg */
+  --mint-aqua:#A0E7E5;     /* mint aqua */
+  --bubblegum:#FFB7D5;     /* bubblegum pink */
+  --lemon:#FFF4C2;         /* soft lemon */
+  --periwinkle:#6C7AE0;    /* periwinkle accent */
+  --ink:#3A4A7A;           /* deep ink text */
+
+  /* derived tints / glass / glow */
+  --aqua-deep:#BDEBFB;                    /* deeper bath tint near floor */
+  --jelly:rgba(255,255,255,.42);          /* jelly panel fill */
+  --jelly-2:rgba(217,244,255,.30);        /* jelly panel fill (lower) */
+  --jelly-edge:rgba(255,255,255,.85);     /* glossy rounded border */
+  --jelly-edge-2:rgba(160,231,229,.55);   /* secondary edge tint */
+  --gloss:rgba(255,255,255,.7);           /* inner gloss highlight */
+  --peri-soft:rgba(108,122,224,.55);
+  --pink-soft:rgba(255,183,213,.6);
+  --ink-soft:rgba(58,74,122,.6);
+  --shadow:rgba(108,122,224,.28);         /* soft periwinkle drop shadow */
+
+  /* font stacks — heavy ROUNDED sans, system / web-safe ONLY (NO CDN;
+     Baloo/Fredoka are CDN and intentionally excluded) */
+  --display:"Quicksand","Comfortaa","Varela Round","Segoe UI Variable","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+  --body:"Quicksand","Comfortaa","Varela Round","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+  --ease:cubic-bezier(.34,1.56,.4,1);     /* overshoot / bouncy */
+  --ease-soft:cubic-bezier(.22,1,.32,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--sky-aqua);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  font-family:var(--body);
+  background:
+    radial-gradient(120% 90% at 50% 8%, #EAFBFF 0%, transparent 55%),
+    radial-gradient(95% 70% at 16% 92%, rgba(255,183,213,.30), transparent 60%),
+    radial-gradient(95% 70% at 86% 96%, rgba(160,231,229,.45), transparent 62%),
+    radial-gradient(80% 60% at 88% 8%, rgba(255,244,194,.40), transparent 60%),
+    linear-gradient(180deg, var(--sky-aqua) 0%, #CDEFFB 52%, var(--aqua-deep) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* a soft soap-film shimmer wash + a gentle vignette over the whole bath */
+.wash{position:absolute;inset:0;pointer-events:none;opacity:.55;mix-blend-mode:soft-light;
+  background:repeating-linear-gradient(122deg,
+    rgba(255,255,255,.06) 0 3px, transparent 3px 12px);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 280px rgba(108,122,224,.16), inset 0 -120px 200px rgba(160,231,229,.30);}
+
+/* a slow iridescent light-sweep wandering across the whole bath */
+.bathsweep{position:absolute;inset:-20% -40%;pointer-events:none;mix-blend-mode:screen;opacity:.45;
+  background:linear-gradient(112deg, transparent 36%,
+    rgba(255,183,213,.14) 45%, rgba(255,244,194,.16) 50%, rgba(160,231,229,.14) 55%, transparent 64%);
+  animation:bathsweep 11s ease-in-out infinite;}
+@keyframes bathsweep{0%{transform:translateX(-20%)}50%{transform:translateX(20%)}100%{transform:translateX(-20%)}}
+
+/* ============================================================
+   THE SIGNATURE COMPOSITION — a squishy translucent JELLY PANEL,
+   centered, that jiggles softly with an iridescent sheen sweep.
+   ============================================================ */
+.panel{position:absolute;left:50%;top:50%;
+  width:1160px;min-height:660px;padding:78px 96px 88px;
+  transform:translate(-50%,-50%);
+  transform-origin:center 60%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  border-radius:78px;
+  background:
+    linear-gradient(180deg, var(--jelly) 0%, var(--jelly-2) 100%);
+  border:6px solid var(--jelly-edge);
+  box-shadow:
+    0 40px 90px var(--shadow),
+    0 12px 30px rgba(108,122,224,.18),
+    inset 0 4px 0 rgba(255,255,255,.9),
+    inset 0 -30px 60px rgba(160,231,229,.30),
+    inset 0 0 0 2px var(--jelly-edge-2);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  overflow:hidden;
+  animation:
+    panelin 1.05s var(--ease) both .12s,
+    jiggle 6.5s ease-in-out infinite 1.2s;}
+
+/* inner top gloss highlight (the squishy "wet" reflection) */
+.panel::before{content:"";position:absolute;left:6%;right:6%;top:5%;height:32%;
+  border-radius:60px;pointer-events:none;
+  background:linear-gradient(180deg, var(--gloss) 0%, rgba(255,255,255,0) 100%);
+  opacity:.75;filter:blur(2px);}
+
+/* a holographic iridescent SHEEN sweeping across the panel surface */
+.panel::after{content:"";position:absolute;top:-60%;bottom:-60%;left:-40%;width:46%;
+  pointer-events:none;mix-blend-mode:screen;
+  transform:skewX(-18deg);
+  background:linear-gradient(90deg, transparent 0%,
+    rgba(255,183,213,.0) 8%, rgba(255,183,213,.35) 28%,
+    rgba(255,244,194,.45) 46%, rgba(160,231,229,.40) 60%,
+    rgba(108,122,224,.22) 74%, transparent 100%);
+  animation:sheen 5.2s ease-in-out infinite 1.6s;}
+
+@keyframes panelin{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.86)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes jiggle{
+  0%,100%{transform:translate(-50%,-50%) scale(1,1)}
+  25%{transform:translate(-50%,-50%) scale(1.012,.988)}
+  50%{transform:translate(-50%,-50%) scale(.99,1.01)}
+  75%{transform:translate(-50%,-50%) scale(1.008,.992)}}
+@keyframes sheen{
+  0%{left:-46%;opacity:0}
+  18%{opacity:1}
+  60%{opacity:1}
+  82%{left:120%;opacity:0}
+  100%{left:120%;opacity:0}}
+
+/* a little rounded "soap bar" crest / pill above the kicker */
+.crest{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px;
+  animation:popin .8s var(--ease) both .5s;}
+.crest .dot{width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 70%);
+  box-shadow:0 0 14px var(--pink-soft);}
+.crest .dot.b{background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+  box-shadow:0 0 14px rgba(160,231,229,.7);}
+.crest .dot.c{background:radial-gradient(circle at 35% 30%, #fff, var(--periwinkle) 75%);
+  box-shadow:0 0 14px var(--peri-soft);}
+
+/* kicker — rounded, spaced caps in a soft pill */
+.kicker{position:relative;z-index:2;
+  font-family:var(--display);font-weight:700;
+  letter-spacing:.42em;font-size:25px;text-transform:uppercase;
+  color:var(--periwinkle);text-indent:.42em;
+  padding:11px 30px;border-radius:999px;
+  background:rgba(255,255,255,.55);
+  box-shadow:0 6px 16px rgba(108,122,224,.18), inset 0 2px 0 rgba(255,255,255,.9);
+  animation:popin .85s var(--ease) both .42s;}
+
+/* the heavy rounded TITLE — glossy periwinkle, accent line in pink */
+.title{position:relative;z-index:2;margin:24px 0 8px;
+  font-family:var(--display);font-weight:700;
+  font-size:150px;line-height:.86;letter-spacing:-.01em;text-transform:uppercase;
+  color:var(--periwinkle);
+  text-shadow:
+    0 2px 0 #fff,
+    0 6px 0 rgba(160,231,229,.55),
+    0 14px 26px rgba(108,122,224,.28);}
+.title .line{display:block;animation:risein 1s var(--ease) both .6s;}
+.title .line.two{animation-delay:.72s;}
+/* glossy "wet" top shine clipped to the accent word */
+.title .accent{display:block;animation:risein 1.05s var(--ease) both .86s;
+  background:linear-gradient(180deg,
+    #FFE3EF 0%, var(--bubblegum) 38%, #F58FBC 72%, #E06BA0 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 4px 18px rgba(255,183,213,.55);
+  filter:drop-shadow(0 2px 0 #fff);}
+
+/* a rounded bubbly underline rule with bubble caps */
+.rule{position:relative;z-index:2;width:280px;height:8px;margin:10px auto 0;border-radius:999px;
+  background:linear-gradient(90deg, transparent, var(--mint-aqua) 22%, var(--bubblegum) 50%, var(--mint-aqua) 78%, transparent);
+  opacity:.9;animation:popin .9s var(--ease) both 1s;}
+.rule::before,.rule::after{content:"";position:absolute;top:50%;width:18px;height:18px;border-radius:50%;
+  transform:translateY(-50%);
+  background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 72%);
+  box-shadow:0 0 12px var(--pink-soft);}
+.rule::before{left:-16px;} .rule::after{right:-16px;
+  background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+  box-shadow:0 0 12px rgba(160,231,229,.7);}
+
+/* subtitle — soft rounded, lowercase, gentle ink */
+.sub{position:relative;z-index:2;margin-top:30px;
+  font-family:var(--body);font-weight:600;font-size:32px;letter-spacing:.02em;
+  color:var(--ink-soft);
+  animation:risein 1s var(--ease-soft) both 1.1s;}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
+/* ---- loading = a rounded bubbly TUBE that fills with liquid ---- */
+.tube{position:relative;z-index:2;margin-top:48px;width:560px;height:30px;border-radius:999px;
+  background:rgba(255,255,255,.5);
+  box-shadow:
+    inset 0 3px 8px rgba(108,122,224,.18),
+    inset 0 -2px 0 rgba(255,255,255,.7),
+    0 6px 16px rgba(108,122,224,.14);
+  border:3px solid rgba(255,255,255,.8);
+  overflow:hidden;
+  animation:popin .9s var(--ease) both 1.2s;}
+.tube .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:999px;
+  background:linear-gradient(180deg, #BFF0EF 0%, var(--mint-aqua) 42%, #7FD9D6 100%);
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.7), 0 0 18px rgba(160,231,229,.7);
+  transition:width .25s linear;}
+/* liquid top gloss + a moving bubble shimmer inside the fill */
+.tube .fill::before{content:"";position:absolute;left:0;right:0;top:0;height:42%;border-radius:999px;
+  background:linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,0));}
+.tube .fill::after{content:"";position:absolute;inset:0;opacity:.7;
+  background:
+    radial-gradient(circle at 12% 60%, rgba(255,255,255,.9) 2.2px, transparent 3px),
+    radial-gradient(circle at 30% 40%, rgba(255,255,255,.85) 1.6px, transparent 2.4px),
+    radial-gradient(circle at 52% 70%, rgba(255,255,255,.9) 2.4px, transparent 3.2px),
+    radial-gradient(circle at 72% 45%, rgba(255,255,255,.8) 1.8px, transparent 2.6px),
+    radial-gradient(circle at 90% 62%, rgba(255,255,255,.9) 2px, transparent 2.8px);
+  background-size:140px 100%;
+  animation:tubebub 2.6s linear infinite;}
+@keyframes tubebub{0%{background-position:0 0,0 0,0 0,0 0,0 0}100%{background-position:140px 0,140px 0,140px 0,140px 0,140px 0}}
+
+/* handle — soft pill, lower right on the bath */
+.handle{position:absolute;right:70px;bottom:54px;z-index:3;
+  font-family:var(--display);font-weight:700;letter-spacing:.16em;font-size:27px;
+  color:var(--periwinkle);text-indent:.16em;
+  padding:12px 26px;border-radius:999px;
+  background:rgba(255,255,255,.55);
+  box-shadow:0 8px 20px rgba(108,122,224,.18), inset 0 2px 0 rgba(255,255,255,.9);
+  animation:popin 1s var(--ease) both 1.4s;}
+
+/* a tiny corner soap-tag, top-left on the bath */
+.tag{position:absolute;left:70px;top:58px;z-index:3;
+  font-family:var(--display);font-weight:700;letter-spacing:.34em;font-size:20px;
+  color:var(--ink-soft);text-indent:.34em;opacity:.85;
+  animation:popin 1s var(--ease) both 1.5s;}
+
+/* shared entrance keyframes (animate transform/opacity ONLY) */
+@keyframes popin{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:scale(1)}}
+@keyframes risein{0%{opacity:0;transform:translateY(26px)}100%{opacity:1;transform:translateY(0)}}
+
+/* status dot helper (used by other screens; harmless here) */
+.status{display:inline-flex;align-items:center;gap:10px;}
+.status .sdot{width:13px;height:13px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 72%);
+  box-shadow:0 0 12px var(--pink-soft);animation:spulse 1.6s ease-in-out infinite;}
+@keyframes spulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}}
+
+/* ============================================================
+   RENDER MODE: freeze ALL entrance animations to their final state
+   so the headless pipeline captures a clean deterministic webm.
+   Only the canvas bg + the loading tube fill are stepped by JS.
+   ============================================================ */
+#stage.render .bathsweep{animation:none;display:none;}
+#stage.render .panel{animation:none!important;opacity:1;
+  transform:translate(-50%,-50%) scale(1);}
+#stage.render .panel::after{animation:none;display:none;}   /* freeze sheen sweep */
+#stage.render .crest,
+#stage.render .kicker,
+#stage.render .title,
+#stage.render .title .line,
+#stage.render .title .accent,
+#stage.render .rule,
+#stage.render .sub,
+#stage.render .tube,
+#stage.render .handle,
+#stage.render .tag{animation:none!important;opacity:1;transform:none;}
+#stage.render .tube .fill::after{animation:none;}            /* freeze bubble shimmer */
+#stage.render .status .sdot{animation:none;}

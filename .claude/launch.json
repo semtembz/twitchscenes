@@ -108,6 +108,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "venom-surge-source", "5594"],
       "port": 5594
+    },
+    {
+      "name": "mecha-hangar-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "mecha-hangar-source", "5595"],
+      "port": 5595
+    },
+    {
+      "name": "tracking-error-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "tracking-error-source", "5596"],
+      "port": 5596
+    },
+    {
+      "name": "bubble-bath-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "bubble-bath-source", "5597"],
+      "port": 5597
+    },
+    {
+      "name": "halftone-havoc-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "halftone-havoc-source", "5598"],
+      "port": 5598
     }
   ]
 }

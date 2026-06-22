@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tracking Error — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the TRACKING ERROR
+    VHS/CRT analog-broadcast language:
+        - a CRT-black tube card with a curved-corner vignette + glass glare
+        - dense fixed SCANLINES (multiply) + a faint phosphor hairline frame
+        - a re-rolled luminance SNOW dusting + a chroma-shift smear band
+        - a mono OSD label with a hard RGB chroma-split (red-left / cyan-right)
+        - a yellow caution-chip "category" tag + a red REC dot in the corner
+        - a thin phosphor OSD line icon (heart, calendar, list, ...)
+    Each panel has its own Download button + there is a "Download all".
+
+    Everything random is from a SEEDED LCG (never Math.random) so the snow /
+    smear is identical on every render.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Tracking Error palette (mirrors shared.css tokens) ---- */
+    :root{
+      --crt-black:#0F0F0F; --crt-black-2:#070707;
+      --phosphor:#E8E8E8; --rec-red:#FF0033; --chroma-cyan:#19C3FF;
+      --caution:#FFE600; --dim:rgba(232,232,232,.55);
+      --osd:"Consolas","Courier New",ui-monospace,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--osd);color:var(--phosphor);padding:36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 50% -10%, #1a1a1a 0%, rgba(20,20,20,0) 60%),
+        linear-gradient(180deg,#101010,var(--crt-black-2));
+      min-height:100vh;}
+    .kicker{font-family:var(--osd);letter-spacing:.5em;font-size:12px;color:var(--caution);
+      text-transform:uppercase;margin:0 0 8px;display:flex;align-items:center;gap:12px;}
+    .rec{width:11px;height:11px;border-radius:50%;background:var(--rec-red);
+      box-shadow:0 0 12px rgba(255,0,51,.7);}
+    h1{font-family:var(--osd);font-weight:700;font-size:28px;letter-spacing:.04em;margin:0 0 6px;
+      color:var(--phosphor);
+      text-shadow:-3px 0 0 rgba(255,0,51,.7),3px 0 0 rgba(25,195,255,.6);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:760px;line-height:1.6;font-size:15px;}
+    code{font-family:var(--osd);color:var(--caution);background:rgba(255,230,0,.08);
+      padding:2px 7px;border-radius:2px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:var(--osd);font-weight:700;font-size:13px;letter-spacing:.2em;
+      text-transform:uppercase;padding:12px 24px;cursor:pointer;color:var(--crt-black);
+      background:var(--caution);border:2px solid rgba(15,15,15,.6);border-radius:2px;
+      box-shadow:0 0 22px rgba(255,230,0,.3);}
+    button:hover{filter:brightness(1.08);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(15,15,15,.6);padding:16px;border-radius:4px;
+      border:1px solid rgba(232,232,232,.16);}
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#0c0c0c;
+      background-image:
+        linear-gradient(45deg,#1a1a1a 25%,transparent 25%),
+        linear-gradient(-45deg,#1a1a1a 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1a1a1a 75%),
+        linear-gradient(-45deg,transparent 75%,#1a1a1a 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{letter-spacing:.2em;color:var(--dim);text-transform:uppercase;}
+    .card-row a{letter-spacing:.1em;color:var(--caution);text-decoration:none;
+      border:1px solid rgba(255,230,0,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(255,230,0,.14);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="rec"></span>TRACKING ERROR · PANELS</p>
+  <h1>TRACKING ERROR — TWITCH PANELS</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the VHS/CRT analog style:
+    a CRT-black tube card, scanlines, snow + a chroma-shift smear, a mono OSD label with an
+    RGB chroma-split, a yellow caution-chip tag and a blinking-style REC dot. Download all then
+    upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W=320, H=100;
+    var CRT_BLACK='#0F0F0F', CRT_BLACK2='#070707';
+    var PHOSPHOR='#E8E8E8', REC_RED='#FF0033', CHROMA_CYAN='#19C3FF', CAUTION='#FFE600';
+    var DIM='rgba(232,232,232,0.55)';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS=[
+      {id:'about',     title:'ABOUT',     tag:'CH 01', icon:'heart'},
+      {id:'schedule',  title:'SCHEDULE',  tag:'CH 02', icon:'calendar'},
+      {id:'rules',     title:'RULES',     tag:'CH 03', icon:'list'},
+      {id:'donations', title:'DONATIONS', tag:'CH 04', icon:'coin'},
+      {id:'discord',   title:'DISCORD',   tag:'CH 05', icon:'discord'},
+      {id:'twitter',   title:'TWITTER',   tag:'CH 06', icon:'twitter'},
+      {id:'youtube',   title:'YOUTUBE',   tag:'CH 07', icon:'play'},
+      {id:'instagram', title:'INSTAGRAM', tag:'CH 08', icon:'camera'},
+      {id:'merch',     title:'MERCH',     tag:'CH 09', icon:'tag'},
+      {id:'sponsors',  title:'SPONSORS',  tag:'CH 10', icon:'ribbon'},
+      {id:'subscribe', title:'SUBSCRIBE', tag:'CH 11', icon:'star'},
+      {id:'community', title:'COMMUNITY', tag:'CH 12', icon:'users'}
+    ];
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random ----
+    function makeRand(seed){var s=seed>>>0;return function(){s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};}
+    function R(rnd,a,b){return a+rnd()*(b-a);}
+
+    // rounded-rect path helper
+    function roundRect(ctx,x,y,w,h,r){
+      r=Math.min(r,w/2,h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r,y);
+      ctx.arcTo(x+w,y,x+w,y+h,r);
+      ctx.arcTo(x+w,y+h,x,y+h,r);
+      ctx.arcTo(x,y+h,x,y,r);
+      ctx.arcTo(x,y,x+w,y,r);
+      ctx.closePath();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx,p){
+      ctx.clearRect(0,0,W,H);
+      var rnd=makeRand(0xFF0033 ^ (p.id.charCodeAt(0)*131 + p.id.length*977));
+      var pad=3, x=pad, y=pad, w=W-pad*2, h=H-pad*2, rad=10;
+
+      // ---- CRT tube body, clipped to a rounded (curved screen) silhouette ----
+      ctx.save();
+      roundRect(ctx,x,y,w,h,rad);
+      ctx.clip();
+
+      // tube black with a radial center-bright wash
+      var bg=ctx.createRadialGradient(W*0.5,H*0.42,10,W*0.5,H*0.42,W*0.7);
+      bg.addColorStop(0,'#1c1c1c'); bg.addColorStop(0.5,'#131313');
+      bg.addColorStop(0.78,CRT_BLACK); bg.addColorStop(1,CRT_BLACK2);
+      ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+      // luminance SNOW (seeded specks, varied brightness)
+      for(var i=0;i<240;i++){
+        var sx=Math.round(R(rnd,0,W)), sy=Math.round(R(rnd,0,H));
+        var lum=R(rnd,0.05,0.32);
+        ctx.fillStyle='rgba(232,232,232,'+lum.toFixed(3)+')';
+        ctx.fillRect(sx,sy,1,1);
+      }
+
+      // a chroma-shift SMEAR band (cyan ghost / red ghost, additive) rolling across
+      var smY=Math.round(R(rnd,18,h-26));
+      ctx.save();
+      ctx.globalCompositeOperation='screen';
+      var sg=ctx.createLinearGradient(0,smY,0,smY+18);
+      sg.addColorStop(0,'rgba(0,0,0,0)');
+      sg.addColorStop(0.5,'rgba(25,195,255,0.16)');
+      sg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=sg; ctx.fillRect(0,smY,W,18);
+      var sg2=ctx.createLinearGradient(0,smY+4,0,smY+22);
+      sg2.addColorStop(0,'rgba(0,0,0,0)');
+      sg2.addColorStop(0.5,'rgba(255,0,51,0.12)');
+      sg2.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=sg2; ctx.fillRect(0,smY+4,W,18);
+      ctx.restore();
+
+      // intermittent white DROPOUT streaks with chroma leading-edge
+      for(var d=0;d<3;d++){
+        var dy=Math.round(R(rnd,8,h-8)), dw=R(rnd,30,120), dx=R(rnd,0,W-dw);
+        ctx.fillStyle='rgba(232,232,232,'+R(rnd,0.10,0.22).toFixed(3)+')';
+        ctx.fillRect(Math.round(dx),dy,Math.round(dw),1);
+        ctx.fillStyle='rgba(255,0,51,0.5)'; ctx.fillRect(Math.round(dx)-1,dy,2,1);
+        ctx.fillStyle='rgba(25,195,255,0.5)'; ctx.fillRect(Math.round(dx+dw)-1,dy,2,1);
+      }
+
+      // dense SCANLINES (multiply)
+      ctx.save();
+      ctx.globalCompositeOperation='multiply';
+      ctx.fillStyle='rgba(0,0,0,0.55)';
+      for(var ly=0;ly<H;ly+=3) ctx.fillRect(0,ly,W,1);
+      ctx.restore();
+
+      // glass glare wash top
+      ctx.save();
+      ctx.globalCompositeOperation='screen';
+      var gl=ctx.createRadialGradient(W*0.5,-20,10,W*0.5,-20,W*0.7);
+      gl.addColorStop(0,'rgba(232,232,232,0.10)'); gl.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=gl; ctx.fillRect(0,0,W,H*0.7);
+      ctx.restore();
+
+      // curvature vignette
+      var vg=ctx.createRadialGradient(W/2,H/2,30,W/2,H/2,W*0.62);
+      vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.7)');
+      ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+      ctx.restore(); // end clip
+
+      // ---- phosphor hairline frame (double) on top ----
+      ctx.save();
+      ctx.strokeStyle='rgba(232,232,232,0.5)'; ctx.lineWidth=1;
+      roundRect(ctx,x+0.5,y+0.5,w-1,h-1,rad); ctx.stroke();
+      ctx.strokeStyle='rgba(232,232,232,0.16)';
+      roundRect(ctx,x+4.5,y+4.5,w-9,h-9,rad-3); ctx.stroke();
+      ctx.restore();
+
+      // ---- top-left REC dot ----
+      ctx.save();
+      ctx.fillStyle=REC_RED; ctx.shadowColor='rgba(255,0,51,0.7)'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(18,18,4.5,0,6.2832); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.font='700 9px '+css('--osd'); ctx.fillStyle=PHOSPHOR; ctx.textBaseline='middle';
+      ctx.fillText('REC',27,18);
+      ctx.restore();
+
+      // ---- top-right caution-chip channel tag ----
+      ctx.save();
+      ctx.font='700 9px '+css('--osd');
+      var tagW=ctx.measureText(p.tag).width+14;
+      ctx.fillStyle=CAUTION; ctx.fillRect(W-12-tagW,11,tagW,15);
+      ctx.fillStyle=CRT_BLACK; ctx.textBaseline='middle';
+      ctx.fillText(p.tag,W-12-tagW+7,19.5);
+      ctx.restore();
+
+      // ---- thin phosphor OSD line icon ----
+      drawIcon(ctx,p.icon,30,H*0.62,28);
+
+      // ---- label: mono OSD with hard RGB chroma-split ----
+      ctx.save();
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      var label=p.title, size=30, maxW=W-56-18;
+      ctx.font='700 '+size+'px '+css('--osd');
+      while(ctx.measureText(label).width>maxW && size>13){
+        size-=1; ctx.font='700 '+size+'px '+css('--osd');
+      }
+      var lx=56, ly=H*0.62+size*0.34;
+      // chroma ghosts
+      ctx.fillStyle='rgba(255,0,51,0.85)'; ctx.fillText(label,lx-2.5,ly);
+      ctx.fillStyle='rgba(25,195,255,0.8)'; ctx.fillText(label,lx+2.5,ly);
+      // core
+      ctx.fillStyle=PHOSPHOR; ctx.fillText(label,lx,ly);
+      ctx.restore();
+
+      // ---- caution underline tick rail under the label ----
+      ctx.save();
+      var rY=H*0.62+size*0.34+9, rX=56, rW=maxW;
+      ctx.strokeStyle='rgba(255,230,0,0.55)'; ctx.lineWidth=1;
+      ctx.setLineDash([6,4]);
+      ctx.beginPath(); ctx.moveTo(rX,rY); ctx.lineTo(rX+rW,rY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // ---- decorative bottom-left timecode tick ----
+      ctx.save();
+      ctx.font='700 8px '+css('--osd'); ctx.fillStyle=DIM; ctx.textBaseline='alphabetic';
+      ctx.fillText('00:00:'+p.tag.replace(/\D/g,'')+':00',12,H-8);
+      ctx.restore();
+    }
+
+    // resolve a CSS variable font stack so canvas uses the same stack as the page
+    function css(name){
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+        || '"Consolas","Courier New",monospace';
+    }
+
+    // ---- phosphor line icons (thin, soft cyan glow) ----------------------
+    function drawIcon(ctx,kind,cx,cy,s){
+      ctx.save();
+      ctx.translate(cx,cy);
+      var h=s/2;
+      ctx.strokeStyle=PHOSPHOR; ctx.fillStyle=PHOSPHOR;
+      ctx.lineWidth=1.6; ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.shadowColor='rgba(25,195,255,0.5)'; ctx.shadowBlur=5;
+
+      switch(kind){
+        case 'heart':{
+          ctx.beginPath();
+          ctx.moveTo(0,h*0.82);
+          ctx.bezierCurveTo(-h*1.2,h*0.02,-h*0.62,-h*0.92,0,-h*0.22);
+          ctx.bezierCurveTo(h*0.62,-h*0.92,h*1.2,h*0.02,0,h*0.82);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'calendar':{
+          ctx.strokeRect(-h,-h*0.7,s,s*0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h,-h*0.35); ctx.lineTo(h,-h*0.35);
+          ctx.moveTo(-h*0.55,-h); ctx.lineTo(-h*0.55,-h*0.5);
+          ctx.moveTo(h*0.55,-h);  ctx.lineTo(h*0.55,-h*0.5);
+          ctx.stroke();
+          for(var r=0;r<2;r++) for(var c=0;c<3;c++){
+            ctx.beginPath(); ctx.arc(-h*0.5+c*h*0.5,-h*0.02+r*h*0.45,1.1,0,6.2832); ctx.fill();
+          }
+          break;
+        }
+        case 'list':{
+          for(var i=0;i<3;i++){
+            var yy=-h*0.6+i*h*0.6;
+            ctx.fillRect(-h*0.85,yy-1.2,2.4,2.4);
+            ctx.beginPath(); ctx.moveTo(-h*0.4,yy); ctx.lineTo(h*0.9,yy); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin':{
+          ctx.beginPath(); ctx.arc(0,0,h*0.95,0,6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,0,h*0.7,0,6.2832); ctx.stroke();
+          ctx.font='700 '+Math.round(s*0.55)+'px '+css('--osd');
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('$',0,1);
+          break;
+        }
+        case 'discord':{
+          ctx.beginPath();
+          ctx.moveTo(-h*0.85,-h*0.45);
+          ctx.quadraticCurveTo(0,-h*0.85,h*0.85,-h*0.45);
+          ctx.lineTo(h*0.7,h*0.55);
+          ctx.quadraticCurveTo(h*0.45,h*0.8,h*0.2,h*0.55);
+          ctx.lineTo(-h*0.2,h*0.55);
+          ctx.quadraticCurveTo(-h*0.45,h*0.8,-h*0.7,h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.3,0,1.7,0,6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.3,0,1.7,0,6.2832); ctx.fill();
+          break;
+        }
+        case 'twitter':{
+          ctx.beginPath();
+          ctx.moveTo(-h*0.85,-h*0.75); ctx.lineTo(h*0.85,h*0.75);
+          ctx.moveTo(h*0.85,-h*0.75); ctx.lineTo(-h*0.85,h*0.75);
+          ctx.stroke();
+          break;
+        }
+        case 'play':{
+          roundRect(ctx,-h,-h*0.7,s,s*0.85,4); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.2,-h*0.3); ctx.lineTo(-h*0.2,h*0.28); ctx.lineTo(h*0.42,0);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera':{
+          roundRect(ctx,-h,-h*0.55,s,s*0.95,5); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,h*0.1,h*0.4,0,6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.55,-h*0.25,1.4,0,6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.35,-h*0.55); ctx.lineTo(-h*0.15,-h*0.85);
+          ctx.lineTo(h*0.15,-h*0.85); ctx.lineTo(h*0.35,-h*0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag':{
+          ctx.beginPath();
+          ctx.moveTo(-h*0.1,-h*0.85); ctx.lineTo(h*0.85,-h*0.85);
+          ctx.lineTo(h*0.85,h*0.1); ctx.lineTo(-h*0.15,h*0.85);
+          ctx.lineTo(-h*0.85,h*0.15); ctx.lineTo(-h*0.85,-h*0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.5,-h*0.5,1.8,0,6.2832); ctx.stroke();
+          break;
+        }
+        case 'ribbon':{
+          ctx.beginPath(); ctx.arc(0,-h*0.25,h*0.55,0,6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.3,h*0.2); ctx.lineTo(-h*0.5,h*0.85); ctx.lineTo(-h*0.1,h*0.55);
+          ctx.moveTo(h*0.3,h*0.2);  ctx.lineTo(h*0.5,h*0.85);  ctx.lineTo(h*0.1,h*0.55);
+          ctx.stroke();
+          ctx.fillRect(-2,-h*0.25-2,4,4);
+          break;
+        }
+        case 'star':{
+          ctx.beginPath();
+          for(var sp=0;sp<10;sp++){
+            var ra=(sp%2===0)?h*0.95:h*0.42;
+            var ang=-Math.PI/2+sp*Math.PI/5;
+            var X=Math.cos(ang)*ra, Y=Math.sin(ang)*ra;
+            if(sp===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'users':{
+          ctx.beginPath(); ctx.arc(-h*0.32,-h*0.28,h*0.3,0,6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.78,h*0.7);
+          ctx.quadraticCurveTo(-h*0.32,h*0.1,h*0.14,h*0.7);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.42,-h*0.18,h*0.24,0,6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(h*0.06,h*0.55);
+          ctx.quadraticCurveTo(h*0.42,h*0.12,h*0.85,h*0.55);
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0,0,h*0.7,0,6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid=document.getElementById('grid');
+    var made=[];
+
+    function build(){
+      for(var i=0;i<PANELS.length;i++){
+        var p=PANELS[i];
+        var card=document.createElement('div'); card.className='card';
+        var frame=document.createElement('div'); frame.className='frame';
+        var cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+        var ctx=cv.getContext('2d');
+        drawPanel(ctx,p);
+        frame.appendChild(cv);
+
+        var row=document.createElement('div'); row.className='card-row';
+        var nm=document.createElement('span'); nm.className='name'; nm.textContent=p.title;
+        var dl=document.createElement('a'); dl.textContent='Download'; dl.href='#';
+        (function(canvas,id){
+          dl.addEventListener('click',function(e){e.preventDefault();save(canvas,id);});
+        })(cv,p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({canvas:cv,id:p.id});
+      }
+    }
+
+    function save(canvas,id){
+      var a=document.createElement('a');
+      a.download='panel-'+id+'.png';
+      a.href=canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click',function(){
+      var i=0;
+      (function next(){
+        if(i>=made.length) return;
+        save(made[i].canvas,made[i].id); i++;
+        setTimeout(next,200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets=function(){
+      return made.map(function(m){return {name:m.id,dataURL:m.canvas.toDataURL('image/png')};});
+    };
+
+    if(document.fonts && document.fonts.ready){ document.fonts.ready.then(build); }
+    else { build(); }
+  })();
+  </script>
+</body>
+</html>

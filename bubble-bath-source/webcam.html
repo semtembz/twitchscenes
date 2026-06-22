@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Bubble Bath — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with ONE squishy soap-bubble webcam frame. Place your
+       camera BEHIND this overlay; the inside of the frame is fully transparent
+       so the camera shows through it. Glossy jelly rim + iridescent sheen + a
+       handle pill clipped to the bottom + bubble corner accents.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint iridescent bubbles drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);
+      animation:camin .95s var(--ease) both .1s, camjig 6.8s ease-in-out infinite 1.2s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);
+      animation:caminL .95s var(--ease) both .1s, camjigL 6.8s ease-in-out infinite 1.2s;}
+
+    /* glossy squishy JELLY rim; INSIDE stays transparent (rounded cutout) */
+    .frame{position:absolute;inset:0;background:transparent;border-radius:64px;
+      border:7px solid var(--jelly-edge);
+      box-shadow:
+        0 26px 60px var(--shadow),
+        0 10px 22px rgba(108,122,224,.18),
+        0 0 0 2px var(--jelly-edge-2),
+        inset 0 0 0 2px var(--jelly-edge-2),
+        inset 0 4px 0 rgba(255,255,255,.85),
+        inset 0 -18px 36px rgba(160,231,229,.28);}
+    /* inner soft mint hairline ring (transparent inside) */
+    .frame::before{content:"";position:absolute;inset:9px;border-radius:54px;
+      border:2px solid rgba(255,255,255,.55);pointer-events:none;
+      box-shadow:inset 0 0 22px rgba(160,231,229,.20);}
+
+    /* iridescent sheen sweep on the rim only (clipped by overflow ring) */
+    .sheen{position:absolute;inset:0;border-radius:64px;overflow:hidden;pointer-events:none;
+      -webkit-mask:radial-gradient(transparent 67%, #000 70%);
+      mask:radial-gradient(transparent 67%, #000 70%);}
+    .sheen i{content:"";position:absolute;top:-60%;bottom:-60%;left:-40%;width:46%;
+      mix-blend-mode:screen;transform:skewX(-18deg);
+      background:linear-gradient(90deg, transparent 0%,
+        rgba(255,183,213,.30) 28%, rgba(255,244,194,.42) 48%,
+        rgba(160,231,229,.34) 64%, transparent 100%);
+      animation:camsheen 5.8s ease-in-out infinite 1.6s;}
+    @keyframes camsheen{0%{left:-46%;opacity:0}18%{opacity:1}60%{opacity:1}82%{left:120%;opacity:0}100%{left:120%;opacity:0}}
+
+    /* soap-bubble cluster ornaments in every corner of the frame */
+    .corner{position:absolute;width:108px;height:108px;pointer-events:none;
+      animation:cfade 1.1s var(--ease) both .35s;}
+    .corner svg{width:100%;height:100%;display:block;}
+    .corner--tl{left:-14px;top:-14px;}
+    .corner--tr{right:-14px;top:-14px;transform:scaleX(-1);}
+    .corner--bl{left:-14px;bottom:-14px;transform:scaleY(-1);}
+    .corner--br{right:-14px;bottom:-14px;transform:scale(-1,-1);}
+    @keyframes cfade{from{opacity:0}to{opacity:1}}
+
+    /* handle pill — squishy jelly, clipped to the bottom-center of the frame */
+    .tag{position:absolute;left:50%;bottom:-26px;transform:translateX(-50%);z-index:3;
+      display:flex;align-items:center;gap:14px;white-space:nowrap;
+      padding:11px 30px;border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.66) 0%, rgba(217,244,255,.46) 100%);
+      border:4px solid var(--jelly-edge);
+      box-shadow:0 14px 30px var(--shadow), inset 0 2px 0 rgba(255,255,255,.9),
+        inset 0 0 0 2px var(--jelly-edge-2);
+      -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
+    .tag .who{
+      font-family:var(--display);font-weight:700;letter-spacing:.05em;font-size:27px;
+      color:var(--periwinkle);
+      text-shadow:0 2px 0 #fff, 0 5px 0 rgba(160,231,229,.45);}
+    .tag .bub{width:13px;height:13px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 70%);
+      box-shadow:0 0 12px var(--pink-soft);
+      animation:soappulse 2.2s ease-in-out infinite;}
+    @keyframes soappulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.22);opacity:.6}}
+
+    /* small soap caption — top-left above the frame */
+    .cap{position:absolute;left:14px;top:-46px;display:flex;align-items:center;gap:13px;
+      font-family:var(--display);font-weight:700;
+      letter-spacing:.34em;font-size:18px;color:var(--ink-soft);text-indent:.34em;opacity:.85;}
+    .cap .bub{width:11px;height:11px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+      box-shadow:0 0 10px rgba(160,231,229,.7);}
+
+    /* a 3-bubble crest — top-right above the frame */
+    .crest-tr{position:absolute;right:12px;top:-44px;display:flex;align-items:center;gap:10px;opacity:.9;}
+    .crest-tr .b{width:13px;height:13px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, var(--bubblegum) 72%);
+      box-shadow:0 0 12px var(--pink-soft);}
+    .crest-tr .b.m{background:radial-gradient(circle at 35% 30%, #fff, var(--mint-aqua) 72%);
+      box-shadow:0 0 12px rgba(160,231,229,.7);}
+    .crest-tr .b.p{background:radial-gradient(circle at 35% 30%, #fff, var(--periwinkle) 75%);
+      box-shadow:0 0 12px var(--peri-soft);}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes caminL{from{opacity:0;transform:translateX(-50%) scale(.94)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+    @keyframes camjig{0%,100%{transform:translate(-50%,-50%) scale(1,1)}
+      25%{transform:translate(-50%,-50%) scale(1.008,.992)}
+      50%{transform:translate(-50%,-50%) scale(.994,1.008)}
+      75%{transform:translate(-50%,-50%) scale(1.006,.994)}}
+    @keyframes camjigL{0%,100%{transform:translateX(-50%) scale(1,1)}
+      25%{transform:translateX(-50%) scale(1.008,.992)}
+      50%{transform:translateX(-50%) scale(.994,1.008)}
+      75%{transform:translateX(-50%) scale(1.006,.994)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .corner{animation:none!important;}
+    #stage.render .sheen i{animation:none;display:none;}
+    #stage.render .tag .bub{animation:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .corner{opacity:1;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+      <div class="sheen" aria-hidden="true"><i></i></div>
+
+      <!-- soap-bubble cluster ornaments in every corner -->
+      <span class="corner corner--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="bbP" cx="35%" cy="30%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#FFB7D5"/></radialGradient>
+            <radialGradient id="bbM" cx="35%" cy="30%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#A0E7E5"/></radialGradient>
+            <radialGradient id="bbL" cx="35%" cy="30%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#FFF4C2"/></radialGradient>
+          </defs>
+          <circle cx="30" cy="30" r="18" fill="url(#bbP)"/>
+          <circle cx="58" cy="22" r="11" fill="url(#bbM)"/>
+          <circle cx="24" cy="58" r="9"  fill="url(#bbL)"/>
+          <circle cx="48" cy="48" r="6"  fill="url(#bbP)"/>
+        </svg>
+      </span>
+      <span class="corner corner--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="30" cy="30" r="18" fill="url(#bbM)"/>
+          <circle cx="58" cy="22" r="11" fill="url(#bbP)"/>
+          <circle cx="24" cy="58" r="9"  fill="url(#bbL)"/>
+          <circle cx="48" cy="48" r="6"  fill="url(#bbM)"/>
+        </svg>
+      </span>
+      <span class="corner corner--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="30" cy="30" r="18" fill="url(#bbL)"/>
+          <circle cx="58" cy="22" r="11" fill="url(#bbM)"/>
+          <circle cx="24" cy="58" r="9"  fill="url(#bbP)"/>
+          <circle cx="48" cy="48" r="6"  fill="url(#bbL)"/>
+        </svg>
+      </span>
+      <span class="corner corner--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="30" cy="30" r="18" fill="url(#bbP)"/>
+          <circle cx="58" cy="22" r="11" fill="url(#bbL)"/>
+          <circle cx="24" cy="58" r="9"  fill="url(#bbM)"/>
+          <circle cx="48" cy="48" r="6"  fill="url(#bbP)"/>
+        </svg>
+      </span>
+
+      <span class="cap" aria-hidden="true"><span class="bub"></span>ON CAMERA</span>
+      <span class="crest-tr" aria-hidden="true"><span class="b"></span><span class="b m"></span><span class="b p"></span></span>
+      <div class="tag"><span class="bub" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;            // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- canvas: faint iridescent bubbles drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const RIMS = [
+      "rgba(255,183,213,A)", "rgba(160,231,229,A)", "rgba(255,244,194,A)",
+      "rgba(108,122,224,A)", "rgba(189,235,251,A)",
+    ];
+    const R = (a, b) => a + Math.random() * (b - a);
+    function makeBub(below){
+      const r = R(8, 28);
+      return {
+        x:R(0,W), y: below ? R(H+10,H+220) : R(-20,H+20), r,
+        vy:-(R(6,16)+r*0.16)/60, ph:R(0,6.28), ps:R(0.4,1.1), sway:R(5,15),
+        x0:0, hue:(Math.random()*RIMS.length)|0, a:R(0.16,0.36),
+      };
+    }
+    const bubbles = Array.from({ length: Math.max(0, num("bubbles", 18)) }, () => {
+      const b = makeBub(false); b.x0 = b.x; return b;
+    });
+    function drawBub(b){
+      const x = Math.round(b.x), y = Math.round(b.y), r = b.r;
+      const g = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.1, x, y, r);
+      g.addColorStop(0, `rgba(255,255,255,${(b.a*0.55).toFixed(3)})`);
+      g.addColorStop(0.55, `rgba(217,244,255,${(b.a*0.30).toFixed(3)})`);
+      g.addColorStop(1, `rgba(160,231,229,${(b.a*0.10).toFixed(3)})`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      const rimA = (0.5*b.a).toFixed(3);
+      ctx.lineWidth = Math.max(1.2, r*0.06);
+      ctx.strokeStyle = RIMS[b.hue].replace("A", rimA);
+      ctx.beginPath(); ctx.arc(x, y, r-ctx.lineWidth*0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = RIMS[(b.hue+2)%RIMS.length].replace("A", rimA);
+      ctx.beginPath(); ctx.arc(x, y, r-ctx.lineWidth*0.5, 3.4, 6.2, false); ctx.stroke();
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = `rgba(255,255,255,${(b.a*0.45).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      const hx = Math.round(x-r*0.36), hy = Math.round(y-r*0.4), hr = Math.max(2, r*0.18);
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, `rgba(255,255,255,${Math.min(0.9, b.a+0.35).toFixed(3)})`);
+      hg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const b of bubbles){
+        b.y += b.vy * dt * 60; b.ph += b.ps * dt; b.x = b.x0 + Math.sin(b.ph) * b.sway;
+        if (b.y < -b.r-20){ Object.assign(b, makeBub(true)); b.x0 = b.x; continue; }
+        drawBub(b);
+      }
+    }
+    window.__bubbleDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

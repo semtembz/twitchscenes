@@ -1,0 +1,182 @@
+/* ============================================================
+   HALFTONE HAVOC — shared design system ("Inkstorm")
+   A loud manga / comic-book ACTION PAGE. White paper is the star:
+   bold black PANEL borders frame the page, a generative halftone-dot
+   field + radial speed lines burst from centre (canvas), a jagged
+   comic STARBURST holds the kicker, the title is heavy comic ink with
+   a bold colour offset shadow + outline, tilted for energy, last line
+   in red, and the loading bar is an inked "charge" bar that fills with
+   halftone dots. Bespoke to THIS theme — shares only engine
+   conventions with the other sources.
+   ============================================================ */
+:root{
+  /* palette (token NAMES stable) */
+  --paper:#FFFFFF;          /* paper white background — the star */
+  --ink:#111111;            /* ink black */
+  --pop-yellow:#FFD400;     /* pop yellow */
+  --comic-red:#FF3B30;      /* comic red */
+  --comic-blue:#1E63FF;     /* comic blue */
+  /* derived paper tints */
+  --paper-2:#F4F2EA;        /* faint warm newsprint */
+  --ink-soft:rgba(17,17,17,.55);
+  --ink-line:rgba(17,17,17,.16);
+  /* motion */
+  --ease:cubic-bezier(.18,.9,.24,1);
+  --pop:cubic-bezier(.2,1.6,.35,1);   /* overshoot "snap" */
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--paper-2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);
+  font-family:"Arial Black","Arial Bold",Impact,Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif;
+  /* the white comic PAGE — bright, with faint newsprint warmth at the corners */
+  background:
+    radial-gradient(120% 90% at 50% 50%, #FFFFFF 0%, #FFFFFF 52%, var(--paper-2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
+
+/* subtle paper GRAIN over the whole page (printed-newsprint tooth) */
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:multiply;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(17,17,17,.6) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(17,17,17,.6) 0 1px, transparent 1px 3px);
+  background-size:3px 3px;}
+
+/* a soft white VIGNETTE so the centre page stays clean under the title */
+.page-glow{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(46% 42% at 50% 48%, rgba(255,255,255,.92), rgba(255,255,255,0) 70%);}
+
+/* ---- bold black PANEL BORDER framing the comic page (the gutter) ---- */
+.panel{position:absolute;inset:34px;pointer-events:none;
+  border:10px solid var(--ink);
+  box-shadow:0 0 0 4px var(--paper), 0 0 0 7px var(--ink),
+             inset 0 0 60px rgba(17,17,17,.06);
+  animation:panelin .5s var(--ease) both;}
+/* inner thin rule for a printed double-frame */
+.panel::after{content:"";position:absolute;inset:14px;border:3px solid var(--ink);opacity:.85;}
+@keyframes panelin{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+
+/* corner registration / page tags on the gutter (printer marks vibe) */
+.regmark{position:absolute;font-family:"Arial Black",Impact,system-ui,sans-serif;
+  font-size:20px;letter-spacing:.22em;color:var(--ink);opacity:.8;
+  -webkit-text-stroke:0;}
+.regmark--tl{left:70px;top:64px;}
+.regmark--tr{right:70px;top:64px;}
+.issue{position:absolute;left:70px;bottom:60px;font-family:"Arial Black",Impact,system-ui,sans-serif;
+  font-size:20px;letter-spacing:.18em;color:var(--ink);opacity:.78;}
+
+/* ---- the centred comic composition column ---- */
+.page{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1320px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+
+/* ---- jagged comic STARBURST holding the kicker (POW/BAM action bubble) ---- */
+.burst{position:relative;display:inline-grid;place-items:center;
+  width:430px;height:206px;margin-bottom:6px;
+  animation:burstpop .6s var(--pop) both .18s;
+  filter:drop-shadow(8px 9px 0 var(--ink));}
+.burst svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.burst .star-fill{fill:var(--pop-yellow);}
+.burst .star-line{fill:none;stroke:var(--ink);stroke-width:7;stroke-linejoin:round;}
+@keyframes burstpop{
+  0%{opacity:0;transform:translateY(8px) scale(.4) rotate(-12deg);}
+  70%{opacity:1;}
+  100%{opacity:1;transform:translateY(0) scale(1) rotate(-4deg);}}
+
+/* kicker — spaced comic caps inside the starburst */
+.kicker{position:relative;z-index:2;margin:0;
+  font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;
+  font-size:60px;font-weight:900;letter-spacing:.01em;line-height:.9;
+  text-transform:uppercase;color:var(--ink);transform:rotate(-4deg);
+  -webkit-text-stroke:2px var(--ink);}
+#stage.done .kicker{color:var(--comic-red);-webkit-text-stroke:2px var(--ink);}
+
+/* ---- the heavy comic TITLE — black ink, bold colour offset shadow + outline, tilted ---- */
+.title{margin:6px 0 2px;line-height:.82;text-transform:uppercase;
+  font-family:"Arial Black",Impact,Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif;
+  font-weight:900;letter-spacing:-.01em;color:var(--ink);
+  transform:rotate(-3deg);}
+.title .l{display:block;position:relative;}
+/* line 1 + 2 sizing */
+.title .l1{font-size:118px;
+  /* bold BLUE offset shadow + crisp ink outline */
+  text-shadow:7px 7px 0 var(--comic-blue), 9px 9px 0 var(--ink);
+  -webkit-text-stroke:3px var(--ink);
+  animation:dropin .5s var(--pop) both .3s;}
+.title .l2{font-size:200px;letter-spacing:-.02em;margin-top:-6px;
+  color:var(--comic-red);
+  /* the accent (last) line in comic RED with yellow+ink offset for punch */
+  text-shadow:8px 8px 0 var(--pop-yellow), 11px 11px 0 var(--ink);
+  -webkit-text-stroke:4px var(--ink);
+  animation:slamin .55s var(--pop) both .46s;}
+@keyframes dropin{0%{opacity:0;transform:translateY(-40px) rotate(-3deg) scale(.9);}100%{opacity:1;transform:translateY(0) rotate(-3deg) scale(1);}}
+@keyframes slamin{0%{opacity:0;transform:translateY(46px) rotate(-3deg) scale(1.25);}60%{opacity:1;}100%{opacity:1;transform:translateY(0) rotate(-3deg) scale(1);}}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{opacity:.5;font-style:italic;}
+
+/* subtitle — bold sans on an inked tag */
+.sub{margin:30px 0 0;display:inline-block;
+  font-family:"Arial",Helvetica,system-ui,sans-serif;font-weight:800;
+  font-size:30px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--paper);background:var(--ink);
+  padding:12px 26px;transform:rotate(-1.4deg);
+  box-shadow:6px 6px 0 var(--comic-red);
+  animation:tagin .5s var(--ease) both .62s;}
+@keyframes tagin{from{opacity:0;transform:translateY(14px) rotate(-1.4deg);}to{opacity:1;transform:translateY(0) rotate(-1.4deg);}}
+
+/* ---- loading = an inked "CHARGE" bar that fills with halftone dots ---- */
+.bar{position:relative;margin-top:42px;width:760px;height:46px;
+  background:var(--paper);border:5px solid var(--ink);
+  box-shadow:7px 7px 0 var(--ink);transform:rotate(-1deg);overflow:hidden;
+  animation:tagin .5s var(--ease) both .72s;}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:var(--comic-red);
+  /* halftone dots printed over the fill */
+  background-image:
+    radial-gradient(circle, rgba(17,17,17,.85) 30%, transparent 32%);
+  background-size:18px 18px;background-position:0 0;
+  border-right:5px solid var(--ink);
+  transition:width .12s linear;}
+/* a yellow leading edge "spark" on the charge bar */
+.bar .fill::after{content:"";position:absolute;right:-3px;top:-6px;bottom:-6px;width:14px;
+  background:var(--pop-yellow);transform:skewX(-12deg);
+  box-shadow:0 0 0 3px var(--ink);}
+/* status word floating over the bar */
+.status{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  z-index:3;pointer-events:none;
+  font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;
+  font-size:24px;letter-spacing:.42em;text-indent:.42em;text-transform:uppercase;
+  color:var(--ink);mix-blend-mode:exclusion;}
+
+/* handle — inked tag, lower right on the page */
+.handle{position:absolute;right:78px;bottom:60px;z-index:4;
+  font-family:"Arial Black",Impact,system-ui,sans-serif;font-weight:900;
+  font-size:30px;letter-spacing:.06em;color:var(--paper);
+  background:var(--comic-blue);padding:8px 20px;transform:rotate(-2deg);
+  box-shadow:5px 5px 0 var(--ink);border:3px solid var(--ink);
+  animation:tagin .5s var(--ease) both .82s;}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .panel,
+#stage.render .burst,
+#stage.render .title .l1,
+#stage.render .title .l2,
+#stage.render .sub,
+#stage.render .bar,
+#stage.render .handle{animation:none!important;opacity:1!important;}
+#stage.render .panel{clip-path:none;}
+#stage.render .burst{transform:translateY(0) scale(1) rotate(-4deg);}
+#stage.render .title .l1{transform:translateY(0) rotate(-3deg) scale(1);}
+#stage.render .title .l2{transform:translateY(0) rotate(-3deg) scale(1);}
+#stage.render .sub{transform:translateY(0) rotate(-1.4deg);}
+#stage.render .bar{transform:rotate(-1deg);}
+#stage.render .bar .fill{transition:none;}
+#stage.render .handle{transform:rotate(-2deg);}

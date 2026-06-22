@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Halftone Havoc Ink-Burst Wipe</title>
+  <!--
+    HALFTONE HAVOC stinger ("Inkstorm"). A loud comic-book ACTION wipe on
+    transparent: a wall of black halftone DOTS stamps across the page on a
+    travelling diagonal ink-wave (small dots lead, fat dots fill, with red/blue/
+    yellow accent dots hashed in), radial SPEED LINES burst from the centre and
+    rotate a touch, jagged comic STARBURSTS ("POW!"-style yellow polys w/ ink
+    outline + hard offset shadow) snap in at full cover, and a spray of rotating
+    ink-CHIPS flicks across. A hard white ink-flash pops at the peak. Fully
+    deterministic (seeded RNG, no Math.random in the frame fn), sine-driven,
+    transparent before & after, ~1100ms. Pure ink + halftone + speed-lines —
+    NOT a recolor of any other theme.
+
+    Plays ONCE on load, then clears.
+      ?loop=1     loop it (for previewing)
+      ?ms=1100    total duration in ms (default 1100)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add
+    it as a Stinger with the Transition Point at ~50% (the full-cover ink flood).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1100;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (halftone havoc — mirrored from shared.js / tokens) ---- */
+    const INK = '#111111', PAPER = '#FFFFFF';
+    const YEL = '#FFD400', RED = '#FF3B30', BLU = '#1E63FF';
+    const ACCENTS = [RED, BLU, YEL];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG; all "random" structure is baked ONCE up
+       front so the frame fn is a pure function of t (stable export). ---- */
+    let seed = 0x4A17 ^ 0x9E3779B9;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+    // tiny integer hash -> deterministic per-cell choice (no rng in frame fn)
+    const hash2 = (ix, iy) => {
+      let h = (ix * 374761393 + iy * 668265263) >>> 0;
+      h = (h ^ (h >>> 13)) >>> 0; h = (h * 1274126177) >>> 0;
+      return (h ^ (h >>> 16)) >>> 0;
+    };
+
+    /* ---- the halftone DOT grid. The page fills with ink dots whose radius is
+       driven by a diagonal travelling wavefront (cover-based) plus a small
+       per-cell jitter; dots in the leading band are small & open, dots behind
+       the front are fat & solid. Mostly INK, with a few hashed colour accents. */
+    const GRID = 30;                       // halftone pitch (px)
+    const COLS = Math.ceil(W / GRID) + 2, ROWS = Math.ceil(H / GRID) + 2;
+    const DIAG = W + H;                     // max diagonal extent of the wavefront
+
+    function drawHalftone(cover) {
+      if (cover <= 0.001) return;
+      // wavefront sweeps along the main diagonal (top-left -> bottom-right).
+      // front position in "diagonal units"; everything BEHIND it is inked.
+      const front = cover * (DIAG + GRID * 8) - GRID * 4;
+      const band = GRID * 7;               // soft leading band where dots grow
+      const maxR = GRID * 0.62;
+      ctx.save();
+      for (let gy = 0; gy < ROWS; gy++) {
+        const cy = gy * GRID;
+        for (let gx = 0; gx < COLS; gx++) {
+          const cx = gx * GRID;
+          const diag = cx + cy;            // this cell's position along the diagonal
+          const d = front - diag;          // >0 => behind front (inked)
+          if (d <= -band) continue;        // not reached yet
+          // growth 0..1 across the leading band, then full
+          let g = clamp01((d + band) / (band * 1.6));
+          g = smooth(g);
+          const hh = hash2(gx, gy);
+          // per-cell radius jitter (deterministic) for a hand-printed feel
+          const jit = 0.78 + ((hh >>> 4) & 31) / 31 * 0.42;
+          const r = maxR * g * jit;
+          if (r < 0.45) continue;
+          // colour: mostly ink, ~12% hashed accents, leading edge biased to accents
+          let col = INK;
+          const acc = (hh & 7);
+          if (acc === 0) col = ACCENTS[(hh >>> 5) % 3];
+          else if (acc === 1 && g < 0.55) col = ACCENTS[(hh >>> 8) % 3];
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(Math.round(cx), Math.round(cy), r, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- radial SPEED / focus lines bursting from page centre. Wedge-shaped
+       ink lines with per-spoke length flicker; they punch in with cover and
+       rotate slightly so the burst feels alive. ---- */
+    const N_SPOKES = 64;
+    const spokes = Array.from({ length: N_SPOKES }, (_, i) => ({
+      ang: (i / N_SPOKES) * Math.PI * 2 + R(-0.02, 0.02),
+      len: R(0.66, 1.18),                  // * page radius
+      wid: R(5, 17),                       // base half-width at the rim (px)
+      flick: R(1.2, 3.0), ph: R(0, 6.2832),
+      col: (i % 9 === 0) ? RED : (i % 13 === 0) ? BLU : INK,
+    }));
+
+    function drawSpeedLines(t, cover) {
+      const punch = smooth(clamp01((cover - 0.18) / 0.82));
+      if (punch <= 0.01) return;
+      const RAD = Math.hypot(CX, CY) * 1.06;
+      const inner = lerp(RAD * 0.40, 80, punch);   // hole shrinks as burst fills in
+      const spin = (t - 0.5) * 0.22;               // gentle rotation through the wipe
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(spin);
+      for (let i = 0; i < N_SPOKES; i++) {
+        const s = spokes[i];
+        const fl = 0.7 + Math.sin(s.ph + t * s.flick * 6.2832) * 0.3;
+        const len = RAD * s.len * fl;
+        const a0 = s.ang, ca = Math.cos(a0), sa = Math.sin(a0);
+        // perpendicular for the wedge half-width
+        const px = -sa, py = ca;
+        const w = s.wid * (0.5 + punch);
+        const x1 = ca * inner, y1 = sa * inner;
+        const x2 = ca * len,   y2 = sa * len;
+        ctx.globalAlpha = (s.col === INK ? 0.9 : 0.8) * punch;
+        ctx.fillStyle = s.col;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x1 + px * w * 0.35), Math.round(y1 + py * w * 0.35));
+        ctx.lineTo(Math.round(x1 - px * w * 0.35), Math.round(y1 - py * w * 0.35));
+        ctx.lineTo(Math.round(x2 - px * w), Math.round(y2 - py * w));
+        ctx.lineTo(Math.round(x2 + px * w), Math.round(y2 + py * w));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- jagged comic STARBURSTS ("POW!" polys): a yellow spiked polygon with
+       a thick ink outline + hard offset ink shadow. A few snap in near the peak
+       with overshoot, scattered around the centre. ---- */
+    const N_BURST = 5;
+    const bursts = Array.from({ length: N_BURST }, (_, i) => ({
+      x: i === 0 ? CX : R(W * 0.22, W * 0.78),
+      y: i === 0 ? CY : R(H * 0.24, H * 0.76),
+      rad: i === 0 ? R(230, 290) : R(95, 165),
+      spikes: (R(9, 13) | 0),
+      inner: R(0.50, 0.66),
+      rot: R(-0.5, 0.5),
+      lead: i === 0 ? 0.40 : R(0.30, 0.56),  // when it starts popping
+      span: R(0.30, 0.46),
+      fill: (i % 2 === 0) ? YEL : (i === 1 ? RED : YEL),
+    }));
+
+    function starPath(cx, cy, rad, spikes, innerR, rot) {
+      ctx.beginPath();
+      const step = Math.PI / spikes;
+      for (let i = 0; i < spikes * 2; i++) {
+        const r = (i % 2 === 0) ? rad : rad * innerR;
+        const a = rot + i * step;
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(Math.round(x), Math.round(y));
+        else ctx.lineTo(Math.round(x), Math.round(y));
+      }
+      ctx.closePath();
+    }
+
+    function drawBursts(t) {
+      for (const b of bursts) {
+        const lt = clamp01((t - b.lead) / b.span);
+        if (lt <= 0 || lt >= 1) continue;
+        // overshoot pop: 0 -> >1 -> 1, then a quick settle; fade out near the end
+        const pop = lt < 0.6 ? smooth(lt / 0.6) * 1.18 : 1.18 - smooth((lt - 0.6) / 0.4) * 0.18;
+        const fade = lt > 0.7 ? 1 - smooth((lt - 0.7) / 0.3) : 1;
+        const sc = pop;
+        const rad = b.rad * sc;
+        if (rad < 4 || fade <= 0.02) continue;
+        const wob = b.rot + Math.sin(t * 6.2832 + b.lead * 9) * 0.05;
+        ctx.save();
+        ctx.globalAlpha = fade;
+        // hard offset ink shadow
+        ctx.fillStyle = INK;
+        starPath(b.x + 10, b.y + 12, rad, b.spikes, b.inner, wob);
+        ctx.fill();
+        // ink outline (slightly larger fill underneath)
+        ctx.fillStyle = INK;
+        starPath(b.x, b.y, rad + 8, b.spikes, b.inner, wob);
+        ctx.fill();
+        // colour fill
+        ctx.fillStyle = b.fill;
+        starPath(b.x, b.y, rad, b.spikes, b.inner, wob);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* ---- spray of rotating ink CHIPS (little spec ink shards) flicking across
+       the page with the burst — sparse, deterministic. ---- */
+    const N_CHIP = 46;
+    const chips = Array.from({ length: N_CHIP }, () => {
+      const ang = R(0, 6.2832), spd = R(0.35, 1.05);
+      return {
+        ang, spd, sz: R(5, 16), spin: R(-4, 4), ph: R(0, 6.2832),
+        lead: R(0.10, 0.42), span: R(0.40, 0.7),
+        col: rnd() < 0.78 ? INK : ACCENTS[(rnd() * 3) | 0],
+      };
+    });
+
+    function drawChips(t) {
+      ctx.save();
+      for (const c of chips) {
+        const lt = clamp01((t - c.lead) / c.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const ends = Math.sin(lt * Math.PI);     // 0 at ends, 1 mid
+        if (ends <= 0.02) continue;
+        const dist = lt * c.spd * Math.hypot(CX, CY) * 1.1;
+        const x = CX + Math.cos(c.ang) * dist;
+        const y = CY + Math.sin(c.ang) * dist;
+        const rot = c.ph + lt * c.spin * 6.2832;
+        const s = c.sz * (0.6 + ends * 0.6);
+        ctx.globalAlpha = ends;
+        ctx.fillStyle = c.col;
+        ctx.save();
+        ctx.translate(Math.round(x), Math.round(y));
+        ctx.rotate(rot);
+        // a jagged ink shard (irregular quad)
+        ctx.beginPath();
+        ctx.moveTo(-s, -s * 0.5);
+        ctx.lineTo(s * 0.7, -s);
+        ctx.lineTo(s, s * 0.6);
+        ctx.lineTo(-s * 0.5, s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawHalftone(cover);
+      drawSpeedLines(t, cover);
+      drawChips(t);
+      drawBursts(t);
+
+      // hard white ink-flash punch at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.045, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.55);
+        fg.addColorStop(0, 'rgba(255,255,255,' + (0.85 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.45, 'rgba(255,212,0,' + (0.22 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(255,212,0,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

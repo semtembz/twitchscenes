@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Mecha Hangar — Host Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the pod composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="host">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <span class="rail" aria-hidden="true"></span>
+      <span class="edge" aria-hidden="true"></span>
+      <span class="rivet r1" aria-hidden="true"></span><span class="rivet r2" aria-hidden="true"></span>
+      <span class="rivet r3" aria-hidden="true"></span><span class="rivet r4" aria-hidden="true"></span>
+      <span class="tag" aria-hidden="true">[ tag ]</span>
+      <div class="body">
+        <div class="tile" aria-hidden="true"><div class="glyph" id="glyph">⛨</div></div>
+        <div class="meta">
+          <p class="kick"><span class="dot"></span> <span id="kick-label">NOW HOSTING</span></p>
+          <h1 class="name" id="name">NewPilot</h1>
+          <p class="amount" id="amount"></p>
+          <p class="sub" id="sub"></p>
+        </div>
+      </div>
+      <div class="charge" aria-hidden="true"><span class="lvl"></span></div>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

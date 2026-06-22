@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Mecha Hangar (PNG generator)</title>
+  <!--
+    MECHA HANGAR · "Launch Bay 07" industrial OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the launch-bay look (riveted steel plating + panel-seam grid,
+    diagonal amber/black HAZARD bands on all four edges, a heavy steel outer frame
+    with corner BOLT plates, a central chamfered BLAST-DOOR with a glowing amber
+    centre seam, a stamped bay-designation plate, a heavy condensed OFFLINE title
+    with an amber "BAY SEALED" accent, a telemetry readout strip, cooled welding
+    embers + dust) onto a <canvas> and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the ember / dust scatter is
+    identical on every render (Math.random is never used) — re-running gives the
+    same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --gunmetal:#101417; --steel:#1E2A33; --amber:#F5A623; --red:#FF4D2E;
+      --steel-lt:#C8D2D9; --text:#E8EEF2; --steel-hi:#2C3C47; --steel-lo:#0B1014;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;
+      background:#0A0E11;color:var(--text);padding:32px;}
+    h1{font-weight:800;font-size:28px;color:var(--steel-lt);letter-spacing:.04em;margin:0 0 6px;
+      text-transform:uppercase;text-shadow:0 2px 0 #0B1014, 0 0 22px rgba(200,210,217,.18);}
+    p.lead{color:var(--steel-lt);opacity:.8;margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;font-size:14px;}
+    .kicker{font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;letter-spacing:.4em;
+      font-size:13px;color:var(--amber);margin:0 0 14px;text-transform:uppercase;text-indent:.4em;}
+    button{font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;font-weight:700;font-size:14px;
+      letter-spacing:.18em;text-transform:uppercase;padding:14px 28px;color:var(--gunmetal);
+      background:linear-gradient(180deg, #FFD27A, var(--amber));border:1px solid rgba(11,16,20,.6);
+      border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(245,166,35,.22), inset 0 1px 0 rgba(255,255,255,.4);}
+    button:hover{filter:brightness(1.07);}
+    .preview{margin-top:22px;background:#0d1216;padding:14px;border:1px solid #243038;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;color:var(--amber);background:#141d23;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">LAUNCH BAY 07 · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the industrial launch-bay style — seeded so the
+    embers and dust are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview"><canvas id="c" width="1920" height="1080"></canvas></div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const GUNMETAL = '#101417', STEEL = '#1E2A33', AMBER = '#F5A623', RED = '#FF4D2E';
+    const STEEL_LT = '#C8D2D9', STEEL_HI = '#2C3C47', STEEL_LO = '#0B1014';
+    const RIVET = '#3A4A55', RIVET_HI = '#5E727F';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- chamfered (blast-door) path — the signature silhouette ----
+    function chamferPath(x, y, w, h, c) {
+      ctx.beginPath();
+      ctx.moveTo(x + c, y);
+      ctx.lineTo(x + w - c, y);
+      ctx.lineTo(x + w, y + c);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + c, y + h);
+      ctx.lineTo(x, y + h - c);
+      ctx.lineTo(x, y + c);
+      ctx.closePath();
+    }
+
+    // ---- riveted steel plating fill over a rect ----
+    function plating(x, y, w, h) {
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, '#1A242C'); g.addColorStop(1, '#11181D');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+      // panel seams
+      ctx.strokeStyle = 'rgba(11,16,20,0.85)'; ctx.lineWidth = 2;
+      for (let gx = x; gx <= x + w; gx += 240) { ctx.beginPath(); ctx.moveTo(gx + 0.5, y); ctx.lineTo(gx + 0.5, y + h); ctx.stroke(); }
+      for (let gy = y; gy <= y + h; gy += 168) {
+        ctx.beginPath(); ctx.moveTo(x, gy + 0.5); ctx.lineTo(x + w, gy + 0.5); ctx.stroke();
+        // bevel highlight under each seam
+        ctx.strokeStyle = 'rgba(44,60,71,0.22)';
+        ctx.beginPath(); ctx.moveTo(x, gy + 2.5); ctx.lineTo(x + w, gy + 2.5); ctx.stroke();
+        ctx.strokeStyle = 'rgba(11,16,20,0.85)';
+      }
+      // fine brushed grain
+      ctx.fillStyle = 'rgba(255,255,255,0.012)';
+      for (let gg = y; gg < y + h; gg += 5) ctx.fillRect(x, gg, w, 2);
+    }
+
+    // ---- diagonal hazard band into a clipped rect ----
+    function hazardBand(x, y, w, h, dir) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      const span = w + h, step = 52;
+      for (let d = -h; d < span; d += step) {
+        ctx.fillStyle = AMBER;
+        ctx.beginPath();
+        if (dir > 0) { // "/"
+          ctx.moveTo(x + d, y + h); ctx.lineTo(x + d + 26, y + h);
+          ctx.lineTo(x + d + 26 + h, y); ctx.lineTo(x + d + h, y);
+        } else {        // "\"
+          ctx.moveTo(x + d, y); ctx.lineTo(x + d + 26, y);
+          ctx.lineTo(x + d + 26 + h, y + h); ctx.lineTo(x + d + h, y + h);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      // inset dark line for depth
+      ctx.strokeStyle = 'rgba(11,16,20,0.9)'; ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    }
+
+    // ---- steel bolt plate ----
+    function boltPlate(cx, cy, r) {
+      ctx.save();
+      roundRect(cx - r, cy - r, r * 2, r * 2, r * 0.4);
+      const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+      g.addColorStop(0, STEEL_HI); g.addColorStop(0.55, STEEL); g.addColorStop(1, STEEL_LO);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(11,16,20,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+      // bolt head
+      const bg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, 0, cx, cy, r * 0.4);
+      bg.addColorStop(0, RIVET_HI); bg.addColorStop(0.6, RIVET); bg.addColorStop(1, '#1c252b');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(cx, cy, r * 0.32, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // small deco/hazard diamond
+    function diamond(x, y, s, fill) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = fill; ctx.fillRect(-s, -s, s * 2, s * 2); ctx.restore();
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xF5A623); // fixed seed (amber hex) -> identical scatter every render
+
+      // ---- BACKGROUND: gunmetal radial set (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#131A20'); grad.addColorStop(0.46, GUNMETAL); grad.addColorStop(1, '#0A0E11');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      // full-bleed riveted plating
+      ctx.globalAlpha = 0.9; plating(0, 0, W, H); ctx.globalAlpha = 1;
+      bloom(W * 0.50, H * 0.38, W * 0.62, 'rgba(40,58,71,0.5)', 1);
+      bloom(W * 0.50, H * 1.0, W * 0.42, 'rgba(245,166,35,0.07)', 1);
+
+      // ---- amber beacon sweep (frozen) — a soft conic wedge ----
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(-0.5);
+      const beacon = ctx.createLinearGradient(0, 0, W * 0.6, -H * 0.3);
+      beacon.addColorStop(0, 'rgba(245,166,35,0.16)');
+      beacon.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = beacon;
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(W * 0.7, -H * 0.45); ctx.lineTo(W * 0.7, -H * 0.05); ctx.closePath(); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
+
+      // ---- SEEDED welding embers (cooled: white-hot -> amber -> red) ----
+      const EMBER = ['#FFF3D6', '#FFD27A', AMBER, '#FF7A3C', RED];
+      ctx.save();
+      for (let i = 0; i < 150; i++) {
+        const x = R(rnd, 20, W - 20), y = R(rnd, H * 0.2, H - 20);
+        const z = R(rnd, 0.6, 2.2), a = R(rnd, 0.3, 0.95);
+        const c = EMBER[(rnd() * EMBER.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = c;
+        ctx.shadowColor = c; ctx.shadowBlur = 7 * z;
+        const sp = Math.max(1, Math.round(z * 1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+        // a few have motion streaks
+        if (rnd() > 0.7) ctx.fillRect(Math.round(x), Math.round(y), 1, Math.round(z * 6));
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- industrial dust drifting (cool steel motes, upper area) ----
+      ctx.save();
+      ctx.fillStyle = STEEL_LT; ctx.shadowColor = STEEL_LT;
+      for (let i = 0; i < 70; i++) {
+        const x = R(rnd, 10, W - 10), y = R(rnd, 10, H * 0.7);
+        const z = R(rnd, 0.4, 1.3), a = R(rnd, 0.12, 0.4);
+        ctx.globalAlpha = a; ctx.shadowBlur = 4 * z;
+        ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(z * 1.4)), Math.max(1, Math.round(z * 1.4)));
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- DEEP VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(5,8,10,0.9)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // HAZARD BANDS on every edge (over the plating)
+      // ============================================================
+      const HB = 34;
+      hazardBand(0, 0, W, HB, +1);                       // top
+      hazardBand(0, H - HB, W, HB, -1);                  // bottom
+      hazardBand(0, HB, HB, H - HB * 2, -1);             // left
+      hazardBand(W - HB, HB, HB, H - HB * 2, +1);        // right
+
+      // ============================================================
+      // HEAVY STEEL OUTER FRAME inside the hazard band
+      // ============================================================
+      const fmI = 46;
+      ctx.save();
+      ctx.strokeStyle = STEEL_HI; ctx.lineWidth = 3;
+      roundRect(fmI, fmI, W - fmI * 2, H - fmI * 2, 6); ctx.stroke();
+      ctx.strokeStyle = STEEL_LO; ctx.lineWidth = 3;
+      roundRect(fmI + 3, fmI + 3, W - (fmI + 3) * 2, H - (fmI + 3) * 2, 5); ctx.stroke();
+      ctx.restore();
+      // corner bolt plates
+      [[60 + 27, 60 + 27], [W - 60 - 27, 60 + 27], [60 + 27, H - 60 - 27], [W - 60 - 27, H - 60 - 27]]
+        .forEach(([bx, by]) => boltPlate(bx, by, 27));
+
+      // ============================================================
+      // CENTRAL BLAST-DOOR (chamfered) — the signature composition
+      // ============================================================
+      const fw = 1180, fh = 620;
+      const fx = (W - fw) / 2, fy = (H - fh) / 2;
+      const cham = 34;
+
+      // door body + drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 90; ctx.shadowOffsetY = 30;
+      chamferPath(fx, fy, fw, fh, cham);
+      const dg = ctx.createLinearGradient(0, fy, 0, fy + fh);
+      dg.addColorStop(0, 'rgba(30,42,51,0.78)'); dg.addColorStop(1, 'rgba(16,22,27,0.86)');
+      ctx.fillStyle = dg; ctx.fill();
+      ctx.restore();
+
+      // clip door interior + draw two leaves with horizontal ridges
+      ctx.save();
+      chamferPath(fx, fy, fw, fh, cham); ctx.clip();
+      // ridged leaf texture
+      ctx.strokeStyle = 'rgba(11,16,20,0.5)'; ctx.lineWidth = 1;
+      for (let yy = fy; yy < fy + fh; yy += 40) { ctx.beginPath(); ctx.moveTo(fx, yy + 0.5); ctx.lineTo(fx + fw, yy + 0.5); ctx.stroke(); }
+      // inner heat bloom from the seam
+      bloom(W / 2, H / 2, 520, 'rgba(245,166,35,0.10)', 1);
+      ctx.restore();
+
+      // glowing amber centre SEAM
+      ctx.save();
+      const seam = ctx.createLinearGradient(0, fy + 10, 0, fy + fh - 10);
+      seam.addColorStop(0, 'rgba(245,166,35,0)');
+      seam.addColorStop(0.5, AMBER);
+      seam.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.fillStyle = seam; ctx.shadowColor = 'rgba(245,166,35,0.55)'; ctx.shadowBlur = 22;
+      ctx.fillRect(W / 2 - 1.5, fy + 10, 3, fh - 20);
+      ctx.restore();
+
+      // door borders
+      ctx.strokeStyle = STEEL_HI; ctx.lineWidth = 2;
+      chamferPath(fx + 1, fy + 1, fw - 2, fh - 2, cham); ctx.stroke();
+      ctx.strokeStyle = 'rgba(11,16,20,0.85)'; ctx.lineWidth = 2;
+      chamferPath(fx + 14, fy + 14, fw - 28, fh - 28, cham - 6); ctx.stroke();
+
+      // ---- bay designation plate (top-center stamp) ----
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 22px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.75;
+      drawSpacedCentered('[ your text here ]', W / 2 + 12, fy - 56, 7);
+      // blinking red dot (drawn solid for the still)
+      ctx.globalAlpha = 1; ctx.fillStyle = RED;
+      ctx.shadowColor = 'rgba(255,77,46,0.5)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(W / 2 - spacedWidth('[ your text here ]', 7) / 2 - 10, fy - 56, 5, 0, 6.2832); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- door content (centered) ----
+      const cx = W / 2;
+
+      // warning-triangle + kicker row
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '700 28px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      const kicker = '[ your text here ]';
+      const kw = spacedWidth(kicker, 9);
+      const triW = 36, gap = 18;
+      const rowW = triW + gap + kw;
+      const rowX = cx - rowW / 2;
+      const ky = fy + 150;
+      // warning triangle
+      ctx.fillStyle = AMBER; ctx.strokeStyle = STEEL_LO; ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(245,166,35,0.5)'; ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(rowX + triW / 2, ky - 16);
+      ctx.lineTo(rowX + triW, ky + 14); ctx.lineTo(rowX, ky + 14); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = STEEL_LO; ctx.font = '800 22px "Bahnschrift","Impact",sans-serif';
+      ctx.textAlign = 'center'; ctx.fillText('!', rowX + triW / 2, ky + 3);
+      // kicker text
+      ctx.textAlign = 'left';
+      ctx.font = '700 28px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(245,166,35,0.4)'; ctx.shadowBlur = 14;
+      drawSpaced(kicker, rowX + triW + gap, ky, 9);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // big stencil TITLE: OFFLINE (light steel, embossed)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 188px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      const ty = fy + 300;
+      ctx.fillStyle = STEEL_LO; ctx.fillText('OFFLINE', cx, ty + 5);   // emboss
+      const tg = ctx.createLinearGradient(0, ty - 90, 0, ty + 90);
+      tg.addColorStop(0, '#E8EEF2'); tg.addColorStop(0.6, STEEL_LT); tg.addColorStop(1, '#8a97a0');
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(200,210,217,0.25)'; ctx.shadowBlur = 30;
+      ctx.fillText('OFFLINE', cx, ty);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- TELEMETRY strip under the title ----
+      ctx.save();
+      const tlW = 760, tlX = cx - tlW / 2, tlY = fy + 410;
+      ctx.fillStyle = 'rgba(8,12,15,0.55)';
+      ctx.fillRect(tlX, tlY, tlW, 56);
+      ctx.strokeStyle = 'rgba(200,210,217,0.16)'; ctx.lineWidth = 1;
+      ctx.strokeRect(tlX + 0.5, tlY + 0.5, tlW - 1, 55);
+      // readouts
+      ctx.font = '15px "Consolas","SFMono-Regular",monospace';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.85;
+      ctx.textAlign = 'left'; drawSpaced('PWR ', tlX + 20, tlY + 19, 3);
+      ctx.fillStyle = RED; drawSpaced('OFFLINE', tlX + 20 + spacedWidth('PWR ', 3), tlY + 19, 3);
+      ctx.fillStyle = STEEL_LT; ctx.textAlign = 'center'; drawSpacedCentered('COOLANT STABLE', cx, tlY + 19, 3);
+      ctx.fillStyle = STEEL_LT; ctx.textAlign = 'left';
+      const ig = 'IGNITION ';
+      drawSpacedRight('STANDBY', tlX + tlW - 20, tlY + 19, 3);
+      ctx.fillStyle = STEEL_LT;
+      drawSpacedRight(ig, tlX + tlW - 20 - spacedWidth('STANDBY', 3) - 6, tlY + 19, 3);
+      ctx.globalAlpha = 1;
+      // a dead charge gauge (empty, hazard-edged) at the bottom of the strip
+      ctx.fillStyle = '#050708'; ctx.fillRect(tlX + 20, tlY + 36, tlW - 40, 10);
+      ctx.strokeStyle = STEEL_HI; ctx.lineWidth = 1; ctx.strokeRect(tlX + 20, tlY + 36, tlW - 40, 10);
+      ctx.fillStyle = 'rgba(245,166,35,0.25)'; ctx.fillRect(tlX + 20, tlY + 36, (tlW - 40) * 0.06, 10);
+      ctx.restore();
+
+      // subtitle (mono)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '22px "Consolas","SFMono-Regular",monospace';
+      ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.7;
+      drawSpacedCentered('[ your text here ]', cx, fy + 530, 4);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // ---- corner CAUTION stencils on the steel (outside the door) ----
+      ctx.save();
+      ctx.font = '700 22px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(245,166,35,0.78)'; ctx.textAlign = 'left';
+      drawSpaced('[ your text here ]', 132, 130, 7);
+      ctx.fillStyle = 'rgba(200,210,217,0.6)'; ctx.textAlign = 'right';
+      drawSpacedRight('[ your text here ]', W - 132, 130, 7);
+      ctx.font = '700 16px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.fillStyle = 'rgba(200,210,217,0.5)'; ctx.textAlign = 'left';
+      drawSpaced('[ your text here ]', 132, H - 116, 5);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, amber mono) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 26px "Consolas","SFMono-Regular",monospace';
+      ctx.fillStyle = AMBER; ctx.shadowColor = 'rgba(245,166,35,0.35)'; ctx.shadowBlur = 14;
+      ctx.fillText(handleAt, W - 132, H - 122);
+      ctx.shadowBlur = 0;
+      ctx.font = '18px "Consolas","SFMono-Regular",monospace';
+      ctx.fillStyle = STEEL_LT; ctx.globalAlpha = 0.7;
+      ctx.fillText('twitch.tv/' + handleClean, W - 132, H - 150);
+      ctx.globalAlpha = 1;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

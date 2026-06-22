@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bubble Bath Icon Set — generator</title>
+  <!--
+    A consistent set of 18 stand-alone TRANSPARENT PNG icons in the Bubble Bath
+    "Soap & Shimmer" language: rounded PERIWINKLE line icons with a soft
+    glow, each tucked inside a faint iridescent soap-bubble (translucent body +
+    two-arc soap-film rim + a white specular dot) so the whole set reads as
+    a matched soapy family. Each icon is 200 x 200 px, fully transparent bg.
+
+    Two families share ONE stroke weight, ONE corner radius and ONE glow:
+      - SOCIAL  : Twitch, YouTube, Twitter/X, Instagram, Discord, TikTok,
+                  Kick, Patreon, PayPal/donate, Steam
+      - LABELS  : follow (heart), subscribe (star), bits/cheer (diamond),
+                  raid (flag), host (broadcast), like (thumb), share (node),
+                  member (crown)
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or a single Download under any icon).
+      3. Drop the transparent PNGs into overlays, panels, alert boxes, etc.
+
+    Pure vector strokes on a canvas (no baked-in text / fonts) -> crisp at export size.
+  -->
+  <style>
+    :root {
+      --sky-aqua:#D9F4FF; --mint-aqua:#A0E7E5; --bubblegum:#FFB7D5;
+      --lemon:#FFF4C2; --periwinkle:#6C7AE0; --ink:#3A4A7A; --aqua-deep:#BDEBFB;
+      --display:"Quicksand","Comfortaa","Varela Round","Segoe UI Variable","Segoe UI",system-ui,"Trebuchet MS",Verdana,sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: var(--display); color: var(--ink); padding: 32px; min-height: 100vh;
+      background:
+        radial-gradient(1100px 700px at 30% -10%, rgba(255,183,213,0.30), transparent 60%),
+        radial-gradient(900px 700px at 100% 110%, rgba(160,231,229,0.40), transparent 60%),
+        linear-gradient(180deg, var(--sky-aqua), #CDEFFB 55%, var(--aqua-deep));
+      background-attachment: fixed;
+    }
+    h1 { font-family: var(--display); font-weight: 700; font-size: 28px; color: var(--ink);
+      letter-spacing: .3px; margin: 0 0 6px; text-shadow: 0 2px 0 #fff, 0 8px 20px rgba(108,122,224,0.22); }
+    p.lead { color: rgba(58,74,122,0.8); margin: 0 0 22px; max-width: 760px; line-height: 1.6;
+      font-weight: 600; font-size: 16px; }
+    .toolbar { margin: 0 0 26px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    button {
+      font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 2px;
+      text-transform: uppercase; padding: 11px 24px; color: #fff;
+      background: linear-gradient(180deg, #8C97E8, var(--periwinkle));
+      border: 2px solid rgba(255,255,255,0.85); border-radius: 999px;
+      cursor: pointer; box-shadow: 0 8px 22px rgba(108,122,224,0.30); transition: filter .15s ease;
+    }
+    button:hover { filter: brightness(1.06); }
+    .section { margin: 8px 0 6px; font-family: var(--display); font-weight: 700; letter-spacing: 4px;
+      font-size: 12px; color: var(--periwinkle); text-transform: uppercase;
+      border-top: 1px solid rgba(108,122,224,0.2); padding-top: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; margin-bottom: 10px; }
+    .card {
+      background: rgba(255,255,255,0.55); padding: 12px 12px 10px; border: 1px solid rgba(255,255,255,0.85);
+      border-radius: 16px; box-shadow: 0 8px 22px rgba(108,122,224,0.12);
+      display: flex; flex-direction: column; align-items: center;
+      --c: rgba(160,231,229,0.30);
+    }
+    .canvas-wrap {
+      border-radius: 12px; overflow: hidden;
+      background-image:
+        linear-gradient(45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--c) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--c) 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 126px; height: 126px; }
+    .card .name { margin-top: 9px; font-family: var(--display); font-weight: 700; font-size: 11px;
+      letter-spacing: 1.5px; color: var(--periwinkle); text-align: center; }
+    .card a { margin-top: 4px; font-family: var(--display); font-weight: 600; font-size: 11px;
+      color: rgba(58,74,122,0.6); text-decoration: none; border-bottom: 1px dashed rgba(108,122,224,0.4); }
+    .card a:hover { color: var(--periwinkle); }
+  </style>
+</head>
+<body>
+  <h1>BUBBLE BATH ICON SET</h1>
+  <p class="lead">
+    18 transparent PNG line icons in one cohesive soap-&amp;-shimmer style &mdash; rounded
+    periwinkle strokes with a soft glow, each tucked in a faint iridescent soap bubble. Each is
+    200&times;200 with its own Download, plus a Download-all. Drop them into overlays, panels, or alerts.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+
+  <div class="section">Social platforms</div>
+  <div class="grid" id="grid-social"></div>
+
+  <div class="section">Stream labels &amp; events</div>
+  <div class="grid" id="grid-label"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- Tokens (shared across every icon so the set stays cohesive) ----
+    const SIZE   = 200;
+    const PAD    = 44;            // safe margin (the soap bubble lives just inside this)
+    const STROKE = 9;            // ONE stroke weight for all icons
+    const RADIUS = 12;           // ONE corner radius for rounded joins
+    const PERI     = '#6C7AE0';  // primary line color (periwinkle)
+    const PINK     = '#FFB7D5';
+    const MINT     = '#A0E7E5';
+    const CREAM    = '#FFFFFF';
+    const GLOW     = 'rgba(108,122,224,0.55)';
+    const RIMS = ['rgba(255,183,213,A)','rgba(160,231,229,A)','rgba(255,244,194,A)','rgba(108,122,224,A)','rgba(189,235,251,A)'];
+
+    // usable drawing box (everything authored inside this square)
+    const BOX = { x: PAD, y: PAD, w: SIZE - PAD * 2, h: SIZE - PAD * 2 };
+
+    // ---------------------------------------------------------------------
+    // The faint soap-bubble that surrounds every glyph (the unifying motif).
+    // ---------------------------------------------------------------------
+    function soapBubble(ctx, hue) {
+      const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2 - 14;
+      const a = 0.42;
+      const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
+      g.addColorStop(0,    'rgba(255,255,255,' + (a * 0.55).toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(217,244,255,' + (a * 0.28).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(160,231,229,' + (a * 0.10).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fill();
+      // two-arc soap-film rim
+      const rimA = '0.55';
+      ctx.lineWidth = Math.max(2, r * 0.045);
+      ctx.strokeStyle = RIMS[hue % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(cx, cy, r - ctx.lineWidth * 0.5, 0.4, 3.6); ctx.stroke();
+      ctx.strokeStyle = RIMS[(hue + 2) % RIMS.length].replace('A', rimA);
+      ctx.beginPath(); ctx.arc(cx, cy, r - ctx.lineWidth * 0.5, 3.4, 6.2, false); ctx.stroke();
+      // crisp outer ring
+      ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.stroke();
+      // specular dot
+      const hx = cx - r * 0.4, hy = cy - r * 0.44, hr = r * 0.16;
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, 'rgba(255,255,255,0.85)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+
+    // Stroke helper: every glyph path uses the SAME cap/join/weight/glow.
+    function pen(ctx, build, opts) {
+      opts = opts || {};
+      ctx.save();
+      ctx.lineWidth = opts.weight || STROKE;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = opts.color || PERI;
+      ctx.fillStyle = opts.color || PERI;
+      ctx.shadowColor = opts.glow || GLOW;
+      ctx.shadowBlur = opts.blur != null ? opts.blur : 10;
+      ctx.beginPath();
+      build(ctx);
+      if (opts.fill) ctx.fill(); else ctx.stroke();
+      ctx.restore();
+    }
+
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function starPath(ctx, cx, cy, outer, inner, points) {
+      for (let i = 0; i < points * 2; i++) {
+        const rad = (i % 2 === 0) ? outer : inner;
+        const a = -Math.PI / 2 + (i * Math.PI) / points;
+        const px = cx + Math.cos(a) * rad;
+        const py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    function diamondPath(ctx, cx, cy, d) {
+      ctx.moveTo(cx, cy - d); ctx.lineTo(cx + d, cy); ctx.lineTo(cx, cy + d); ctx.lineTo(cx - d, cy); ctx.closePath();
+    }
+
+    // =====================================================================
+    // ICON DRAWERS — each receives (ctx) and draws inside BOX.
+    // =====================================================================
+    const ICONS = {
+      // ---- SOCIAL ----
+      twitch(ctx) {
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + RADIUS, b.y);
+          c.lineTo(b.x + b.w, b.y);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.62);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.52, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + RADIUS);
+          c.arcTo(b.x, b.y, b.x + RADIUS, b.y, RADIUS);
+          c.closePath();
+        });
+        const ey = b.y + b.h * 0.30, eh = b.h * 0.26;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.40, ey); c.lineTo(b.x + b.w * 0.40, ey + eh); }, { weight: STROKE - 2 });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.64, ey); c.lineTo(b.x + b.w * 0.64, ey + eh); }, { weight: STROKE - 2 });
+      },
+
+      youtube(ctx) {
+        const b = BOX;
+        const ry = b.y + b.h * 0.16, rh = b.h * 0.68;
+        pen(ctx, c => roundRectPath(c, b.x, ry, b.w, rh, RADIUS + 6));
+        const cx = b.x + b.w / 2, cy = ry + rh / 2, t = rh * 0.30;
+        pen(ctx, c => {
+          c.moveTo(cx - t * 0.85, cy - t);
+          c.lineTo(cx + t * 1.15, cy);
+          c.lineTo(cx - t * 0.85, cy + t);
+          c.closePath();
+        }, { fill: true });
+      },
+
+      'twitter-x'(ctx) {
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x, b.y); c.lineTo(b.x + b.w, b.y + b.h); });
+        pen(ctx, c => { c.moveTo(b.x + b.w, b.y); c.lineTo(b.x, b.y + b.h); });
+      },
+
+      instagram(ctx) {
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y, b.w, b.h, RADIUS + 14));
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.24, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.78, b.y + b.h * 0.22, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, color: PINK });
+      },
+
+      discord(ctx) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.50;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.quadraticCurveTo(cx, b.y + b.h * 0.06, b.x + b.w * 0.84, b.y + b.h * 0.20);
+          c.quadraticCurveTo(b.x + b.w * 1.02, b.y + b.h * 0.62, b.x + b.w * 0.80, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.20, b.y + b.h * 0.88);
+          c.quadraticCurveTo(b.x - b.w * 0.02, b.y + b.h * 0.62, b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.closePath();
+        });
+        pen(ctx, c => { c.arc(cx - b.w * 0.16, cy, STROKE * 0.55, 0, Math.PI * 2); }, { fill: true, color: PINK });
+        pen(ctx, c => { c.arc(cx + b.w * 0.16, cy, STROKE * 0.55, 0, Math.PI * 2); }, { fill: true, color: PINK });
+      },
+
+      tiktok(ctx) {
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.lineTo(b.x + b.w * 0.58, b.y + b.h * 0.66);
+          c.arc(b.x + b.w * 0.40, b.y + b.h * 0.66, b.w * 0.18, 0, Math.PI * 2);
+        });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.quadraticCurveTo(b.x + b.w * 0.78, b.y + b.h * 0.04, b.x + b.w * 0.92, b.y + b.h * 0.22);
+        });
+      },
+
+      kick(ctx) {
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y); c.lineTo(b.x + b.w * 0.18, b.y + b.h); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y + b.h * 0.50); c.lineTo(b.x + b.w * 0.60, b.y + b.h * 0.06); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.36, b.y + b.h * 0.36); c.lineTo(b.x + b.w * 0.78, b.y + b.h); });
+      },
+
+      patreon(ctx) {
+        const b = BOX;
+        pen(ctx, c => { c.arc(b.x + b.w * 0.62, b.y + b.h * 0.40, b.w * 0.30, 0, Math.PI * 2); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.10, b.y); c.lineTo(b.x + b.w * 0.10, b.y + b.h); });
+      },
+
+      paypal(ctx) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        pen(ctx, c => {
+          c.moveTo(cx + b.w * 0.14, cy - b.h * 0.22);
+          c.quadraticCurveTo(cx - b.w * 0.22, cy - b.h * 0.30, cx - b.w * 0.16, cy - b.h * 0.02);
+          c.quadraticCurveTo(cx + b.w * 0.22, cy + b.h * 0.04, cx + b.w * 0.14, cy + b.h * 0.24);
+          c.quadraticCurveTo(cx - b.w * 0.20, cy + b.h * 0.32, cx - b.w * 0.16, cy + b.h * 0.10);
+        }, { weight: STROKE - 2 });
+        pen(ctx, c => { c.moveTo(cx - b.w * 0.02, cy - b.h * 0.34); c.lineTo(cx - b.w * 0.02, cy + b.h * 0.36); }, { weight: STROKE - 4, color: PINK });
+      },
+
+      steam(ctx) {
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.66, b.y + b.h * 0.34, b.w * 0.16, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.30, b.y + b.h * 0.66, b.w * 0.10, 0, Math.PI * 2); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.30, b.y + b.h * 0.66); c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.34); }, { weight: STROKE - 3 });
+      },
+
+      // ---- LABELS / EVENTS ----
+      follow(ctx) { // heart
+        const b = BOX;
+        const cx = b.x + b.w / 2, top = b.y + b.h * 0.20;
+        pen(ctx, c => {
+          c.moveTo(cx, b.y + b.h * 0.94);
+          c.lineTo(b.x + b.w * 0.08, top + b.h * 0.18);
+          c.arc(b.x + b.w * 0.29, top, b.w * 0.21, Math.PI * 0.95, Math.PI * 1.95);
+          c.arc(b.x + b.w * 0.71, top, b.w * 0.21, Math.PI * 1.05, Math.PI * 2.05);
+          c.lineTo(cx, b.y + b.h * 0.94);
+          c.closePath();
+        }, { color: PINK, glow: 'rgba(255,183,213,0.7)' });
+      },
+
+      subscribe(ctx) { // star
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.54;
+        pen(ctx, c => starPath(c, cx, cy, b.w * 0.46, b.w * 0.19, 5));
+      },
+
+      'bits-cheer'(ctx) { // diamond / gem
+        const b = BOX;
+        const cx = b.x + b.w / 2;
+        const top = b.y + b.h * 0.06, mid = b.y + b.h * 0.34, bot = b.y + b.h * 0.96;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.22, top);
+          c.lineTo(b.x + b.w * 0.78, top);
+          c.lineTo(b.x + b.w, mid);
+          c.lineTo(cx, bot);
+          c.lineTo(b.x, mid);
+          c.closePath();
+        });
+        pen(ctx, c => { c.moveTo(b.x, mid); c.lineTo(b.x + b.w, mid); }, { weight: STROKE - 4 });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.22, top); c.lineTo(cx, mid); c.lineTo(b.x + b.w * 0.78, top); }, { weight: STROKE - 4 });
+        pen(ctx, c => { c.moveTo(cx, mid); c.lineTo(cx, bot); }, { weight: STROKE - 4 });
+      },
+
+      raid(ctx) { // flag
+        const b = BOX;
+        const px = b.x + b.w * 0.18;
+        pen(ctx, c => { c.moveTo(px, b.y); c.lineTo(px, b.y + b.h); });
+        pen(ctx, c => {
+          c.moveTo(px, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.26);
+          c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.46);
+          c.lineTo(px, b.y + b.h * 0.46);
+          c.closePath();
+        });
+      },
+
+      host(ctx) { // broadcast / signal
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.62;
+        pen(ctx, c => { c.arc(cx, cy, STROKE * 0.7, 0, Math.PI * 2); }, { fill: true });
+        for (let i = 1; i <= 2; i++) {
+          const r = b.w * (0.14 + i * 0.16);
+          pen(ctx, c => { c.arc(cx, cy, r, Math.PI * 1.20, Math.PI * 1.80); }, { weight: STROKE - 2 });
+        }
+        pen(ctx, c => { c.moveTo(cx, cy); c.lineTo(cx, b.y); });
+      },
+
+      like(ctx) { // thumbs up
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y + b.h * 0.42, b.w * 0.26, b.h * 0.58, RADIUS - 4));
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.32, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.32, b.y + b.h * 0.46);
+          c.lineTo(b.x + b.w * 0.50, b.y + b.h * 0.18);
+          c.quadraticCurveTo(b.x + b.w * 0.58, b.y, b.x + b.w * 0.64, b.y + b.h * 0.10);
+          c.quadraticCurveTo(b.x + b.w * 0.70, b.y + b.h * 0.22, b.x + b.w * 0.58, b.y + b.h * 0.40);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.40);
+          c.quadraticCurveTo(b.x + b.w, b.y + b.h * 0.46, b.x + b.w * 0.94, b.y + b.h * 0.70);
+          c.quadraticCurveTo(b.x + b.w * 0.90, b.y + b.h, b.x + b.w * 0.70, b.y + b.h);
+          c.closePath();
+        });
+      },
+
+      share(ctx) { // three-node share graph
+        const b = BOX;
+        const a = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.12 };
+        const d = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.88 };
+        const e = { x: b.x + b.w * 0.16, y: b.y + b.h * 0.50 };
+        const rN = STROKE * 1.05;
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(a.x, a.y); }, { weight: STROKE - 3 });
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(d.x, d.y); }, { weight: STROKE - 3 });
+        [a, d, e].forEach(n => pen(ctx, c => { c.arc(n.x, n.y, rN, 0, Math.PI * 2); }, { fill: true }));
+      },
+
+      member(ctx) { // crown
+        const b = BOX;
+        const baseY = b.y + b.h * 0.80, topY = b.y + b.h * 0.12, midY = b.y + b.h * 0.44;
+        pen(ctx, c => {
+          c.moveTo(b.x, baseY);
+          c.lineTo(b.x, midY);
+          c.lineTo(b.x + b.w * 0.27, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w * 0.50, topY);
+          c.lineTo(b.x + b.w * 0.73, b.y + b.h * 0.60);
+          c.lineTo(b.x + b.w, midY);
+          c.lineTo(b.x + b.w, baseY);
+          c.closePath();
+        });
+        pen(ctx, c => { c.moveTo(b.x, baseY); c.lineTo(b.x + b.w, baseY); }, { weight: STROKE - 3 });
+        pen(ctx, c => diamondPath(c, b.x + b.w * 0.50, b.y + b.h * 0.52, STROKE * 0.7), { fill: true, color: PINK });
+      },
+    };
+
+    // Display labels + which grid each belongs to. (18 total)
+    const SOCIAL = [
+      ['twitch', 'TWITCH'], ['youtube', 'YOUTUBE'], ['twitter-x', 'TWITTER / X'],
+      ['instagram', 'INSTAGRAM'], ['discord', 'DISCORD'], ['tiktok', 'TIKTOK'],
+      ['kick', 'KICK'], ['patreon', 'PATREON'], ['paypal', 'DONATE'], ['steam', 'STEAM'],
+    ];
+    const LABEL = [
+      ['follow', 'FOLLOW'], ['subscribe', 'SUBSCRIBE'], ['bits-cheer', 'BITS / CHEER'],
+      ['raid', 'RAID'], ['host', 'HOST'], ['like', 'LIKE'], ['share', 'SHARE'], ['member', 'MEMBER'],
+    ];
+
+    const made = [];   // { canvas, id }
+    let hueSeed = 0;   // cycle the soap-film rim hue per icon so the set shimmers
+
+    function renderIcon(id) {
+      const cv = document.createElement('canvas');
+      cv.width = SIZE; cv.height = SIZE;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, SIZE, SIZE); // fully transparent background
+      soapBubble(ctx, hueSeed++);       // the unifying soap-bubble motif
+      const fn = ICONS[id];
+      if (fn) fn(ctx);
+      return cv;
+    }
+
+    function buildGrid(targetId, list) {
+      const grid = document.getElementById(targetId);
+      for (const [id, label] of list) {
+        const cv = renderIcon(id);
+        const card = document.createElement('div'); card.className = 'card';
+        const wrap = document.createElement('div'); wrap.className = 'canvas-wrap';
+        wrap.appendChild(cv);
+        const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = label;
+        const dl = document.createElement('a'); dl.href = '#'; dl.textContent = 'Download';
+        dl.addEventListener('click', e => { e.preventDefault(); save(cv, id); });
+        card.appendChild(wrap); card.appendChild(nm); card.appendChild(dl);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id });
+      }
+    }
+
+    function save(canvas, id) {
+      const a = document.createElement('a');
+      a.download = 'icon-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', () => {
+      let i = 0;
+      const next = () => { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); };
+      next();
+    });
+
+    buildGrid('grid-social', SOCIAL);
+    buildGrid('grid-label', LABEL);
+    window.__exportAssets = () => made.map(m => ({ name: m.id, dataURL: m.canvas.toDataURL('image/png') }));
+  })();
+  </script>
+</body>
+</html>

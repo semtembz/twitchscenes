@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mecha Hangar — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Mecha Hangar
+    "Launch Bay 07" industrial language:
+        - a riveted STEEL plate with chamfered corners + bevel sheen
+        - a hazard amber/black stripe spine down the left + corner bolt heads
+        - a thin amber/steel line icon stamped in a recessed bezel
+        - the label in a heavy condensed stencil (light steel) over a panel-seam
+          grain, with a small amber status LED
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Mecha Hangar "Launch Bay 07" palette ---- */
+    :root{
+      --gunmetal:#101417; --steel:#1E2A33; --amber:#F5A623; --red:#FF4D2E;
+      --steel-lt:#C8D2D9; --text:#E8EEF2; --steel-hi:#2C3C47; --steel-lo:#0B1014;
+      --rivet:#3A4A55; --rivet-hi:#5E727F;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
+      color:var(--text);padding:36px 32px 60px;min-height:100vh;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(44,60,71,.45), transparent 60%),
+        radial-gradient(700px 480px at 100% 110%, rgba(245,166,35,.06), transparent 60%),
+        linear-gradient(160deg, #131A20, #0A0E11);
+    }
+    .kicker{font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;
+      letter-spacing:.4em;font-size:13px;color:var(--amber);text-transform:uppercase;
+      margin:0 0 8px;display:flex;align-items:center;gap:11px;text-indent:.4em;}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--red);
+      box-shadow:0 0 10px rgba(255,77,46,.6);}
+    h1{font-weight:800;font-size:34px;letter-spacing:.02em;margin:0 0 6px;text-transform:uppercase;
+      color:var(--steel-lt);text-shadow:0 2px 0 #0B1014, 0 0 26px rgba(200,210,217,.18);}
+    p.lead{color:var(--steel-lt);opacity:.8;margin:0 0 24px;max-width:760px;line-height:1.6;
+      font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;font-size:14px;letter-spacing:.04em;}
+    code{font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;color:var(--amber);
+      background:rgba(245,166,35,.10);padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{
+      font-family:"Bahnschrift","DIN Condensed","Impact",system-ui,sans-serif;font-weight:700;
+      font-size:14px;letter-spacing:.18em;text-transform:uppercase;padding:13px 26px;cursor:pointer;
+      color:var(--gunmetal);background:linear-gradient(180deg, #FFD27A, var(--amber));
+      border:1px solid rgba(11,16,20,.6);border-radius:3px;
+      box-shadow:0 6px 24px rgba(245,166,35,.22), inset 0 1px 0 rgba(255,255,255,.4);
+    }
+    button:hover{filter:brightness(1.07);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(348px, 1fr));gap:26px;}
+    .card{background:rgba(16,22,27,.6);padding:16px;border-radius:5px;
+      border:1px solid rgba(44,60,71,.5);}
+    /* checkerboard so any transparent corners are visible */
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#0d1216;
+      background-image:
+        linear-gradient(45deg, #1a242c40 25%, transparent 25%),
+        linear-gradient(-45deg, #1a242c40 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1a242c40 75%),
+        linear-gradient(-45deg, transparent 75%, #1a242c40 75%);
+      background-size:16px 16px;background-position:0 0, 0 8px, 8px -8px, -8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;}
+    .card-row .name{font-family:"Bahnschrift","DIN Condensed",system-ui,sans-serif;letter-spacing:.16em;
+      color:var(--steel-lt);opacity:.8;text-transform:uppercase;}
+    .card-row a{font-family:"Bahnschrift","DIN Condensed",system-ui,sans-serif;letter-spacing:.1em;
+      color:var(--amber);text-decoration:none;border:1px solid rgba(245,166,35,.4);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(245,166,35,.14);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dot"></span>LAUNCH BAY 07 · PANELS</p>
+  <h1>Mecha Hangar — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the industrial launch-bay style:
+    a riveted steel plate, a hazard amber/black spine, chamfered corners, corner bolts, and a
+    stamped line icon. Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var GUNMETAL = '#101417', STEEL = '#1E2A33', AMBER = '#F5A623', RED = '#FF4D2E';
+    var STEEL_LT = '#C8D2D9', STEEL_HI = '#2C3C47', STEEL_LO = '#0B1014';
+    var RIVET = '#3A4A55', RIVET_HI = '#5E727F';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'helmet' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'shield' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'squad' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // chamfered (octagonal-corner) plate path — the signature steel silhouette
+    function chamferPath(ctx, x, y, w, h, c) {
+      ctx.beginPath();
+      ctx.moveTo(x + c, y);
+      ctx.lineTo(x + w - c, y);
+      ctx.lineTo(x + w, y + c);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + c, y + h);
+      ctx.lineTo(x, y + h - c);
+      ctx.lineTo(x, y + c);
+      ctx.closePath();
+    }
+
+    // a small steel bolt head
+    function bolt(ctx, cx, cy, r) {
+      ctx.save();
+      var g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r);
+      g.addColorStop(0, RIVET_HI); g.addColorStop(0.6, RIVET); g.addColorStop(1, '#1c252b');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(11,16,20,0.7)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      // hex slot
+      ctx.strokeStyle = 'rgba(11,16,20,0.55)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - r * 0.5, cy); ctx.lineTo(cx + r * 0.5, cy); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 3, c = 12;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // steel plate body, clipped to chamfered silhouette
+      ctx.save();
+      chamferPath(ctx, x, y, w, h, c);
+      ctx.clip();
+
+      // base brushed steel gradient
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#22303a');
+      bg.addColorStop(0.5, STEEL);
+      bg.addColorStop(1, '#141d23');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // panel-seam grid (the riveted plating motif)
+      ctx.strokeStyle = 'rgba(11,16,20,0.55)'; ctx.lineWidth = 1;
+      for (var gx = 78; gx < W; gx += 84) { ctx.beginPath(); ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0, Math.round(H / 2) + 0.5); ctx.lineTo(W, Math.round(H / 2) + 0.5); ctx.stroke();
+      // bevel highlight on each plate top
+      ctx.strokeStyle = 'rgba(94,114,127,0.18)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, Math.round(H / 2) + 1.5); ctx.lineTo(W, Math.round(H / 2) + 1.5); ctx.stroke();
+
+      // fine brushed grain
+      ctx.fillStyle = 'rgba(255,255,255,0.012)';
+      for (var sy = 0; sy < H; sy += 4) ctx.fillRect(0, sy, W, 1);
+
+      // central amber heat bloom
+      var bloom = ctx.createRadialGradient(W * 0.62, H * 0.5, 0, W * 0.62, H * 0.5, 150);
+      bloom.addColorStop(0, 'rgba(245,166,35,0.10)'); bloom.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.fillStyle = bloom; ctx.fillRect(0, 0, W, H);
+
+      // HAZARD amber/black spine band down the left
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, y, 50, h); ctx.clip();
+      ctx.translate(x, y);
+      for (var d = -h; d < 50 + h; d += 18) {
+        ctx.fillStyle = (Math.round(d / 18) % 2 === 0) ? AMBER : '#14171A';
+        ctx.beginPath();
+        ctx.moveTo(d, 0); ctx.lineTo(d + 9, 0); ctx.lineTo(d + 9 - h, h); ctx.lineTo(d - h, h);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      // dark divider after the spine + a thin amber edge line
+      ctx.fillStyle = 'rgba(11,16,20,0.9)'; ctx.fillRect(x + 50, y, 2, h);
+      ctx.fillStyle = 'rgba(245,166,35,0.55)'; ctx.fillRect(x + 52, y, 1, h);
+
+      // recessed icon bezel on the spine
+      ctx.fillStyle = 'rgba(8,12,15,0.55)';
+      roundRect(ctx, x + 8, H / 2 - 19, 36, 38, 6); ctx.fill();
+      ctx.strokeStyle = 'rgba(11,16,20,0.8)'; ctx.lineWidth = 1.5;
+      roundRect(ctx, x + 8, H / 2 - 19, 36, 38, 6); ctx.stroke();
+
+      // vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(5,8,10,0.55)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // icon stamped in the bezel (amber line)
+      drawIcon(ctx, p.icon, x + 26, H / 2, 24);
+
+      // corner bolt heads (on the steel, not clipped)
+      bolt(ctx, x + 11, y + 11, 4.2);
+      bolt(ctx, x + w - 11, y + 11, 4.2);
+      bolt(ctx, x + 11, y + h - 11, 4.2);
+      bolt(ctx, x + w - 11, y + h - 11, 4.2);
+
+      // kicker — small stencil caps above the title
+      ctx.save();
+      ctx.font = '700 9px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(245,166,35,0.85)';
+      drawSpaced(ctx, '[ your text here ]', 66, 32, 2.0);
+      ctx.restore();
+
+      // status LED beside the kicker
+      ctx.fillStyle = AMBER;
+      ctx.shadowColor = 'rgba(245,166,35,0.7)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(60, 29, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // label — heavy condensed stencil (light steel) embossed
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 36;
+      var maxW = W - 66 - 18;
+      ctx.font = '800 ' + size + 'px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 16) {
+        size -= 1;
+        ctx.font = '800 ' + size + 'px "Bahnschrift","DIN Condensed","Impact",sans-serif';
+      }
+      var ty = 74;
+      // emboss shadow
+      ctx.fillStyle = STEEL_LO; ctx.fillText(label, 66, ty + 2);
+      ctx.shadowColor = 'rgba(200,210,217,0.25)'; ctx.shadowBlur = 10;
+      ctx.fillStyle = STEEL_LT; ctx.fillText(label, 66, ty);
+      ctx.restore();
+
+      // amber underline rule with a leading spark
+      ctx.save();
+      var barX = 66, barY = 83, barW = W - 66 - 18;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, AMBER);
+      grad.addColorStop(0.7, 'rgba(245,166,35,0.55)');
+      grad.addColorStop(1, 'rgba(245,166,35,0)');
+      ctx.fillStyle = grad; ctx.fillRect(barX, barY, barW, 2);
+      // hot-white spark at the leading edge
+      ctx.fillStyle = '#FFF3D6';
+      ctx.shadowColor = 'rgba(255,232,176,0.9)'; ctx.shadowBlur = 7;
+      ctx.fillRect(barX + barW * 0.62, barY - 1, 3, 4);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // the steel frame: chamfered double border ON TOP (not clipped)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(94,114,127,0.55)'; ctx.lineWidth = 1.5;
+      chamferPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, c); ctx.stroke();
+      ctx.strokeStyle = 'rgba(11,16,20,0.8)'; ctx.lineWidth = 1;
+      chamferPath(ctx, x + 4.5, y + 4.5, w - 9, h - 9, c - 3); ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- line icons -------------------------------------------------------
+    // All drawn with a consistent amber stroke, centred on (cx, cy), ~s px box.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = AMBER; ctx.fillStyle = AMBER;
+      ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(245,166,35,0.55)'; ctx.shadowBlur = 6;
+
+      switch (kind) {
+        case 'helmet': { // mecha pilot helmet (ABOUT)
+          ctx.beginPath();
+          ctx.arc(0, -h * 0.05, h * 0.85, Math.PI * 1.04, Math.PI * 1.96, false);
+          ctx.lineTo(h * 0.72, h * 0.55);
+          ctx.lineTo(-h * 0.72, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          // visor slit
+          ctx.lineWidth = 2.4;
+          ctx.beginPath(); ctx.moveTo(-h * 0.5, h * 0.05); ctx.lineTo(h * 0.5, h * 0.05); ctx.stroke();
+          // antenna
+          ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(h * 0.6, -h * 0.55); ctx.lineTo(h * 0.85, -h * 0.95); ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);  ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var col = 0; col < 3; col++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + col * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.fillRect(-h * 0.9, ly - 1.4, 2.8, 2.8); // hazard square bullet
+            ctx.beginPath(); ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '800 ' + Math.round(s * 0.6) + 'px "Bahnschrift","Impact",sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55); ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85); ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'shield': { // SPONSORS — riveted shield/badge
+          ctx.beginPath();
+          ctx.moveTo(0, -h * 0.92);
+          ctx.lineTo(h * 0.82, -h * 0.5);
+          ctx.lineTo(h * 0.82, h * 0.18);
+          ctx.quadraticCurveTo(h * 0.82, h * 0.7, 0, h * 0.95);
+          ctx.quadraticCurveTo(-h * 0.82, h * 0.7, -h * 0.82, h * 0.18);
+          ctx.lineTo(-h * 0.82, -h * 0.5);
+          ctx.closePath(); ctx.stroke();
+          // inner chevron
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.4, -h * 0.05); ctx.lineTo(0, h * 0.35); ctx.lineTo(h * 0.4, -h * 0.05);
+          ctx.stroke();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'squad': { // COMMUNITY — squad of three pilots
+          // back two heads
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.25, h * 0.26, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.5, -h * 0.25, h * 0.26, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.92, h * 0.7);
+          ctx.quadraticCurveTo(-h * 0.5, h * 0.2, -h * 0.08, h * 0.55); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(h * 0.92, h * 0.7);
+          ctx.quadraticCurveTo(h * 0.5, h * 0.2, h * 0.08, h * 0.55); ctx.stroke();
+          // front head + body
+          ctx.beginPath(); ctx.arc(0, -h * 0.05, h * 0.32, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.55, h * 0.92);
+          ctx.quadraticCurveTo(0, h * 0.32, h * 0.55, h * 0.92); ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

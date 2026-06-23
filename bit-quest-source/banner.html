@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Bit Quest (PNG generator)</title>
+  <!--
+    BIT QUEST · 16-bit JRPG PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = a small JRPG window with the
+    @HANDLE + a "PLAYER" kicker; right = a small JRPG window with an editable tagline.
+    The centre is decorative only — a faint pixel airship + a couple of distant
+    overworld tiles + sky stars — so the player can sit over it without hiding
+    anything important.
+
+    Everything random is drawn from a SEEDED PRNG (mulberry32), so the scatter is
+    identical on every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity window.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --night:#2B1B4E; --night2:#1A1030; --violet:#7B5CFF; --gold:#FFCB47;
+      --teal:#3AD6C5; --pink:#FF8FB1; --text:#FFFFFF; --ink:#150B2E;
+      --pixel:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--pixel);font-weight:700;
+      background:linear-gradient(176deg,#34215C,#1A1030);color:var(--text);padding:32px;
+      image-rendering:pixelated;}
+    h1{font-family:var(--pixel);font-weight:700;font-size:30px;color:var(--text);letter-spacing:.02em;
+      margin:0 0 6px;text-shadow:4px 4px 0 var(--ink);-webkit-text-stroke:1px var(--ink);}
+    h1 .accent{color:var(--gold);}
+    p.lead{color:#DDE3FF;margin:0 0 22px;max-width:880px;line-height:1.7;
+      font-family:var(--pixel);font-weight:700;font-size:15px;}
+    .kicker{font-family:var(--pixel);font-weight:700;letter-spacing:.30em;
+      font-size:14px;color:var(--teal);margin:0 0 14px;text-transform:uppercase;
+      text-shadow:3px 3px 0 var(--ink);display:flex;align-items:center;gap:12px;}
+    .cur{color:var(--gold);}
+    button{font-family:var(--pixel);font-weight:700;font-size:14px;
+      letter-spacing:.18em;text-transform:uppercase;padding:14px 26px;color:var(--ink);
+      background:linear-gradient(180deg,#FFE89A,var(--gold));border:3px solid #FFFFFF;
+      cursor:pointer;box-shadow:0 0 0 3px var(--ink),6px 6px 0 rgba(15,8,32,.5);}
+    button:hover{filter:brightness(1.06);}
+    .preview{margin-top:22px;background:#150B2E;padding:14px;border:2px solid #2b1b4e;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;image-rendering:pixelated;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:170px;border:2px dashed rgba(255,203,71,0.5);
+      background:rgba(27,17,48,0.4);pointer-events:none;border-radius:6px;
+      color:rgba(255,255,255,0.78);display:flex;align-items:center;justify-content:center;
+      font-family:var(--pixel);font-weight:700;font-size:12px;letter-spacing:2px;}
+    code{font-family:var(--pixel);color:var(--gold);background:rgba(255,203,71,.12);
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="cur">&#9654;</span>BIT QUEST &middot; PROFILE BANNER</p>
+  <h1>PROFILE BANNER <span class="accent">GENERATOR</span></h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the 16-bit JRPG style &mdash; seeded so the
+    scatter is reproducible. Identity sits in a <strong>left</strong> window, the tagline in a
+    <strong>right</strong> window; the centre is decorative so Twitch's offline player can sit
+    over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings &rarr; Channel &rarr; Brand &rarr; Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    const GOLD='#FFCB47', GOLD_HI='#FFE89A', GOLD_LO='#C9881C';
+    const TEAL='#3AD6C5', PINK='#FF8FB1', VIOLET='#7B5CFF';
+    const WIN_TOP='#3E63E8', WIN_MID='#2B43C4', WIN_BOT='#1B2C9E', WIN_EDGE='#6E8BFF';
+    const INK='#150B2E', TEXT='#FFFFFF', SUB='#DDE3FF';
+    const FONT='"Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function gem(cx, cy, d) {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = INK; ctx.fillRect(-d - 3, -d - 3, (d + 3) * 2, (d + 3) * 2);
+      ctx.fillStyle = GOLD; ctx.fillRect(-d, -d, d * 2, d * 2);
+      ctx.fillStyle = GOLD_HI; ctx.fillRect(-d, -d, d, d);
+      ctx.restore();
+    }
+
+    // a compact JRPG dialog window (same layered border language as .window CSS)
+    function drawWindow(x, y, w, h, r) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,8,32,0.55)'; ctx.shadowOffsetX = 12; ctx.shadowOffsetY = 14;
+      ctx.fillStyle = INK; roundRect(x - 10, y - 10, w + 20, h + 20, r + 10); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF'; roundRect(x - 7, y - 7, w + 14, h + 14, r + 7); ctx.fill();
+      ctx.fillStyle = WIN_BOT;   roundRect(x - 3.5, y - 3.5, w + 7, h + 7, r + 3.5); ctx.fill();
+      ctx.fillStyle = '#FFFFFF'; roundRect(x, y, w, h, r); ctx.fill();
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, WIN_TOP); g.addColorStop(0.52, WIN_MID); g.addColorStop(1, WIN_BOT);
+      ctx.fillStyle = g; roundRect(x + 4, y + 4, w - 8, h - 8, Math.max(3, r - 3)); ctx.fill();
+      ctx.save();
+      roundRect(x + 4, y + 4, w - 8, h - 8, Math.max(3, r - 3)); ctx.clip();
+      ctx.strokeStyle = WIN_EDGE; ctx.lineWidth = 3;
+      roundRect(x + 7, y + 7, w - 14, h - 14, Math.max(3, r - 5)); ctx.stroke();
+      const sh = ctx.createLinearGradient(0, y, 0, y + h * 0.4);
+      sh.addColorStop(0, 'rgba(255,255,255,0.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sh; ctx.fillRect(x, y, w, h * 0.4);
+      ctx.restore();
+      // corner gems
+      const gi = 22;
+      gem(x + gi, y + gi, 7); gem(x + w - gi, y + gi, 7);
+      gem(x + gi, y + h - gi, 7); gem(x + w - gi, y + h - gi, 7);
+    }
+
+    function drawAirship(ax, ay, u) {
+      const x = Math.round(ax), y = Math.round(ay);
+      ctx.fillStyle = "#7B5CFF"; ctx.fillRect(x, y, 13 * u, 5 * u);
+      ctx.fillStyle = "#9C82FF"; ctx.fillRect(x + u, y + u, 11 * u, u);
+      ctx.fillStyle = "#FFCB47"; ctx.fillRect(x + 3 * u, y + 2 * u, 7 * u, u);
+      ctx.fillStyle = "#5A3FD6"; ctx.fillRect(x, y + 4 * u, 13 * u, u);
+      ctx.fillStyle = "#C9A86A"; ctx.fillRect(x + 4 * u, y + 5 * u, 5 * u, 2 * u);
+      ctx.fillStyle = "#8A6A3A"; ctx.fillRect(x + 4 * u, y + 6 * u, 5 * u, u);
+      ctx.fillStyle = "#3AD6C5"; ctx.fillRect(x - 2 * u, y + u, 2 * u, 3 * u);
+    }
+
+    // a centred branding block INSIDE a small window: kicker, title, sub
+    function block(cx, w, kickerLabel, titleText, titleSize, subText, isHandle) {
+      const wy = 70, wh = H - 140;
+      const wx = cx - w / 2;
+      drawWindow(wx, wy, w, wh, 22);
+
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker with blinking-style gold cursor
+      ctx.font = '700 22px ' + FONT;
+      const kw = spacedWidth(kickerLabel, 6);
+      ctx.fillStyle = INK;  ctx.fillText('▶', cx - kw / 2 - 26 + 2, 130 + 2);
+      ctx.fillStyle = GOLD; ctx.fillText('▶', cx - kw / 2 - 26, 130);
+      drawSpacedCenteredShadow(kickerLabel, cx + 10, 130, 6, TEAL, 2);
+
+      // title — blocky pixel, white (handle) or gold (tagline tag), hard shadow + stroke
+      ctx.font = '700 ' + titleSize + 'px ' + FONT;
+      // shrink-to-fit inside the window
+      let ts = titleSize; const maxW = w - 70;
+      while (ctx.measureText(titleText).width > maxW && ts > 24) { ts -= 2; ctx.font = '700 ' + ts + 'px ' + FONT; }
+      ctx.fillStyle = INK; ctx.fillText(titleText, cx + 5, 232 + 5);
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = INK;
+      ctx.strokeText(titleText, cx, 232);
+      ctx.fillStyle = isHandle ? TEXT : GOLD; ctx.fillText(titleText, cx, 232);
+
+      // pixel divider row of gold/white blocks
+      const dn = 7, dgap = 18, dw = 14;
+      const dtot = dn * dw + (dn - 1) * (dgap - dw);
+      let dx = cx - dtot / 2;
+      for (let i = 0; i < dn; i++) {
+        ctx.fillStyle = INK; ctx.fillRect(dx - 2, 286 - 2, dw + 4, dw + 4);
+        ctx.fillStyle = (i % 2 === 0) ? '#FFFFFF' : GOLD; ctx.fillRect(dx, 286, dw, dw);
+        dx += dgap;
+      }
+
+      // sub — pixel caption
+      ctx.font = '700 22px ' + FONT;
+      ctx.fillStyle = INK; ctx.fillText(subText, cx + 2, 340 + 2);
+      ctx.fillStyle = SUB; ctx.fillText(subText, cx, 340);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      ctx.imageSmoothingEnabled = false;
+      const rnd = makeRand(0x5a2c);
+
+      // ---- BACKGROUND: night gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#34215C'); grad.addColorStop(0.6, '#2B1B4E'); grad.addColorStop(1, '#1A1030');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // soft violet glows
+      [[W * 0.16, H * 0.4, 360, 'rgba(123,92,255,0.16)'],
+       [W / 2, H / 2, 460, 'rgba(58,214,197,0.08)'],
+       [W * 0.84, H * 0.42, 360, 'rgba(123,92,255,0.16)']].forEach(([x, y, r, col]) => {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+
+      // ---- sky stars scattered across (twinkle frozen) ----
+      for (let i = 0; i < 60; i++) {
+        const x = R(rnd, 30, W - 30), y = R(rnd, 14, H - 14);
+        const s = Math.max(2, Math.round(R(rnd, 2, 5)));
+        const tw = R(rnd, 0.35, 0.95);
+        ctx.globalAlpha = tw; ctx.fillStyle = rnd() < 0.5 ? '#FFFFFF' : GOLD;
+        ctx.fillRect(Math.round(x), Math.round(y), s, s);
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- decorative centre: a couple of pixel airships drifting (clear zone) ----
+      drawAirship(W * 0.5 - 80, H * 0.30, 7);
+      drawAirship(W * 0.5 + 120, H * 0.58, 5);
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, W * 0.56);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(15,8,32,0.6)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+      // chunky scanline veil
+      ctx.globalAlpha = 0.08; ctx.fillStyle = '#000';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ---- LEFT WINDOW: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 600, 'PLAYER', handleAt.toUpperCase(), 64, 'twitch.tv/' + handleClean.toLowerCase(), true);
+
+      // ---- RIGHT WINDOW: tagline (centre ~ x=1520) — all editable placeholders ----
+      block(1520, 600, '[16] your text here', '[ YOUR TEXT ]', 60, '[17] your text here', false);
+    }
+
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCenteredShadow(str, x, y, sp, col, off) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      ctx.fillStyle = INK; drawSpacedFrom(str, x - total / 2 + off, y + off, sp);
+      ctx.fillStyle = col; drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

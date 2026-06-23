@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Vapor Circuit PCB Trace Sweep</title>
+  <!--
+    VAPOR CIRCUIT stinger ("Bus Energize"). A wall of neon PCB CIRCUIT TRACES
+    energizes across the frame: vertical bus traces draw in from the left edge,
+    junction VIAS light up and pulse, white DATA PACKETS race the traces with
+    comet tails, and a glowing CYAN HORIZON SEAM + synth GRID FLOOR sweep through
+    at full cover. A retro CHROME-SUN gradient flash and a CRT scanline band wipe
+    the seam, then the whole board de-energizes and the screen clears.
+    Transparent before & after, deterministic, sine-driven, ~1200ms. Pure outrun
+    motherboard — NOT a recolor of any other theme's wipe.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1200  total duration in ms (default 1200)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover seam).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1200;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (vapor circuit — matches shared.css tokens) ---- */
+    const PINK = '#FF6AD5', VIOLET = '#8A4BFF', CYAN = '#26D6FF', GOLD = '#FFD166', WHITE = '#FFFFFF';
+    const NEON = [PINK, VIOLET, CYAN];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (mulberry32) — NO Math.random in frame fn ---- */
+    let _s = 0x7A1C >>> 0;
+    const srnd = () => {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const R = (a, b) => a + srnd() * (b - a);
+    const STEP = 24, snap = (v) => Math.round(v / STEP) * STEP;
+
+    /* ---- BUILD a wall of vertical-ish manhattan bus traces spanning the frame.
+       Each starts at the left edge at a fixed Y, walks rightward in right-angle
+       jogs to the right edge. They energize left->right as cover rises, so the
+       board "draws" itself across the screen like a power-on sweep. Deterministic. */
+    const N_TRACE = 26;
+    function buildTrace(row) {
+      const y0 = snap(lerp(40, H - 40, (row + R(-0.4, 0.4)) / (N_TRACE - 1)));
+      const pts = [{ x: 0, y: y0 }];
+      let x = 0, y = y0;
+      const jogs = 3 + ((srnd() * 4) | 0);
+      for (let i = 0; i < jogs; i++) {
+        x = snap(Math.min(W, x + R(W / (jogs + 1) * 0.6, W / (jogs + 1) * 1.4)));
+        pts.push({ x, y });                                  // horizontal run
+        if (i < jogs - 1) {
+          y = snap(Math.max(20, Math.min(H - 20, y + R(-110, 110)))); // vertical jog
+          pts.push({ x, y });
+        }
+      }
+      pts.push({ x: W, y });                                  // finish at right edge
+      let total = 0; const lens = [];
+      for (let i = 1; i < pts.length; i++) {
+        const d = Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+        lens.push(d); total += d;
+      }
+      // x-progress of each point (0..1) so we can light by horizontal sweep front
+      return { pts, lens, total, col: NEON[(srnd() * NEON.length) | 0],
+               packPhase: R(0, 1), packSpd: R(0.8, 1.6) };
+    }
+    let TRACES = [];
+    function buildField() { _s = 0x7A1C >>> 0; TRACES = []; for (let i = 0; i < N_TRACE; i++) TRACES.push(buildTrace(i)); }
+    buildField();
+
+    // point at cumulative distance d along a manhattan trace
+    function ptAt(tr, d) {
+      let rem = ((d % tr.total) + tr.total) % tr.total;
+      for (let i = 0; i < tr.lens.length; i++) {
+        if (rem <= tr.lens[i]) {
+          const a = tr.pts[i], b = tr.pts[i + 1], f = tr.lens[i] ? rem / tr.lens[i] : 0;
+          return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+        }
+        rem -= tr.lens[i];
+      }
+      return tr.pts[tr.pts.length - 1];
+    }
+
+    /* ---- draw one trace, lit up to a horizontal sweep front (frontX in px). The
+       portion left of the front glows neon; right of it is a dim un-energized rail. */
+    function drawTrace(tr, frontX, energy) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // dim base rail (whole path)
+      ctx.globalAlpha = 0.16 * energy;
+      ctx.strokeStyle = 'rgba(120,150,210,1)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tr.pts[0].x, tr.pts[0].y);
+      for (let i = 1; i < tr.pts.length; i++) ctx.lineTo(tr.pts[i].x, tr.pts[i].y);
+      ctx.stroke();
+      // energized neon portion (clipped to x < frontX)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, frontX, H); ctx.clip();
+      ctx.strokeStyle = tr.col;
+      ctx.globalAlpha = 0.9 * energy;
+      ctx.shadowColor = tr.col; ctx.shadowBlur = 14;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(tr.pts[0].x, tr.pts[0].y);
+      for (let i = 1; i < tr.pts.length; i++) ctx.lineTo(tr.pts[i].x, tr.pts[i].y);
+      ctx.stroke();
+      ctx.restore();
+      // junction vias light up once the front passes them
+      ctx.shadowBlur = 0;
+      for (let i = 0; i < tr.pts.length; i++) {
+        const p = tr.pts[i];
+        if (p.x > frontX + 6) continue;
+        ctx.globalAlpha = 0.85 * energy;
+        ctx.fillStyle = tr.col; ctx.shadowColor = tr.col; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3.2, 0, 6.2832); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 0.95; ctx.fillStyle = WHITE;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.4, 0, 6.2832); ctx.fill();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    /* ---- white data packet racing each trace (only while energized) ---- */
+    function drawPacket(tr, t, frontX, energy) {
+      const d = ((tr.packPhase + t * tr.packSpd) % 1) * tr.total;
+      const p = ptAt(tr, d);
+      if (p.x > frontX) return;                               // hasn't been reached yet
+      ctx.globalAlpha = 0.95 * energy;
+      ctx.fillStyle = WHITE; ctx.shadowColor = tr.col; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3.4, 0, 6.2832); ctx.fill();
+      const tp = ptAt(tr, d - 22);
+      ctx.strokeStyle = tr.col; ctx.globalAlpha = 0.5 * energy; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(tp.x, tp.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    /* ---- the bright vertical SWEEP FRONT bar (the energizing edge) ---- */
+    function drawFront(frontX, energy) {
+      if (frontX <= 0 || frontX >= W) return;
+      const a = energy;
+      // hot white core
+      ctx.save();
+      ctx.shadowColor = CYAN; ctx.shadowBlur = 40;
+      ctx.globalAlpha = 0.9 * a;
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(frontX - 2, 0, 4, H);
+      // cyan->pink gradient wash trailing the front
+      const g = ctx.createLinearGradient(frontX - 120, 0, frontX, 0);
+      g.addColorStop(0, 'rgba(38,214,255,0)');
+      g.addColorStop(0.6, 'rgba(38,214,255,' + (0.10 * a).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,106,213,' + (0.22 * a).toFixed(3) + ')');
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.fillStyle = g;
+      ctx.fillRect(frontX - 120, 0, 120, H);
+      ctx.restore();
+    }
+
+    /* ---- CHROME-SUN gradient band + GRID FLOOR + HORIZON seam sweeping through
+       the seam at full cover. This is the synthwave "scene swap" beat. ---- */
+    function drawSeam(cover) {
+      const peak = smooth(clamp01((cover - 0.45) / 0.55));    // ramps in near full cover
+      if (peak <= 0.01) return;
+      ctx.save();
+      // glowing cyan horizon seam across the vertical centre
+      const seamA = Math.sin(cover * Math.PI);
+      ctx.globalAlpha = seamA;
+      const hg = ctx.createLinearGradient(0, CY - 60, 0, CY + 60);
+      hg.addColorStop(0, 'rgba(38,214,255,0)');
+      hg.addColorStop(0.5, 'rgba(255,255,255,' + (0.9 * peak).toFixed(3) + ')');
+      hg.addColorStop(1, 'rgba(38,214,255,0)');
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, CY - 60, W, 120);
+      // the bright 3px seam line itself
+      ctx.shadowColor = CYAN; ctx.shadowBlur = 30 * peak;
+      ctx.globalAlpha = peak;
+      ctx.fillStyle = WHITE; ctx.fillRect(0, CY - 1, W, 3);
+      ctx.shadowBlur = 0;
+
+      // perspective synth GRID below the seam (converging to a vanishing point)
+      ctx.globalAlpha = 0.5 * peak;
+      ctx.strokeStyle = 'rgba(38,214,255,0.55)'; ctx.lineWidth = 1.4;
+      const vpY = CY, scroll = (cover * 600) % 60;
+      // horizontal grid lines receding downward from the seam (perspective floor)
+      for (let i = 1; i <= 16; i++) {
+        const f = i / 16;
+        const y = CY + Math.pow((i * 60 + scroll) / H, 1.6) * (H - CY);
+        if (y > H) break;
+        ctx.globalAlpha = 0.5 * peak * (1 - f * 0.6);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      // converging vertical lines (perspective rays from the vanishing point)
+      ctx.globalAlpha = 0.4 * peak;
+      for (let i = -10; i <= 10; i++) {
+        const fx = CX + i * (W * 0.06);
+        ctx.beginPath(); ctx.moveTo(CX + i * 12, vpY); ctx.lineTo(fx, H); ctx.stroke();
+      }
+
+      // CHROME-SUN gradient band glowing above the seam (pink->violet->gold->cyan)
+      ctx.globalAlpha = 0.55 * peak;
+      const sg = ctx.createLinearGradient(0, CY - 220, 0, CY);
+      sg.addColorStop(0.00, 'rgba(38,214,255,0)');
+      sg.addColorStop(0.45, 'rgba(138,75,255,' + (0.30 * peak).toFixed(3) + ')');
+      sg.addColorStop(0.72, 'rgba(255,106,213,' + (0.38 * peak).toFixed(3) + ')');
+      sg.addColorStop(1.00, 'rgba(255,209,102,' + (0.34 * peak).toFixed(3) + ')');
+      ctx.globalAlpha = 1; ctx.fillStyle = sg;
+      ctx.fillRect(0, CY - 220, W, 220);
+      // banded slit mask over the sun glow (retro sun stripes)
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.globalAlpha = 0.5 * peak;
+      ctx.fillStyle = '#000';
+      for (let yy = CY - 30; yy > CY - 220; yy -= 28) ctx.fillRect(0, yy, W, 12);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);                    // 0 -> 1 -> 0, full at t=0.5
+
+      // sweep front X: rides in from the left as cover rises, exits right as it falls.
+      // Map the *signed* progress so the front travels 0->W->offscreen and back.
+      const sweep = smooth(t);                                // 0..1 monotonic across the run
+      const frontX = sweep * (W + 240) - 120;                 // -120 .. W+120
+      const energy = cover;                                   // brightness follows cover
+
+      // 1) the energizing wall of PCB traces (lit left of the front)
+      for (const tr of TRACES) drawTrace(tr, frontX, energy);
+      // 2) data packets racing the energized traces
+      for (const tr of TRACES) drawPacket(tr, t, frontX, energy);
+      // 3) the bright vertical sweep front itself
+      drawFront(frontX, energy);
+      // 4) the synthwave seam / grid / chrome-sun beat at full cover
+      drawSeam(cover);
+
+      // 5) chrome-sun light flash at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0.0, 'rgba(255,255,255,' + (0.40 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.35, 'rgba(255,106,213,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.7, 'rgba(38,214,255,' + (0.12 * flash).toFixed(3) + ')');
+        fg.addColorStop(1.0, 'rgba(38,214,255,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      // 6) faint CRT scanline band over the energized region (synth sheen)
+      if (energy > 0.04) {
+        ctx.save();
+        ctx.globalAlpha = 0.10 * energy;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = CYAN;
+        for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, Math.max(0, Math.min(W, frontX)), 1);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

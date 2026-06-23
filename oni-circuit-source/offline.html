@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Oni Circuit (PNG generator)</title>
+  <!--
+    ONI CIRCUIT · "Cyber-Samurai Hannya" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the cyber-samurai look (near-black void, a large angular ONI
+    MASK to the right glowing oni-RED with neon-TEAL edge light + a crawling
+    circuit etching, a diagonal NEON BLADE slash with a frozen glint, drifting
+    red+teal embers, a faint masked grid, corner registration ticks, a 鬼 kanji
+    accent, and an OFFLINE title split RED->TEAL at a hard diagonal) onto a
+    <canvas> and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED RNG, so the embers / circuit scatter
+    is identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --void:#0A0E14; --void2:#05080C; --oni:#FF2D4B; --teal:#16F0C8;
+      --steel:#1B2433; --text:#E8EEF5; --dim:rgba(232,238,245,.55);
+      --display:"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif;
+      --mono:"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);background:var(--void2);color:var(--text);padding:32px;}
+    h1{font-family:var(--display);font-weight:700;font-size:30px;color:var(--text);letter-spacing:.01em;
+      margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 24px rgba(255,45,75,.30);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;font-size:15px;}
+    .kicker{font-family:var(--mono);letter-spacing:.5em;font-size:13px;color:var(--teal);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 14px rgba(22,240,200,.4);}
+    button{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.18em;
+      text-transform:uppercase;padding:13px 28px;color:var(--void2);
+      background:linear-gradient(110deg,var(--oni) 0%,var(--oni) 48%,var(--teal) 52%,var(--teal) 100%);
+      border:1px solid rgba(232,238,245,.4);border-radius:2px;cursor:pointer;
+      clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
+      box-shadow:0 0 30px rgba(255,45,75,.25);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:#0a0f16;padding:14px;border:1px solid #1b2433;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:var(--mono);color:var(--teal);background:#0d141d;padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">ONI CIRCUIT · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the cyber-samurai style — seeded so the embers and
+    circuit are reproducible. Pass <code>?handle=@you</code> to set the handle. Click Download
+    then upload it on Twitch under <code>Settings &rarr; Channel &rarr; Brand &rarr; Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview"><canvas id="c" width="1920" height="1080"></canvas></div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const ONI = '#FF2D4B', TEAL = '#16F0C8', TEXT = '#E8EEF5', VOID = '#0A0E14', VOID2 = '#05080C';
+    const DIM = 'rgba(232,238,245,0.55)';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded PRNG (mulberry32) — NEVER Math.random, reproducible ----
+    function makeRand(seed){
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, rgb, alpha){
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(' + rgb + ',' + alpha + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    // ---- ONI MASK (matches shared.js geometry; local coords ~ -240..240 x, -316..256 y) ----
+    const MX = W * 0.775, MY = H * 0.5, MS = 1.18; // anchored right; scaled up for a hero still
+    function maskOutline(){
+      ctx.beginPath();
+      ctx.moveTo(0, -150); ctx.lineTo(150, -120); ctx.lineTo(196, -40); ctx.lineTo(150, 120);
+      ctx.lineTo(64, 232); ctx.lineTo(0, 256); ctx.lineTo(-64, 232); ctx.lineTo(-150, 120);
+      ctx.lineTo(-196, -40); ctx.lineTo(-150, -120); ctx.closePath();
+    }
+    function horn(side){
+      ctx.beginPath();
+      ctx.moveTo(side * 96, -132); ctx.lineTo(side * 150, -250); ctx.lineTo(side * 196, -316);
+      ctx.lineTo(side * 168, -244); ctx.lineTo(side * 132, -150); ctx.closePath();
+    }
+    function brow(side){
+      ctx.beginPath();
+      ctx.moveTo(side * 30, -120); ctx.lineTo(side * 150, -96); ctx.lineTo(side * 138, -52);
+      ctx.lineTo(side * 44, -78); ctx.closePath();
+    }
+    function eye(side){
+      ctx.beginPath();
+      ctx.moveTo(side * 46, -56); ctx.lineTo(side * 128, -40); ctx.lineTo(side * 110, -8);
+      ctx.lineTo(side * 50, -24); ctx.closePath();
+    }
+    function grin(){
+      ctx.beginPath();
+      ctx.moveTo(-118, 70); ctx.lineTo(118, 70); ctx.lineTo(86, 120); ctx.lineTo(48, 96);
+      ctx.lineTo(20, 132); ctx.lineTo(-20, 132); ctx.lineTo(-48, 96); ctx.lineTo(-86, 120); ctx.closePath();
+    }
+    function drawMask(){
+      ctx.save();
+      ctx.translate(Math.round(MX), Math.round(MY)); ctx.scale(MS, MS);
+      // face fill
+      const fg = ctx.createRadialGradient(0, -10, 20, 0, -10, 320);
+      fg.addColorStop(0, 'rgba(255,45,75,0.16)'); fg.addColorStop(0.6, 'rgba(255,45,75,0.07)');
+      fg.addColorStop(1, 'rgba(255,45,75,0)');
+      maskOutline(); ctx.fillStyle = fg; ctx.fill();
+      // horns
+      for (const s of [1, -1]){
+        horn(s); ctx.fillStyle = 'rgba(255,45,75,0.12)'; ctx.fill();
+        ctx.lineWidth = 2.6; ctx.lineJoin = 'miter';
+        ctx.strokeStyle = 'rgba(255,45,75,0.6)'; ctx.shadowColor = ONI; ctx.shadowBlur = 24; ctx.stroke();
+      }
+      // face outline (oni-red) + teal rim light
+      maskOutline(); ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(255,45,75,0.78)';
+      ctx.shadowColor = ONI; ctx.shadowBlur = 30; ctx.stroke();
+      ctx.save(); ctx.translate(-3.5, -3.5); maskOutline(); ctx.lineWidth = 1.8;
+      ctx.strokeStyle = 'rgba(22,240,200,0.55)'; ctx.shadowColor = TEAL; ctx.shadowBlur = 18; ctx.stroke(); ctx.restore();
+      // brows
+      for (const s of [1, -1]){ brow(s); ctx.fillStyle = 'rgba(255,45,75,0.55)';
+        ctx.shadowColor = ONI; ctx.shadowBlur = 18; ctx.fill(); }
+      // eyes (teal slits)
+      for (const s of [1, -1]){ eye(s);
+        const eg = ctx.createLinearGradient(0, -56, 0, -8);
+        eg.addColorStop(0, 'rgba(22,240,200,0.98)'); eg.addColorStop(1, 'rgba(22,240,200,0.42)');
+        ctx.fillStyle = eg; ctx.shadowColor = TEAL; ctx.shadowBlur = 26; ctx.fill(); }
+      // fanged grin
+      grin(); ctx.fillStyle = 'rgba(5,8,12,0.6)'; ctx.shadowBlur = 0; ctx.fill();
+      grin(); ctx.lineWidth = 2.4; ctx.strokeStyle = 'rgba(22,240,200,0.62)';
+      ctx.shadowColor = TEAL; ctx.shadowBlur = 16; ctx.stroke();
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // diagonal neon blade slash with a frozen glint
+    function drawBlade(rnd){
+      const x1 = W * 0.02, y1 = H * 0.94, x2 = W * 0.98, y2 = H * 0.10;
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, 'rgba(22,240,200,0)'); grad.addColorStop(0.5, 'rgba(22,240,200,0.18)');
+      grad.addColorStop(1, 'rgba(255,45,75,0.06)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 3; ctx.shadowColor = TEAL; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      // frozen glint ~62% along
+      const t = 0.62, gx = x1 + (x2 - x1) * t, gy = y1 + (y2 - y1) * t;
+      const ux = x2 - x1, uy = y2 - y1, ul = Math.hypot(ux, uy) || 1, dx = ux / ul, dy = uy / ul, half = 80;
+      ctx.strokeStyle = 'rgba(232,238,245,0.95)'; ctx.lineWidth = 3.6; ctx.lineCap = 'round';
+      ctx.shadowColor = TEXT; ctx.shadowBlur = 30;
+      ctx.beginPath(); ctx.moveTo(gx - dx * half, gy - dy * half); ctx.lineTo(gx + dx * half, gy + dy * half); ctx.stroke();
+      ctx.beginPath(); ctx.arc(Math.round(gx), Math.round(gy), 4, 0, 6.2832); ctx.fillStyle = '#fff'; ctx.shadowBlur = 34; ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // crawling circuit traces etched across the mask region (right side)
+    function drawCircuit(rnd){
+      ctx.save();
+      ctx.lineWidth = 1.6; ctx.lineJoin = 'miter'; ctx.lineCap = 'round';
+      for (let i = 0; i < 16; i++){
+        let px = MX + R(rnd, -300, 300) * MS, py = MY + R(rnd, -340, 340) * MS;
+        const teal = rnd() < 0.5, col = teal ? '22,240,200' : '255,45,75';
+        const pts = [[px, py]];
+        const segs = 3 + ((rnd() * 4) | 0);
+        for (let s = 0; s < segs; s++){
+          if (rnd() < 0.5) px += R(rnd, -170, 170) * MS; else py += R(rnd, -170, 170) * MS;
+          pts.push([px, py]);
+        }
+        ctx.strokeStyle = 'rgba(' + col + ',0.14)'; ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.moveTo(Math.round(pts[0][0]), Math.round(pts[0][1]));
+        for (let k = 1; k < pts.length; k++) ctx.lineTo(Math.round(pts[k][0]), Math.round(pts[k][1]));
+        ctx.stroke();
+        // a frozen bright pulse partway along + origin node
+        const end = pts[pts.length - 1];
+        ctx.fillStyle = 'rgba(' + col + ',0.9)'; ctx.shadowColor = teal ? TEAL : ONI; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(Math.round(end[0]), Math.round(end[1]), 2.6, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = 'rgba(' + col + ',0.4)'; ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(Math.round(pts[0][0]), Math.round(pts[0][1]), 2.2, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // drifting red+teal embers (frozen positions)
+    function drawEmbers(rnd){
+      ctx.save();
+      for (let i = 0; i < 80; i++){
+        const x = R(rnd, 10, W - 10), y = R(rnd, 10, H - 10), z = R(rnd, 0.4, 1.7), a = R(rnd, 0.25, 0.85);
+        const teal = rnd() < 0.42, col = teal ? TEAL : ONI;
+        ctx.globalAlpha = a; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 7 * z;
+        const sz = Math.max(1, Math.round(z * 1.9));
+        ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+      }
+      ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // sharp corner registration ticks (samurai bracket marks)
+    function ticks(){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(22,240,200,0.55)'; ctx.lineWidth = 2; ctx.shadowColor = TEAL; ctx.shadowBlur = 10;
+      const m = 64, L = 60;
+      const corners = [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]];
+      for (const [x, y, sx, sy] of corners){
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + sx * L, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + sy * L); ctx.stroke();
+      }
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    function diamond(x, y, s, fill){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = fill; ctx.fillRect(-s, -s, s * 2, s * 2); ctx.restore();
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0x4f4e); // fixed seed (matches engine) -> identical scatter
+
+      // ---- BACKGROUND: void gradient (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, W * 0.5, H);
+      grad.addColorStop(0, '#0C1119'); grad.addColorStop(0.52, VOID); grad.addColorStop(1, VOID2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      // stage radial set
+      bloom(W * 0.5, H * 0.42, W * 0.6, '27,36,51', 0.55);
+      bloom(W * 0.16, H * 0.14, W * 0.42, '255,45,75', 0.10);
+      bloom(W * 0.86, H * 0.88, W * 0.42, '22,240,200', 0.08);
+
+      // ---- faint masked circuit grid (teal, faded to edges) ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(22,240,200,0.05)'; ctx.lineWidth = 1;
+      for (let gx = 0; gx <= W; gx += 72){ ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+      for (let gy = 0; gy <= H; gy += 72){ ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+      ctx.restore();
+
+      drawBlade(rnd);     // diagonal slash behind the mask
+      drawMask();         // the oni mask, right of center
+      drawCircuit(rnd);   // circuit etching crawling across it
+      drawEmbers(rnd);    // rising sparks
+
+      // ---- diagonal RED/TEAL scanline shimmer ----
+      const sweep = ctx.createLinearGradient(W * 0.30, 0, W * 0.70, H);
+      sweep.addColorStop(0.40, 'rgba(0,0,0,0)'); sweep.addColorStop(0.48, 'rgba(255,45,75,0.07)');
+      sweep.addColorStop(0.52, 'rgba(22,240,200,0.08)'); sweep.addColorStop(0.62, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, W, H);
+
+      // ---- CRT veil scanlines ----
+      ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = 'rgba(232,238,245,0.04)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore(); ctx.globalAlpha = 1;
+
+      // ---- deep vignette ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, W * 0.64);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(3,5,9,0.92)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- 鬼 KANJI accent, lower-left margin ----
+      ctx.save();
+      ctx.font = '700 230px "Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(255,45,75,0.12)'; ctx.shadowColor = ONI; ctx.shadowBlur = 50;
+      ctx.fillText('鬼', 96, H - 120);
+      ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(22,240,200,0.24)'; ctx.lineWidth = 2;
+      ctx.strokeText('鬼', 96, H - 120);
+      ctx.restore();
+
+      // ---- corner registration ticks ----
+      ticks();
+
+      // ============================================================
+      // CENTER STACK — clear zone (mask + blade live in the margins)
+      // ============================================================
+      const cx = W * 0.42; // pushed slightly left so it stays clear of the right-anchored mask
+
+      // crest: oni rule + diamond + teal rule
+      ctx.save();
+      const crestY = H * 0.30;
+      let rl = ctx.createLinearGradient(cx - 150, 0, cx - 18, 0);
+      rl.addColorStop(0, 'rgba(255,45,75,0)'); rl.addColorStop(1, ONI);
+      ctx.strokeStyle = rl; ctx.lineWidth = 2; ctx.shadowColor = ONI; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.moveTo(cx - 150, crestY); ctx.lineTo(cx - 20, crestY); ctx.stroke();
+      let rr = ctx.createLinearGradient(cx + 18, 0, cx + 150, 0);
+      rr.addColorStop(0, TEAL); rr.addColorStop(1, 'rgba(22,240,200,0)');
+      ctx.strokeStyle = rr; ctx.shadowColor = TEAL; ctx.beginPath(); ctx.moveTo(cx + 20, crestY); ctx.lineTo(cx + 150, crestY); ctx.stroke();
+      ctx.shadowBlur = 14; diamond(cx, crestY, 7, TEXT);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // kicker — spaced techy mono caps (teal) — editable placeholder
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 26px "Consolas",ui-monospace,monospace'; ctx.fillStyle = TEAL;
+      ctx.shadowColor = TEAL; ctx.shadowBlur = 18;
+      drawSpacedCentered('[18] your text here', cx, H * 0.30 + 56, 12);
+      ctx.shadowBlur = 0; ctx.restore();
+
+      // big display TITLE: OFFLINE — RED->TEAL hard diagonal split + glow
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 200px "Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif';
+      const titleY = H * 0.46;
+      const tW = ctx.measureText('OFFLINE').width * 0.94;
+      ctx.translate(cx, titleY); ctx.scale(0.94, 1);
+      const tg = ctx.createLinearGradient(-tW / 2 / 0.94, 0, tW / 2 / 0.94, 0);
+      tg.addColorStop(0, ONI); tg.addColorStop(0.49, ONI); tg.addColorStop(0.51, TEAL); tg.addColorStop(1, TEAL);
+      ctx.fillStyle = tg; ctx.shadowColor = ONI; ctx.shadowBlur = 60;
+      ctx.fillText('OFFLINE', 0, 0);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // blade-edge underline rule with diamond caps
+      ctx.save();
+      const ruY = H * 0.46 + 130, ruW = 360;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(255,45,75,0)'); ug.addColorStop(0.26, ONI);
+      ug.addColorStop(0.5, TEXT); ug.addColorStop(0.74, TEAL); ug.addColorStop(1, 'rgba(22,240,200,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 2; ctx.shadowColor = ONI; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      ctx.shadowBlur = 10; diamond(cx - ruW / 2 - 16, ruY, 4, ONI); diamond(cx + ruW / 2 + 16, ruY, 4, TEAL);
+      ctx.restore(); ctx.shadowBlur = 0;
+
+      // subtitle — techy mono — editable placeholder
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 30px "Consolas",ui-monospace,monospace'; ctx.fillStyle = DIM;
+      drawSpacedCentered('[19] your text here', cx, ruY + 64, 4);
+      ctx.restore();
+
+      // ---- corner HUD tags (teal) — editable placeholders ----
+      ctx.save();
+      ctx.font = '600 20px "Consolas",ui-monospace,monospace'; ctx.fillStyle = TEAL;
+      ctx.textBaseline = 'alphabetic'; ctx.shadowColor = TEAL; ctx.shadowBlur = 10;
+      ctx.textAlign = 'left';  drawSpaced('[20] your text here', 150, 150, 6);
+      ctx.shadowBlur = 0; ctx.restore();
+
+      // ---- HANDLE (bottom-right) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 28px "Consolas",ui-monospace,monospace'; ctx.fillStyle = TEXT;
+      ctx.shadowColor = ONI; ctx.shadowBlur = 16;
+      ctx.fillText(handleAt, W - 72, H - 70);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 19px "Consolas",ui-monospace,monospace'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean, W - 72, H - 42);
+      // teal prompt chevron before the handle
+      ctx.fillStyle = TEAL; ctx.shadowColor = TEAL; ctx.shadowBlur = 10;
+      ctx.textAlign = 'right';
+      ctx.font = '600 28px "Consolas",ui-monospace,monospace';
+      const hw = ctx.measureText(handleAt).width;
+      ctx.fillText('>', W - 72 - hw - 12, H - 70);
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function drawSpaced(str, x, y, sp){
+      let cx = x;
+      for (const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp){
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp;
+    }
+    function drawSpacedCentered(str, x, y, sp){
+      const total = spacedWidth(str, sp); const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp); ctx.textAlign = prev;
+    }
+
+    function download(){
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png'; a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

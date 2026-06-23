@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Oni Circuit Icon Set — generator</title>
+  <!--
+    A consistent set of 18 stand-alone TRANSPARENT PNG icons in the Oni Circuit
+    "Cyber-Samurai Hannya" language: thin oni-RED neon LINE icons with a soft
+    red glow and neon-TEAL accent details, on a fully transparent background.
+    Each icon is rendered at 200 x 200 px.
+
+    The set shares ONE stroke weight, ONE corner radius and ONE glow so they read
+    as a matched set, split into two families:
+      - SOCIAL  : Twitch, YouTube, Twitter/X, Instagram, Discord, TikTok,
+                  Kick, Patreon, PayPal/donate, Steam
+      - LABELS  : follow (heart), subscribe (star), bits/cheer (diamond),
+                  raid (flag), host (broadcast), like (thumb), share (nodes),
+                  member (oni mask) + the 鬼 kanji mark
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or a single Download under any icon).
+      3. Drop the transparent PNGs into overlays, panels, alert boxes, etc.
+
+    These are pure vector strokes on a canvas (no baked-in text fonts except the
+    kanji glyph), so they stay crisp at the export size.
+  -->
+  <style>
+    :root{
+      --void:#0A0E14; --void2:#05080C; --oni:#FF2D4B; --teal:#16F0C8;
+      --steel:#1B2433; --text:#E8EEF5; --dim:rgba(232,238,245,.55);
+      --display:"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif;
+      --mono:"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);
+      background:
+        radial-gradient(1100px 700px at 30% -10%, rgba(255,45,75,.10), transparent 60%),
+        radial-gradient(900px 600px at 100% 110%, rgba(22,240,200,.08), transparent 60%),
+        linear-gradient(180deg, #0C1119 0%, var(--void2) 100%);
+      background-attachment:fixed;color:var(--text);padding:32px;min-height:100vh;}
+    h1{font-family:var(--display);font-weight:700;font-size:30px;color:var(--text);letter-spacing:.01em;
+      margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 18px rgba(255,45,75,.45);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:780px;line-height:1.6;font-size:15px;}
+    .toolbar{margin:0 0 26px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+    button{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.16em;
+      text-transform:uppercase;padding:11px 24px;color:var(--teal);
+      background:rgba(10,14,20,0.62);border:1px solid rgba(22,240,200,0.34);border-radius:2px;
+      cursor:pointer;box-shadow:0 0 18px rgba(22,240,200,0.18);transition:all .15s ease;}
+    button:hover{background:rgba(22,240,200,0.10);border-color:var(--teal);box-shadow:0 0 24px rgba(22,240,200,0.4);}
+    .section{margin:8px 0 6px;font-family:var(--mono);letter-spacing:.4em;font-size:12px;color:var(--teal);
+      text-transform:uppercase;opacity:.95;border-top:1px solid rgba(120,150,190,0.2);padding-top:22px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;margin-bottom:10px;}
+    .card{background:rgba(10,14,20,0.62);padding:12px 12px 10px;border:1px solid rgba(120,150,190,0.24);
+      border-radius:3px;box-shadow:0 0 22px rgba(255,45,75,0.08);display:flex;flex-direction:column;align-items:center;
+      --c:rgba(22,240,200,0.04);}
+    .canvas-wrap{border-radius:3px;overflow:hidden;
+      background-image:
+        linear-gradient(45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--c) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--c) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--c) 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:126px;height:126px;}
+    .card .name{margin-top:9px;font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--teal);text-align:center;}
+    .card a{margin-top:4px;font-family:var(--mono);font-size:11px;color:var(--dim);text-decoration:none;
+      border-bottom:1px dashed rgba(22,240,200,0.4);}
+    .card a:hover{color:var(--teal);}
+  </style>
+</head>
+<body>
+  <h1>ONI CIRCUIT ICON SET</h1>
+  <p class="lead">
+    18 transparent PNG line icons in one cohesive cyber-samurai style &mdash; thin oni-red strokes
+    with a soft glow and neon-teal accents, shared stroke weight &amp; corner radius. Each is
+    200&times;200 with its own Download, plus a Download-all. Drop them into overlays, panels, or alert boxes.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+
+  <div class="section">Social platforms</div>
+  <div class="grid" id="grid-social"></div>
+
+  <div class="section">Stream labels &amp; events</div>
+  <div class="grid" id="grid-label"></div>
+
+  <script>
+  (function(){
+    'use strict';
+    // ---- Tokens (shared across every icon so the set stays cohesive) ----
+    const SIZE = 200, PAD = 30, STROKE = 9, RADIUS = 12;
+    const ONI = '#FF2D4B', TEAL = '#16F0C8', TEXT = '#E8EEF5';
+    const GLOW = 'rgba(255,45,75,0.85)', TEAL_GLOW = 'rgba(22,240,200,0.85)';
+    const BOX = { x: PAD, y: PAD, w: SIZE - PAD * 2, h: SIZE - PAD * 2 };
+
+    // Stroke helper: same cap/join/weight/glow around each path build.
+    function pen(ctx, build, opts){
+      opts = opts || {};
+      ctx.save();
+      ctx.lineWidth = opts.weight || STROKE;
+      ctx.lineCap = 'round'; ctx.lineJoin = opts.join || 'round';
+      ctx.strokeStyle = opts.color || ONI;
+      ctx.fillStyle = opts.color || ONI;
+      ctx.shadowColor = opts.glow || (opts.color === TEAL ? TEAL_GLOW : GLOW);
+      ctx.shadowBlur = opts.blur != null ? opts.blur : 13;
+      ctx.beginPath();
+      build(ctx);
+      if (opts.fill) ctx.fill(); else ctx.stroke();
+      ctx.restore();
+    }
+
+    function roundRectPath(ctx, x, y, w, h, r){
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function starPath(ctx, cx, cy, outer, inner, points){
+      for (let i = 0; i < points * 2; i++){
+        const rad = (i % 2 === 0) ? outer : inner;
+        const a = -Math.PI / 2 + (i * Math.PI) / points;
+        const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+    function diamondPath(ctx, cx, cy, d){
+      ctx.moveTo(cx, cy - d); ctx.lineTo(cx + d, cy); ctx.lineTo(cx, cy + d); ctx.lineTo(cx - d, cy); ctx.closePath();
+    }
+
+    // =====================================================================
+    // ICON DRAWERS — each receives (ctx) and draws inside BOX.
+    // Geometry is stylised so all icons share the same weight + glow.
+    // Oni-red stroke is the base; teal is the accent (eyes, jewels, dots).
+    // =====================================================================
+    const ICONS = {
+      // ---- SOCIAL ----
+      twitch(ctx){
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + RADIUS, b.y); c.lineTo(b.x + b.w, b.y);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.62);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.52, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.88);
+          c.lineTo(b.x, b.y + b.h * 0.88); c.lineTo(b.x, b.y + RADIUS);
+          c.arcTo(b.x, b.y, b.x + RADIUS, b.y, RADIUS); c.closePath();
+        }, { join: 'miter' });
+        const ey = b.y + b.h * 0.30, eh = b.h * 0.26;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.40, ey); c.lineTo(b.x + b.w * 0.40, ey + eh); }, { weight: STROKE - 2, color: TEAL });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.64, ey); c.lineTo(b.x + b.w * 0.64, ey + eh); }, { weight: STROKE - 2, color: TEAL });
+      },
+      youtube(ctx){
+        const b = BOX;
+        const ry = b.y + b.h * 0.16, rh = b.h * 0.68;
+        pen(ctx, c => roundRectPath(c, b.x, ry, b.w, rh, RADIUS + 6));
+        const cx = b.x + b.w / 2, cy = ry + rh / 2, t = rh * 0.30;
+        pen(ctx, c => { c.moveTo(cx - t * 0.85, cy - t); c.lineTo(cx + t * 1.15, cy); c.lineTo(cx - t * 0.85, cy + t); c.closePath(); }, { color: TEAL });
+      },
+      'twitter-x'(ctx){
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x, b.y); c.lineTo(b.x + b.w, b.y + b.h); });
+        pen(ctx, c => { c.moveTo(b.x + b.w, b.y); c.lineTo(b.x, b.y + b.h); }, { color: TEAL });
+      },
+      instagram(ctx){
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y, b.w, b.h, RADIUS + 14));
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.24, 0, Math.PI * 2); }, { color: TEAL });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.78, b.y + b.h * 0.22, STROKE * 0.5, 0, Math.PI * 2); }, { fill: true, color: TEAL });
+      },
+      discord(ctx){
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.50;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.quadraticCurveTo(cx, b.y + b.h * 0.06, b.x + b.w * 0.84, b.y + b.h * 0.20);
+          c.quadraticCurveTo(b.x + b.w * 1.02, b.y + b.h * 0.62, b.x + b.w * 0.80, b.y + b.h * 0.88);
+          c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.34, b.y + b.h * 0.74);
+          c.lineTo(b.x + b.w * 0.20, b.y + b.h * 0.88);
+          c.quadraticCurveTo(b.x - b.w * 0.02, b.y + b.h * 0.62, b.x + b.w * 0.16, b.y + b.h * 0.20);
+          c.closePath();
+        });
+        pen(ctx, c => { c.arc(cx - b.w * 0.16, cy, STROKE * 0.55, 0, Math.PI * 2); }, { fill: true, color: TEAL });
+        pen(ctx, c => { c.arc(cx + b.w * 0.16, cy, STROKE * 0.55, 0, Math.PI * 2); }, { fill: true, color: TEAL });
+      },
+      tiktok(ctx){
+        const b = BOX;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y); c.lineTo(b.x + b.w * 0.58, b.y + b.h * 0.66);
+          c.arc(b.x + b.w * 0.40, b.y + b.h * 0.66, b.w * 0.18, 0, Math.PI * 2);
+        });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.58, b.y);
+          c.quadraticCurveTo(b.x + b.w * 0.78, b.y + b.h * 0.04, b.x + b.w * 0.92, b.y + b.h * 0.22);
+        }, { color: TEAL });
+      },
+      kick(ctx){
+        const b = BOX;
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y); c.lineTo(b.x + b.w * 0.18, b.y + b.h); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.18, b.y + b.h * 0.50); c.lineTo(b.x + b.w * 0.60, b.y + b.h * 0.06); }, { color: TEAL });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.36, b.y + b.h * 0.36); c.lineTo(b.x + b.w * 0.78, b.y + b.h); });
+      },
+      patreon(ctx){
+        const b = BOX;
+        pen(ctx, c => { c.arc(b.x + b.w * 0.62, b.y + b.h * 0.40, b.w * 0.30, 0, Math.PI * 2); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.10, b.y); c.lineTo(b.x + b.w * 0.10, b.y + b.h); }, { color: TEAL });
+      },
+      paypal(ctx){
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        pen(ctx, c => {
+          c.moveTo(cx + b.w * 0.14, cy - b.h * 0.22);
+          c.quadraticCurveTo(cx - b.w * 0.22, cy - b.h * 0.30, cx - b.w * 0.16, cy - b.h * 0.02);
+          c.quadraticCurveTo(cx + b.w * 0.22, cy + b.h * 0.04, cx + b.w * 0.14, cy + b.h * 0.24);
+          c.quadraticCurveTo(cx - b.w * 0.20, cy + b.h * 0.32, cx - b.w * 0.16, cy + b.h * 0.10);
+        }, { weight: STROKE - 2, color: TEAL });
+        pen(ctx, c => { c.moveTo(cx - b.w * 0.02, cy - b.h * 0.34); c.lineTo(cx - b.w * 0.02, cy + b.h * 0.36); }, { weight: STROKE - 4, color: TEAL });
+      },
+      steam(ctx){
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        pen(ctx, c => { c.arc(cx, cy, b.w * 0.46, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.66, b.y + b.h * 0.34, b.w * 0.16, 0, Math.PI * 2); }, { color: TEAL });
+        pen(ctx, c => { c.arc(b.x + b.w * 0.30, b.y + b.h * 0.66, b.w * 0.10, 0, Math.PI * 2); });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.30, b.y + b.h * 0.66); c.lineTo(b.x + b.w * 0.66, b.y + b.h * 0.34); }, { weight: STROKE - 3 });
+      },
+
+      // ---- LABELS / EVENTS ----
+      follow(ctx){ // heart
+        const b = BOX;
+        const cx = b.x + b.w / 2, top = b.y + b.h * 0.20;
+        pen(ctx, c => {
+          c.moveTo(cx, b.y + b.h * 0.94);
+          c.lineTo(b.x + b.w * 0.08, top + b.h * 0.18);
+          c.arc(b.x + b.w * 0.29, top, b.w * 0.21, Math.PI * 0.95, Math.PI * 1.95);
+          c.arc(b.x + b.w * 0.71, top, b.w * 0.21, Math.PI * 1.05, Math.PI * 2.05);
+          c.lineTo(cx, b.y + b.h * 0.94); c.closePath();
+        });
+      },
+      subscribe(ctx){ // star
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.54;
+        pen(ctx, c => starPath(c, cx, cy, b.w * 0.46, b.w * 0.19, 5));
+      },
+      'bits-cheer'(ctx){ // gem / diamond
+        const b = BOX;
+        const cx = b.x + b.w / 2;
+        const top = b.y + b.h * 0.06, mid = b.y + b.h * 0.34, bot = b.y + b.h * 0.96;
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.22, top); c.lineTo(b.x + b.w * 0.78, top);
+          c.lineTo(b.x + b.w, mid); c.lineTo(cx, bot); c.lineTo(b.x, mid); c.closePath();
+        }, { join: 'miter' });
+        pen(ctx, c => { c.moveTo(b.x, mid); c.lineTo(b.x + b.w, mid); }, { weight: STROKE - 4, color: TEAL });
+        pen(ctx, c => { c.moveTo(b.x + b.w * 0.22, top); c.lineTo(cx, mid); c.lineTo(b.x + b.w * 0.78, top); }, { weight: STROKE - 4, color: TEAL });
+        pen(ctx, c => { c.moveTo(cx, mid); c.lineTo(cx, bot); }, { weight: STROKE - 4 });
+      },
+      raid(ctx){ // flag
+        const b = BOX;
+        const px = b.x + b.w * 0.18;
+        pen(ctx, c => { c.moveTo(px, b.y); c.lineTo(px, b.y + b.h); });
+        pen(ctx, c => {
+          c.moveTo(px, b.y + b.h * 0.06); c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.06);
+          c.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.26); c.lineTo(b.x + b.w * 0.92, b.y + b.h * 0.46);
+          c.lineTo(px, b.y + b.h * 0.46); c.closePath();
+        }, { color: TEAL, join: 'miter' });
+      },
+      host(ctx){ // broadcast / signal
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.62;
+        pen(ctx, c => { c.arc(cx, cy, STROKE * 0.7, 0, Math.PI * 2); }, { fill: true, color: TEAL });
+        for (let i = 1; i <= 2; i++){
+          const r = b.w * (0.14 + i * 0.16);
+          pen(ctx, c => { c.arc(cx, cy, r, Math.PI * 1.20, Math.PI * 1.80); }, { weight: STROKE - 2 });
+        }
+        pen(ctx, c => { c.moveTo(cx, cy); c.lineTo(cx, b.y); });
+      },
+      like(ctx){ // thumbs up
+        const b = BOX;
+        pen(ctx, c => roundRectPath(c, b.x, b.y + b.h * 0.42, b.w * 0.26, b.h * 0.58, RADIUS - 4), { color: TEAL });
+        pen(ctx, c => {
+          c.moveTo(b.x + b.w * 0.32, b.y + b.h);
+          c.lineTo(b.x + b.w * 0.32, b.y + b.h * 0.46);
+          c.lineTo(b.x + b.w * 0.50, b.y + b.h * 0.18);
+          c.quadraticCurveTo(b.x + b.w * 0.58, b.y, b.x + b.w * 0.64, b.y + b.h * 0.10);
+          c.quadraticCurveTo(b.x + b.w * 0.70, b.y + b.h * 0.22, b.x + b.w * 0.58, b.y + b.h * 0.40);
+          c.lineTo(b.x + b.w, b.y + b.h * 0.40);
+          c.quadraticCurveTo(b.x + b.w, b.y + b.h * 0.46, b.x + b.w * 0.94, b.y + b.h * 0.70);
+          c.quadraticCurveTo(b.x + b.w * 0.90, b.y + b.h, b.x + b.w * 0.70, b.y + b.h);
+          c.closePath();
+        });
+      },
+      share(ctx){ // three-node share graph
+        const b = BOX;
+        const a = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.12 };
+        const d = { x: b.x + b.w * 0.78, y: b.y + b.h * 0.88 };
+        const e = { x: b.x + b.w * 0.16, y: b.y + b.h * 0.50 };
+        const rN = STROKE * 1.05;
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(a.x, a.y); }, { weight: STROKE - 3 });
+        pen(ctx, c => { c.moveTo(e.x, e.y); c.lineTo(d.x, d.y); }, { weight: STROKE - 3 });
+        pen(ctx, c => { c.arc(a.x, a.y, rN, 0, Math.PI * 2); }, { color: TEAL });
+        pen(ctx, c => { c.arc(d.x, d.y, rN, 0, Math.PI * 2); });
+        pen(ctx, c => { c.arc(e.x, e.y, rN, 0, Math.PI * 2); }, { color: TEAL });
+      },
+      member(ctx){ // ONI MASK (the signature member mark)
+        const b = BOX;
+        const cx = b.x + b.w / 2, cy = b.y + b.h * 0.52, hw = b.w * 0.46, hh = b.h * 0.46;
+        // angular face
+        pen(ctx, c => {
+          c.moveTo(cx, cy - hh);
+          c.lineTo(cx + hw, cy - hh * 0.62);
+          c.lineTo(cx + hw * 0.66, cy + hh * 0.40);
+          c.lineTo(cx, cy + hh);
+          c.lineTo(cx - hw * 0.66, cy + hh * 0.40);
+          c.lineTo(cx - hw, cy - hh * 0.62);
+          c.closePath();
+        }, { join: 'miter' });
+        // horns
+        pen(ctx, c => { c.moveTo(cx + hw * 0.5, cy - hh * 0.7); c.lineTo(cx + hw * 0.9, cy - hh * 1.2); }, { weight: STROKE - 3 });
+        pen(ctx, c => { c.moveTo(cx - hw * 0.5, cy - hh * 0.7); c.lineTo(cx - hw * 0.9, cy - hh * 1.2); }, { weight: STROKE - 3 });
+        // teal eye slits
+        pen(ctx, c => { c.moveTo(cx - hw * 0.55, cy - hh * 0.12); c.lineTo(cx - hw * 0.16, cy - hh * 0.26); }, { weight: STROKE - 2, color: TEAL });
+        pen(ctx, c => { c.moveTo(cx + hw * 0.55, cy - hh * 0.12); c.lineTo(cx + hw * 0.16, cy - hh * 0.26); }, { weight: STROKE - 2, color: TEAL });
+        // fang grin
+        pen(ctx, c => { c.moveTo(cx - hw * 0.32, cy + hh * 0.18); c.lineTo(cx, cy + hh * 0.42); c.lineTo(cx + hw * 0.32, cy + hh * 0.18); }, { weight: STROKE - 3, color: TEAL });
+      },
+      kanji(ctx){ // 鬼 glyph mark — oni-red fill, teal outline
+        const b = BOX;
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '700 150px "Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif';
+        ctx.fillStyle = ONI; ctx.shadowColor = GLOW; ctx.shadowBlur = 16;
+        ctx.fillText('鬼', SIZE / 2, SIZE / 2 + 6);
+        ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(22,240,200,0.6)';
+        ctx.strokeText('鬼', SIZE / 2, SIZE / 2 + 6);
+        ctx.restore();
+      },
+    };
+
+    const SOCIAL = [
+      ['twitch', 'TWITCH'], ['youtube', 'YOUTUBE'], ['twitter-x', 'TWITTER / X'],
+      ['instagram', 'INSTAGRAM'], ['discord', 'DISCORD'], ['tiktok', 'TIKTOK'],
+      ['kick', 'KICK'], ['patreon', 'PATREON'], ['paypal', 'DONATE'], ['steam', 'STEAM'],
+    ];
+    const LABEL = [
+      ['follow', 'FOLLOW'], ['subscribe', 'SUBSCRIBE'], ['bits-cheer', 'BITS / CHEER'],
+      ['raid', 'RAID'], ['host', 'HOST'], ['like', 'LIKE'], ['share', 'SHARE'],
+      ['member', 'MEMBER'], ['kanji', '鬼 MARK'],
+    ];
+
+    const made = [];
+
+    function renderIcon(id){
+      const cv = document.createElement('canvas');
+      cv.width = SIZE; cv.height = SIZE;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      const fn = ICONS[id];
+      if (fn) fn(ctx);
+      return cv;
+    }
+
+    function buildGrid(targetId, list){
+      const grid = document.getElementById(targetId);
+      for (const [id, label] of list){
+        const cv = renderIcon(id);
+        const card = document.createElement('div'); card.className = 'card';
+        const wrap = document.createElement('div'); wrap.className = 'canvas-wrap'; wrap.appendChild(cv);
+        const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = label;
+        const dl = document.createElement('a'); dl.href = '#'; dl.textContent = 'Download';
+        dl.addEventListener('click', e => { e.preventDefault(); save(cv, id); });
+        card.appendChild(wrap); card.appendChild(nm); card.appendChild(dl);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id });
+      }
+    }
+
+    function save(canvas, id){
+      const a = document.createElement('a');
+      a.download = 'icon-' + id + '.png'; a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', () => {
+      let i = 0;
+      const next = () => { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 180); };
+      next();
+    });
+
+    function build(){ buildGrid('grid-social', SOCIAL); buildGrid('grid-label', LABEL); }
+
+    window.__exportAssets = () => made.map(m => ({ name: m.id, dataURL: m.canvas.toDataURL('image/png') }));
+
+    if (document.fonts && document.fonts.ready){ document.fonts.ready.then(build); } else { build(); }
+  })();
+  </script>
+</body>
+</html>

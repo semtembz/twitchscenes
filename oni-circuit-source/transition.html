@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Oni Circuit Blade-Slash Cut</title>
+  <!--
+    ONI CIRCUIT stinger ("The Cut"). A single neon BLADE slashes across the
+    frame on a hard lower-left -> upper-right diagonal. The void (near-black
+    oni ground) wipes IN along the moving blade edge — the blade carries a
+    razor white glint and a forward red/teal shock-bloom, so the screen reads
+    as being CUT open into darkness. At full cover the whole frame is the void
+    with a CIRCUIT crackle racing the seam, a burst of red+teal embers, and a
+    sharp white flash on the blade line. The blade then sweeps off the far
+    corner and the void wipes back OUT, clearing the frame.
+
+    Transparent before & after, deterministic (seeded RNG, no Math.random in
+    the frame fn), sine-driven cover (0 -> 1 -> 0), ~1200ms. Aggressive, clean
+    cut — NOT a curtain, NOT a recolor of another theme's stinger.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1200  total duration in ms (default 1200)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as
+    a stinger). Use transition-export.html to record a transparent .webm, then
+    add it as a Stinger transition with the Transition Point at ~50% (the
+    full-cover frame, when the void has wiped fully in).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1200;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (oni circuit) ---- */
+    const VOID = '#0A0E14', VOID2 = '#05080C', STEEL = '#1B2433';
+    const ONI = '255,45,75', TEAL = '22,240,200', TEXT = '232,238,245';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- blade geometry: a hard diagonal from lower-left to upper-right.
+       The blade SWEEPS along its own perpendicular: at progress p, the cut
+       line sits at offset op across the frame. We carve the void on the
+       "behind" side of that moving line. ---- */
+    // direction the blade points (lower-left -> upper-right), and the
+    // perpendicular axis it sweeps along (from upper-left toward lower-right).
+    const BANG = -34 * Math.PI / 180;                 // blade tilt
+    const bdx = Math.cos(BANG), bdy = Math.sin(BANG);  // along-blade unit (points up-right)
+    const ndx = -bdy, ndy = bdx;                       // sweep-normal unit
+    // sweep covers from one corner to the other along the normal.
+    const corners = [[0, 0], [W, 0], [W, H], [0, H]];
+    let nMin = Infinity, nMax = -Infinity;
+    for (const [x, y] of corners) {
+      const d = x * ndx + y * ndy;
+      if (d < nMin) nMin = d; if (d > nMax) nMax = d;
+    }
+    const NSPAN = nMax - nMin;
+
+    /* ---- deterministic seeded RNG (mulberry32-ish), reset per build ---- */
+    let _s;
+    function seed(v) { _s = v >>> 0; }
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    /* ---- ember burst: red+teal sparks thrown off the blade seam. Each has a
+       fixed launch point ALONG the blade and a velocity; positions are a pure
+       function of t so frames are deterministic. ---- */
+    const N_SPARK = 90;
+    let sparks = [];
+    function buildSparks() {
+      seed(0x4f4e);
+      sparks = Array.from({ length: N_SPARK }, () => {
+        const along = R(-0.1, 1.1);          // position along the blade span (0..1)
+        const speed = R(120, 560);            // px/sec thrown off the seam
+        const dir = srnd() < 0.5 ? 1 : -1;    // which side it flies
+        return {
+          along, speed, dir,
+          spread: R(-0.5, 0.5),               // velocity component along the blade
+          teal: srnd() < 0.45,
+          s: R(1.6, 4.6), a: R(0.5, 1),
+          lead: R(0.30, 0.52),                // when it launches (around full cover)
+          life: R(0.30, 0.55), tw: R(1.2, 2.6), ph: R(0, 6.283),
+        };
+      });
+    }
+    buildSparks();
+
+    /* ---- circuit crackle: short angular traces that snap along the seam at
+       full cover, with a bright pulse running each one. Fixed deterministically. */
+    const N_TRACE = 14;
+    let traces = [];
+    function buildTraces() {
+      seed(0x517e);
+      traces = Array.from({ length: N_TRACE }, () => {
+        const along = R(0.04, 0.96);
+        const side = srnd() < 0.5 ? 1 : -1;
+        const pts = [];
+        let off = R(6, 22) * side;             // start just off the seam
+        let alongPos = along;
+        pts.push([alongPos, off]);
+        const segs = 2 + ((srnd() * 3) | 0);
+        for (let i = 0; i < segs; i++) {
+          if (srnd() < 0.5) off += R(28, 80) * side;       // step further from seam
+          else alongPos += R(-0.05, 0.05);                 // step along seam
+          pts.push([alongPos, off]);
+        }
+        return { pts, teal: srnd() < 0.5, sp: R(0.6, 1.4), lead: R(0.34, 0.5) };
+      });
+    }
+    buildTraces();
+
+    // map (alongFrac 0..1, perpOffsetPx) -> screen x,y
+    function seamPoint(alongFrac, perpOff) {
+      // base point on the seam line, at the current sweep offset
+      const baseN = curOff;                                 // set in frame()
+      const baseAlong = lerp(alongMin, alongMax, alongFrac);
+      const bx = ndx * baseN + bdx * baseAlong;
+      const by = ndy * baseN + bdy * baseAlong;
+      return [bx + ndx * perpOff, by + ndy * perpOff];
+    }
+
+    // along-axis extent of the blade across the frame (so traces/sparks ride it)
+    let aMin = Infinity, aMax = -Infinity;
+    for (const [x, y] of corners) {
+      const d = x * bdx + y * bdy;
+      if (d < aMin) aMin = d; if (d > aMax) aMax = d;
+    }
+    const alongMin = aMin, alongMax = aMax;
+
+    let curOff = 0;   // current sweep offset of the seam (along normal), set per frame
+
+    /* ---- fill the void polygon on the "behind" side of the seam line ---- */
+    function fillVoid(coverN) {
+      // seam offset along normal: from nMin (uncovered) sweeping to nMax.
+      // We cover the region where (point . n) < seamN.
+      const seamN = nMin + coverN * NSPAN;
+      curOff = seamN;
+      if (coverN <= 0.0005) return;
+
+      // build polygon: all corners with (p.n <= seamN), plus the two seam
+      // intersection points. Simpler: clip the full screen rect by the half-plane.
+      const poly = clipRectByHalfPlane(seamN);
+      if (poly.length < 3) return;
+
+      // void gradient — deep near-black, faintly lit oni/teal so it isn't flat
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0.00, VOID2);
+      g.addColorStop(0.45, VOID);
+      g.addColorStop(1.00, '#0C1119');
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(poly[0][0], poly[0][1]);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // faint masked circuit grid inside the void (oni-theme signature)
+      ctx.clip();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = 'rgba(' + TEAL + ',0.07)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= W; x += 72) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += 72) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      // deep vignette so the void reads as a pit, not a flat fill
+      ctx.globalAlpha = 1;
+      const vg = ctx.createRadialGradient(CX, CY, H * 0.16, CX, CY, H * 0.95);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(3,5,9,' + (0.65 * coverN).toFixed(3) + ')');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    // clip the screen rectangle to { p : p.n <= seamN } (Sutherland-Hodgman, one plane)
+    function clipRectByHalfPlane(seamN) {
+      const rect = [[0, 0], [W, 0], [W, H], [0, H]];
+      const out = [];
+      const inside = (p) => (p[0] * ndx + p[1] * ndy) <= seamN;
+      for (let i = 0; i < rect.length; i++) {
+        const a = rect[i], b = rect[(i + 1) % rect.length];
+        const ai = inside(a), bi = inside(b);
+        if (ai) out.push(a);
+        if (ai !== bi) {
+          const da = a[0] * ndx + a[1] * ndy - seamN;
+          const db = b[0] * ndx + b[1] * ndy - seamN;
+          const f = da / (da - db);
+          out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+        }
+      }
+      return out;
+    }
+
+    /* ---- the BLADE seam itself: the glowing cut line, a razor white glint
+       riding along it, and a teal/oni shock-bloom ahead of the cut. ---- */
+    function drawBladeSeam(cover, coverN) {
+      const seamN = nMin + coverN * NSPAN;
+      // seam endpoints = intersection of the seam line with the frame border
+      const ep = seamLineEndpoints(seamN);
+      if (!ep) return;
+      const [p0, p1] = ep;
+      const edgeA = Math.sin(cover * Math.PI);          // strongest near full cover
+
+      ctx.save();
+      ctx.lineCap = 'round';
+
+      // wide oni-red wash behind the cut (the heat of the slash)
+      ctx.globalAlpha = 0.28 * edgeA;
+      ctx.strokeStyle = 'rgba(' + ONI + ',1)';
+      ctx.lineWidth = 26;
+      ctx.shadowColor = '#FF2D4B'; ctx.shadowBlur = 60;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+
+      // bright teal core edge — the neon blade
+      ctx.globalAlpha = lerp(0.55, 1, edgeA);
+      ctx.strokeStyle = 'rgba(' + TEAL + ',1)';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#16F0C8'; ctx.shadowBlur = 40;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+
+      // hot white inner filament
+      ctx.globalAlpha = lerp(0.4, 0.95, edgeA);
+      ctx.strokeStyle = 'rgba(' + TEXT + ',1)';
+      ctx.lineWidth = 1.6;
+      ctx.shadowColor = '#E8EEF5'; ctx.shadowBlur = 22;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+
+      // ---- the razor GLINT: a short hot segment racing along the seam,
+      // its position tracking the depth of the cut so it leads the wipe. ----
+      const gtt = clamp01(coverN);
+      const gx = lerp(p0[0], p1[0], gtt), gy = lerp(p0[1], p1[1], gtt);
+      const half = 130;
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = 'rgba(' + TEXT + ',1)';
+      ctx.lineWidth = 5;
+      ctx.shadowColor = '#16F0C8'; ctx.shadowBlur = 46;
+      ctx.beginPath();
+      ctx.moveTo(gx - bdx * half, gy - bdy * half);
+      ctx.lineTo(gx + bdx * half, gy + bdy * half);
+      ctx.stroke();
+      // glint core
+      ctx.beginPath();
+      ctx.arc(Math.round(gx), Math.round(gy), 6, 0, 6.2832);
+      ctx.fillStyle = '#fff'; ctx.shadowBlur = 60; ctx.fill();
+
+      ctx.restore();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    // endpoints where the seam line (p.n == seamN) crosses the frame rect
+    function seamLineEndpoints(seamN) {
+      const rect = [[0, 0], [W, 0], [W, H], [0, H]];
+      const hits = [];
+      for (let i = 0; i < 4; i++) {
+        const a = rect[i], b = rect[(i + 1) % 4];
+        const da = a[0] * ndx + a[1] * ndy - seamN;
+        const db = b[0] * ndx + b[1] * ndy - seamN;
+        if ((da <= 0 && db > 0) || (da > 0 && db <= 0)) {
+          const f = da / (da - db);
+          hits.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+        }
+      }
+      if (hits.length < 2) return null;
+      return [hits[0], hits[1]];
+    }
+
+    /* ---- circuit crackle racing the seam at full cover ---- */
+    function drawCrackle(cover) {
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'miter';
+      for (const tr of traces) {
+        const on = clamp01((cover - tr.lead) / 0.28);
+        if (on <= 0.01) continue;
+        const a = Math.sin(on * Math.PI) * 0.9;          // fade in/out around peak
+        const col = tr.teal ? TEAL : ONI;
+        // draw the trace, growing from the seam outward
+        const grow = smooth(on);
+        ctx.globalAlpha = a * 0.7;
+        ctx.strokeStyle = 'rgba(' + col + ',1)';
+        ctx.lineWidth = 1.6;
+        ctx.shadowColor = tr.teal ? '#16F0C8' : '#FF2D4B'; ctx.shadowBlur = 10;
+        ctx.beginPath();
+        const p0 = seamPoint(tr.pts[0][0], tr.pts[0][1] * grow);
+        ctx.moveTo(Math.round(p0[0]), Math.round(p0[1]));
+        let last = p0;
+        for (let i = 1; i < tr.pts.length; i++) {
+          const p = seamPoint(tr.pts[i][0], tr.pts[i][1] * grow);
+          ctx.lineTo(Math.round(p[0]), Math.round(p[1]));
+          last = p;
+        }
+        ctx.stroke();
+        // bright node at the far end
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.arc(Math.round(last[0]), Math.round(last[1]), 2.6, 0, 6.2832);
+        ctx.fillStyle = 'rgba(' + col + ',1)'; ctx.shadowBlur = 12; ctx.fill();
+      }
+      ctx.restore();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    /* ---- ember/spark burst thrown off the seam around full cover ---- */
+    function drawSparks(t, cover) {
+      ctx.save();
+      for (const sp of sparks) {
+        const lt = clamp01((t - sp.lead) / sp.life);
+        if (lt <= 0 || lt >= 1) continue;
+        // launch point on the seam (rides the current cut position)
+        const base = seamPoint(sp.along, 0);
+        const dist = sp.speed * lt;                       // px from seam
+        const px = base[0] + ndx * dist * sp.dir + bdx * dist * sp.spread;
+        const py = base[1] + ndy * dist * sp.dir + bdy * dist * sp.spread;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.6 + Math.sin(sp.ph + lt * sp.tw * 6.283) * 0.4;
+        const a = sp.a * ends * twk;
+        if (a <= 0.03) continue;
+        ctx.globalAlpha = a;
+        const col = sp.teal ? '#16F0C8' : '#FF2D4B';
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
+        const s = Math.max(1, Math.round(sp.s * (1 - lt * 0.4)));
+        ctx.fillRect(Math.round(px), Math.round(py), s, s);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);                // 0 -> 1 -> 0, full at t=0.5
+      const coverN = smooth(cover);                       // eased coverage of the void
+
+      fillVoid(coverN);            // the void wipes in/out along the moving cut
+      drawCrackle(cover);          // circuit traces snap along the seam at peak
+      drawBladeSeam(cover, coverN);// the glowing blade edge + racing glint
+      drawSparks(t, cover);        // red/teal sparks thrown off the cut
+
+      // sharp white flash on the seam at the exact peak (the cut lands)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.045, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(' + TEXT + ',' + (0.30 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.4, 'rgba(' + TEAL + ',' + (0.14 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(' + ONI + ',0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }            // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }        // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+/* ============================================================
+   CHAMPAGNE MONO — alert system ("The Invitation Card")
+   A LIGHT, editorial champagne-gold-on-ivory engraved calling card
+   that enters, holds, then leaves. TRANSPARENT background so it
+   composites over gameplay / the scene below. Bespoke to THIS theme —
+   shares only the invisible engine conventions with the other packs,
+   never a recolor: an ivory card bordered by a thin champagne-gold
+   hairline double-frame with delicate SVG gold-filigree corners, a
+   deco diamond glyph crest, a high-contrast serif EVENT headline lit
+   by a slow champagne light-sweep + title shimmer, a gold underline
+   rule with diamond endcaps, an emphasized champagne amount for value
+   events, and a fine drifting gold-dust burst on a transparent canvas.
+   Each of the 12 events gets a DISTINCT entrance motion (per-event
+   .ev-<type> classes at the bottom of this file + a render mirror).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --ivory:#FBF7EF; --paper:#EDE6DA; --gold:#C9A86A; --gold-deep:#9C8458; --ink:#13110D;
+  /* derived */
+  --hair:rgba(156,132,88,.55);
+  --hair-soft:rgba(156,132,88,.28);
+  --gold-line:rgba(201,168,106,.85);
+  --gold-glow:rgba(201,168,106,.45);
+  --dim:rgba(19,17,13,.52);
+  --serif:"Didot","Bodoni MT","Bodoni 72","Hoefler Text",Georgia,"Times New Roman",serif;
+  --sans:"Optima","Gill Sans","Futura","Century Gothic",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.78,.24,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--ink);background:transparent;
+  font-family:var(--serif);}
+
+/* one canvas for the gold-dust burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: a centered editorial invitation plate, lower-middle ----
+   Anchored so the headline / amount / handle each have a clear zone and the
+   gold-dust never crosses the text. */
+.alert{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);
+  width:1040px;padding:46px 64px 50px;
+  background:
+    radial-gradient(120% 96% at 50% 0%, rgba(255,253,248,.96), transparent 72%),
+    linear-gradient(180deg, rgba(255,253,248,.95), rgba(237,230,218,.92));
+  border:1px solid var(--hair);
+  box-shadow:
+    0 30px 90px rgba(156,132,88,.22),
+    0 6px 26px rgba(19,17,13,.10),
+    inset 0 0 70px rgba(255,253,248,.7);
+  display:grid;grid-template-columns:158px 1fr;column-gap:46px;align-items:center;
+  /* base hidden state; per-event .ev-* classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity,filter;}
+/* inner hairline double rule, inset from the frame (echoes the plate) */
+.alert::before{content:"";position:absolute;inset:11px;border:1px solid var(--hair-soft);
+  pointer-events:none;}
+/* a slow diagonal champagne LIGHT-SWEEP travelling across the card */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  opacity:.8;overflow:hidden;
+  background:linear-gradient(115deg, transparent 42%, rgba(255,251,240,.7) 49%, rgba(201,168,106,.28) 52%, transparent 60%);
+  background-size:240% 100%;
+  animation:alert-sweep 4.6s ease-in-out infinite;}
+@keyframes alert-sweep{0%{background-position:150% 0}55%,100%{background-position:-50% 0}}
+
+/* delicate gold-filigree CORNER flourishes on the card */
+.alert .corner{position:absolute;width:78px;height:78px;pointer-events:none;opacity:.95;}
+.alert .corner svg{width:100%;height:100%;display:block;}
+.alert .corner--tl{left:14px;top:14px;}
+.alert .corner--tr{right:14px;top:14px;transform:scaleX(-1);}
+.alert .corner--bl{left:14px;bottom:14px;transform:scaleY(-1);}
+.alert .corner--br{right:14px;bottom:14px;transform:scale(-1,-1);}
+
+/* ---- the deco diamond GLYPH crest (left column) ---- */
+.alert .art{width:158px;height:158px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(120% 120% at 50% 12%, rgba(255,253,248,.9), transparent 64%),
+    linear-gradient(160deg, rgba(237,230,218,.7), rgba(251,247,239,.5));
+  border:1px solid var(--hair);
+  box-shadow:inset 0 0 0 1px rgba(255,253,248,.6), inset 0 0 26px rgba(201,168,106,.14);}
+/* a thin gold diamond ring framing the glyph (deco engraving) */
+.alert .art::before{content:"";position:absolute;inset:18px;border:1px solid var(--hair-soft);
+  transform:rotate(45deg);pointer-events:none;}
+.alert .art .glyph{position:relative;font-family:var(--serif);font-size:78px;line-height:1;
+  font-weight:600;color:transparent;
+  background:linear-gradient(180deg,var(--gold) 0%,var(--gold-deep) 64%,#7d683f 100%);
+  -webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 0 12px rgba(201,168,106,.4));}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* the kicker row: deco diamond + spaced sans caps event label (hidden in
+   noname mode, where the headline already shows the event) */
+.alert .kick{font-family:var(--sans);
+  letter-spacing:.5em;font-size:21px;font-weight:500;text-transform:uppercase;
+  color:var(--gold-deep);text-indent:.5em;margin:0 0 10px;
+  display:flex;align-items:center;gap:16px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dia{width:11px;height:11px;border:1px solid var(--gold);transform:rotate(45deg);
+  box-shadow:0 0 10px var(--gold-glow);flex:none;text-indent:0;
+  animation:dia-pulse 2s steps(1,end) infinite;}
+@keyframes dia-pulse{0%,62%{opacity:1}63%,100%{opacity:.22}}
+
+/* big serif EVENT / NAME headline — high-contrast ink, clamped to one line */
+.alert .name{font-family:var(--serif);font-size:80px;line-height:.94;font-weight:600;
+  letter-spacing:.012em;text-transform:uppercase;color:var(--ink);margin:0;
+  text-shadow:0 1px 0 rgba(255,253,248,.85);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* the gold underline rule with diamond endcaps, under the headline */
+.alert .urule{position:relative;width:300px;max-width:100%;height:1px;margin:16px 0 0;
+  background:linear-gradient(90deg,var(--gold-deep) 0%,var(--gold) 50%,var(--gold-deep) 100%);}
+.alert .urule::before,.alert .urule::after{content:"";position:absolute;top:50%;
+  width:7px;height:7px;border:1px solid var(--gold);background:var(--gold);
+  transform:translateY(-50%) rotate(45deg);box-shadow:0 0 8px var(--gold-glow);}
+.alert .urule::before{left:-13px;} .alert .urule::after{right:-13px;}
+
+/* amount line (champagne gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--serif);font-size:42px;font-weight:600;letter-spacing:.02em;
+  margin:18px 0 0;display:none;line-height:1;
+  background:linear-gradient(180deg,var(--gold) 0%,var(--gold-deep) 62%,#7d683f 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1px 0 rgba(255,253,248,.6)) drop-shadow(0 0 14px rgba(201,168,106,.4));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet italic serif sub line — ships EMPTY (no flavor copy) */
+.alert .sub{font-family:var(--serif);font-style:italic;font-size:25px;letter-spacing:.05em;
+  color:var(--dim);margin:14px 0 0;min-height:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* engraved monogram tag readout, top-right of the card */
+.alert .tagid{position:absolute;top:22px;right:34px;font-family:var(--sans);
+  letter-spacing:.46em;font-size:16px;color:var(--gold-deep);opacity:.8;text-indent:.46em;
+  white-space:nowrap;}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs once.
+   .hide always uses a clean fade-out so chaining never overlaps.
+   NOTE: all transforms keep translateX(-50%) (the card is centered).
+   ============================================================ */
+.alert.hide{animation:alert-out .5s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(18px) scale(.99)}}
+
+/* 1 follower — calm rise up from below + settle (an invitation laid down) */
+.alert.ev-follower.show{animation:fx-follower .72s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateX(-50%) translateY(64px)}
+  72%{opacity:1;transform:translateX(-50%) translateY(-9px)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* 2 subscriber — develop in from a soft champagne haze (scale up + unblur) */
+.alert.ev-subscriber.show{animation:fx-subscriber .82s var(--ease) forwards;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:translateX(-50%) scale(.9);filter:blur(9px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateX(-50%) scale(1);filter:blur(0)}}
+
+/* 3 member — engraved seal press: slight overshoot scale-down to seat it */
+.alert.ev-member.show{animation:fx-member .76s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-50%) scale(1.14)}
+  58%{opacity:1;transform:translateX(-50%) scale(.985)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* 4 cheer — bright pop + tiny upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .6s var(--ease) forwards;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateX(-50%) translateY(36px) scale(.92)}
+  55%{opacity:1;transform:translateX(-50%) translateY(-11px) scale(1.035)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + gentle settle bounce (premium, amount) */
+.alert.ev-donation.show{animation:fx-donation .82s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateX(-50%) translateY(-96px)}
+  60%{opacity:1;transform:translateX(-50%) translateY(13px)}
+  82%{transform:translateX(-50%) translateY(-5px)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* 6 host — wide horizontal unfurl (the invitation opens) via scaleX */
+.alert.ev-host.show{animation:fx-host .74s var(--ease) forwards;transform-origin:50% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:translateX(-50%) scaleX(.18)}
+  60%{opacity:1;transform:translateX(-50%) scaleX(1.02)}
+  100%{opacity:1;transform:translateX(-50%) scaleX(1)}}
+
+/* 7 raid — grand arrival: overshoot zoom-in toward viewer + shake settle */
+.alert.ev-raid.show{animation:fx-raid .86s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-50%) scale(1.28)}
+  52%{opacity:1;transform:translateX(-50%) scale(.965)}
+  70%{transform:translateX(-50%) scale(1.02)}
+  86%{transform:translateX(-50%) scale(.992)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* 8 like — soft breathing pulse-in */
+.alert.ev-like.show{animation:fx-like .66s var(--ease) forwards;}
+@keyframes fx-like{
+  0%{opacity:0;transform:translateX(-50%) scale(.86)}
+  60%{opacity:1;transform:translateX(-50%) scale(1.045)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* 9 share — gentle skew-glide in (forward motion, paper sliding across) */
+.alert.ev-share.show{animation:fx-share .68s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-50%) translateY(28px) skewX(-7deg)}
+  70%{opacity:1;transform:translateX(-50%) translateY(-6px) skewX(1.5deg)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0) skewX(0)}}
+
+/* 10 star — drop + slight rotate settle (a wax star pinned on) */
+.alert.ev-star.show{animation:fx-star .78s var(--ease) forwards;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateX(-50%) translateY(-64px) rotate(-3.5deg)}
+  62%{opacity:1;transform:translateX(-50%) translateY(9px) rotate(1.4deg)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0) rotate(0)}}
+
+/* 11 superchat — loud zoom-in toward the viewer + settle (amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .74s var(--ease) forwards;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:translateX(-50%) scale(1.4)}
+  60%{opacity:1;transform:translateX(-50%) scale(.965)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* 12 supporter — calm rise + unblur (recurring quiet support) */
+.alert.ev-supporter.show{animation:fx-supporter .76s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateX(-50%) translateY(50px);filter:blur(7px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0);filter:blur(0)}}
+
+/* glyph crest pops in slightly after the card (shared by all events) */
+.alert.show .art .glyph{animation:fx-glyph .66s var(--ease) both .16s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.42)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+/* the diamond ring around the glyph rotates open with the crest */
+.alert.show .art::before{animation:fx-ring .8s var(--ease) both .18s;}
+@keyframes fx-ring{0%{opacity:0;transform:rotate(45deg) scale(.6)}100%{opacity:1;transform:rotate(45deg) scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform / opacity / filter deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .kick .dia{animation:none!important;opacity:1;}
+#stage.render .alert .art .glyph{animation:none!important;opacity:1;transform:scale(1);}
+#stage.render .alert .art::before{animation:none!important;opacity:1;transform:rotate(45deg) scale(1);}

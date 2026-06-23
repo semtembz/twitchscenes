@@ -1,0 +1,280 @@
+/* ============================================================
+   ONI CIRCUIT — alert system ("Cyber-Samurai Hannya")
+   A sharp, sheared BLADE-PANEL alert anchored bottom-left: a
+   near-black void slab cut to a parallelogram, framed by a hard
+   oni-RED edge seam + neon-TEAL hairline, carrying a faceted ONI
+   MASK glyph plate (angular, fanged, teal eye-slits), a mono HUD
+   readout row, a sharp condensed-display EVENT / NAME headline, and
+   an emphasized RED->TEAL amount readout for value events. A small
+   crawling circuit trace + a 鬼 kanji stamp seat it in the theme.
+   TRANSPARENT background so it composites over gameplay / the scene.
+   Cohesive with shared.css: void palette, oni/teal split, condensed
+   display + mono stacks, hard slash rules, registration ticks.
+   Each event gets a DISTINCT entrance motion (see alerts.js + the
+   per-event animation classes at the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --void:#0A0E14; --void2:#05080C; --oni:#FF2D4B; --teal:#16F0C8;
+  --steel:#1B2433; --text:#E8EEF5;
+  --oni-soft:rgba(255,45,75,.55); --oni-dim:rgba(255,45,75,.16);
+  --teal-soft:rgba(22,240,200,.55); --teal-dim:rgba(22,240,200,.16);
+  --steel-edge:rgba(120,150,190,.22);
+  --glow-oni:rgba(255,45,75,.55); --glow-teal:rgba(22,240,200,.5);
+  --dim:rgba(232,238,245,.55);
+  --display:"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif;
+  --mono:"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace;
+  --kanji:"Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-cut:cubic-bezier(.7,0,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--display);}
+
+/* one canvas for the ember/spark burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert panel: anchored bottom-left, sheared blade-slab ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:824px;padding:32px 44px 32px 40px;
+  background:
+    linear-gradient(135deg, rgba(255,45,75,.10), transparent 30%),
+    linear-gradient(300deg, rgba(22,240,200,.08), transparent 32%),
+    linear-gradient(160deg, rgba(12,17,25,.92) 0%, rgba(10,14,20,.94) 52%, rgba(5,8,12,.96) 100%);
+  border:1px solid var(--steel-edge);
+  /* sharp parallelogram (blade-slab) corners */
+  clip-path:polygon(26px 0, 100% 0, calc(100% - 26px) 100%, 0 100%);
+  box-shadow:
+    0 38px 110px rgba(0,0,0,.62),
+    0 0 60px rgba(255,45,75,.08),
+    inset 0 0 80px rgba(5,8,12,.5);
+  display:grid;grid-template-columns:146px 1fr;column-gap:34px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* hard oni-RED leading seam down the sheared left edge */
+.alert .seam{position:absolute;left:30px;top:14px;bottom:14px;width:4px;
+  transform:skewX(-14deg);transform-origin:top;
+  background:linear-gradient(180deg,var(--oni),rgba(255,45,75,.4));
+  box-shadow:0 0 18px var(--glow-oni);pointer-events:none;}
+/* faint inner teal hairline echoing the slab cut */
+.alert::before{content:"";position:absolute;inset:7px;pointer-events:none;opacity:.5;
+  clip-path:polygon(24px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+  border:1px solid var(--teal-dim);}
+/* a slow diagonal red/teal energy sweep travelling across the slab */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.6;
+  background:linear-gradient(118deg, transparent 42%, rgba(255,45,75,.12) 49%, rgba(22,240,200,.12) 52%, transparent 60%);
+  animation:alert-sweep 4.5s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-26%)}100%{transform:translateX(26%)}}
+
+/* sharp corner registration ticks (samurai bracket marks) */
+.alert .tick{position:absolute;width:22px;height:22px;pointer-events:none;}
+.alert .tick::before,.alert .tick::after{content:"";position:absolute;background:var(--teal-soft);
+  box-shadow:0 0 8px var(--glow-teal);}
+.alert .tick::before{width:22px;height:2px;} .alert .tick::after{width:2px;height:22px;}
+.alert .tick--tl{left:30px;top:-1px;}  .alert .tick--tl::before{left:0;top:0;}  .alert .tick--tl::after{left:0;top:0;}
+.alert .tick--tr{right:-1px;top:-1px;} .alert .tick--tr::before{right:0;top:0;} .alert .tick--tr::after{right:0;top:0;}
+.alert .tick--bl{left:-1px;bottom:-1px;} .alert .tick--bl::before{left:0;bottom:0;} .alert .tick--bl::after{left:0;bottom:0;}
+.alert .tick--br{right:30px;bottom:-1px;} .alert .tick--br::before{right:0;bottom:0;} .alert .tick--br::after{right:0;bottom:0;}
+
+/* ---- the faceted ONI MASK glyph plate (angular, oni-red, teal eyes) ---- */
+.alert .plate{width:146px;height:146px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* angular hex-ish mask cell */
+  clip-path:polygon(50% 0, 100% 26%, 100% 74%, 50% 100%, 0 74%, 0 26%);
+  background:
+    radial-gradient(120% 120% at 50% 12%, rgba(255,45,75,.22), transparent 62%),
+    linear-gradient(160deg, rgba(27,36,51,.8), rgba(5,8,12,.94));
+  box-shadow:inset 0 0 0 1px var(--oni-soft), inset 0 0 28px rgba(255,45,75,.14),
+    0 0 22px rgba(255,45,75,.18);}
+.alert .plate::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  clip-path:polygon(50% 0, 100% 26%, 100% 74%, 50% 100%, 0 74%, 0 26%);
+  box-shadow:inset 0 0 0 1px var(--teal-dim);}
+/* the oni glyph — drawn in the kanji/display face, oni-red with teal echo */
+.alert .plate .glyph{font-family:var(--display);font-size:74px;line-height:1;font-weight:700;
+  color:var(--oni);
+  text-shadow:0 0 22px rgba(255,45,75,.6), -2px -2px 0 rgba(22,240,200,.35), 0 2px 1px rgba(5,8,12,.6);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* clinical mono HUD readout row (LED + system + circuit id) */
+.alert .read{font-family:var(--mono);font-size:14px;letter-spacing:.16em;color:var(--dim);
+  display:flex;align-items:center;gap:16px;margin:0 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
+.alert .read .led{display:inline-block;width:8px;height:8px;background:var(--oni);
+  transform:rotate(45deg);box-shadow:0 0 10px var(--glow-oni);flex:none;
+  animation:alert-blink 1.6s steps(1,end) infinite;}
+@keyframes alert-blink{0%,68%{opacity:1}69%,100%{opacity:.22}}
+.alert .read .ok{color:var(--teal);}
+
+/* the kicker EVENT label — spaced mono caps, teal (hidden in noname mode
+   where the big headline already shows the event) */
+.alert .kick{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--teal);text-indent:.42em;margin:0 0 4px;
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  text-shadow:0 0 14px rgba(22,240,200,.4);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick::before{content:">";color:var(--oni);opacity:.85;letter-spacing:0;
+  text-shadow:0 0 10px var(--glow-oni);}
+
+/* big condensed-display EVENT / NAME headline — squeezed, clamped to one line */
+.alert .name{font-family:var(--display);font-size:78px;line-height:.9;font-weight:700;
+  letter-spacing:.005em;text-transform:uppercase;color:var(--text);margin:0;
+  transform:scaleX(.95);transform-origin:left center;
+  text-shadow:0 0 40px rgba(22,240,200,.18), 0 2px 0 rgba(5,8,12,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount readout (hard RED->TEAL split) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--display);font-size:46px;font-weight:700;letter-spacing:.01em;
+  margin:6px 0 0;display:none;line-height:1;
+  transform:scaleX(.96);transform-origin:left center;
+  background:linear-gradient(100deg, var(--oni) 0%, var(--oni) 48%, var(--teal) 52%, var(--teal) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(255,45,75,.45)) drop-shadow(0 0 18px rgba(22,240,200,.32));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet mono sub-line (ships EMPTY; the buyer fills it via their platform) */
+.alert .sub{font-family:var(--mono);font-size:18px;letter-spacing:.14em;color:var(--dim);
+  text-transform:uppercase;margin:8px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin oni->teal blade rule across the bottom of the slab */
+.alert .rule{position:absolute;left:40px;right:50px;bottom:16px;height:2px;opacity:.75;
+  background:linear-gradient(90deg, var(--oni) 0%, var(--text) 50%, var(--teal) 100%);
+  -webkit-mask:linear-gradient(90deg,#000,#000 62%,transparent);
+          mask:linear-gradient(90deg,#000,#000 62%,transparent);
+  box-shadow:0 0 12px rgba(255,45,75,.3),0 0 12px rgba(22,240,200,.25);}
+
+/* circuit-id tag readout, top-right of the slab */
+.alert .cid{position:absolute;top:16px;right:30px;font-family:var(--mono);
+  font-size:13px;letter-spacing:.3em;color:var(--teal);opacity:.7;text-indent:.3em;
+  text-transform:uppercase;text-shadow:0 0 10px rgba(22,240,200,.3);}
+
+/* faint 鬼 kanji stamp behind the plate (seats it in the theme) */
+.alert .stamp{position:absolute;left:14px;bottom:6px;font-family:var(--kanji);
+  font-size:120px;line-height:1;font-weight:700;color:rgba(255,45,75,.07);
+  pointer-events:none;text-shadow:0 0 30px rgba(255,45,75,.16);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 DISTINCT choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/shear-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .46s var(--ease-cut) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-46px) skewX(-6deg)}}
+
+/* 1 follower — calm slide up from below + settle */
+.alert.ev-follower.show{animation:fx-follower .66s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(72px)}
+  70%{opacity:1;transform:translateY(-9px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — hard diagonal blade-slash in from upper-left (skew unwind) */
+.alert.ev-subscriber.show{animation:fx-subscriber .7s var(--ease-cut) forwards;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:translate(-120px,-60px) skewX(-22deg)}
+  64%{opacity:1;transform:translate(10px,6px) skewX(4deg)}
+  100%{opacity:1;transform:translate(0,0) skewX(0)}}
+
+/* 3 member — slide in from the left with a firm stop */
+.alert.ev-member.show{animation:fx-member .6s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(15px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick pop + upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .58s var(--ease) forwards;transform-origin:16% 82%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(42px) scale(.9)}
+  55%{opacity:1;transform:translateY(-11px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + gentle double bounce (premium, amount event) */
+.alert.ev-donation.show{animation:fx-donation .78s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-96px)}
+  60%{opacity:1;transform:translateY(13px)}
+  82%{transform:translateY(-6px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal sheath open via scaleX (blade drawn) */
+.alert.ev-host.show{animation:fx-host .68s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.1)}
+  60%{opacity:1;transform:scaleX(1.03)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big overshoot rush in from the left + shake settle (impact) */
+.alert.ev-raid.show{animation:fx-raid .82s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.05)}
+  52%{opacity:1;transform:translateX(28px) scale(1.02)}
+  70%{transform:translateX(-14px)}
+  85%{transform:translateX(7px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .62s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe forward from lower-left (forward motion) */
+.alert.ev-share.show{animation:fx-share .6s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-130px) skewX(-11deg)}
+  70%{opacity:1;transform:translateX(9px) skewX(3deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + rotate settle (pinned to the board) */
+.alert.ev-star.show{animation:fx-star .72s var(--ease) forwards;transform-origin:16% 28%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-74px) rotate(-5deg)}
+  62%{opacity:1;transform:translateY(9px) rotate(2deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — loud zoom-in toward the viewer + settle (amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .7s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.4)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + slight squeeze release (calm, recurring) */
+.alert.ev-supporter.show{animation:fx-supporter .7s var(--ease) forwards;transform-origin:50% 100%;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(56px) scaleY(.92)}
+  62%{opacity:1;transform:translateY(-6px) scaleY(1.02)}
+  100%{opacity:1;transform:translateY(0) scaleY(1)}}
+
+/* glyph plate pops in slightly after the slab (shared by all events) */
+.alert.show .plate .glyph{animation:fx-glyph .6s var(--ease-cut) both .14s;}
+@keyframes fx-glyph{
+  0%{opacity:0;transform:scale(.4) rotate(-8deg)}
+  60%{opacity:1;transform:scale(1.14) rotate(2deg)}
+  100%{opacity:1;transform:scale(1) rotate(0)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .read .led{animation:none;opacity:1;}
+#stage.render .alert .plate .glyph{animation:none!important;opacity:1;transform:none;}

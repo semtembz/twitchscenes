@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Oni Circuit — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Cyber-Samurai" language: sharp neon-teal
+       L-bracket registration ticks in the corners, a slim angular blade-edge
+       strip lower-left carrying @handle + a clean "ON AIR" status, a small
+       editable mono slot top-right, and a faint 鬼 kanji watermark. Almost
+       everything stays transparent so the gameplay shows through; only a sparse
+       drift of red/teal embers + a slow blade glint live near the strip.
+       All decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=ON%20AIR  ?slot=...  ?render=1
+       (slot = the editable top-right label; =- removes it) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no void background, no full-bleed grid/scan/vignette */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of red/teal embers, very low alpha, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.7;}
+
+    /* ---- sharp neon-teal L-bracket registration ticks in the corners ---- */
+    .ot{position:absolute;width:50px;height:50px;pointer-events:none;opacity:.8;
+      animation:otin 1s var(--ease) both .2s;}
+    .ot::before,.ot::after{content:"";position:absolute;background:var(--teal-soft);
+      box-shadow:0 0 9px var(--glow-teal);}
+    .ot::before{width:50px;height:2px;} .ot::after{width:2px;height:50px;}
+    .ot--tl{left:50px;top:50px;}  .ot--tl::before{left:0;top:0;}  .ot--tl::after{left:0;top:0;}
+    .ot--tr{right:50px;top:50px;} .ot--tr::before{right:0;top:0;} .ot--tr::after{right:0;top:0;}
+    .ot--bl{left:50px;bottom:50px;}  .ot--bl::before{left:0;bottom:0;}  .ot--bl::after{left:0;bottom:0;}
+    .ot--br{right:50px;bottom:50px;} .ot--br::before{right:0;bottom:0;} .ot--br::after{right:0;bottom:0;}
+    @keyframes otin{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:none}}
+
+    /* faint 鬼 kanji watermark, upper-left margin (well clear of gameplay center) */
+    .okanji{position:absolute;left:104px;top:120px;font-size:122px;line-height:1;
+      font-family:"Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif;font-weight:700;
+      color:rgba(255,45,75,.10);text-shadow:0 0 30px rgba(255,45,75,.22);
+      pointer-events:none;animation:otin 1.2s var(--ease) both .35s;}
+
+    /* ---- slim angular blade-edge telemetry strip, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 26px;
+      background:linear-gradient(180deg, rgba(27,36,51,.50), rgba(5,8,12,.62));
+      border:1px solid var(--steel-edge);
+      box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 0 40px rgba(5,8,12,.5),
+        0 0 26px rgba(255,45,75,.05);
+      /* sharp parallelogram blade-edge clip (matches the loading bar language) */
+      clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* inner hairline edge, same skewed silhouette */
+    .slot::before{content:"";position:absolute;inset:4px;border:1px solid var(--steel-edge);
+      clip-path:inherit;pointer-events:none;opacity:.7;}
+    /* slow blade glint travels along the strip */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:90px;left:-90px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(22,240,200,.16), rgba(232,238,245,.12), transparent);
+      animation:slotsweep 6s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-90px}100%{left:100%}}
+
+    /* "ON AIR" status — clean functional label: spaced mono caps + a glowing oni diamond */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:var(--mono);letter-spacing:.36em;font-size:16px;font-weight:600;
+      text-transform:uppercase;color:var(--oni);text-indent:.36em;
+      text-shadow:0 0 12px rgba(255,45,75,.45);}
+    .slot .tag .dia{width:10px;height:10px;background:var(--oni);transform:rotate(45deg);
+      box-shadow:0 0 12px var(--glow-oni);animation:pulse 1.9s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--glow-oni)}50%{opacity:.4;box-shadow:0 0 5px var(--glow-oni)}}
+
+    /* thin steel divider with a tiny teal node, between tag and handle */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--steel-edge),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--teal);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px var(--glow-teal);}
+
+    /* handle — light mono with the signature "> " prompt */
+    .slot .who{font-family:var(--mono);letter-spacing:.24em;font-size:25px;color:var(--text);
+      text-indent:.24em;text-shadow:0 0 14px rgba(255,45,75,.35);white-space:nowrap;}
+    .slot .who::before{content:"> ";color:var(--teal);text-shadow:0 0 10px var(--glow-teal);}
+
+    /* small editable mono slot, top-right (flavor label = is-slot) */
+    .node-tr{position:absolute;top:46px;right:120px;display:flex;align-items:center;gap:12px;
+      font-family:var(--mono);letter-spacing:.4em;font-size:16px;color:var(--teal);
+      text-indent:.4em;opacity:.85;white-space:nowrap;
+      text-shadow:0 0 12px rgba(22,240,200,.35);
+      animation:otin 1s var(--ease) both .3s;}
+    .node-tr::before{content:"";display:inline-block;width:8px;height:8px;flex:0 0 auto;
+      background:var(--oni);transform:rotate(45deg);box-shadow:0 0 8px var(--glow-oni);}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .ot,#stage.render .okanji,#stage.render .node-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dia{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .ot{opacity:.8;transform:none;}
+    #stage.render .okanji{opacity:1;}
+    #stage.render .node-tr{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- sharp neon-teal L-bracket registration ticks in all four corners -->
+    <span class="ot ot--tl" aria-hidden="true"></span>
+    <span class="ot ot--tr" aria-hidden="true"></span>
+    <span class="ot ot--bl" aria-hidden="true"></span>
+    <span class="ot ot--br" aria-hidden="true"></span>
+
+    <!-- faint kanji watermark -->
+    <div class="okanji" aria-hidden="true">鬼</div>
+
+    <!-- small editable mono slot, top-right (flavor label) -->
+    <div class="node-tr is-slot" id="slot" data-slot="slot"><span class="slot-no">23</span><span class="slot-txt">your text here</span></div>
+
+    <!-- slim angular blade-edge telemetry strip, lower-left -->
+    <div class="slot">
+      <span class="tag"><span class="dia" aria-hidden="true"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- editable text slots: ?slot=Text sets it, ?slot=- removes it ---- */
+    document.querySelectorAll("[data-slot]").forEach((eln) => {
+      const v = params.get(eln.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { eln.remove(); return; }
+      eln.textContent = v;
+      eln.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a sparse drift of red/teal embers (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x4f4e >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const embers = Array.from({ length: Math.max(0, num("embers", 46)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: R(-9, -3)/60, sway: R(0.3, 1.2),
+      ph: R(0, 6.28), tw: R(0.5, 1.4), a: R(0.18, 0.6), teal: srnd() < 0.42,
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const e of embers){
+        e.y += e.vy * dt * 60; e.ph += 0.04 * dt * 60; e.x += Math.sin(e.ph) * e.sway * 0.6;
+        if (e.y < -12){ e.y = H + 12; e.x = ((srnd() * W) | 0); }
+        const tw = 0.5 + Math.sin(e.ph * e.tw) * 0.5;
+        ctx.globalAlpha = e.a * tw;
+        const col = e.teal ? "#16F0C8" : "#FF2D4B";
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 7 * e.z;
+        const sz = Math.max(1, Math.round(e.z * 1.7));
+        ctx.fillRect(Math.round(e.x), Math.round(e.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__oniDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

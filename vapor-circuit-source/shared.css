@@ -1,0 +1,200 @@
+/* ============================================================
+   VAPOR CIRCUIT — shared design system ("Outrun Motherboard")
+   80s synthwave meets a living PCB. A deep-purple synth backdrop
+   with a glowing PERSPECTIVE GRID floor receding to a horizon +
+   a retro CHROME SUN low on the horizon; over it, animated
+   right-angle CIRCUIT-BOARD TRACES with pulsing vias routed to the
+   MARGINS (centre kept clear). A chrome title with a pink->violet
+   ->cyan gradient + glossy reflection + scanline sheen. Loading bar
+   = a neon circuit trace energizing left->right with a travelling
+   pulse node. Bespoke to THIS theme — shares only engine plumbing.
+   ============================================================ */
+:root{
+  /* palette */
+  --bg:#1A0B2E;            /* deep purple */
+  --bg2:#10071F;           /* darker purple floor */
+  --bg3:#0A0416;           /* near-black base */
+  --pink:#FF6AD5;          /* hot pink */
+  --violet:#8A4BFF;        /* violet */
+  --cyan:#26D6FF;          /* cyan */
+  --gold:#FFD166;          /* gold accents */
+  --text:#F3E9FF;          /* near-white text */
+  --chrome-hi:#FFFFFF;
+  --chrome-lo:#7A6BB0;
+  /* derived */
+  --grid-line:rgba(38,214,255,.32);
+  --grid-glow:rgba(138,75,255,.5);
+  --trace:rgba(38,214,255,.5);
+  --ease:cubic-bezier(.16,.84,.28,1);
+  /* type */
+  --display:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+  --mono:"Consolas","SFMono-Regular",ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg3);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);font-family:var(--display);
+  background:
+    radial-gradient(120% 70% at 50% 60%, rgba(138,75,255,.22), transparent 62%),
+    radial-gradient(80% 50% at 50% 50%, rgba(255,106,213,.10), transparent 60%),
+    linear-gradient(180deg, #21103B 0%, var(--bg) 40%, var(--bg2) 66%, var(--bg3) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the SYNTHWAVE backdrop: chrome sun + perspective grid floor ---- */
+/* sky glow band just above the horizon (horizon sits at ~58% height) */
+.sky{position:absolute;left:0;right:0;top:0;height:58%;pointer-events:none;
+  background:
+    radial-gradient(60% 90% at 50% 100%, rgba(255,106,213,.20), transparent 70%),
+    linear-gradient(180deg, transparent 30%, rgba(138,75,255,.10) 78%, rgba(38,214,255,.10) 100%);}
+
+/* retro CHROME SUN low on the horizon, behind the grid, with banded slits */
+.sun{position:absolute;left:50%;top:58%;width:560px;height:560px;
+  transform:translate(-50%,-72%);border-radius:50%;pointer-events:none;
+  background:linear-gradient(180deg,
+    #FFE9B0 0%, var(--gold) 22%, var(--pink) 55%, var(--violet) 86%, #5a2da8 100%);
+  -webkit-mask:linear-gradient(180deg,#000 56%,transparent 56%),
+    repeating-linear-gradient(180deg,#000 0 26px,transparent 26px 40px);
+  -webkit-mask-composite:source-over;
+          mask:linear-gradient(180deg,#000 56%,transparent 56%),
+    repeating-linear-gradient(180deg,#000 0 26px,transparent 26px 40px);
+  mask-composite:add;
+  filter:drop-shadow(0 0 70px rgba(255,106,213,.55)) drop-shadow(0 0 28px rgba(255,209,102,.4));
+  animation:sunrise 1.3s var(--ease) both .15s;}
+@keyframes sunrise{from{opacity:0;transform:translate(-50%,-58%)}to{opacity:1;transform:translate(-50%,-72%)}}
+
+/* horizon line: a bright glowing seam where sky meets grid */
+.horizon{position:absolute;left:0;right:0;top:58%;height:3px;pointer-events:none;
+  transform:translateY(-1px);
+  background:linear-gradient(90deg,transparent,var(--cyan) 25%,#fff 50%,var(--cyan) 75%,transparent);
+  box-shadow:0 0 26px var(--cyan),0 0 60px rgba(38,214,255,.5);}
+
+/* perspective GRID floor (CSS, lines drawn + scrolled toward viewer) */
+.grid{position:absolute;left:-50%;right:-50%;top:58%;bottom:-6%;pointer-events:none;
+  transform:perspective(420px) rotateX(74deg);transform-origin:center top;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 78px, var(--grid-line) 78px 80px),
+    repeating-linear-gradient(0deg,  transparent 0 78px, var(--grid-line) 78px 80px);
+  -webkit-mask:linear-gradient(180deg,#000 0%, rgba(0,0,0,.55) 55%, transparent 92%);
+          mask:linear-gradient(180deg,#000 0%, rgba(0,0,0,.55) 55%, transparent 92%);
+  animation:gridrun 2.4s linear infinite;}
+@keyframes gridrun{from{background-position:0 0,0 0}to{background-position:0 0,0 80px}}
+/* a violet wash to make the grid recede into haze near the horizon */
+.gridhaze{position:absolute;left:0;right:0;top:56%;height:16%;pointer-events:none;
+  background:linear-gradient(180deg, rgba(26,11,46,.9), transparent);}
+
+/* faint global scanlines (CRT sheen) over everything */
+.scan{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:overlay;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);}
+/* vignette to seat the composition */
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 340px rgba(10,4,22,.85), inset 0 0 120px rgba(10,4,22,.5);}
+
+/* ============================================================
+   CENTER CONSOLE — the clear zone for title / bar / slots.
+   A subtle dark plate keeps text legible above the busy grid.
+   ============================================================ */
+.console{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);
+  width:1180px;padding:38px 90px 48px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;
+  background:
+    radial-gradient(110% 120% at 50% 40%, rgba(16,7,31,.78), rgba(16,7,31,.32) 62%, transparent 80%);
+  animation:consolein 1s var(--ease) both .25s;}
+@keyframes consolein{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-52%)}}
+
+/* kicker — monospace circuit-label caps with bracket marks */
+.kicker{font-family:var(--mono);letter-spacing:.5em;font-size:23px;font-weight:600;
+  text-transform:uppercase;color:var(--cyan);text-indent:.5em;
+  text-shadow:0 0 16px rgba(38,214,255,.6);}
+.kicker::before{content:"// ";opacity:.7;}
+
+/* the CHROME TITLE — pink->violet->cyan gradient, glossy + scanline sheen */
+.title{position:relative;margin:14px 0 4px;font-family:var(--display);
+  font-size:172px;line-height:.86;font-weight:700;letter-spacing:.015em;
+  text-transform:uppercase;font-stretch:expanded;}
+.title .line{display:block;position:relative;
+  background:linear-gradient(180deg,
+    #FFFFFF 0%, #E9D6FF 16%, var(--pink) 40%, var(--violet) 62%, var(--cyan) 86%, #BFF4FF 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,.10);
+  filter:drop-shadow(0 0 30px rgba(255,106,213,.45)) drop-shadow(0 3px 0 rgba(10,4,22,.55));}
+/* chrome scanline sheen striped across the glyph faces */
+.title .line::before{content:attr(data-t);position:absolute;inset:0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;pointer-events:none;
+  background:repeating-linear-gradient(180deg, rgba(255,255,255,.55) 0 2px, transparent 2px 7px);
+  mix-blend-mode:screen;opacity:.5;}
+/* glossy mirrored reflection under the title */
+.title .line::after{content:attr(data-t);position:absolute;left:0;right:0;top:100%;
+  transform:scaleY(-1);transform-origin:top;pointer-events:none;
+  background:linear-gradient(180deg,var(--cyan),var(--violet));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-mask:linear-gradient(180deg, rgba(0,0,0,.5), transparent 42%);
+          mask:linear-gradient(180deg, rgba(0,0,0,.5), transparent 42%);
+  opacity:.34;}
+
+/* underline rule = a thin neon bus line with end vias */
+.rule{position:relative;width:340px;height:2px;margin:18px auto 0;
+  background:linear-gradient(90deg,transparent,var(--violet) 18%,var(--cyan) 50%,var(--pink) 82%,transparent);
+  box-shadow:0 0 16px rgba(38,214,255,.6);}
+.rule::before,.rule::after{content:"";position:absolute;top:50%;width:9px;height:9px;
+  transform:translateY(-50%);border-radius:50%;background:var(--cyan);
+  box-shadow:0 0 12px var(--cyan);}
+.rule::before{left:-12px;background:var(--pink);box-shadow:0 0 12px var(--pink);}
+.rule::after{right:-12px;}
+
+/* subtitle — monospace, dimmed */
+.sub{margin-top:24px;font-family:var(--mono);font-size:26px;letter-spacing:.16em;
+  color:#C9B6F2;text-shadow:0 0 12px rgba(138,75,255,.4);}
+
+/* ---- editable text slots (COPY STANDARD) ---- */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.3em;padding:0 .26em;margin:0 .4em 0 0;
+  border:2px solid currentColor;border-radius:.3em;font-weight:800;font-style:normal;
+  text-align:center;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* ---- loading bar = a neon circuit TRACE energizing left->right ---- */
+.bar{position:relative;margin-top:42px;width:560px;height:8px;
+  border-radius:4px;background:rgba(38,214,255,.12);
+  box-shadow:inset 0 0 0 1px rgba(38,214,255,.25);}
+/* the unlit trace track with via dots at intervals */
+.bar::before{content:"";position:absolute;inset:0;border-radius:4px;pointer-events:none;
+  background:repeating-linear-gradient(90deg, transparent 0 54px, rgba(38,214,255,.22) 54px 56px);}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,var(--violet),var(--cyan) 55%,var(--pink));
+  box-shadow:0 0 18px rgba(38,214,255,.85),0 0 8px rgba(255,106,213,.7);}
+/* travelling pulse node riding the energized end of the trace */
+.bar .fill::after{content:"";position:absolute;right:-7px;top:50%;width:16px;height:16px;
+  transform:translateY(-50%);border-radius:50%;background:#fff;
+  box-shadow:0 0 14px #fff,0 0 26px var(--cyan),0 0 40px var(--pink);
+  animation:nodepulse 1.1s ease-in-out infinite;}
+@keyframes nodepulse{0%,100%{opacity:.75;transform:translateY(-50%) scale(.85)}50%{opacity:1;transform:translateY(-50%) scale(1.18)}}
+
+/* corner circuit TAGS — anchored to the margins, mono labels w/ a node dot */
+.tag{position:absolute;font-family:var(--mono);letter-spacing:.34em;font-size:19px;
+  color:var(--cyan);text-indent:.34em;opacity:.85;white-space:nowrap;
+  text-shadow:0 0 12px rgba(38,214,255,.5);}
+.tag::before{content:"";display:inline-block;width:8px;height:8px;margin-right:12px;
+  border-radius:50%;background:var(--pink);box-shadow:0 0 10px var(--pink);vertical-align:middle;}
+.tag--tl{left:64px;top:54px;}
+.tag--tr{right:64px;top:54px;}
+
+/* handle — gold, lower-left margin, mono */
+.handle{position:absolute;left:64px;bottom:48px;font-family:var(--mono);
+  letter-spacing:.28em;font-size:26px;color:var(--gold);text-indent:.28em;
+  text-shadow:0 0 16px rgba(255,209,102,.5);}
+.handle::before{content:"> ";opacity:.7;color:var(--cyan);}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to final state so the headless
+   pipeline captures a clean deterministic webm (canvas drawn per-frame
+   by __renderAdvance; CSS infinite loops are stilled).
+   ============================================================ */
+#stage.render .sun,#stage.render .console{animation:none!important;}
+#stage.render .grid{animation:none!important;}
+#stage.render .bar .fill::after{animation:none!important;}
+#stage.render .sun{opacity:1;transform:translate(-50%,-72%);}
+#stage.render .console{opacity:1;transform:translate(-50%,-52%);}

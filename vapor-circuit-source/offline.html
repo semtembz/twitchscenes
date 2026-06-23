@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Vapor Circuit (PNG generator)</title>
+  <!--
+    VAPOR CIRCUIT · "Outrun Motherboard" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the synthwave look (deep-purple sky, a banded retro CHROME
+    SUN on a glowing cyan HORIZON, a perspective GRID floor, margin-routed PCB
+    circuit traces with vias + data packets, a CHROME "OFFLINE" title with a
+    pink->violet->cyan gradient + scanline sheen + mirrored reflection, CRT
+    scanlines + vignette) onto a <canvas> and downloads it as a PNG.
+
+    Everything random is from a SEEDED LCG (Math.random is never used), so the
+    traces / vias / dust scatter are identical on every render.
+
+    ?handle=@you customises the bottom-left handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --bg:#1A0B2E; --bg2:#10071F; --bg3:#0A0416;
+      --pink:#FF6AD5; --violet:#8A4BFF; --cyan:#26D6FF; --gold:#FFD166;
+      --text:#F3E9FF;
+      --display:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+      --mono:"Consolas","SFMono-Regular",ui-monospace,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);background:var(--bg3);color:var(--text);padding:32px;}
+    h1{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;margin:0 0 6px;
+      text-transform:uppercase;text-shadow:0 0 22px rgba(255,106,213,.35);}
+    p.lead{color:#C9B6F2;margin:0 0 22px;max-width:840px;line-height:1.6;font-size:15px;}
+    .kicker{font-family:var(--mono);letter-spacing:.5em;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 14px rgba(38,214,255,.5);}
+    .kicker::before{content:"// ";opacity:.7;}
+    button{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:3px;
+      text-transform:uppercase;padding:13px 26px;color:var(--bg3);
+      background:linear-gradient(180deg,var(--cyan),var(--violet));border:1px solid rgba(38,214,255,.6);
+      border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(138,75,255,.3);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:#0e0720;padding:14px;border:1px solid #2a1747;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:var(--mono);color:var(--cyan);background:#15092a;padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">VAPOR CIRCUIT · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the outrun-motherboard style — seeded so the
+    circuit traces, vias and grid are reproducible. Pass <code>?handle=@you</code> to set the
+    handle. Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview"><canvas id="c" width="1920" height="1080"></canvas></div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    const BG = '#1A0B2E', BG2 = '#10071F', BG3 = '#0A0416';
+    const PINK = '#FF6AD5', VIOLET = '#8A4BFF', CYAN = '#26D6FF', GOLD = '#FFD166';
+    const TEXT = '#F3E9FF';
+    const NEON = [PINK, VIOLET, CYAN];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) { let s = seed >>> 0; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+    const snap = v => Math.round(v / 24) * 24;
+
+    // ---- retro CHROME SUN (banded slit mask, pink->violet->gold->cyan) ----
+    function drawSun(cx, cy, rad) {
+      ctx.save();
+      // glow halo
+      bloom(cx, cy, rad * 1.7, 'rgba(255,106,213,0.30)', 1);
+      // build the sun on an offscreen, mask it with horizontal slits + bottom cut
+      const off = document.createElement('canvas'); off.width = rad * 2; off.height = rad * 2;
+      const o = off.getContext('2d');
+      const g = o.createLinearGradient(0, 0, 0, rad * 2);
+      g.addColorStop(0, '#FFE9B0'); g.addColorStop(0.22, GOLD); g.addColorStop(0.55, PINK);
+      g.addColorStop(0.86, VIOLET); g.addColorStop(1, '#5a2da8');
+      o.fillStyle = g; o.beginPath(); o.arc(rad, rad, rad, 0, 6.2832); o.fill();
+      // slit mask: erase bands across the lower half
+      o.globalCompositeOperation = 'destination-out';
+      o.fillStyle = '#000';
+      const half = rad * 2 * 0.56;
+      for (let y = half; y < rad * 2; y += 28) o.fillRect(0, y, rad * 2, 14);
+      o.globalCompositeOperation = 'source-over';
+      ctx.shadowColor = 'rgba(255,106,213,0.55)'; ctx.shadowBlur = 60;
+      ctx.drawImage(off, cx - rad, cy - rad);
+      ctx.restore();
+    }
+
+    // ---- perspective grid floor + horizon seam ----
+    function drawGrid(horizonY) {
+      ctx.save();
+      // grid lines (receding) below horizon
+      ctx.strokeStyle = 'rgba(38,214,255,0.22)'; ctx.lineWidth = 1.4;
+      // horizontal lines spaced with perspective
+      let y = horizonY, gap = 6;
+      while (y < H) {
+        ctx.globalAlpha = Math.min(0.5, (y - horizonY) / (H - horizonY) * 0.6 + 0.1);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        gap *= 1.32; y += gap;
+      }
+      ctx.globalAlpha = 1;
+      // vanishing vertical lines toward a centre vanishing point
+      const vpx = W / 2;
+      for (let i = -16; i <= 16; i++) {
+        ctx.globalAlpha = 0.18;
+        ctx.beginPath(); ctx.moveTo(vpx + i * 30, horizonY); ctx.lineTo(vpx + i * 230, H); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // violet haze near the horizon
+      const hz = ctx.createLinearGradient(0, horizonY - 60, 0, horizonY + 140);
+      hz.addColorStop(0, 'rgba(26,11,46,0.9)'); hz.addColorStop(1, 'rgba(26,11,46,0)');
+      ctx.fillStyle = hz; ctx.fillRect(0, horizonY - 60, W, 200);
+      ctx.restore();
+      // horizon seam (bright glowing)
+      ctx.save();
+      const seam = ctx.createLinearGradient(0, 0, W, 0);
+      seam.addColorStop(0, 'rgba(38,214,255,0)'); seam.addColorStop(0.25, CYAN);
+      seam.addColorStop(0.5, '#fff'); seam.addColorStop(0.75, CYAN); seam.addColorStop(1, 'rgba(38,214,255,0)');
+      ctx.strokeStyle = seam; ctx.lineWidth = 3; ctx.shadowColor = CYAN; ctx.shadowBlur = 28;
+      ctx.beginPath(); ctx.moveTo(0, horizonY); ctx.lineTo(W, horizonY); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- one margin-routed right-angle PCB trace ----
+    function buildTrace(rnd, side, clear) {
+      const pts = []; const col = NEON[(rnd() * NEON.length) | 0];
+      let x, y, dir;
+      if (side === 0) { x = snap(R(rnd, 60, W - 60)); y = snap(R(rnd, 24, 120)); dir = 1; }
+      else if (side === 1) { x = snap(W - R(rnd, 24, 120)); y = snap(R(rnd, 60, H - 60)); dir = 2; }
+      else if (side === 2) { x = snap(R(rnd, 60, W - 60)); y = snap(H - R(rnd, 24, 120)); dir = 3; }
+      else { x = snap(R(rnd, 24, 120)); y = snap(R(rnd, 60, H - 60)); dir = 0; }
+      pts.push({ x, y });
+      const segs = 4 + ((rnd() * 4) | 0);
+      for (let i = 0; i < segs; i++) {
+        const len = snap(R(rnd, 90, 320)); let nx = x, ny = y;
+        if (dir === 0) nx += len; else if (dir === 1) ny += len; else if (dir === 2) nx -= len; else ny -= len;
+        if (nx > clear.x0 && nx < clear.x1 && ny > clear.y0 && ny < clear.y1) {
+          if (dir === 0) nx = clear.x0; else if (dir === 2) nx = clear.x1;
+          else if (dir === 1) ny = clear.y0; else ny = clear.y1;
+        }
+        nx = Math.max(28, Math.min(W - 28, nx)); ny = Math.max(28, Math.min(H - 28, ny));
+        pts.push({ x: nx, y: ny }); x = nx; y = ny;
+        if (rnd() < 0.7) dir = (dir + (rnd() < 0.5 ? 1 : 3)) & 3;
+      }
+      return { pts, col };
+    }
+    function drawTrace(tr) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(120,150,210,0.18)'; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(Math.round(tr.pts[0].x), Math.round(tr.pts[0].y));
+      for (let i = 1; i < tr.pts.length; i++) ctx.lineTo(Math.round(tr.pts[i].x), Math.round(tr.pts[i].y));
+      ctx.stroke();
+      ctx.strokeStyle = tr.col; ctx.globalAlpha = 0.4; ctx.shadowColor = tr.col; ctx.shadowBlur = 10; ctx.lineWidth = 1.6;
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      ctx.fillStyle = tr.col; ctx.globalAlpha = 0.75;
+      for (const p of tr.pts) { ctx.beginPath(); ctx.arc(Math.round(p.x), Math.round(p.y), 2.6, 0, 6.2832); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSpaced(str, x, y, sp) { let cx = x; for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; } }
+    function drawSpacedRight(str, x, y, sp) {
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left'; drawSpaced(str, x - total, y, sp); ctx.textAlign = prev;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left'; drawSpaced(str, x - total / 2, y, sp); ctx.textAlign = prev;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x26D6FF); // fixed seed (cyan hex) -> identical scatter
+
+      // ---- BACKGROUND: synth sky -> floor gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#21103B'); grad.addColorStop(0.40, BG); grad.addColorStop(0.66, BG2); grad.addColorStop(1, BG3);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      const horizonY = Math.round(H * 0.58);
+
+      // sky glow band just above horizon
+      bloom(W / 2, horizonY, W * 0.5, 'rgba(255,106,213,0.18)', 1);
+      bloom(W * 0.16, H * 0.20, W * 0.30, 'rgba(138,75,255,0.16)', 1);
+      bloom(W * 0.84, H * 0.16, W * 0.28, 'rgba(38,214,255,0.10)', 1);
+
+      // CHROME SUN sitting on the horizon
+      drawSun(W / 2, horizonY - 40, 280);
+
+      // perspective grid floor + horizon seam
+      drawGrid(horizonY);
+
+      // ---- MARGIN PCB TRACES (central clear rect kept open for the title) ----
+      const clear = { x0: 360, x1: W - 360, y0: 250, y1: 820 };
+      const traces = [];
+      const NT = 20;
+      for (let i = 0; i < NT; i++) traces.push(buildTrace(rnd, i % 4, clear));
+      for (const tr of traces) drawTrace(tr);
+
+      // pulsing standalone vias scattered in the margins (still: pick a fixed phase)
+      ctx.save();
+      const clearV = { x0: 340, x1: W - 340, y0: 230, y1: 840 };
+      let placed = 0, guard = 0;
+      while (placed < 40 && guard++ < 400) {
+        const x = snap(R(rnd, 60, W - 60)), y = snap(R(rnd, 60, H - 60));
+        if (x > clearV.x0 && x < clearV.x1 && y > clearV.y0 && y < clearV.y1) continue;
+        const c = NEON[(rnd() * NEON.length) | 0], r = R(rnd, 3, 7);
+        ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 16; ctx.globalAlpha = R(rnd, 0.5, 0.95);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x, y, Math.max(1, r * 0.4), 0, 6.2832); ctx.fill();
+        placed++;
+      }
+      ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // data packets (white dots w/ comet tails) frozen on a couple of traces
+      ctx.save();
+      for (let i = 0; i < 8; i++) {
+        const tr = traces[(rnd() * traces.length) | 0];
+        const idx = 1 + ((rnd() * (tr.pts.length - 1)) | 0);
+        const a = tr.pts[idx - 1], b = tr.pts[idx], f = rnd();
+        const px = a.x + (b.x - a.x) * f, py = a.y + (b.y - a.y) * f;
+        ctx.shadowColor = tr.col; ctx.shadowBlur = 18; ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.95;
+        ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), 4, 0, 6.2832); ctx.fill();
+        const tf = Math.max(0, f - 0.18), tx = a.x + (b.x - a.x) * tf, ty = a.y + (b.y - a.y) * tf;
+        ctx.strokeStyle = tr.col; ctx.globalAlpha = 0.5; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(Math.round(tx), Math.round(ty)); ctx.lineTo(Math.round(px), Math.round(py)); ctx.stroke();
+      }
+      ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- CRT scanlines ----
+      ctx.save();
+      ctx.globalAlpha = 0.4; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      ctx.restore(); ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.62);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(10,4,22,0.88)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTER CONSOLE — title clear zone
+      // ============================================================
+      const cx = W / 2;
+
+      // dark console plate behind the text for legibility
+      ctx.save();
+      const plate = ctx.createRadialGradient(cx, H * 0.46, 80, cx, H * 0.46, 720);
+      plate.addColorStop(0, 'rgba(16,7,31,0.72)'); plate.addColorStop(0.6, 'rgba(16,7,31,0.30)'); plate.addColorStop(1, 'rgba(16,7,31,0)');
+      ctx.fillStyle = plate; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // kicker — mono caps with bracket prefix (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 26px "Consolas","SFMono-Regular",ui-monospace,monospace';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(38,214,255,0.5)'; ctx.shadowBlur = 16;
+      drawSpacedCentered('[17] your text here', cx, H * 0.30, 8);
+      ctx.shadowBlur = 0; ctx.restore();
+
+      // big CHROME TITLE: OFFLINE (pink->violet->cyan gradient + sheen + reflection)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      const titleSize = 220, baseY = H * 0.50;
+      ctx.font = '700 ' + titleSize + 'px "Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif';
+      const tg = ctx.createLinearGradient(0, baseY - titleSize, 0, baseY + 20);
+      tg.addColorStop(0, '#FFFFFF'); tg.addColorStop(0.16, '#E9D6FF'); tg.addColorStop(0.40, PINK);
+      tg.addColorStop(0.62, VIOLET); tg.addColorStop(0.86, CYAN); tg.addColorStop(1, '#BFF4FF');
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(255,106,213,0.45)'; ctx.shadowBlur = 50;
+      ctx.fillText('OFFLINE', cx, baseY);
+      ctx.shadowBlur = 0;
+      // scanline sheen across the glyphs
+      const tw = ctx.measureText('OFFLINE').width;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(cx - tw / 2, baseY - titleSize, tw, titleSize + 24); ctx.clip();
+      ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.45; ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      for (let sy = baseY - titleSize; sy < baseY + 20; sy += 9) ctx.fillRect(cx - tw / 2, sy, tw, 2.4);
+      ctx.restore();
+      // mirrored reflection under the title
+      ctx.save();
+      ctx.translate(cx, baseY + 12); ctx.scale(1, -1);
+      const rg = ctx.createLinearGradient(0, 0, 0, titleSize);
+      rg.addColorStop(0, CYAN); rg.addColorStop(1, VIOLET);
+      ctx.fillStyle = rg; ctx.globalAlpha = 0.22; ctx.textAlign = 'center';
+      ctx.fillText('OFFLINE', 0, 0);
+      ctx.restore();
+      ctx.restore();
+
+      // neon bus-rule with end vias under the title
+      ctx.save();
+      const ruY = baseY + 92, ruW = 420;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(138,75,255,0)'); ug.addColorStop(0.18, VIOLET);
+      ug.addColorStop(0.5, CYAN); ug.addColorStop(0.82, PINK); ug.addColorStop(1, 'rgba(255,106,213,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 2; ctx.shadowColor = CYAN; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(cx - ruW / 2 - 12, ruY, 5, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = CYAN; ctx.shadowColor = CYAN;
+      ctx.beginPath(); ctx.arc(cx + ruW / 2 + 12, ruY, 5, 0, 6.2832); ctx.fill();
+      ctx.restore();
+
+      // subtitle — mono dim (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 32px "Consolas","SFMono-Regular",ui-monospace,monospace';
+      ctx.fillStyle = '#C9B6F2'; ctx.shadowColor = 'rgba(138,75,255,0.4)'; ctx.shadowBlur = 10;
+      ctx.fillText('[18] your text here', cx, baseY + 150);
+      ctx.restore();
+
+      // ---- corner circuit TAGS (mono, with node dot) ----
+      ctx.save();
+      ctx.font = '600 22px "Consolas","SFMono-Regular",ui-monospace,monospace';
+      ctx.textBaseline = 'middle';
+      // TL
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(64, 60, 5, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN; ctx.textAlign = 'left'; drawSpaced('[19] your text here', 84, 60, 5);
+      // TR
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(W - 64, 60, 5, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN; drawSpacedRight('[20] your text here', W - 84, 60, 5);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-left, gold mono) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 30px "Consolas","SFMono-Regular",ui-monospace,monospace';
+      ctx.fillStyle = CYAN; ctx.globalAlpha = 0.7; ctx.fillText('> ', 64, H - 58); ctx.globalAlpha = 1;
+      const arrowW = ctx.measureText('> ').width;
+      ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(255,209,102,0.5)'; ctx.shadowBlur = 16;
+      drawSpaced(handleAt, 64 + arrowW, H - 58, 4);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 20px "Consolas","SFMono-Regular",ui-monospace,monospace'; ctx.fillStyle = '#C9B6F2';
+      ctx.fillText('twitch.tv/' + handleClean, 64 + arrowW, H - 32);
+      ctx.restore();
+    }
+
+    function download() {
+      const a = document.createElement('a'); a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+    }
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

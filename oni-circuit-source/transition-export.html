@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Oni Circuit Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the Oni Circuit blade-slash cut to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.2s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #05080C; color: #E8EEF5;
+      font-family: "Bahnschrift", "DIN Condensed", "Haettenschweiler", Impact, system-ui, sans-serif; }
+    h1 { font-size: 22px; color: #16F0C8; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 0 0 16px rgba(22,240,200,.45); }
+    p  { color: #8FA3B8; line-height: 1.55; margin: 0 0 14px; max-width: 820px;
+      font-family: "Consolas", ui-monospace, "Liberation Mono", monospace; }
+    code { color: #FF2D4B; background: #1B243345; padding: 2px 6px; border-radius: 4px;
+      font-family: "Consolas", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #FF2D4B; color: #05080C;
+      border: 2px solid #16F0C8; border-radius: 10px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase;
+      font-family: "Bahnschrift", "DIN Condensed", system-ui, sans-serif; }
+    button:hover:not(:disabled) { background: #16F0C8; color: #05080C; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #16F0C8; font-family: "Consolas", monospace; }
+    .stage { background: #0A0E1455; border: 1px solid rgba(22,240,200,.22); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #0A0E14;
+      background-image:
+        linear-gradient(45deg, #141d29 25%, transparent 25%),
+        linear-gradient(-45deg, #141d29 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #141d29 75%),
+        linear-gradient(-45deg, transparent 75%, #141d29 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Oni Circuit Transition → .webm</h1>
+  <p>Records the blade-slash cut to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 600 ms</strong>
+     (half the default 1200 ms — that's the full-cover frame when the void has wiped in and
+     OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1200;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const VOID = '#0A0E14', VOID2 = '#05080C', STEEL = '#1B2433';
+    const ONI = '255,45,75', TEAL = '22,240,200', TEXT = '232,238,245';
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    const BANG = -34 * Math.PI / 180;
+    const bdx = Math.cos(BANG), bdy = Math.sin(BANG);
+    const ndx = -bdy, ndy = bdx;
+    const corners = [[0, 0], [W, 0], [W, H], [0, H]];
+    let nMin = Infinity, nMax = -Infinity;
+    for (const [x, y] of corners) {
+      const d = x * ndx + y * ndy;
+      if (d < nMin) nMin = d; if (d > nMax) nMax = d;
+    }
+    const NSPAN = nMax - nMin;
+
+    let _s;
+    function seed(v) { _s = v >>> 0; }
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    const N_SPARK = 90;
+    let sparks = [];
+    function buildSparks() {
+      seed(0x4f4e);
+      sparks = Array.from({ length: N_SPARK }, () => {
+        const along = R(-0.1, 1.1);
+        const speed = R(120, 560);
+        const dir = srnd() < 0.5 ? 1 : -1;
+        return {
+          along, speed, dir,
+          spread: R(-0.5, 0.5),
+          teal: srnd() < 0.45,
+          s: R(1.6, 4.6), a: R(0.5, 1),
+          lead: R(0.30, 0.52),
+          life: R(0.30, 0.55), tw: R(1.2, 2.6), ph: R(0, 6.283),
+        };
+      });
+    }
+    buildSparks();
+
+    const N_TRACE = 14;
+    let traces = [];
+    function buildTraces() {
+      seed(0x517e);
+      traces = Array.from({ length: N_TRACE }, () => {
+        const along = R(0.04, 0.96);
+        const side = srnd() < 0.5 ? 1 : -1;
+        const pts = [];
+        let off = R(6, 22) * side;
+        let alongPos = along;
+        pts.push([alongPos, off]);
+        const segs = 2 + ((srnd() * 3) | 0);
+        for (let i = 0; i < segs; i++) {
+          if (srnd() < 0.5) off += R(28, 80) * side;
+          else alongPos += R(-0.05, 0.05);
+          pts.push([alongPos, off]);
+        }
+        return { pts, teal: srnd() < 0.5, sp: R(0.6, 1.4), lead: R(0.34, 0.5) };
+      });
+    }
+    buildTraces();
+
+    let aMin = Infinity, aMax = -Infinity;
+    for (const [x, y] of corners) {
+      const d = x * bdx + y * bdy;
+      if (d < aMin) aMin = d; if (d > aMax) aMax = d;
+    }
+    const alongMin = aMin, alongMax = aMax;
+
+    let curOff = 0;
+    function seamPoint(alongFrac, perpOff) {
+      const baseN = curOff;
+      const baseAlong = lerp(alongMin, alongMax, alongFrac);
+      const bx = ndx * baseN + bdx * baseAlong;
+      const by = ndy * baseN + bdy * baseAlong;
+      return [bx + ndx * perpOff, by + ndy * perpOff];
+    }
+
+    function clipRectByHalfPlane(seamN) {
+      const rect = [[0, 0], [W, 0], [W, H], [0, H]];
+      const out = [];
+      const inside = (p) => (p[0] * ndx + p[1] * ndy) <= seamN;
+      for (let i = 0; i < rect.length; i++) {
+        const a = rect[i], b = rect[(i + 1) % rect.length];
+        const ai = inside(a), bi = inside(b);
+        if (ai) out.push(a);
+        if (ai !== bi) {
+          const da = a[0] * ndx + a[1] * ndy - seamN;
+          const db = b[0] * ndx + b[1] * ndy - seamN;
+          const f = da / (da - db);
+          out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+        }
+      }
+      return out;
+    }
+
+    function fillVoid(coverN) {
+      const seamN = nMin + coverN * NSPAN;
+      curOff = seamN;
+      if (coverN <= 0.0005) return;
+      const poly = clipRectByHalfPlane(seamN);
+      if (poly.length < 3) return;
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0.00, VOID2);
+      g.addColorStop(0.45, VOID);
+      g.addColorStop(1.00, '#0C1119');
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(poly[0][0], poly[0][1]);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.clip();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = 'rgba(' + TEAL + ',0.07)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= W; x += 72) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += 72) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      const vg = ctx.createRadialGradient(CX, CY, H * 0.16, CX, CY, H * 0.95);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(3,5,9,' + (0.65 * coverN).toFixed(3) + ')');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    function seamLineEndpoints(seamN) {
+      const rect = [[0, 0], [W, 0], [W, H], [0, H]];
+      const hits = [];
+      for (let i = 0; i < 4; i++) {
+        const a = rect[i], b = rect[(i + 1) % 4];
+        const da = a[0] * ndx + a[1] * ndy - seamN;
+        const db = b[0] * ndx + b[1] * ndy - seamN;
+        if ((da <= 0 && db > 0) || (da > 0 && db <= 0)) {
+          const f = da / (da - db);
+          hits.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+        }
+      }
+      if (hits.length < 2) return null;
+      return [hits[0], hits[1]];
+    }
+
+    function drawBladeSeam(cover, coverN) {
+      const seamN = nMin + coverN * NSPAN;
+      const ep = seamLineEndpoints(seamN);
+      if (!ep) return;
+      const [p0, p1] = ep;
+      const edgeA = Math.sin(cover * Math.PI);
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.28 * edgeA;
+      ctx.strokeStyle = 'rgba(' + ONI + ',1)';
+      ctx.lineWidth = 26;
+      ctx.shadowColor = '#FF2D4B'; ctx.shadowBlur = 60;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      ctx.globalAlpha = lerp(0.55, 1, edgeA);
+      ctx.strokeStyle = 'rgba(' + TEAL + ',1)';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#16F0C8'; ctx.shadowBlur = 40;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      ctx.globalAlpha = lerp(0.4, 0.95, edgeA);
+      ctx.strokeStyle = 'rgba(' + TEXT + ',1)';
+      ctx.lineWidth = 1.6;
+      ctx.shadowColor = '#E8EEF5'; ctx.shadowBlur = 22;
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      const gtt = clamp01(coverN);
+      const gx = lerp(p0[0], p1[0], gtt), gy = lerp(p0[1], p1[1], gtt);
+      const half = 130;
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = 'rgba(' + TEXT + ',1)';
+      ctx.lineWidth = 5;
+      ctx.shadowColor = '#16F0C8'; ctx.shadowBlur = 46;
+      ctx.beginPath();
+      ctx.moveTo(gx - bdx * half, gy - bdy * half);
+      ctx.lineTo(gx + bdx * half, gy + bdy * half);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(Math.round(gx), Math.round(gy), 6, 0, 6.2832);
+      ctx.fillStyle = '#fff'; ctx.shadowBlur = 60; ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    function drawCrackle(cover) {
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'miter';
+      for (const tr of traces) {
+        const on = clamp01((cover - tr.lead) / 0.28);
+        if (on <= 0.01) continue;
+        const a = Math.sin(on * Math.PI) * 0.9;
+        const col = tr.teal ? TEAL : ONI;
+        const grow = smooth(on);
+        ctx.globalAlpha = a * 0.7;
+        ctx.strokeStyle = 'rgba(' + col + ',1)';
+        ctx.lineWidth = 1.6;
+        ctx.shadowColor = tr.teal ? '#16F0C8' : '#FF2D4B'; ctx.shadowBlur = 10;
+        ctx.beginPath();
+        const p0 = seamPoint(tr.pts[0][0], tr.pts[0][1] * grow);
+        ctx.moveTo(Math.round(p0[0]), Math.round(p0[1]));
+        let last = p0;
+        for (let i = 1; i < tr.pts.length; i++) {
+          const p = seamPoint(tr.pts[i][0], tr.pts[i][1] * grow);
+          ctx.lineTo(Math.round(p[0]), Math.round(p[1]));
+          last = p;
+        }
+        ctx.stroke();
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.arc(Math.round(last[0]), Math.round(last[1]), 2.6, 0, 6.2832);
+        ctx.fillStyle = 'rgba(' + col + ',1)'; ctx.shadowBlur = 12; ctx.fill();
+      }
+      ctx.restore();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    function drawSparks(t, cover) {
+      ctx.save();
+      for (const sp of sparks) {
+        const lt = clamp01((t - sp.lead) / sp.life);
+        if (lt <= 0 || lt >= 1) continue;
+        const base = seamPoint(sp.along, 0);
+        const dist = sp.speed * lt;
+        const px = base[0] + ndx * dist * sp.dir + bdx * dist * sp.spread;
+        const py = base[1] + ndy * dist * sp.dir + bdy * dist * sp.spread;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.6 + Math.sin(sp.ph + lt * sp.tw * 6.283) * 0.4;
+        const a = sp.a * ends * twk;
+        if (a <= 0.03) continue;
+        ctx.globalAlpha = a;
+        const col = sp.teal ? '#16F0C8' : '#FF2D4B';
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
+        const s = Math.max(1, Math.round(sp.s * (1 - lt * 0.4)));
+        ctx.fillRect(Math.round(px), Math.round(py), s, s);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);
+      const coverN = smooth(cover);
+      fillVoid(coverN);
+      drawCrackle(cover);
+      drawBladeSeam(cover, coverN);
+      drawSparks(t, cover);
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.045, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(' + TEXT + ',' + (0.30 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.4, 'rgba(' + TEAL + ',' + (0.14 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(' + ONI + ',0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

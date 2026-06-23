@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Vapor Circuit — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one "Outrun Motherboard" webcam frame: a glowing
+       neon circuit-trace border with via nodes at the corners, a travelling
+       pulse node riding the top trace, a clean "ON CAMERA" caption, and a dark
+       console nameplate carrying #handle. Place your camera BEHIND this overlay;
+       the inside of the frame is fully transparent so the cam shows through.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint neon data sparks drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);
+      animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* neon circuit-trace border; INSIDE stays transparent.
+       a violet/cyan/pink gradient edge with a soft outrun glow at the rim only. */
+    .frame{position:absolute;inset:0;pointer-events:none;border-radius:6px;
+      border:2px solid transparent;
+      background:
+        linear-gradient(180deg, rgba(38,214,255,.05), transparent 14%, transparent 86%, rgba(138,75,255,.07)) border-box;
+      box-shadow:
+        0 0 0 1px rgba(10,4,22,.6),
+        0 0 26px rgba(38,214,255,.28),
+        0 0 70px rgba(255,106,213,.14),
+        inset 0 0 30px rgba(138,75,255,.08);}
+    /* the bright energized trace: a gradient ring drawn just inside the border */
+    .frame::before{content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;
+      padding:2px;
+      background:linear-gradient(120deg,var(--violet),var(--cyan) 38%,var(--pink) 72%,var(--violet));
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude;
+      box-shadow:0 0 16px rgba(38,214,255,.4);}
+    /* inner hairline double border (transparent inside) */
+    .frame::after{content:"";position:absolute;inset:9px;border:1px solid rgba(38,214,255,.22);
+      border-radius:4px;pointer-events:none;}
+
+    /* glowing via node + L-bracket trace in every corner (the PCB motif) */
+    .via{position:absolute;width:40px;height:40px;pointer-events:none;
+      animation:viain 1.1s var(--ease) both .35s;}
+    .via::before,.via::after{content:"";position:absolute;background:var(--cyan);
+      box-shadow:0 0 8px rgba(38,214,255,.6);}
+    .via::before{width:40px;height:2px;} .via::after{width:2px;height:40px;}
+    .via i{position:absolute;width:11px;height:11px;border-radius:50%;background:var(--pink);
+      box-shadow:0 0 12px var(--pink),0 0 22px rgba(255,106,213,.5);
+      animation:vianode 2.2s ease-in-out infinite;}
+    .via--tl{left:-2px;top:-2px;}    .via--tl::before{left:0;top:0;}     .via--tl::after{left:0;top:0;}     .via--tl i{left:-4px;top:-4px;}
+    .via--tr{right:-2px;top:-2px;}   .via--tr::before{right:0;top:0;}    .via--tr::after{right:0;top:0;}    .via--tr i{right:-4px;top:-4px;}
+    .via--bl{left:-2px;bottom:-2px;} .via--bl::before{left:0;bottom:0;}  .via--bl::after{left:0;bottom:0;}  .via--bl i{left:-4px;bottom:-4px;}
+    .via--br{right:-2px;bottom:-2px;}.via--br::before{right:0;bottom:0;} .via--br::after{right:0;bottom:0;} .via--br i{right:-4px;bottom:-4px;}
+    @keyframes viain{from{opacity:0}to{opacity:1}}
+    @keyframes vianode{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}
+
+    /* travelling pulse node riding along the top trace of the frame */
+    .pulse{position:absolute;top:-5px;left:0;width:10px;height:10px;border-radius:50%;
+      background:#fff;pointer-events:none;mix-blend-mode:screen;
+      box-shadow:0 0 10px #fff,0 0 20px var(--cyan),0 0 32px var(--pink);
+      animation:campulse 5.5s linear infinite;}
+    @keyframes campulse{0%{left:14px;opacity:0}6%{opacity:1}94%{opacity:1}100%{left:calc(100% - 14px);opacity:0}}
+
+    /* mono circuit-readout labels along the top edge (measurement motif) */
+    .coord{position:absolute;font-family:var(--mono);font-size:12px;letter-spacing:.22em;
+      color:rgba(38,214,255,.44);pointer-events:none;
+      animation:viain 1.1s var(--ease) both .5s;}
+    .coord::before{content:"// ";color:var(--pink);opacity:.7;}
+    .coord--tl{left:46px;top:-22px;} .coord--tr{right:46px;top:-22px;}
+
+    /* clean "ON CAMERA" caption + via LED, top-left above the frame (functional) */
+    .cap{position:absolute;left:0;top:-46px;display:flex;align-items:center;gap:11px;
+      font-family:var(--mono);letter-spacing:.4em;font-size:15px;color:var(--cyan);
+      text-indent:.4em;opacity:.9;text-shadow:0 0 12px rgba(38,214,255,.4);
+      animation:viain 1.1s var(--ease) both .45s;}
+    .cap .led{width:8px;height:8px;border-radius:50%;background:var(--pink);
+      box-shadow:0 0 10px var(--pink);animation:vianode 1.9s ease-in-out infinite;}
+
+    /* node mark — top-right above the frame */
+    .crest-tr{position:absolute;right:0;top:-46px;display:flex;align-items:center;gap:13px;
+      animation:viain 1.1s var(--ease) both .45s;}
+    .crest-tr .r{width:64px;height:1px;
+      background:linear-gradient(90deg,transparent,var(--cyan));}
+    .crest-tr .pt{width:11px;height:11px;border:1px solid var(--cyan);transform:rotate(45deg);
+      box-shadow:0 0 10px rgba(38,214,255,.5);}
+
+    /* dark console nameplate pill, clipped to bottom-center of the frame */
+    .tag{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:13px;white-space:nowrap;
+      background:linear-gradient(180deg, rgba(26,11,46,.86), rgba(10,4,22,.8));
+      border:1px solid rgba(38,214,255,.32);padding:9px 26px;border-radius:4px;
+      box-shadow:0 14px 34px rgba(0,0,0,.5),
+        inset 0 0 26px rgba(138,75,255,.10),
+        0 0 22px rgba(38,214,255,.12);}
+    /* a thin energized trace caps the top of the nameplate */
+    .tag::before{content:"";position:absolute;left:14px;right:14px;top:-1px;height:2px;
+      pointer-events:none;
+      background:linear-gradient(90deg,transparent,var(--violet),var(--cyan) 50%,var(--pink),transparent);
+      box-shadow:0 0 10px rgba(38,214,255,.55);}
+    .tag .who{font-family:var(--mono);letter-spacing:.28em;font-size:22px;color:var(--gold);
+      text-indent:.28em;text-shadow:0 0 14px rgba(255,209,102,.4);}
+    .tag .dia{width:9px;height:9px;border:1px solid var(--cyan);transform:rotate(45deg);
+      background:rgba(38,214,255,.2);box-shadow:0 0 10px rgba(38,214,255,.5);
+      animation:vianode 2.2s ease-in-out infinite;}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .via,#stage.render .coord,
+    #stage.render .cap,#stage.render .crest-tr{animation:none!important;}
+    #stage.render .pulse{animation:none;display:none;}
+    #stage.render .via i,#stage.render .cap .led,#stage.render .tag .dia{animation:none;opacity:1;transform:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .via{opacity:1;}
+    #stage.render .coord{opacity:1;}
+    #stage.render .cap{opacity:.9;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+      <span class="pulse" aria-hidden="true"></span>
+
+      <!-- glowing via nodes + L-bracket traces in every corner -->
+      <span class="via via--tl" aria-hidden="true"><i></i></span>
+      <span class="via via--tr" aria-hidden="true"><i></i></span>
+      <span class="via via--bl" aria-hidden="true"><i></i></span>
+      <span class="via via--br" aria-hidden="true"><i></i></span>
+
+      <!-- mono circuit-readout labels along the top edge -->
+      <span class="coord coord--tl" aria-hidden="true">X:000</span>
+      <span class="coord coord--tr" aria-hidden="true">X:1120</span>
+
+      <span class="cap" aria-hidden="true"><span class="led"></span>ON CAMERA</span>
+      <span class="crest-tr" aria-hidden="true"><span class="r"></span><span class="pt"></span></span>
+      <div class="tag"><span class="dia" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+      // keep the top-right circuit label honest to the chosen width
+      const cr = cam.querySelector(".coord--tr");
+      if (cr) cr.textContent = "X:" + Math.round(fw);
+    }
+
+    /* ---- canvas: faint neon data sparks drifting around the frame, deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x7A1C >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const NEON = ["#FF6AD5","#8A4BFF","#26D6FF"];
+    const sparks = Array.from({ length: Math.max(0, num("sparks", 54)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.5), vx: R(-3, 3)/60, vy: R(-3, 4)/60,
+      ph: R(0, 6.28), tw: R(0.4, 1.3), a: R(0.14, 0.46), c: NEON[(srnd()*NEON.length)|0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of sparks){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.04 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.55 + Math.sin(p.ph * p.tw) * 0.45;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 6 * p.z;
+        const sz = Math.max(1, Math.round(p.z * 1.5));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__vaporDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

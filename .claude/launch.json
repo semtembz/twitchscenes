@@ -132,6 +132,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "halftone-havoc-source", "5598"],
       "port": 5598
+    },
+    {
+      "name": "vapor-circuit-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "vapor-circuit-source", "5599"],
+      "port": 5599
+    },
+    {
+      "name": "bit-quest-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "bit-quest-source", "5600"],
+      "port": 5600
+    },
+    {
+      "name": "champagne-mono-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "champagne-mono-source", "5601"],
+      "port": 5601
+    },
+    {
+      "name": "oni-circuit-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "oni-circuit-source", "5602"],
+      "port": 5602
     }
   ]
 }

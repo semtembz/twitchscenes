@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Bit Quest 16-bit Pixel-Tile Menu Wipe</title>
+  <!--
+    BIT QUEST stinger ("Encounter!"). A classic 16-bit JRPG screen wipe: chunky
+    pixel TILES flip/snap shut across the screen on an integer checkerboard grid
+    (diagonal sweep order, each cell pops to full size with a hard pixel shadow),
+    flooding the frame with the deep RPG-night blue. At full cover a JRPG MENU
+    BOX snaps in at centre — a bright blue window with a crisp WHITE DOUBLE
+    BORDER, four gold corner GEMS and a quick white "LEVEL UP" flash. Then the
+    tiles flip back open (reverse diagonal) and the screen clears. A few gold
+    pixel sparkles + a couple of EXP coins puff at the peak. No anti-aliased
+    gradients in the tiles — everything is snapped to the pixel grid so it reads
+    as true 16-bit. Transparent before & after, deterministic, sine-driven.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1200  total duration in ms (default 1200)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add
+    it as a Stinger transition with the Transition Point at ~50% (the menu-box
+    snap at full cover).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1200;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (Bit Quest, mirrors shared.css tokens) ---- */
+    const NIGHT = '#2B1B4E', NIGHT2 = '#1A1030', INK = '#150B2E';
+    const WIN_TOP = '#3E63E8', WIN_MID = '#2B43C4', WIN_BOT = '#1B2C9E', WIN_EDGE = '#6E8BFF';
+    const VIOLET = '#7B5CFF', GOLD = '#FFCB47', GOLD_LT = '#FFE89A', TEAL = '#3AD6C5', TEAL_LT = '#8AF6EA';
+    const SPARKS = [GOLD, GOLD_LT, TEAL_LT, '#FFFFFF'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+
+    /* ---- chunky pixel tile grid. We snap to an integer grid; each cell has a
+       diagonal-ordered delay so the wipe sweeps across the screen like a 16-bit
+       screen transition. A deterministic seed picks a fill tone + tiny inner
+       speckle per cell so it reads as textured pixel-art, never a flat slab. ---- */
+    const TILE = 60;                                   // matches the world-map TILE size
+    const COLS = Math.ceil(W / TILE), ROWS = Math.ceil(H / TILE);
+    const MAXD = (COLS - 1) + (ROWS - 1);              // furthest diagonal index
+
+    // tile fill tones (deep RPG-night blues), chosen per cell
+    const FILLS = [NIGHT, NIGHT2, '#241445', '#32205C'];
+
+    let seed = 0x71c5 >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    // precompute deterministic per-cell data (no Math.random in the frame fn)
+    const cells = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        cells.push({
+          c, r,
+          diag: c + r,
+          fill: FILLS[(rnd() * FILLS.length) | 0],
+          sp1: (rnd() * 6) | 0, sp2: (rnd() * 6) | 0,   // speckle sub-cell indices
+          flip: rnd(),                                  // tiny per-cell flip skew
+        });
+      }
+    }
+
+    // a flurry of gold/teal pixel sparks that puff at the peak
+    const N_SPARK = 30;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      x: R(W * 0.20, W * 0.80), y: R(H * 0.24, H * 0.78),
+      vx: R(-60, 60), vy: R(-150, -40), s: Math.max(3, (R(3, 8) | 0)),
+      c: SPARKS[(rnd() * SPARKS.length) | 0], ph: R(0, 6.283), tw: R(2, 4),
+      lead: R(0.34, 0.5),
+    }));
+
+    /* ---- draw the flooding pixel tiles. local = how "open" the whole wipe is
+       (cover). Each cell turns on along the diagonal: sweep front position is
+       front = cover*(MAXD+pad); a cell fully solid once front passes its diag,
+       and scales up over a short window as the front crosses it. ---- */
+    function drawTiles(cover) {
+      if (cover <= 0.001) return;
+      const pad = 4;
+      const front = cover * (MAXD + pad);              // leading diagonal index
+      const win = 3.2;                                 // cells-worth of grow window
+      for (const cell of cells) {
+        const lead = front - cell.diag;                // >0 once front reaches the cell
+        if (lead <= 0) continue;
+        const g = clamp01(lead / win);                 // 0..1 grow factor
+        const sc = ease(g);
+        if (sc <= 0.01) continue;
+        const cw = TILE * sc, ch = TILE * sc;
+        // grow from the cell centre, snapped to whole pixels for crisp edges
+        const cxp = cell.c * TILE + TILE / 2, cyp = cell.r * TILE + TILE / 2;
+        const x = Math.round(cxp - cw / 2), y = Math.round(cyp - ch / 2);
+        const w = Math.round(cw), h = Math.round(ch);
+        // hard pixel drop shadow (only while popping, fades as it seats)
+        if (sc < 0.98) {
+          ctx.fillStyle = 'rgba(15,8,32,0.5)';
+          ctx.fillRect(x + 5, y + 6, w, h);
+        }
+        // base tile
+        ctx.fillStyle = cell.fill;
+        ctx.fillRect(x, y, w, h);
+        // two-tone pixel speckle for 16-bit texture (only on near-full tiles)
+        if (sc > 0.6) {
+          const u = Math.max(2, Math.round(w / 6));
+          ctx.fillStyle = 'rgba(110,139,255,0.30)';     // win-edge highlight fleck
+          ctx.fillRect(x + (cell.sp1 % 5) * u, y + u, u, u);
+          ctx.fillStyle = 'rgba(15,8,32,0.45)';         // ink shadow fleck
+          ctx.fillRect(x + (cell.sp2 % 5) * u, y + 3 * u, u, u);
+        }
+        // bright scan edge on the leading row of tiles (the sweep front glow)
+        if (lead < win) {
+          ctx.fillStyle = TEAL_LT;
+          ctx.globalAlpha = 0.85 * (1 - g);
+          ctx.fillRect(x, y, w, Math.max(2, Math.round(h * 0.10)));
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+
+    /* ---- draw the tiles PARTING on the way out (cover descending). Same grid,
+       but cells shrink from the OPPOSITE diagonal corner so the open reads as a
+       different sweep than the close (feels intentional, not a rewind). ---- */
+    function drawTilesOut(cover) {
+      if (cover <= 0.001) return;
+      const pad = 4;
+      // openFront sweeps from the far corner: cells with high (revDiag) clear first
+      const open = (1 - cover) * (MAXD + pad);
+      const win = 3.2;
+      for (const cell of cells) {
+        const revDiag = (COLS - 1 - cell.c) + (ROWS - 1 - cell.r);
+        const lead = open - revDiag;                   // >0 once the open-front clears the cell
+        let sc;
+        if (lead <= 0) sc = 1;                          // not yet opened — full tile
+        else { const g = clamp01(lead / win); sc = 1 - ease(g); }
+        if (sc <= 0.01) continue;
+        const cw = TILE * sc, ch = TILE * sc;
+        const cxp = cell.c * TILE + TILE / 2, cyp = cell.r * TILE + TILE / 2;
+        const x = Math.round(cxp - cw / 2), y = Math.round(cyp - ch / 2);
+        const w = Math.round(cw), h = Math.round(ch);
+        ctx.fillStyle = cell.fill;
+        ctx.fillRect(x, y, w, h);
+        if (sc > 0.6) {
+          const u = Math.max(2, Math.round(w / 6));
+          ctx.fillStyle = 'rgba(110,139,255,0.30)';
+          ctx.fillRect(x + (cell.sp1 % 5) * u, y + u, u, u);
+          ctx.fillStyle = 'rgba(15,8,32,0.45)';
+          ctx.fillRect(x + (cell.sp2 % 5) * u, y + 3 * u, u, u);
+        }
+        // teal clearing edge on shrinking tiles
+        if (lead > 0 && lead < win) {
+          ctx.fillStyle = TEAL_LT;
+          ctx.globalAlpha = 0.7 * (sc);
+          ctx.fillRect(x, y, w, Math.max(2, Math.round(h * 0.10)));
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+
+    /* ---- the JRPG MENU BOX that snaps in at full cover: a centred rounded
+       blue window with a crisp white double border, gold corner gem rivets and
+       a hard pixel drop shadow. Mirrors the .window look from shared.css but
+       drawn on canvas so it lives inside the transparent stinger. snap 0..1. ---- */
+    function roundRect(x, y, w, h, rad) {
+      ctx.beginPath();
+      ctx.moveTo(x + rad, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rad);
+      ctx.arcTo(x + w, y + h, x, y + h, rad);
+      ctx.arcTo(x, y + h, x, y, rad);
+      ctx.arcTo(x, y, x + w, y, rad);
+      ctx.closePath();
+    }
+    function drawMenuBox(snap) {
+      if (snap <= 0.02) return;
+      const sc = lerp(0.86, 1, ease(snap));
+      const bw = 760 * sc, bh = 300 * sc;
+      const x = Math.round(CX - bw / 2), y = Math.round(CY - bh / 2);
+      const w = Math.round(bw), h = Math.round(bh), rad = Math.round(26 * sc);
+      ctx.save();
+      ctx.globalAlpha = ease(snap);
+      // hard pixel drop shadow
+      ctx.fillStyle = 'rgba(15,8,32,0.55)';
+      roundRect(x + 14, y + 16, w, h, rad); ctx.fill();
+      // dark keyline
+      ctx.fillStyle = INK;
+      roundRect(x - 12, y - 12, w + 24, h + 24, rad + 10); ctx.fill();
+      // outer white border
+      ctx.fillStyle = '#FFFFFF';
+      roundRect(x - 9, y - 9, w + 18, h + 18, rad + 8); ctx.fill();
+      // blue gap between the two white lines
+      ctx.fillStyle = WIN_BOT;
+      roundRect(x - 5, y - 5, w + 10, h + 10, rad + 5); ctx.fill();
+      // inner white border
+      ctx.fillStyle = '#FFFFFF';
+      roundRect(x - 5, y - 5, w + 10, h + 10, rad + 5); ctx.stroke();
+      ctx.lineWidth = 5; ctx.strokeStyle = '#FFFFFF';
+      roundRect(x - 2, y - 2, w + 4, h + 4, rad + 2); ctx.stroke();
+      // bright blue window fill (vertical gradient)
+      const wg = ctx.createLinearGradient(0, y, 0, y + h);
+      wg.addColorStop(0.00, WIN_TOP);
+      wg.addColorStop(0.52, WIN_MID);
+      wg.addColorStop(1.00, WIN_BOT);
+      ctx.fillStyle = wg;
+      roundRect(x, y, w, h, rad); ctx.fill();
+      // inner blue highlight edge
+      ctx.lineWidth = 4; ctx.strokeStyle = WIN_EDGE;
+      roundRect(x + 4, y + 4, w - 8, h - 8, Math.max(4, rad - 4)); ctx.stroke();
+      // top sheen
+      const sh = ctx.createLinearGradient(0, y, 0, y + h * 0.4);
+      sh.addColorStop(0, 'rgba(255,255,255,0.22)');
+      sh.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sh;
+      roundRect(x + 10, y + 8, w - 20, h * 0.38, rad - 6); ctx.fill();
+      ctx.restore();
+
+      // four gold corner GEMS (pixel diamond rivets) — pop slightly after the box
+      const gp = ease(clamp01((snap - 0.15) / 0.85));
+      if (gp > 0.02) {
+        const gs = 13 * gp;
+        const corners = [[x + 16, y + 16], [x + w - 16, y + 16], [x + 16, y + h - 16], [x + w - 16, y + h - 16]];
+        for (const [gx, gy] of corners) {
+          ctx.save();
+          ctx.globalAlpha = gp;
+          ctx.shadowColor = GOLD; ctx.shadowBlur = 14 * gp;
+          // dark keyline diamond
+          ctx.fillStyle = INK;
+          diamond(gx, gy, gs + 3);
+          ctx.fillStyle = GOLD;
+          diamond(gx, gy, gs);
+          ctx.fillStyle = GOLD_LT;
+          diamond(gx, gy, gs * 0.5);
+          ctx.restore();
+        }
+      }
+
+      // a chunky teal EXP segment bar inside the box (drawn from segments)
+      if (gp > 0.1) {
+        const bx = Math.round(x + w * 0.16), by = Math.round(y + h * 0.66);
+        const barW = Math.round(w * 0.68), barH = Math.round(22 * sc);
+        ctx.save();
+        ctx.globalAlpha = gp;
+        ctx.fillStyle = '#0E0726';
+        ctx.fillRect(bx - 4, by - 4, barW + 8, barH + 8);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillRect(bx - 6, by - 6, barW + 12, 3);             // top white keyline
+        // chunky filled EXP cells, filling left->right with the gem pop
+        const seg = Math.round(barH * 1.0), gapn = Math.round(barH * 0.2);
+        const filled = Math.round((barW) * gp);
+        let px = bx;
+        ctx.fillStyle = TEAL;
+        while (px < bx + filled - seg) {
+          ctx.fillRect(px, by, seg, barH);
+          ctx.fillStyle = TEAL_LT;
+          ctx.fillRect(px, by, seg, Math.max(2, Math.round(barH * 0.25)));
+          ctx.fillStyle = TEAL;
+          px += seg + gapn;
+        }
+        ctx.restore();
+      }
+    }
+    function diamond(cx, cy, s) {
+      ctx.beginPath();
+      ctx.moveTo(Math.round(cx), Math.round(cy - s));
+      ctx.lineTo(Math.round(cx + s), Math.round(cy));
+      ctx.lineTo(Math.round(cx), Math.round(cy + s));
+      ctx.lineTo(Math.round(cx - s), Math.round(cy));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    /* ---- gold/teal pixel sparks puffing outward at the peak ---- */
+    function drawSparks(t, cover) {
+      for (const sp of sparks) {
+        const lt = clamp01((t - sp.lead) / (1 - sp.lead));
+        if (lt <= 0 || lt >= 1) continue;
+        const px = sp.x + sp.vx * lt;
+        const py = sp.y + sp.vy * lt + 120 * lt * lt;   // slight gravity arc
+        const ends = Math.sin(lt * Math.PI);            // 0 at ends, 1 mid
+        const tw = 0.55 + Math.sin(sp.ph + lt * sp.tw * 6.283) * 0.45;
+        const a = ends * tw * cover;
+        if (a <= 0.03) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = sp.c;
+        const s = sp.s;
+        ctx.fillRect(Math.round(px), Math.round(py), s, s);   // crisp pixel block
+        // tiny twinkle cross when bright
+        if (tw > 0.85) {
+          ctx.fillRect(Math.round(px) - s, Math.round(py) + (s >> 1), s, 2);
+          ctx.fillRect(Math.round(px) + s, Math.round(py) + (s >> 1), s, 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = false;
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+      const closing = t < 0.5;
+
+      // the flooding / parting pixel tiles
+      if (closing) drawTiles(cover);
+      else drawTilesOut(cover);
+
+      // at high cover the centred JRPG menu box snaps in
+      const snap = clamp01((cover - 0.55) / 0.45);
+      drawMenuBox(snap);
+
+      // a quick white "LEVEL UP" flash at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.045, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.55);
+        fg.addColorStop(0, 'rgba(255,255,255,' + (0.5 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(255,232,154,' + (0.20 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(255,203,71,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      // gold/teal pixel sparks puff out around the peak
+      drawSparks(t, cover);
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

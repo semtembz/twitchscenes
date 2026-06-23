@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Champagne Mono — Star Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="star">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <span class="corner corner--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round">
+            <path d="M6 6 L46 6"/><path d="M6 6 L6 46"/>
+            <path d="M6 6 C40 8 58 26 60 60"/>
+            <path d="M14 14 C34 16 48 28 50 50" stroke="#9C8458" stroke-width="1.2"/>
+          </g>
+          <circle cx="6" cy="6" r="3" fill="#9C8458"/>
+          <circle cx="60" cy="60" r="2.3" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round">
+            <path d="M6 6 L46 6"/><path d="M6 6 L6 46"/>
+            <path d="M6 6 C40 8 58 26 60 60"/>
+            <path d="M14 14 C34 16 48 28 50 50" stroke="#9C8458" stroke-width="1.2"/>
+          </g>
+          <circle cx="6" cy="6" r="3" fill="#9C8458"/>
+          <circle cx="60" cy="60" r="2.3" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round">
+            <path d="M6 6 L46 6"/><path d="M6 6 L6 46"/>
+            <path d="M6 6 C40 8 58 26 60 60"/>
+            <path d="M14 14 C34 16 48 28 50 50" stroke="#9C8458" stroke-width="1.2"/>
+          </g>
+          <circle cx="6" cy="6" r="3" fill="#9C8458"/>
+          <circle cx="60" cy="60" r="2.3" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.6" stroke-linecap="round">
+            <path d="M6 6 L46 6"/><path d="M6 6 L6 46"/>
+            <path d="M6 6 C40 8 58 26 60 60"/>
+            <path d="M14 14 C34 16 48 28 50 50" stroke="#9C8458" stroke-width="1.2"/>
+          </g>
+          <circle cx="6" cy="6" r="3" fill="#9C8458"/>
+          <circle cx="60" cy="60" r="2.3" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="tagid" aria-hidden="true">CHAMPAGNE&nbsp;MONO</span>
+      <div class="art" aria-hidden="true"><div class="glyph" id="glyph">★</div></div>
+      <div class="meta">
+        <p class="kick"><span class="dia"></span> <span id="kick-label">NEW STAR</span></p>
+        <h1 class="name" id="name">Guest</h1>
+        <div class="urule" aria-hidden="true"></div>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub"></p>
+      </div>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

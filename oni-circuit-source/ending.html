@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Oni Circuit — Thanks for Watching</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you  ?render=1
+       Editable text slots: ?kicker=... ?sub=... ?tag=... ?tag2=... ?tag3=...  (=- removes one) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* ending: NO loading bar — the @handle is the hero. Drop the blade track,
+       give the title a touch more air, and make the oni-red handle the centered
+       focal point with a hard blade-edge tag beneath it. Everything stays inside
+       the centered .core clear zone; the mask + blade keep to the margins. */
+    .ending .title{font-size:150px;margin:12px 0 4px;}
+    .ending .sub{margin-top:22px;}
+    .ending .handle-hero{margin-top:34px;font-family:var(--mono);font-size:50px;
+      letter-spacing:.3em;text-indent:.3em;color:var(--text);
+      text-shadow:0 0 28px rgba(255,45,75,.5),0 0 14px rgba(22,240,200,.3);
+      animation:fade 1s var(--ease) both .85s;}
+    .ending .handle-hero::before{content:"> ";color:var(--teal);
+      text-shadow:0 0 12px rgba(22,240,200,.5);}
+    .ending .handle-tag{margin-top:14px;font-family:var(--mono);
+      letter-spacing:.4em;font-size:18px;text-indent:.4em;color:var(--teal);
+      opacity:.85;text-transform:uppercase;text-shadow:0 0 12px rgba(22,240,200,.35);}
+    #stage.render .ending .handle-hero{animation:none!important;opacity:1;transform:none;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- generative field: oni mask + neon blade + circuit etching + embers -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- structural overlays -->
+    <div class="grid" aria-hidden="true"></div>
+    <div class="scan" aria-hidden="true"></div>
+    <div class="veil" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- kanji accent (鬼), lower-left margin -->
+    <div class="kanji" aria-hidden="true">鬼</div>
+
+    <!-- sharp corner registration ticks -->
+    <span class="tick tick--tl" aria-hidden="true"></span>
+    <span class="tick tick--tr" aria-hidden="true"></span>
+    <span class="tick tick--bl" aria-hidden="true"></span>
+    <span class="tick tick--br" aria-hidden="true"></span>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it. (Or set
+         ?tag=...&tag2=...&kicker=...&sub=...&tag3=... at render time; use =- to remove one.) -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">13</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-no">14</span><span class="slot-txt">your text here</span></div>
+
+    <!-- CENTER STACK — guaranteed clear zone (mask + blade stay in the margins) -->
+    <main class="core ending">
+      <div class="crest" aria-hidden="true">
+        <span class="bar"></span><span class="node"></span><span class="bar bar--r"></span>
+      </div>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">15</span><span class="slot-txt">your text here</span></p>
+      <h1 class="title">
+        <span class="l1">THANKS FOR</span>
+        <span class="l2">WATCHING</span>
+      </h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">16</span><span class="slot-txt">your text here</span></p>
+      <div class="handle-hero" id="handle">@yourhandle</div>
+      <p class="handle-tag is-slot" data-slot="tag3"><span class="slot-no">17</span><span class="slot-txt">your text here</span></p>
+    </main>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

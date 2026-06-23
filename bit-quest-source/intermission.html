@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Bit Quest — Short Break</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable slots: ?kicker=... ?sub=... ?tag=... (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the tiled 16-bit WORLD MAP + drifting airship + twinkling stars -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDGE SPRITE ACCENTS (kept to the margins, clear of the window + bar) -->
+    <!-- top-left: chunky HP/MP party gauges -->
+    <div class="party" aria-hidden="true">
+      <div class="stat"><span class="lbl">HP</span><span class="gauge"><span class="gv hp"></span></span></div>
+      <div class="stat"><span class="lbl">MP</span><span class="gauge"><span class="gv mp"></span></span></div>
+    </div>
+    <!-- top-right: spinning pixel gil coin -->
+    <div class="coin" aria-hidden="true">
+      <span class="amt">x999</span><span class="tok"></span>
+    </div>
+
+    <!-- the centered JRPG MENU / DIALOG WINDOW holding the message -->
+    <main class="window">
+      <!-- gold corner gems (pixel rivets) -->
+      <span class="gem gem--tl" aria-hidden="true"></span>
+      <span class="gem gem--tr" aria-hidden="true"></span>
+      <span class="gem gem--bl" aria-hidden="true"></span>
+      <span class="gem gem--br" aria-hidden="true"></span>
+
+      <!-- kicker line with the blinking pixel cursor (EDITABLE SLOT) -->
+      <p class="kicker is-slot" id="kicker" data-slot="kicker">
+        <span class="cursor" aria-hidden="true">&#9654;</span>
+        <span class="slot-txt"><span class="slot-no">7</span><span class="slot-txt">your text here</span></span>
+      </p>
+
+      <!-- clean universal TITLE — never the theme name -->
+      <h1 class="title"><span class="line">SHORT</span><span class="line accent">BREAK</span></h1>
+
+      <!-- pixel divider row -->
+      <div class="divider" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+
+      <!-- subtitle (EDITABLE SLOT) -->
+      <p class="sub is-slot" data-slot="sub"><span class="slot-txt"><span class="slot-no">8</span><span class="slot-txt">your text here</span></span></p>
+
+      <!-- the JRPG "EXP" loading bar (no numbers) -->
+      <div class="exp" aria-hidden="true">
+        <span class="label">EXP</span>
+        <div class="fill" id="fill"></div>
+      </div>
+    </main>
+
+    <!-- corner brand tag (EDITABLE SLOT) -->
+    <div class="tag is-slot" data-slot="tag"
+      style="position:absolute;left:60px;bottom:56px;font-family:var(--pixel);font-weight:700;font-size:22px;letter-spacing:.18em;color:var(--pink);text-shadow:3px 3px 0 var(--ink);">
+      <span class="slot-txt"><span class="slot-no">9</span><span class="slot-txt">your text here</span></span>
+    </div>
+
+    <!-- @handle nameplate, lower-right -->
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

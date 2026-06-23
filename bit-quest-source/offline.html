@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Bit Quest (PNG generator)</title>
+  <!--
+    BIT QUEST · 16-bit JRPG OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the Bit Quest look onto a <canvas> and downloads it as a PNG:
+    a tiled 16-bit WORLD MAP (water/sand/grass/path tiles drawn pixelated with
+    two-tone speckle + a winding path + margin trees/flowers + sky stars + a
+    drifting pixel AIRSHIP), then a soft dark overlay seating the centerpiece:
+    the iconic blue JRPG DIALOG WINDOW (white double border, ink keyline, hard
+    drop shadow, gold gem rivets), a blocky pixel "OFFLINE" title with a hard
+    pixel shadow, an editable tagline, and the @handle on its gold nameplate.
+
+    Everything random is drawn from a SEEDED PRNG (mulberry32), so the world map,
+    stars and airship are identical on every render (Math.random is never used).
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --night:#2B1B4E; --night2:#1A1030; --violet:#7B5CFF; --gold:#FFCB47;
+      --teal:#3AD6C5; --pink:#FF8FB1; --text:#FFFFFF; --ink:#150B2E;
+      --pixel:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--pixel);font-weight:700;
+      background:linear-gradient(176deg,#34215C,#1A1030);color:var(--text);padding:32px;
+      image-rendering:pixelated;}
+    h1{font-family:var(--pixel);font-weight:700;font-size:30px;color:var(--text);letter-spacing:.02em;
+      margin:0 0 6px;text-shadow:4px 4px 0 var(--ink);-webkit-text-stroke:1px var(--ink);}
+    h1 .accent{color:var(--gold);}
+    p.lead{color:#DDE3FF;margin:0 0 22px;max-width:860px;line-height:1.7;
+      font-family:var(--pixel);font-weight:700;font-size:15px;}
+    .kicker{font-family:var(--pixel);font-weight:700;letter-spacing:.30em;
+      font-size:14px;color:var(--teal);margin:0 0 14px;text-transform:uppercase;
+      text-shadow:3px 3px 0 var(--ink);display:flex;align-items:center;gap:12px;}
+    .cur{color:var(--gold);}
+    button{font-family:var(--pixel);font-weight:700;font-size:14px;
+      letter-spacing:.18em;text-transform:uppercase;padding:14px 26px;color:var(--ink);
+      background:linear-gradient(180deg,#FFE89A,var(--gold));border:3px solid #FFFFFF;
+      cursor:pointer;box-shadow:0 0 0 3px var(--ink),6px 6px 0 rgba(15,8,32,.5);}
+    button:hover{filter:brightness(1.06);}
+    .preview{margin-top:22px;background:#150B2E;padding:14px;border:2px solid #2b1b4e;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;image-rendering:pixelated;}
+    code{font-family:var(--pixel);color:var(--gold);background:rgba(255,203,71,.12);
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="cur">&#9654;</span>BIT QUEST &middot; OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN <span class="accent">GENERATOR</span></h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the 16-bit JRPG style &mdash; seeded so the
+    world map, stars and airship are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings &rarr; Channel &rarr; Brand &rarr; Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const GOLD='#FFCB47', GOLD_HI='#FFE89A', GOLD_LO='#C9881C';
+    const TEAL='#3AD6C5', PINK='#FF8FB1', VIOLET='#7B5CFF';
+    const WIN_TOP='#3E63E8', WIN_MID='#2B43C4', WIN_BOT='#1B2C9E', WIN_EDGE='#6E8BFF';
+    const INK='#150B2E', TEXT='#FFFFFF', SUB='#DDE3FF';
+    const FONT='"Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded PRNG (mulberry32) — NEVER Math.random, reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // tile palette (16-bit overworld) — mirrors shared.js TILES
+    const TILES = {
+      water: ["#264BB0", "#3E63E8", "#1B2C9E"],
+      grass: ["#2E7D4F", "#3FA868", "#1F5B39"],
+      grass2:["#256B43", "#358F58", "#194B30"],
+      path:  ["#C9A86A", "#E4C98C", "#9C7E45"],
+      sand:  ["#D8B26B", "#EBCE8E", "#B68C46"],
+    };
+    const TILE = 60;
+
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- WORLD MAP build (same generator shape as shared.js) ----
+    function buildField(rnd) {
+      const COLS = Math.ceil(W / TILE), ROWS = Math.ceil(H / TILE);
+      const map = [];
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+          const coast = (c * 0.55 + r * 0.42) + Math.sin(c * 0.7) * 1.1 + Math.sin(r * 0.9) * 1.0;
+          let type;
+          if (coast < 9.0) type = "water";
+          else if (coast < 10.4) type = "sand";
+          else type = rnd() < 0.5 ? "grass" : "grass2";
+          let deco = null;
+          if (type === "grass" || type === "grass2") {
+            const d = rnd();
+            if (d < 0.16) deco = "tree"; else if (d < 0.22) deco = "flower";
+          }
+          row.push({ type, deco, j: rnd() });
+        }
+        map.push(row);
+      }
+      // carve a winding diagonal PATH across the land
+      let pc = Math.floor(COLS * 0.42);
+      for (let r = 0; r < ROWS; r++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const c = pc + dc;
+          if (c >= 0 && c < COLS && map[r][c] && map[r][c].type !== "water" && map[r][c].type !== "sand") {
+            map[r][c].type = "path"; map[r][c].deco = null;
+          }
+        }
+        pc += rnd() < 0.5 ? 1 : (rnd() < 0.5 ? 0 : -1);
+        if (pc < 2) pc = 2; if (pc > COLS - 3) pc = COLS - 3;
+      }
+      return { map, COLS, ROWS };
+    }
+
+    function drawTile(c, r, t) {
+      const x = c * TILE, y = r * TILE;
+      const pal = TILES[t.type] || TILES.grass;
+      ctx.fillStyle = pal[0]; ctx.fillRect(x, y, TILE, TILE);
+      const u = TILE / 6;
+      ctx.fillStyle = pal[1];
+      ctx.fillRect(x + Math.round((t.j * 4) % 4) * u, y + u, u, u);
+      ctx.fillRect(x + 4 * u, y + 3 * u, u, u);
+      ctx.fillStyle = pal[2];
+      ctx.fillRect(x + 2 * u, y + 4 * u, u, u);
+      ctx.fillRect(x + Math.round((t.j * 3) % 4) * u, y + 5 * u - 1, u, u);
+      if (t.type === "water") {  // frozen shimmer band on the still
+        const sh = (Math.sin((c + r) * 0.6) * 0.5 + 0.5);
+        ctx.globalAlpha = 0.16 + sh * 0.18; ctx.fillStyle = "#9FC2FF";
+        ctx.fillRect(x, y + Math.round(sh * (TILE - u)), TILE, u);
+        ctx.globalAlpha = 1;
+      }
+    }
+    function drawTree(c, r) {
+      const x = c * TILE, y = r * TILE, u = TILE / 6;
+      ctx.fillStyle = "#5A3A1E"; ctx.fillRect(x + 2.5 * u, y + 4 * u, u, 2 * u);
+      ctx.fillStyle = "#1F6B3E"; ctx.fillRect(x + u, y + u, 4 * u, 3 * u);
+      ctx.fillStyle = "#36A05E"; ctx.fillRect(x + 1.5 * u, y + 1.4 * u, 2 * u, 1.3 * u);
+    }
+    function drawFlower(c, r) {
+      const x = c * TILE, y = r * TILE, u = TILE / 6;
+      ctx.fillStyle = "#FF8FB1"; ctx.fillRect(x + 2.5 * u, y + 2.5 * u, u, u);
+      ctx.fillStyle = "#FFCB47"; ctx.fillRect(x + 3 * u, y + 3 * u, u * 0.5, u * 0.5);
+    }
+    function drawAirship(ax, ay) {
+      const x = Math.round(ax), y = Math.round(ay), u = 8;
+      ctx.fillStyle = "#7B5CFF"; ctx.fillRect(x, y, 13 * u, 5 * u);
+      ctx.fillStyle = "#9C82FF"; ctx.fillRect(x + u, y + u, 11 * u, u);
+      ctx.fillStyle = "#FFCB47"; ctx.fillRect(x + 3 * u, y + 2 * u, 7 * u, u);
+      ctx.fillStyle = "#5A3FD6"; ctx.fillRect(x, y + 4 * u, 13 * u, u);
+      ctx.fillStyle = "#C9A86A"; ctx.fillRect(x + 4 * u, y + 5 * u, 5 * u, 2 * u);
+      ctx.fillStyle = "#8A6A3A"; ctx.fillRect(x + 4 * u, y + 6 * u, 5 * u, u);
+      ctx.fillStyle = "#3AD6C5"; ctx.fillRect(x - 2 * u, y + u, 2 * u, 3 * u);
+      ctx.fillStyle = "#FFFFFF"; ctx.fillRect(x + 13 * u, y + 2 * u, u, u);
+    }
+
+    // gold pixel gem rivet
+    function gem(cx, cy, d) {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = INK; ctx.fillRect(-d - 4, -d - 4, (d + 4) * 2, (d + 4) * 2);
+      ctx.fillStyle = GOLD; ctx.fillRect(-d, -d, d * 2, d * 2);
+      ctx.fillStyle = GOLD_HI; ctx.fillRect(-d, -d, d, d);
+      ctx.restore();
+    }
+
+    // the centered JRPG dialog window (layered borders matching .window CSS)
+    function drawWindow(x, y, w, h, r) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,8,32,0.55)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 18; ctx.shadowOffsetY = 22;
+      ctx.fillStyle = INK; roundRect(x - 14, y - 14, w + 28, h + 28, r + 14); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF';  roundRect(x - 10, y - 10, w + 20, h + 20, r + 10); ctx.fill();
+      ctx.fillStyle = WIN_BOT;    roundRect(x - 5, y - 5, w + 10, h + 10, r + 5); ctx.fill();
+      ctx.fillStyle = '#FFFFFF';  roundRect(x, y, w, h, r); ctx.fill();
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, WIN_TOP); g.addColorStop(0.52, WIN_MID); g.addColorStop(1, WIN_BOT);
+      ctx.fillStyle = g; roundRect(x + 5, y + 5, w - 10, h - 10, Math.max(4, r - 4)); ctx.fill();
+      // inner highlight edge + top sheen (clipped)
+      ctx.save();
+      roundRect(x + 5, y + 5, w - 10, h - 10, Math.max(4, r - 4)); ctx.clip();
+      ctx.strokeStyle = WIN_EDGE; ctx.lineWidth = 4;
+      roundRect(x + 9, y + 9, w - 18, h - 18, Math.max(4, r - 6)); ctx.stroke();
+      const sh = ctx.createLinearGradient(0, y, 0, y + h * 0.4);
+      sh.addColorStop(0, 'rgba(255,255,255,0.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sh; ctx.fillRect(x, y, w, h * 0.4);
+      ctx.restore();
+    }
+
+    function star(cx, cy, outer, inner, points) {
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const rad = (i % 2 === 0) ? outer : inner;
+        const a = -Math.PI / 2 + i * Math.PI / points;
+        const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      ctx.imageSmoothingEnabled = false;
+      const rnd = makeRand(0x1f2e);  // same base seed as shared.js -> matching field
+
+      // base night gradient (so transparent edges of tiles still read)
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#34215C'); grad.addColorStop(0.46, '#2B1B4E'); grad.addColorStop(1, '#1A1030');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // ---- 1) tiled overworld ----
+      const { map, COLS, ROWS } = buildField(rnd);
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) drawTile(c, r, map[r][c]);
+      // decorations (kept naturally to land margins by the generator)
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const t = map[r][c]; if (!t.deco) continue;
+        if (t.deco === 'tree') drawTree(c, r); else drawFlower(c, r);
+      }
+
+      // ---- 2) twinkling sky stars (upper band only) ----
+      for (let i = 0; i < 46; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H * 0.42);
+        const s = Math.max(2, Math.round(R(rnd, 2, 5)));
+        const tw = R(rnd, 0.5, 1.0);
+        ctx.globalAlpha = tw; ctx.fillStyle = rnd() < 0.5 ? '#FFFFFF' : GOLD;
+        ctx.fillRect(Math.round(x), Math.round(y), s, s);
+        if (tw > 0.82) {
+          ctx.fillRect(Math.round(x) - s, Math.round(y) + (s >> 1) - 1, s, 2);
+          ctx.fillRect(Math.round(x) + s, Math.round(y) + (s >> 1) - 1, s, 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // ---- 3) the drifting airship (frozen mid-sky, in a clear margin) ----
+      drawAirship(W * 0.12, H * 0.14);
+
+      // ---- 4) soft dark overlay seating the menu + a deep vignette ----
+      const ov = ctx.createRadialGradient(W * 0.5, H * 0.52, 120, W * 0.5, H * 0.52, 840);
+      ov.addColorStop(0, 'rgba(27,17,48,0.78)'); ov.addColorStop(1, 'rgba(27,17,48,0)');
+      ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(15,8,32,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+      // chunky scanline veil
+      ctx.globalAlpha = 0.10; ctx.fillStyle = '#000';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.globalAlpha = 1;
+
+      // ============================================================
+      // CENTERED JRPG DIALOG WINDOW — the signature composition
+      // ============================================================
+      const fw = 1180, fh = 560;
+      const fx = (W - fw) / 2, fy = (H - fh) / 2;
+      drawWindow(fx, fy, fw, fh, 30);
+
+      // gold gem rivets
+      const gi = 40;
+      gem(fx + gi, fy + gi, 12); gem(fx + fw - gi, fy + gi, 12);
+      gem(fx + gi, fy + fh - gi, 12); gem(fx + fw - gi, fy + fh - gi, 12);
+
+      const cx = W / 2;
+
+      // kicker line: blinking-style gold cursor ▶ + teal caps (EDITABLE = neutral placeholder)
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 32px ' + FONT;
+      const kicker = '[13] your text here';
+      const kw = spacedWidth(kicker, 6);
+      // cursor
+      ctx.fillStyle = INK; ctx.fillText('▶', cx - kw / 2 - 40 + 3, fy + 138 + 3);
+      ctx.fillStyle = GOLD; ctx.fillText('▶', cx - kw / 2 - 40, fy + 138);
+      // text (hard pixel shadow then teal)
+      drawSpacedCenteredShadow(kicker, cx + 18, fy + 138, 6, TEAL, 3);
+
+      // big blocky pixel TITLE: OFFLINE (white + gold accent, hard pixel shadow + stroke)
+      ctx.font = '700 158px ' + FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const ty = fy + 300;
+      // shadow
+      ctx.fillStyle = INK; ctx.fillText('OFFLINE', cx + 7, ty + 7);
+      // face
+      ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = INK;
+      ctx.strokeText('OFFLINE', cx, ty);
+      ctx.fillStyle = TEXT; ctx.fillText('OFFLINE', cx, ty);
+
+      // pixel divider row of gold/white blocks under the title
+      const dn = 9, dgap = 22, dw = 18;
+      const dtot = dn * dw + (dn - 1) * (dgap - dw);
+      let dx = cx - dtot / 2;
+      for (let i = 0; i < dn; i++) {
+        ctx.fillStyle = INK; ctx.fillRect(dx - 3, fy + 388 - 3, dw + 6, dw + 6);
+        ctx.fillStyle = (i % 2 === 0) ? '#FFFFFF' : GOLD; ctx.fillRect(dx, fy + 388, dw, dw);
+        dx += dgap;
+      }
+
+      // subtitle — editable neutral placeholder, pixel caption
+      ctx.font = '700 30px ' + FONT;
+      ctx.fillStyle = INK; ctx.fillText('[14] your text here', cx + 3, fy + 460 + 3);
+      ctx.fillStyle = SUB; ctx.fillText('[15] your text here', cx, fy + 460);
+
+      // ---- HP/MP party gauge accent, top-left margin (outside window) ----
+      drawGauge(64, 78, 'HP', 0.84, PINK);
+      drawGauge(64, 118, 'MP', 0.62, TEAL);
+
+      // ---- gil coin accent, top-right margin ----
+      drawCoinTok(W - 120, 96, 30);
+
+      // ---- HANDLE (bottom-right) on a gold pixel nameplate ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      ctx.font = '700 30px ' + FONT;
+      const hw = ctx.measureText(handleAt).width + 40;
+      const px = W - 64 - hw, py = H - 96;
+      // plate
+      ctx.fillStyle = INK; roundRect(px - 3, py - 3, hw + 6, 56 + 6, 4); ctx.fill();
+      ctx.fillStyle = '#FFFFFF'; roundRect(px, py, hw, 56, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(27,17,48,0.85)'; roundRect(px + 3, py + 3, hw - 6, 50, 3); ctx.fill();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = INK; ctx.fillText(handleAt, px + 23, py + 31);
+      ctx.fillStyle = GOLD; ctx.fillText(handleAt, px + 20, py + 28);
+    }
+
+    // chunky HP/MP gauge sprite (mirrors .stat CSS)
+    function drawGauge(x, y, label, pct, color) {
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '700 22px ' + FONT;
+      ctx.fillStyle = INK; ctx.fillText(label, x + 3, y + 3);
+      ctx.fillStyle = GOLD; ctx.fillText(label, x, y);
+      const gx = x + 60, gw = 236, gh = 20;
+      ctx.fillStyle = INK; ctx.fillRect(gx - 4, y - gh / 2 - 4, gw + 8, gh + 8);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(gx - 3, y - gh / 2 - 3, gw + 6, gh + 6);
+      ctx.fillStyle = '#0E0726'; ctx.fillRect(gx, y - gh / 2, gw, gh);
+      ctx.fillStyle = color; ctx.fillRect(gx, y - gh / 2, gw * pct, gh);
+      // cell mask shadows
+      ctx.fillStyle = 'rgba(15,8,32,0.45)';
+      for (let cxp = gx + 18; cxp < gx + gw * pct; cxp += 20) ctx.fillRect(cxp, y - gh / 2, 2, gh);
+    }
+    // gil coin token (mirrors .coin .tok CSS)
+    function drawCoinTok(cx, cy, r) {
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.font = '700 26px ' + FONT;
+      ctx.fillStyle = INK; ctx.fillText('x999', cx - r - 13, cy + 3);
+      ctx.fillStyle = GOLD; ctx.fillText('x999', cx - r - 16, cy);
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, 6.283); ctx.fill();
+      ctx.fillStyle = GOLD_LO; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.fill();
+      const cg = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 2, cx, cy, r);
+      cg.addColorStop(0, GOLD_HI); cg.addColorStop(0.6, GOLD); cg.addColorStop(1, GOLD_LO);
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, r * 0.78, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#8A5A0E'; ctx.font = '700 26px ' + FONT;
+      ctx.textAlign = 'center'; ctx.fillText('G', cx, cy + 1);
+    }
+
+    // ---- letter-spaced text helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCenteredShadow(str, x, y, sp, col, off) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      ctx.fillStyle = INK; drawSpacedFrom(str, x - total / 2 + off, y + off, sp);
+      ctx.fillStyle = col; drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

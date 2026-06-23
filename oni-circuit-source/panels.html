@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Oni Circuit — Twitch Panels (generator)</title>
+  <!--
+    ONI CIRCUIT · "Cyber-Samurai Hannya" Twitch PANELS generator.
+
+    Twitch profile panels are PNG images (recommended 320 x 100) you upload to
+    your channel's About page. This file paints each panel onto a <canvas> at
+    EXACTLY 320 x 100 in the Oni Circuit language:
+        - a near-black void card with a sharp angular CLIPPED (notched-corner)
+          plate edged in oni-RED with a teal hairline rim;
+        - faint crawling circuit traces etched on the right;
+        - a thin neon line ICON (oni-red stroke + teal edge) in a slot at left;
+        - the label in the sharp condensed display, RED->TEAL hard diagonal split;
+        - a glowing blade-edge underline rule.
+
+    Each panel has its own Download + a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Oni Circuit palette (mirrors shared.css design tokens) ---- */
+    :root{
+      --void:#0A0E14; --void2:#05080C; --oni:#FF2D4B; --teal:#16F0C8;
+      --steel:#1B2433; --text:#E8EEF5; --dim:rgba(232,238,245,.55);
+      --display:"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif;
+      --mono:"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);color:var(--text);padding:36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(255,45,75,.12), transparent 60%),
+        radial-gradient(760px 500px at 100% 110%, rgba(22,240,200,.10), transparent 60%),
+        linear-gradient(160deg, #0C1119, var(--void2));
+      min-height:100vh;}
+    .kicker{font-family:var(--mono);letter-spacing:.5em;font-size:12px;color:var(--teal);
+      text-transform:uppercase;margin:0 0 8px;display:flex;align-items:center;gap:11px;
+      text-shadow:0 0 14px rgba(22,240,200,.4);}
+    .kicker .dia{width:9px;height:9px;background:var(--oni);transform:rotate(45deg);
+      box-shadow:0 0 12px rgba(255,45,75,.6);}
+    h1{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.01em;margin:0 0 6px;
+      text-transform:uppercase;transform:scaleX(.94);transform-origin:left;
+      color:var(--text);text-shadow:0 0 30px rgba(255,45,75,.25);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:760px;line-height:1.6;font-size:15px;}
+    code{font-family:var(--mono);color:var(--teal);background:rgba(22,240,200,.08);
+      padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.18em;
+      text-transform:uppercase;padding:12px 26px;cursor:pointer;color:var(--void2);
+      background:linear-gradient(110deg,var(--oni) 0%,var(--oni) 48%,var(--teal) 52%,var(--teal) 100%);
+      border:1px solid rgba(232,238,245,.4);border-radius:2px;
+      clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+      box-shadow:0 6px 24px rgba(255,45,75,.30);}
+    button:hover{filter:brightness(1.1);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(10,14,20,.55);padding:16px;border-radius:4px;
+      border:1px solid rgba(120,150,190,.22);}
+    /* checkerboard so the panel's transparent notched corners are visible */
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#0a0f16;
+      background-image:
+        linear-gradient(45deg, #16202e80 25%, transparent 25%),
+        linear-gradient(-45deg, #16202e80 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #16202e80 75%),
+        linear-gradient(-45deg, transparent 75%, #16202e80 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:var(--mono);letter-spacing:.18em;color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:var(--mono);letter-spacing:.08em;color:var(--teal);text-decoration:none;
+      border:1px solid rgba(22,240,200,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(22,240,200,.14);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>ONI CIRCUIT · PANELS</p>
+  <h1>Oni Circuit — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the cyber-samurai style:
+    a notched void plate edged in oni-red, faint circuit traces, a neon line icon, and the
+    label split RED&rarr;TEAL at a hard diagonal. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about &rarr; Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function(){
+    "use strict";
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var ONI = '#FF2D4B', TEAL = '#16F0C8', TEXT = '#E8EEF5', VOID2 = '#05080C';
+    var DIM = 'rgba(232,238,245,0.55)';
+
+    // ---- Panel inventory (order per the design brief) ----
+    var PANELS = [
+      { id:'about',     title:'ABOUT',     icon:'mask' },
+      { id:'schedule',  title:'SCHEDULE',  icon:'calendar' },
+      { id:'rules',     title:'RULES',     icon:'list' },
+      { id:'donations', title:'DONATIONS', icon:'coin' },
+      { id:'discord',   title:'DISCORD',   icon:'discord' },
+      { id:'twitter',   title:'TWITTER',   icon:'twitter' },
+      { id:'youtube',   title:'YOUTUBE',   icon:'play' },
+      { id:'instagram', title:'INSTAGRAM', icon:'camera' },
+      { id:'merch',     title:'MERCH',     icon:'tag' },
+      { id:'sponsors',  title:'SPONSORS',  icon:'shield' },
+      { id:'subscribe', title:'SUBSCRIBE', icon:'star' },
+      { id:'community', title:'COMMUNITY', icon:'nodes' }
+    ];
+
+    // ---- seeded PRNG (mulberry32) — deterministic circuit trace per panel ----
+    function makeRand(seed){
+      var s = seed >>> 0;
+      return function(){
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        var t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // ---- helpers ----------------------------------------------------------
+    // sharp notched-corner plate path (samurai bracket silhouette)
+    function platePath(ctx, x, y, w, h, c){
+      ctx.beginPath();
+      ctx.moveTo(x + c, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x, y + c);
+      ctx.closePath();
+    }
+
+    // soft radial bloom
+    function bloom(ctx, cx, cy, rad, rgb, alpha){
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, 'rgba(' + rgb + ',' + alpha + ')');
+      g.addColorStop(1, 'rgba(' + rgb + ',0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+
+    // faint crawling circuit traces etched on the right of the card
+    function circuit(ctx, seed){
+      var rnd = makeRand(seed);
+      ctx.save();
+      ctx.lineWidth = 1; ctx.lineJoin = 'miter'; ctx.lineCap = 'round';
+      for (var i = 0; i < 5; i++){
+        var px = 196 + rnd() * 110, py = 16 + rnd() * 68;
+        var teal = rnd() < 0.5;
+        var col = teal ? '22,240,200' : '255,45,75';
+        ctx.strokeStyle = 'rgba(' + col + ',0.16)';
+        ctx.beginPath(); ctx.moveTo(Math.round(px), Math.round(py));
+        var segs = 2 + ((rnd() * 3) | 0);
+        for (var s = 0; s < segs; s++){
+          if (rnd() < 0.5) px += (rnd() - 0.5) * 60; else py += (rnd() - 0.5) * 50;
+          px = Math.max(180, Math.min(W - 6, px)); py = Math.max(8, Math.min(H - 8, py));
+          ctx.lineTo(Math.round(px), Math.round(py));
+        }
+        ctx.stroke();
+        // node + a small bright pulse dot
+        ctx.fillStyle = 'rgba(' + col + ',0.55)';
+        ctx.shadowColor = teal ? TEAL : ONI; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), 1.8, 0, 6.2832); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p, idx){
+      ctx.clearRect(0, 0, W, H);
+      var pad = 4, c = 16;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // void plate body, clipped to the notched silhouette
+      ctx.save();
+      platePath(ctx, x, y, w, h, c);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, 'rgba(12,17,25,0.94)');
+      bg.addColorStop(1, 'rgba(5,8,12,0.96)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // oni-red bloom behind the icon + teal bloom right
+      bloom(ctx, 44, H / 2, 110, '255,45,75', 0.16);
+      bloom(ctx, 280, 18, 130, '22,240,200', 0.10);
+
+      // diagonal scanline shimmer (frozen)
+      var sw = ctx.createLinearGradient(W * 0.2, 0, W * 0.7, H);
+      sw.addColorStop(0.40, 'rgba(0,0,0,0)');
+      sw.addColorStop(0.49, 'rgba(255,45,75,0.07)');
+      sw.addColorStop(0.52, 'rgba(22,240,200,0.08)');
+      sw.addColorStop(0.62, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sw; ctx.fillRect(0, 0, W, H);
+
+      // CRT veil scanlines
+      ctx.fillStyle = 'rgba(232,238,245,0.025)';
+      for (var sy = y; sy < y + h; sy += 3) ctx.fillRect(0, sy, W, 1);
+
+      // faint circuit etching on the right
+      circuit(ctx, 0x4f4e + idx * 977);
+
+      // vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(3,5,9,0.6)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // neon line icon at left (oni-red stroke + teal edge light)
+      drawIcon(ctx, p.icon, 30, H / 2, 34);
+
+      // a thin steel divider between icon and text
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,150,190,0.32)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(58, y + 16); ctx.lineTo(58, y + h - 16); ctx.stroke();
+      // teal tick caps
+      ctx.fillStyle = TEAL; ctx.shadowColor = TEAL; ctx.shadowBlur = 6;
+      ctx.fillRect(57, y + 16, 2, 6); ctx.fillRect(57, y + h - 22, 2, 6);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // kicker above the label — spaced techy mono caps (teal)
+      ctx.save();
+      ctx.font = '600 9px ' + monoFont();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = TEAL; ctx.shadowColor = TEAL; ctx.shadowBlur = 8;
+      drawSpaced(ctx, 'ONI CIRCUIT', 72, 32, 2.4);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // label in the sharp condensed display, RED->TEAL hard diagonal split
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var size = 30, maxW = W - 72 - 22;
+      ctx.font = '700 ' + size + 'px ' + dispFont();
+      while (ctx.measureText(p.title).width * 0.94 > maxW && size > 14){
+        size -= 1; ctx.font = '700 ' + size + 'px ' + dispFont();
+      }
+      var tx = 72, ty = 70;
+      var tw = ctx.measureText(p.title).width;
+      // squeeze horizontally for the condensed blade look
+      ctx.translate(tx, 0); ctx.scale(0.94, 1);
+      var split = ctx.createLinearGradient(0, 0, tw, 0);
+      split.addColorStop(0, ONI); split.addColorStop(0.49, ONI);
+      split.addColorStop(0.51, TEAL); split.addColorStop(1, TEAL);
+      ctx.fillStyle = split;
+      ctx.shadowColor = ONI; ctx.shadowBlur = 16;
+      ctx.fillText(p.title, 0, ty);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // glowing blade-edge underline rule under the label
+      ctx.save();
+      var barX = 72, barY = 80, barW = Math.min(tw * 0.94 + 6, W - 72 - 18);
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(255,45,75,0)');
+      grad.addColorStop(0.18, ONI);
+      grad.addColorStop(0.5, TEXT);
+      grad.addColorStop(0.82, TEAL);
+      grad.addColorStop(1, 'rgba(22,240,200,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 2;
+      ctx.shadowColor = ONI; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // diamond node at center
+      ctx.fillStyle = TEXT; ctx.shadowColor = TEAL; ctx.shadowBlur = 6;
+      ctx.save(); ctx.translate(barX + barW * 0.5, barY); ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-2.2, -2.2, 4.4, 4.4); ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // the oni-red plate frame drawn ON TOP (not clipped) + teal hairline rim
+      ctx.save();
+      platePath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, c);
+      ctx.strokeStyle = 'rgba(255,45,75,0.65)'; ctx.lineWidth = 1.5;
+      ctx.shadowColor = ONI; ctx.shadowBlur = 9; ctx.stroke();
+      ctx.shadowBlur = 0;
+      // inner teal hairline, offset up-left (the rim light)
+      platePath(ctx, x + 3.5, y + 3.5, w - 7, h - 7, c - 3);
+      ctx.strokeStyle = 'rgba(22,240,200,0.30)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+
+    function dispFont(){ return '"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif'; }
+    function monoFont(){ return '"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace'; }
+
+    // draw text with simple manual letter spacing
+    function drawSpaced(ctx, str, x, y, sp){
+      var cx = x;
+      for (var i = 0; i < str.length; i++){
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- neon line icons (oni-red stroke + soft glow; teal accents) -------
+    function drawIcon(ctx, kind, cx, cy, s){
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = ONI; ctx.fillStyle = ONI;
+      ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = ONI; ctx.shadowBlur = 8;
+
+      switch (kind){
+        case 'mask': { // tiny angular oni mask (the signature)
+          ctx.beginPath();
+          ctx.moveTo(0, -h);            ctx.lineTo(h * 0.92, -h * 0.7);
+          ctx.lineTo(h * 0.62, h * 0.55); ctx.lineTo(0, h);
+          ctx.lineTo(-h * 0.62, h * 0.55); ctx.lineTo(-h * 0.92, -h * 0.7);
+          ctx.closePath(); ctx.stroke();
+          // teal eye slits
+          ctx.strokeStyle = TEAL; ctx.shadowColor = TEAL; ctx.lineWidth = 2.4;
+          ctx.beginPath(); ctx.moveTo(-h * 0.62, -h * 0.18); ctx.lineTo(-h * 0.18, -h * 0.30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(h * 0.62, -h * 0.18);  ctx.lineTo(h * 0.18, -h * 0.30);  ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.34); ctx.lineTo(h, -h * 0.34);
+          ctx.moveTo(-h * 0.5, -h); ctx.lineTo(-h * 0.5, -h * 0.5);
+          ctx.moveTo(h * 0.5, -h);  ctx.lineTo(h * 0.5, -h * 0.5);
+          ctx.stroke();
+          ctx.fillStyle = TEAL; ctx.shadowColor = TEAL;
+          for (var r = 0; r < 2; r++) for (var col = 0; col < 3; col++){
+            ctx.beginPath(); ctx.arc(-h * 0.5 + col * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, 6.2832); ctx.fill();
+          }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++){
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.save(); ctx.translate(-h * 0.82, ly); ctx.rotate(Math.PI / 4);
+            ctx.fillRect(-1.6, -1.6, 3.2, 3.2); ctx.restore();
+            ctx.beginPath(); ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.92, 0, 6.2832); ctx.stroke();
+          ctx.strokeStyle = TEAL; ctx.shadowColor = TEAL;
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.62, 0, 6.2832); ctx.stroke();
+          ctx.fillStyle = TEAL; ctx.font = '700 ' + Math.round(s * 0.5) + 'px ' + dispFont();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.4);
+          ctx.quadraticCurveTo(0, -h * 0.82, h * 0.85, -h * 0.4);
+          ctx.lineTo(h * 0.66, h * 0.6);
+          ctx.quadraticCurveTo(h * 0.4, h * 0.82, h * 0.18, h * 0.56);
+          ctx.lineTo(-h * 0.18, h * 0.56);
+          ctx.quadraticCurveTo(-h * 0.4, h * 0.82, -h * 0.66, h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.fillStyle = TEAL; ctx.shadowColor = TEAL;
+          ctx.beginPath(); ctx.arc(-h * 0.3, 0, 2, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.3, 0, 2, 0, 6.2832); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          rrect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.fillStyle = TEAL; ctx.shadowColor = TEAL;
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32); ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02); ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          rrect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.strokeStyle = TEAL; ctx.shadowColor = TEAL;
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.26, 1.6, 0, 6.2832); ctx.fill();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85); ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1); ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15); ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.strokeStyle = TEAL; ctx.shadowColor = TEAL;
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, 6.2832); ctx.stroke();
+          break;
+        }
+        case 'shield': {
+          ctx.beginPath();
+          ctx.moveTo(0, -h);            ctx.lineTo(h * 0.78, -h * 0.6);
+          ctx.lineTo(h * 0.78, h * 0.2);
+          ctx.quadraticCurveTo(h * 0.78, h * 0.75, 0, h);
+          ctx.quadraticCurveTo(-h * 0.78, h * 0.75, -h * 0.78, h * 0.2);
+          ctx.lineTo(-h * 0.78, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          // teal check mark
+          ctx.strokeStyle = TEAL; ctx.shadowColor = TEAL; ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.32, 0); ctx.lineTo(-h * 0.06, h * 0.28); ctx.lineTo(h * 0.4, -h * 0.3);
+          ctx.stroke();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++){
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'nodes': { // community: connected node graph
+          var pts = [[-h * 0.7, -h * 0.5], [h * 0.7, -h * 0.4], [0, h * 0.2], [h * 0.4, h * 0.7], [-h * 0.5, h * 0.6]];
+          ctx.strokeStyle = 'rgba(255,45,75,0.6)'; ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[2][0], pts[2][1]);
+          ctx.moveTo(pts[1][0], pts[1][1]); ctx.lineTo(pts[2][0], pts[2][1]);
+          ctx.moveTo(pts[2][0], pts[2][1]); ctx.lineTo(pts[3][0], pts[3][1]);
+          ctx.moveTo(pts[2][0], pts[2][1]); ctx.lineTo(pts[4][0], pts[4][1]);
+          ctx.stroke();
+          for (var n = 0; n < pts.length; n++){
+            var teal = n % 2 === 1;
+            ctx.fillStyle = teal ? TEAL : ONI; ctx.shadowColor = teal ? TEAL : ONI; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(pts[n][0], pts[n][1], 2.6, 0, 6.2832); ctx.fill();
+          }
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function rrect(ctx, x, y, w, h, r){
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build(){
+      for (var i = 0; i < PANELS.length; i++){
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p, i);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function(canvas, id){
+          dl.addEventListener('click', function(e){ e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id){
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function(){
+      var i = 0;
+      (function next(){
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id); i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function(){
+      return made.map(function(m){ return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready){ document.fonts.ready.then(build); } else { build(); }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+/* ============================================================
+   BIT QUEST — alert system ("16-bit JRPG Menu")
+   A pixel JRPG DIALOG WINDOW that drops in bottom-left, holds,
+   then clears. A bright-blue rounded-rect box with a WHITE DOUBLE
+   BORDER + hard pixel drop shadow, gold corner-gem rivets, a pixel
+   ITEM-ICON plate holding the event glyph, a blinking gold cursor
+   on the event line, the blocky pixel headline (event / viewer
+   name) with a hard pixel shadow, an emphasized gold AMOUNT line
+   for value events, and a quiet sub line (ships empty). A gold
+   COIN / pixel-spark burst blooms from the icon plate on a
+   transparent canvas. Background is TRANSPARENT so the alert
+   composites over gameplay / the scene.
+   Cohesive with shared.css tokens (window blues, gold, pixel font,
+   hard --ink shadow, image-rendering:pixelated). Each event gets a
+   DISTINCT entrance motion (see alerts.js + the per-event animation
+   classes at the bottom of this file). Bespoke to THIS theme —
+   shares only the invisible engine with other sources.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --night:#2B1B4E; --night2:#1A1030; --violet:#7B5CFF; --gold:#FFCB47;
+  --teal:#3AD6C5; --pink:#FF8FB1; --text:#FFFFFF;
+  /* JRPG menu window blues */
+  --win-top:#3E63E8; --win-bot:#1B2C9E; --win-edge:#6E8BFF;
+  /* derived */
+  --ink:#150B2E; --dim:rgba(255,255,255,.62);
+  --pixel:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+  --ease:cubic-bezier(.18,.86,.26,1);
+  --step:steps(1,end);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--pixel);
+  image-rendering:pixelated; image-rendering:crisp-edges;}
+
+/* one canvas for the gold-coin / pixel-spark burst, behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;
+  image-rendering:pixelated; image-rendering:crisp-edges;}
+
+/* ---- the alert dialog window: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:840px;padding:30px 40px;
+  /* bright blue gradient fill — the JRPG menu box */
+  background:linear-gradient(180deg, var(--win-top) 0%, #2B43C4 52%, var(--win-bot) 100%);
+  border-radius:24px;
+  /* crisp white DOUBLE border + hard pixel drop shadow (mirrors the window) */
+  border:5px solid #FFFFFF;
+  box-shadow:
+    0 0 0 5px var(--win-bot),                 /* blue gap between the two white lines */
+    0 0 0 9px #FFFFFF,                          /* outer white line */
+    0 0 0 13px var(--ink),                      /* dark keyline */
+    14px 16px 0 rgba(15,8,32,.55),              /* hard drop shadow */
+    inset 0 0 0 4px var(--win-edge),            /* inner blue highlight edge */
+    inset 0 26px 52px rgba(110,139,255,.30);
+  display:grid;grid-template-columns:132px 1fr;column-gap:30px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* subtle inner top sheen on the glassy blue */
+.alert::before{content:"";position:absolute;left:12px;right:12px;top:12px;height:40%;
+  border-radius:16px 16px 32px 32px;pointer-events:none;opacity:.5;
+  background:linear-gradient(180deg, rgba(255,255,255,.22), transparent);}
+
+/* gold corner-gem rivets on the window corners (pixel diamonds) */
+.alert .gem{position:absolute;width:16px;height:16px;background:var(--gold);transform:rotate(45deg);
+  box-shadow:0 0 0 3px var(--ink), 0 0 12px rgba(255,203,71,.7);pointer-events:none;}
+.alert .gem--tl{left:18px;top:18px;}  .alert .gem--tr{right:18px;top:18px;}
+.alert .gem--bl{left:18px;bottom:18px;} .alert .gem--br{right:18px;bottom:18px;}
+
+/* ---- the pixel ITEM-ICON plate holding the event glyph ---- */
+.alert .icon{width:132px;height:132px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg, #11307F 0%, #0E2266 60%, #0B1A4E 100%);
+  border-radius:14px;
+  border:4px solid #FFFFFF;
+  box-shadow:
+    0 0 0 4px var(--ink),                       /* dark keyline around the plate */
+    7px 7px 0 rgba(15,8,32,.5),                 /* hard pixel shadow */
+    inset 0 0 0 3px var(--win-edge),            /* inner blue edge */
+    inset 0 0 26px rgba(110,139,255,.30);}
+/* a chunky scanline glaze on the plate to sell the CRT/16-bit feel */
+.alert .icon::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.4;
+  border-radius:10px;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 2px, transparent 2px 4px);}
+.alert .icon .glyph{font-family:var(--pixel);font-weight:700;font-size:68px;line-height:1;
+  color:var(--gold);text-shadow:4px 4px 0 var(--ink);
+  -webkit-text-stroke:1px var(--ink);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* the //-style kicker event line with the blinking gold pixel cursor.
+   Hidden in noname mode where the headline already shows the event. */
+.alert .kick{font-family:var(--pixel);font-weight:700;font-size:22px;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--teal);text-indent:.26em;margin:0 0 6px;
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  text-shadow:3px 3px 0 var(--ink);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .cursor{display:inline-block;color:var(--gold);font-size:24px;line-height:1;
+  text-shadow:3px 3px 0 var(--ink);transform:translateY(1px);flex:none;text-indent:0;
+  animation:alert-blink 1s var(--step) infinite;}
+@keyframes alert-blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+
+/* big blocky pixel HEADLINE — event label (noname) or viewer NAME.
+   Hard pixel shadow + text-stroke, clamped to one line. */
+.alert .name{font-family:var(--pixel);font-weight:700;font-size:64px;line-height:.98;
+  letter-spacing:.01em;text-transform:uppercase;color:var(--text);margin:0;
+  text-shadow:5px 5px 0 var(--ink);-webkit-text-stroke:2px var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* AMOUNT line (gold pixel) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat / etc. */
+.alert .amount{font-family:var(--pixel);font-weight:700;font-size:40px;letter-spacing:.02em;
+  margin:8px 0 0;display:none;line-height:1;color:var(--gold);
+  text-shadow:4px 4px 0 var(--ink), 0 0 22px rgba(255,203,71,.55);
+  -webkit-text-stroke:1px var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet pixel sub line (ships EMPTY) */
+.alert .sub{font-family:var(--pixel);font-weight:700;font-size:20px;letter-spacing:.12em;
+  color:#DDE3FF;margin:8px 0 0;text-shadow:3px 3px 0 var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a pixel divider row of gold/white blocks across the bottom of the window */
+.alert .strip{position:absolute;left:30px;right:40px;bottom:14px;height:8px;opacity:.85;
+  pointer-events:none;
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,.85) 0 8px, transparent 8px 10px, var(--gold) 10px 18px, transparent 18px 20px);
+  -webkit-mask:linear-gradient(90deg,#000,#000 58%,transparent);
+          mask:linear-gradient(90deg,#000,#000 58%,transparent);}
+
+/* a little gil-readout tag, top-right of the window */
+.alert .tagid{position:absolute;top:14px;right:24px;font-family:var(--pixel);font-weight:700;
+  font-size:14px;letter-spacing:.22em;color:var(--gold);opacity:.85;text-indent:.22em;
+  text-shadow:2px 2px 0 var(--ink);pointer-events:none;}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean drop-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .42s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateY(26px) scale(.97)}}
+
+/* 1 follower — pixel "menu open": pop up from a squashed scale (a window opening) */
+.alert.ev-follower.show{animation:fx-follower .6s var(--ease) forwards;transform-origin:18% 100%;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(22px) scale(.6)}
+  62%{opacity:1;transform:translateY(-6px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 2 subscriber — quest-banner unfurl: expand vertically (scaleY) like a scroll dropping */
+.alert.ev-subscriber.show{animation:fx-subscriber .68s var(--ease) forwards;transform-origin:50% 0%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scaleY(.06)}
+  58%{opacity:1;transform:scaleY(1.04)}
+  100%{opacity:1;transform:scaleY(1)}}
+
+/* 3 member — slide in from the LEFT with a firm pixel stop */
+.alert.ev-member.show{animation:fx-member .58s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-160px)}
+  72%{opacity:1;transform:translateX(14px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — coin bounce: hop up + tiny overshoot (energetic amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .56s var(--ease) forwards;transform-origin:18% 100%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(46px) scale(.9)}
+  52%{opacity:1;transform:translateY(-12px) scale(1.05)}
+  78%{transform:translateY(4px) scale(.99)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — treasure drop from above + heavy bounce (premium amount event) */
+.alert.ev-donation.show{animation:fx-donation .74s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-110px) scale(1.02)}
+  58%{opacity:1;transform:translateY(16px)}
+  78%{transform:translateY(-7px)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 6 host — party-link: wide horizontal expand (a menu sliding open) via scaleX */
+.alert.ev-host.show{animation:fx-host .66s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.1)}
+  60%{opacity:1;transform:scaleX(1.03)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — boss arrival: big overshoot rush in from the left + pixel shake settle */
+.alert.ev-raid.show{animation:fx-raid .82s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-300px) scale(1.05)}
+  52%{opacity:1;transform:translateX(28px) scale(1.02)}
+  68%{transform:translateX(-14px)}
+  82%{transform:translateX(8px)}
+  92%{transform:translateX(-4px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft heart pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .6s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.82)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — warp-swipe in from lower-left with a slight skew (forward dash) */
+.alert.ev-share.show{animation:fx-share .58s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-150px) skewX(-10deg)}
+  70%{opacity:1;transform:translateX(10px) skewX(3deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — level-up: drop + slight rotate settle (a star pinned to the menu) */
+.alert.ev-star.show{animation:fx-star .7s var(--ease) forwards;transform-origin:18% 20%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-80px) rotate(-5deg)}
+  62%{opacity:1;transform:translateY(9px) rotate(2deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — critical hit: zoom-in toward the viewer + settle (loud amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .7s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.4)}
+  58%{opacity:1;transform:scale(.96)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — calm rise from below (recurring support) */
+.alert.ev-supporter.show{animation:fx-supporter .68s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(60px)}
+  66%{opacity:1;transform:translateY(-6px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* the icon plate's glyph pops in slightly after the card (shared by all events) */
+.alert.show .icon .glyph{animation:fx-glyph .56s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.16)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .kick .cursor{animation:none;opacity:1;}
+#stage.render .alert .icon .glyph{animation:none!important;opacity:1;transform:scale(1);}

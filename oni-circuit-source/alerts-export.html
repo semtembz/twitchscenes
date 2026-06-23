@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Oni Circuit Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event (and toggle "no name" — the shipping mode), optionally tweak
+    name/amount, click Record — the alert plays once on a canvas mirror while it
+    records, then your browser downloads `alert-<event>.webm`. Drop it on an OBS
+    Media source as your alert overlay (or feed it to your alert box).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.3s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #05080C; color: #E8EEF5;
+      font-family: "Consolas", ui-monospace, "SFMono-Regular", "Liberation Mono", monospace; }
+    h1 { font-size: 20px; color: #16F0C8; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: rgba(232,238,245,.6); line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #E8EEF5; background: #11181F; padding: 2px 6px; border-radius: 3px; }
+    label { color: #16F0C8; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 13px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #0C1119; color: #E8EEF5;
+      border: 1px solid #1B2433; border-radius: 4px; margin-right: 16px; font-family: inherit; }
+    input[type="text"] { width: 150px; }
+    button { font-size: 14px; padding: 13px 26px; background: linear-gradient(100deg,#FF2D4B,#16F0C8);
+      color: #05080C; border: 1px solid #16F0C8; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; font-family: inherit; }
+    button:hover:not(:disabled) { filter: brightness(1.1); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .chk { display: flex; align-items: center; gap: 7px; }
+    .chk input { width: auto; margin: 0; }
+    #status { color: #16F0C8; }
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #1B2433; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #0A0E14;
+      background-image:
+        linear-gradient(45deg, #11181F 25%, transparent 25%),
+        linear-gradient(-45deg, #11181F 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #11181F 75%),
+        linear-gradient(-45deg, transparent 75%, #11181F 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Oni Circuit Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set name / amount, then click Record.
+     Leave <strong>No name</strong> on to ship the event-headline mode (your alert platform overlays
+     the live viewer name). The clip plays once on the canvas mirror below; when it finishes your
+     browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label><select id="ev"></select></span>
+    <span><label for="nm">Name</label><input id="nm" type="text" value="Viewer" /></span>
+    <span><label for="am">Amount</label><input id="am" type="text" value="500" /></span>
+    <label class="chk"><input id="noname" type="checkbox" checked /> No name (shipping)</label>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const ONI = '#FF2D4B', TEAL = '#16F0C8', TEXT = '#E8EEF5',
+          DIM = 'rgba(232,238,245,.55)', STEEL_EDGE = 'rgba(120,150,190,.22)';
+    const LIGHT = '#E8EEF5';
+    const MONO = '"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace';
+    const DISP = '"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) — subs ship EMPTY =====
+    const EVENTS = {
+      follower:   { glyph:"卩", kicker:"NEW FOLLOWER",   sub:"", sparks:14, amount:false },
+      subscriber: { glyph:"刃", kicker:"NEW SUBSCRIBER", sub:"", sparks:18, amount:false },
+      member:     { glyph:"門", kicker:"NEW MEMBER",     sub:"", sparks:18, amount:false },
+      cheer:      { glyph:"光", kicker:"CHEER",          sub:"", sparks:22, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"贈", kicker:"DONATION",       sub:"", sparks:24, amount:true,  amtPre:"$" },
+      host:       { glyph:"客", kicker:"INCOMING HOST",  sub:"", sparks:28, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+      raid:       { glyph:"襲", kicker:"RAID INBOUND",   sub:"", sparks:40, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"心", kicker:"NEW LIKE",       sub:"", sparks:14, amount:false },
+      share:      { glyph:"伝", kicker:"SHARED",         sub:"", sparks:16, amount:false },
+      star:       { glyph:"星", kicker:"NEW STAR",       sub:"", sparks:20, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"雷", kicker:"SUPER CHAT",     sub:"", sparks:26, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"援", kicker:"NEW SUPPORTER",  sub:"", sparks:20, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 140, 824 wide) =====
+    const CARD_W = 824, CARD_H = 210;
+    const CARD_X = 96;
+    const CARD_Y = H - 140 - CARD_H;
+    const SHEAR = 26;                          // parallelogram horizontal shear (px)
+
+    // ===== easing + keyframe interp (mirror alerts.js) =====
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    function kf(ms, dur, stops) {
+      const t = clamp01(ms / dur);
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const a = stops[i - 1], b = stops[i];
+          const seg = (t - a[0]) / (b[0] - a[0] || 1);
+          return a[1] + (b[1] - a[1]) * easeOut(seg);
+        }
+      }
+      return stops[stops.length - 1][1];
+    }
+
+    // per-event transform -> {dx,dy,sx,sy,rot(rad),skew(rad),ox,oy,op}
+    // ox/oy are the transform-origin (0..1) within the card box.
+    function motion(type, ms, enter) {
+      const d = enter;
+      let dx=0, dy=0, sx=1, sy=1, rot=0, skew=0, ox=0.5, oy=0.5, op=1;
+      switch (type) {
+        case 'follower':   dy = kf(ms,d,[[0,72],[.7,-9],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'subscriber': dx = kf(ms,d,[[0,-120],[.64,10],[1,0]]); dy = kf(ms,d,[[0,-60],[.64,6],[1,0]]); skew = kf(ms,d,[[0,-22],[.64,4],[1,0]])*Math.PI/180; op = clamp01(ms/(d*.5)); break;
+        case 'member':     dx = kf(ms,d,[[0,-150],[.72,15],[1,0]]); op = clamp01(ms/(d*.45)); break;
+        case 'cheer':      dy = kf(ms,d,[[0,42],[.55,-11],[1,0]]); sx=sy=kf(ms,d,[[0,.9],[.55,1.05],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; oy=0.82; break;
+        case 'donation':   dy = kf(ms,d,[[0,-96],[.6,13],[.82,-6],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'host':       sx = kf(ms,d,[[0,.1],[.6,1.03],[1,1]]); op = clamp01(ms/(d*.4)); ox=0; break;
+        case 'raid':       dx = kf(ms,d,[[0,-280],[.52,28],[.7,-14],[.85,7],[1,0]]); sx=sy=kf(ms,d,[[0,1.05],[.52,1.02],[1,1]]); op=clamp01(ms/(d*.4)); break;
+        case 'like':       sx=sy = kf(ms,d,[[0,.84],[.6,1.06],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; break;
+        case 'share':      dx = kf(ms,d,[[0,-130],[.7,9],[1,0]]); skew = kf(ms,d,[[0,-11],[.7,3],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.45)); break;
+        case 'star':       dy = kf(ms,d,[[0,-74],[.62,9],[1,0]]); rot = kf(ms,d,[[0,-5],[.62,2],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.5)); ox=0.16; oy=0.28; break;
+        case 'superchat':  sx=sy = kf(ms,d,[[0,1.4],[.6,.97],[1,1]]); op=clamp01(ms/(d*.5)); ox=0.16; break;
+        case 'supporter':  dy = kf(ms,d,[[0,56],[.62,-6],[1,0]]); sy = kf(ms,d,[[0,.92],[.62,1.02],[1,1]]); op=clamp01(ms/(d*.5)); oy=1; break;
+        default:           dy = kf(ms,d,[[0,72],[.7,-9],[1,0]]); op = clamp01(ms/(d*.5));
+      }
+      return {dx,dy,sx,sy,rot,skew,ox,oy,op};
+    }
+    const ENTER = { follower:660, subscriber:700, member:600, cheer:580, donation:780, host:680, raid:820, like:620, share:600, star:720, superchat:700, supporter:700 };
+
+    // ===== sheared blade-slab path (parallelogram, matches the clip-path) =====
+    function slabPath(x, y, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(x + SHEAR, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w - SHEAR, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+    }
+
+    // ===== faceted oni-mask plate path (matches polygon 50% 0,100% 26%,...) =====
+    function platePath(px, py, s) {
+      const pts = [[.5,0],[1,.26],[1,.74],[.5,1],[0,.74],[0,.26]];
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = px + p[0]*s, y = py + p[1]*s;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.closePath();
+    }
+
+    // ===== ember/spark burst (mirror of alerts.js) =====
+    function drawMote(p) {
+      const ang = Math.atan2(p.vy, p.vx);
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(ang);
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.strokeStyle = p.c; ctx.lineCap = 'round';
+      ctx.shadowColor = p.c; ctx.shadowBlur = 9; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(-p.len, 0); ctx.lineTo(p.len*0.5, 0); ctx.stroke();
+      ctx.restore();
+    }
+
+    // clamp a string to a pixel width in the current font
+    function clampText(str, maxW) {
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) return s;
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const enter = ENTER[type] || 660, HOLD = 4000, EXIT = 480, holdEnd = enter + HOLD;
+      const DUR = holdEnd + EXIT;
+      const burst = [];
+      let sp1 = false, sp2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n) {
+        const ox = CARD_X + 114, oy = CARD_Y + CARD_H - 64;
+        for (let i = 0; i < n; i++) {
+          const ang = R(-Math.PI, Math.PI), sp = R(60, 320)/60;
+          const roll = Math.random();
+          const c = roll < 0.46 ? ONI : roll < 0.9 ? TEAL : LIGHT;
+          burst.push({
+            x: ox + R(-34,34), y: oy + R(-34,34),
+            vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp - R(0.4,1.6),
+            g: R(120,240)/3600, len: R(6,18), a: 1, life: R(0.9,2.0), c,
+          });
+        }
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g;
+          p.vx *= 0.978; p.vy *= 0.978;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      function drawCard(m) {
+        const ox = CARD_X + m.ox * CARD_W, oy = CARD_Y + m.oy * CARD_H;
+        ctx.save();
+        ctx.globalAlpha = m.op;
+        // apply transform around the origin
+        ctx.translate(ox + m.dx, oy + m.dy);
+        ctx.scale(m.sx, m.sy);
+        ctx.rotate(m.rot);
+        ctx.transform(1, 0, Math.tan(m.skew), 1, 0, 0);   // skewX
+        ctx.translate(-ox, -oy);
+
+        const x = CARD_X, y = CARD_Y;
+
+        // ---- slab body (void slate + oni/teal corner glow) ----
+        ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 64; ctx.shadowOffsetY = 26;
+        slabPath(x, y, CARD_W, CARD_H);
+        const body = ctx.createLinearGradient(x, y, x + CARD_W, y + CARD_H);
+        body.addColorStop(0, 'rgba(12,17,25,0.92)');
+        body.addColorStop(0.52, 'rgba(10,14,20,0.94)');
+        body.addColorStop(1, 'rgba(5,8,12,0.96)');
+        ctx.fillStyle = body; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        // oni corner glow (top-left) + teal corner glow (bottom-right)
+        slabPath(x, y, CARD_W, CARD_H); ctx.save(); ctx.clip();
+        let g1 = ctx.createRadialGradient(x+SHEAR, y, 0, x+SHEAR, y, 300);
+        g1.addColorStop(0, 'rgba(255,45,75,0.16)'); g1.addColorStop(1, 'rgba(255,45,75,0)');
+        ctx.fillStyle = g1; ctx.fillRect(x, y, CARD_W, CARD_H);
+        let g2 = ctx.createRadialGradient(x+CARD_W-SHEAR, y+CARD_H, 0, x+CARD_W-SHEAR, y+CARD_H, 320);
+        g2.addColorStop(0, 'rgba(22,240,200,0.13)'); g2.addColorStop(1, 'rgba(22,240,200,0)');
+        ctx.fillStyle = g2; ctx.fillRect(x, y, CARD_W, CARD_H);
+        ctx.restore();
+        // steel hairline border
+        ctx.lineWidth = 1; ctx.strokeStyle = STEEL_EDGE;
+        slabPath(x + 0.5, y + 0.5, CARD_W - 1, CARD_H - 1); ctx.stroke();
+
+        // ---- hard oni-RED leading seam (sheared) ----
+        ctx.save();
+        const seamGrad = ctx.createLinearGradient(0, y + 14, 0, y + CARD_H - 14);
+        seamGrad.addColorStop(0, ONI); seamGrad.addColorStop(1, 'rgba(255,45,75,0.4)');
+        ctx.strokeStyle = seamGrad; ctx.lineWidth = 4;
+        ctx.shadowColor = ONI; ctx.shadowBlur = 16; ctx.lineCap = 'butt';
+        const topX = x + SHEAR + 4, botX = x + 4;
+        ctx.beginPath(); ctx.moveTo(topX, y + 14); ctx.lineTo(botX, y + CARD_H - 14); ctx.stroke();
+        ctx.restore();
+
+        // ---- sharp corner registration ticks (teal) ----
+        ctx.strokeStyle = 'rgba(22,240,200,0.85)'; ctx.lineWidth = 2;
+        ctx.shadowColor = 'rgba(22,240,200,0.55)'; ctx.shadowBlur = 7;
+        const T = 20;
+        const corners = [
+          [x + SHEAR, y, 1, 1],            // top-left (sheared in)
+          [x + CARD_W, y, -1, 1],          // top-right
+          [x, y + CARD_H, 1, -1],          // bottom-left
+          [x + CARD_W - SHEAR, y + CARD_H, -1, -1], // bottom-right (sheared in)
+        ];
+        for (const [cx, cy, sxn, syn] of corners) {
+          ctx.beginPath();
+          ctx.moveTo(cx, cy); ctx.lineTo(cx + T*sxn, cy);
+          ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + T*syn);
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+
+        // ---- 鬼 stamp watermark behind the plate ----
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,45,75,0.08)';
+        ctx.font = '120px "Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.shadowColor = 'rgba(255,45,75,0.16)'; ctx.shadowBlur = 30;
+        ctx.fillText('鬼', x + 24, y + CARD_H - 8);
+        ctx.restore();
+
+        // ---- faceted oni-mask glyph plate ----
+        const ps = 146, plx = x + 40, ply = y + (CARD_H - ps)/2;
+        platePath(plx, ply, ps);
+        const pg = ctx.createLinearGradient(plx, ply, plx, ply + ps);
+        pg.addColorStop(0, 'rgba(27,36,51,0.8)'); pg.addColorStop(1, 'rgba(5,8,12,0.94)');
+        ctx.fillStyle = pg; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,45,75,0.55)';
+        platePath(plx, ply, ps); ctx.stroke();
+        // glyph (oni-red with teal echo)
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '700 74px ' + DISP;
+        ctx.fillStyle = 'rgba(22,240,200,0.35)';
+        ctx.fillText(cfg.glyph, plx + ps/2 - 2, ply + ps/2 - 2);
+        ctx.fillStyle = ONI; ctx.shadowColor = 'rgba(255,45,75,0.6)'; ctx.shadowBlur = 22;
+        ctx.fillText(cfg.glyph, plx + ps/2, ply + ps/2);
+        ctx.shadowBlur = 0;
+
+        // ---- meta column ----
+        const mx = x + 40 + ps + 34;
+        const maxW = CARD_W - (40 + ps + 34) - 56;
+        ctx.textAlign = 'left';
+
+        // HUD readout row (mono dim) with oni LED diamond
+        ctx.textBaseline = 'middle';
+        const ry = y + 38;
+        ctx.save();
+        ctx.translate(mx + 4, ry); ctx.rotate(Math.PI/4);
+        ctx.fillStyle = ONI; ctx.shadowColor = ONI; ctx.shadowBlur = 9;
+        ctx.fillRect(-4, -4, 8, 8); ctx.restore(); ctx.shadowBlur = 0;
+        ctx.font = '14px ' + MONO; ctx.fillStyle = TEAL;
+        ctx.fillText('SYS//ONLINE', mx + 18, ry);
+        ctx.fillStyle = DIM;
+        ctx.fillText('· ONI CIRCUIT', mx + 18 + ctx.measureText('SYS//ONLINE ').width, ry);
+
+        // kicker (only when NOT noname; the > prefix is oni-red, label teal)
+        ctx.textBaseline = 'alphabetic';
+        let headY;
+        if (!noname) {
+          ctx.font = '600 18px ' + MONO;
+          ctx.fillStyle = ONI; ctx.globalAlpha = m.op * 0.85;
+          ctx.fillText('>', mx, y + 72); ctx.globalAlpha = m.op;
+          ctx.fillStyle = TEAL; ctx.shadowColor = 'rgba(22,240,200,0.4)'; ctx.shadowBlur = 10;
+          ctx.fillText(cfg.kicker, mx + 24, y + 72); ctx.shadowBlur = 0;
+          headY = y + 132;
+        } else {
+          headY = y + 116;
+        }
+
+        // big headline (condensed display, squeezed scaleX .95) — event or viewer name
+        const head = noname ? cfg.kicker : (name || 'Viewer');
+        ctx.save();
+        ctx.translate(mx, headY); ctx.scale(0.95, 1);
+        ctx.font = '700 78px ' + DISP; ctx.fillStyle = TEXT;
+        ctx.shadowColor = 'rgba(22,240,200,0.18)'; ctx.shadowBlur = 20;
+        ctx.fillText(clampText(head.toUpperCase(), maxW/0.95), 0, 0);
+        ctx.restore(); ctx.shadowBlur = 0;
+
+        // amount (hard RED->TEAL split) OR sub
+        let subY = headY + 40;
+        if (showAmount) {
+          const ay = headY + 50;
+          ctx.save();
+          ctx.translate(mx, ay); ctx.scale(0.96, 1);
+          ctx.font = '700 46px ' + DISP;
+          const txt = clampText(amountStr, maxW/0.96);
+          const tw = ctx.measureText(txt).width;
+          const ag = ctx.createLinearGradient(0, 0, tw, 0);
+          ag.addColorStop(0, ONI); ag.addColorStop(0.48, ONI);
+          ag.addColorStop(0.52, TEAL); ag.addColorStop(1, TEAL);
+          ctx.fillStyle = ag;
+          ctx.shadowColor = 'rgba(255,45,75,0.4)'; ctx.shadowBlur = 18;
+          ctx.fillText(txt, 0, 0);
+          ctx.restore(); ctx.shadowBlur = 0;
+          subY = headY + 84;
+        }
+        // sub (mono dim, uppercase) — ships EMPTY by design
+        ctx.font = '18px ' + MONO; ctx.fillStyle = DIM;
+        ctx.fillText(clampText(cfg.sub, maxW), mx, subY);
+
+        // circuit-id tag (top-right mono teal)
+        ctx.fillStyle = TEAL; ctx.globalAlpha = m.op * 0.7; ctx.textAlign = 'right';
+        ctx.font = '13px ' + MONO;
+        ctx.fillText('CIRCUIT 鬼-01', x + CARD_W - 30, y + 28);
+        ctx.globalAlpha = m.op; ctx.textAlign = 'left';
+
+        // bottom oni->teal blade rule (fades out to the right)
+        const rlY = y + CARD_H - 18, rx0 = mx, rx1 = x + CARD_W - 50;
+        const rg = ctx.createLinearGradient(rx0, 0, rx1, 0);
+        rg.addColorStop(0, ONI); rg.addColorStop(0.5, TEXT); rg.addColorStop(1, TEAL);
+        ctx.save();
+        ctx.globalAlpha = m.op * 0.75;
+        ctx.fillStyle = rg;
+        ctx.shadowColor = 'rgba(22,240,200,0.25)'; ctx.shadowBlur = 8;
+        // mask the rule's right 40% to a fade via per-segment alpha
+        for (let px = rx0; px < rx1; px += 6) {
+          const frac = (px - rx0) / (rx1 - rx0);
+          ctx.globalAlpha = m.op * 0.75 * (frac < 0.62 ? 1 : Math.max(0, 1 - (frac - 0.62) / 0.38));
+          ctx.fillRect(px, rlY, 5, 2);
+        }
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      const render = function (ms) {
+        ctx.clearRect(0, 0, W, H);
+        let m;
+        if (ms < holdEnd) {
+          m = motion(type, ms, enter);
+        } else {
+          const p = clamp01((ms - holdEnd) / EXIT);
+          m = { dx: -46*easeOut(p), dy:0, sx:1, sy:1, rot:0, skew: (-6*easeOut(p))*Math.PI/180, ox:0.5, oy:0.5, op: 1-p };
+        }
+        // bursts
+        if (!sp1 && ms >= 200) { spawn(cfg.sparks); sp1 = true; }
+        if (!sp2 && cfg.sparks >= 28 && ms >= 540) { spawn(Math.round(cfg.sparks*0.6)); sp2 = true; }
+        stepBurst();
+        if (m.op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        if (m.op > 0.01) drawCard(m);
+      };
+      render.DUR = DUR;
+      return render;
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      r(ENTER[type] + 1200);
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const c = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return c.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      const DUR = render.DUR;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

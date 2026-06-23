@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Champagne Mono — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD: a slim champagne-gold engraved strip lower-left with
+       a clean ON AIR tag + @handle, delicate deco-diamond detailing and a slow gold
+       light-sweep, plus a tiny editable monogram slot top-right. The rest of the
+       screen stays fully transparent so gameplay shows through.
+       Optional URL params: ?handle=@you   ?tag=ON%20AIR   (?tag2=- removes the slot) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no ivory page, no plate, no grain/vign/sweep layers */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a few faint drifting gold-dust motes (low alpha) hug the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- slim engraved champagne HUD strip, lower-left ---- */
+    .slot{position:absolute;left:60px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:22px;padding:0 30px;
+      background:
+        radial-gradient(120% 140% at 50% 0%, rgba(255,253,248,.78), transparent 72%),
+        linear-gradient(180deg, rgba(255,253,248,.66), rgba(237,230,218,.52));
+      border:1px solid var(--hair);
+      box-shadow:0 20px 46px rgba(156,132,88,.18), inset 0 0 38px rgba(255,253,248,.7);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* inner hairline double rule, inset from the frame (the engraved-plate feel) */
+    .slot::before{content:"";position:absolute;inset:5px;border:1px solid var(--hair-soft);
+      pointer-events:none;}
+    /* slow champagne light-sweep travels along the strip */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:130px;left:-130px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(255,251,240,.6), rgba(201,168,106,.22), transparent);
+      animation:slotsweep 7s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-130px}100%{left:100%}}
+
+    /* "ON AIR" tag — refined spaced sans caps in deep gold + a glowing gold diamond */
+    .slot .tag{display:flex;align-items:center;gap:13px;
+      font-family:var(--sans);
+      letter-spacing:.42em;font-size:18px;font-weight:500;text-transform:uppercase;
+      color:var(--gold-deep);text-indent:.42em;}
+    .slot .tag .dia{width:10px;height:10px;border:1px solid var(--gold);transform:rotate(45deg);
+      background:var(--gold);box-shadow:0 0 12px var(--gold-glow);
+      animation:pulse 2.6s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--gold-glow)}50%{opacity:.4;box-shadow:0 0 5px var(--gold-glow)}}
+
+    /* thin gold divider rule with a tiny diamond endcap, between tag and handle */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--gold-deep),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--gold);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px var(--gold-glow);}
+
+    /* handle — refined high-contrast serif in ink, lit on the light strip */
+    .slot .who{font-family:var(--serif);
+      font-weight:600;letter-spacing:.02em;font-size:28px;color:var(--ink);
+      text-shadow:0 1px 0 rgba(255,253,248,.8);white-space:nowrap;}
+
+    /* tiny editable deco monogram slot, top-right (flavor -> <span class="slot-no">23</span><span class="slot-txt">your text here</span>) */
+    .mono-tr{position:absolute;top:46px;right:60px;display:flex;align-items:center;gap:14px;
+      font-family:var(--sans);
+      letter-spacing:.5em;font-size:18px;color:var(--gold-deep);text-indent:.5em;opacity:.86;
+      white-space:nowrap;animation:fade .9s var(--ease) both .25s;}
+    .mono-tr .dia{flex:0 0 auto;width:9px;height:9px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 8px var(--gold-glow);}
+    @keyframes fade{from{opacity:0}to{opacity:.86}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .mono-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dia{animation:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .mono-tr{opacity:.86;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- editable monogram slot: type your text or delete the line (or ?tag2=-) -->
+    <div class="mono-tr is-slot" data-slot="tag2"><span class="dia" aria-hidden="true"></span><span class="slot-no">24</span><span class="slot-txt">your text here</span></div>
+
+    <div class="slot">
+      <span class="tag"><span class="dia" aria-hidden="true"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    /* ON AIR is a functional label, kept clean; ?tag= can still override it */
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- editable text slots (verbatim engine loop) ---- */
+    document.querySelectorAll("[data-slot]").forEach((el)=>{const v=params.get(el.dataset.slot); if(v==null)return; if(v==="-"||v===""||v==="none"||v==="off"){el.remove();return;} el.textContent=v; el.classList.remove("is-slot");});
+
+    /* ---- canvas: a FEW very subtle drifting gold-dust motes (low alpha) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = (cv && cv.width) || 1920, H = (cv && cv.height) || 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const dust = Array.from({ length: Math.max(0, num("dust", 30)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: R(-9, -2) / 60, sway: R(0.3, 1.2),
+      ph: R(0, 6.28), tw: R(0.6, 1.5), a: R(0.12, 0.42), warm: Math.random() < 0.4,
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const d of dust){
+        d.y += d.vy * dt * 60; d.ph += 0.035 * dt * 60; d.x += Math.sin(d.ph) * d.sway * 0.55;
+        if (d.y < -10){ d.y = H + 10; d.x = Math.random() * W; }
+        if (d.x < -12) d.x = W + 12; if (d.x > W + 12) d.x = -12;
+        const tw = 0.5 + Math.sin(d.ph * d.tw) * 0.5;
+        ctx.globalAlpha = d.a * tw;
+        ctx.fillStyle = d.warm ? "#9C8458" : "#C9A86A"; ctx.shadowColor = "#C9A86A"; ctx.shadowBlur = 5 * d.z;
+        const s = Math.max(1, Math.round(d.z * 1.6));
+        ctx.fillRect(Math.round(d.x), Math.round(d.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__champDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

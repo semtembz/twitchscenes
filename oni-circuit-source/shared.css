@@ -1,0 +1,235 @@
+/* ============================================================
+   ONI CIRCUIT — shared design system ("Cyber-Samurai Hannya")
+   A near-black void dominated by a large angular HANNYA / ONI MASK
+   motif (horns, fierce furrowed brow, fanged grin) drawn on canvas —
+   glowing oni-RED with neon-TEAL edge light and a cyber CIRCUIT
+   etching crawling across its planes. A diagonal NEON BLADE slash
+   crosses behind it with a sharp travelling glint; drifting embers /
+   sparks in red + teal rise through the dark. A kanji accent (鬼)
+   anchors a corner. The centered message is set in a sharp angular
+   condensed display, RED/TEAL split at a hard diagonal edge. Loading
+   bar = a glowing blade edge that fills. The mask + blade live in the
+   margins so the title, bar, slots + handle keep clear zones.
+   Aggressive, menacing, premium. Bespoke to THIS theme — shares only
+   the invisible engine conventions with other sources.
+   ============================================================ */
+:root{
+  /* palette (token NAMES stay stable across the source) */
+  --void:#0A0E14;        /* near-black ground */
+  --void2:#05080C;       /* deepest pit */
+  --oni:#FF2D4B;         /* oni red */
+  --teal:#16F0C8;        /* neon teal */
+  --steel:#1B2433;       /* steel structure */
+  --text:#E8EEF5;        /* light text */
+  /* derived */
+  --oni-soft:rgba(255,45,75,.55);
+  --oni-dim:rgba(255,45,75,.16);
+  --teal-soft:rgba(22,240,200,.55);
+  --teal-dim:rgba(22,240,200,.16);
+  --steel-edge:rgba(120,150,190,.22);
+  --glow-oni:rgba(255,45,75,.55);
+  --glow-teal:rgba(22,240,200,.5);
+  --dim:rgba(232,238,245,.55);
+  --display:"Bahnschrift","DIN Condensed","Haettenschweiler","Impact",system-ui,sans-serif;
+  --mono:"Consolas",ui-monospace,"SFMono-Regular","Liberation Mono",monospace;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --ease-cut:cubic-bezier(.7,0,.2,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--void2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);font-family:var(--display);
+  background:
+    radial-gradient(120% 85% at 50% 42%, rgba(27,36,51,.55), transparent 60%),
+    radial-gradient(70% 55% at 16% 14%, rgba(255,45,75,.10), transparent 60%),
+    radial-gradient(70% 55% at 86% 88%, rgba(22,240,200,.08), transparent 60%),
+    linear-gradient(160deg, #0C1119 0%, var(--void) 52%, var(--void2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- structural overlays (all pointer-events:none) ---- */
+
+/* faint cyber circuit grid + perspective floor, masked to the edges */
+.grid{position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:
+    linear-gradient(var(--teal-dim) 1px, transparent 1px) 0 0 / 100% 72px,
+    linear-gradient(90deg, var(--teal-dim) 1px, transparent 1px) 0 0 / 72px 100%;
+  -webkit-mask:radial-gradient(120% 100% at 50% 50%, transparent 30%, #000 92%);
+          mask:radial-gradient(120% 100% at 50% 50%, transparent 30%, #000 92%);}
+
+/* a slow diagonal RED/TEAL scanline shimmer (the blade's residual energy) */
+.scan{position:absolute;inset:-30% -40%;pointer-events:none;mix-blend-mode:screen;opacity:.4;
+  background:linear-gradient(118deg,
+    transparent 40%, rgba(255,45,75,.10) 48%,
+    rgba(22,240,200,.12) 51%, transparent 60%);
+  animation:scan 7s linear infinite;}
+@keyframes scan{0%{transform:translateX(-18%)}100%{transform:translateX(18%)}}
+
+/* deep vignette + subtle CRT veil to seat everything on the void */
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 340px rgba(3,5,9,.92), inset 0 0 130px rgba(3,5,9,.6);}
+.veil{position:absolute;inset:0;pointer-events:none;opacity:.18;mix-blend-mode:overlay;
+  background:repeating-linear-gradient(0deg, rgba(232,238,245,.10) 0 1px, transparent 1px 4px);}
+
+/* ---- corner registration ticks (sharp samurai bracket marks) ---- */
+.tick{position:absolute;width:54px;height:54px;pointer-events:none;opacity:.8;
+  animation:tickin .8s var(--ease) both .4s;}
+.tick::before,.tick::after{content:"";position:absolute;background:var(--teal-soft);
+  box-shadow:0 0 10px var(--glow-teal);}
+.tick::before{width:54px;height:2px;} .tick::after{width:2px;height:54px;}
+.tick--tl{left:54px;top:54px;}
+.tick--tr{right:54px;top:54px;}
+.tick--tr::before{right:0;} .tick--tr::after{right:0;}
+.tick--bl{left:54px;bottom:54px;}
+.tick--bl::before{bottom:0;} .tick--bl::after{bottom:0;}
+.tick--br{right:54px;bottom:54px;}
+.tick--br::before{right:0;bottom:0;} .tick--br::after{right:0;bottom:0;}
+@keyframes tickin{from{opacity:0;transform:scale(.5)}to{opacity:.8;transform:scale(1)}}
+
+/* ---- kanji accent (鬼) glowing oni-red in a corner ---- */
+.kanji{position:absolute;left:96px;bottom:120px;font-size:230px;line-height:1;
+  font-family:"Yu Mincho","MS Mincho","Hiragino Mincho ProN",serif;font-weight:700;
+  color:rgba(255,45,75,.12);
+  text-shadow:0 0 50px rgba(255,45,75,.30);pointer-events:none;
+  animation:kanjiin 1.4s var(--ease) both .5s;}
+.kanji::after{content:"鬼";position:absolute;left:0;top:0;
+  color:transparent;-webkit-text-stroke:2px rgba(22,240,200,.28);}
+@keyframes kanjiin{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   CENTER STACK — the message lives in a guaranteed CLEAR ZONE.
+   Mask + blade are painted on canvas to the sides/diagonal so they
+   never cross this column.
+   ============================================================ */
+.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1140px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+
+/* top crest: hard slash rule + diamond node */
+.crest{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px;
+  animation:fade .9s var(--ease) both .25s;}
+.crest .bar{width:120px;height:2px;background:linear-gradient(90deg,transparent,var(--oni));
+  box-shadow:0 0 10px var(--glow-oni);}
+.crest .bar--r{background:linear-gradient(90deg,var(--teal),transparent);
+  box-shadow:0 0 10px var(--glow-teal);}
+.crest .node{width:12px;height:12px;background:var(--text);transform:rotate(45deg);
+  box-shadow:0 0 16px var(--glow-teal),0 0 6px var(--glow-oni);}
+
+/* kicker — spaced techy mono caps */
+.kicker{font-family:var(--mono);letter-spacing:.5em;font-size:23px;font-weight:600;
+  text-transform:uppercase;color:var(--teal);text-indent:.5em;
+  text-shadow:0 0 18px rgba(22,240,200,.4);margin:0;
+  animation:fade .9s var(--ease) both .35s;}
+
+/* ---- the TITLE: sharp angular display, RED/TEAL split at a hard edge ---- */
+.title{margin:14px 0 4px;font-size:184px;line-height:.86;font-weight:700;
+  letter-spacing:.005em;text-transform:uppercase;
+  /* slight horizontal squeeze for that condensed, aggressive blade look */
+  transform:scaleX(.94);transform-origin:center;
+  color:var(--text);
+  text-shadow:0 3px 0 rgba(0,0,0,.4),0 0 70px rgba(255,45,75,.22);
+  animation:slashin .95s var(--ease-cut) both .45s;}
+.title .l1{display:block;color:var(--text);
+  text-shadow:0 0 40px rgba(22,240,200,.25),0 3px 0 rgba(0,0,0,.45);}
+/* second line carries the hard diagonal RED -> TEAL split */
+.title .l2{display:block;position:relative;
+  background:linear-gradient(100deg,
+    var(--oni) 0%, var(--oni) 48%,
+    var(--teal) 50%, var(--teal) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 36px rgba(255,45,75,.45)) drop-shadow(0 0 36px rgba(22,240,200,.32));}
+@keyframes slashin{
+  0%{opacity:0;transform:scaleX(.94) translateX(-60px) skewX(-14deg);}
+  60%{opacity:1;}
+  100%{opacity:1;transform:scaleX(.94) translateX(0) skewX(0);}}
+
+/* a hard blade-edge underline rule below the title */
+.rule{width:340px;height:2px;margin:10px auto 0;position:relative;
+  background:linear-gradient(90deg,transparent,var(--oni) 26%,var(--text) 50%,var(--teal) 74%,transparent);
+  box-shadow:0 0 14px rgba(255,45,75,.4),0 0 14px rgba(22,240,200,.3);
+  animation:fade 1s var(--ease) both .7s;}
+.rule::before,.rule::after{content:"";position:absolute;top:50%;width:8px;height:8px;
+  background:var(--text);transform:translateY(-50%) rotate(45deg);}
+.rule::before{left:-16px;box-shadow:0 0 12px var(--glow-oni);}
+.rule::after{right:-16px;box-shadow:0 0 12px var(--glow-teal);}
+
+/* subtitle — techy mono, restrained */
+.sub{margin-top:26px;font-family:var(--mono);font-size:26px;letter-spacing:.16em;
+  color:var(--dim);animation:fade 1s var(--ease) both .8s;}
+
+/* ---- loading = a glowing BLADE EDGE that fills (no numbers) ---- */
+.blade{margin-top:46px;width:560px;height:6px;position:relative;
+  background:rgba(120,150,190,.14);
+  /* sharp parallelogram so it reads as a blade edge, not a pill */
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  animation:fade 1s var(--ease) both .9s;}
+.blade .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg,var(--oni) 0%,var(--oni) 55%,var(--teal) 100%);
+  box-shadow:0 0 18px rgba(255,45,75,.7),0 0 22px rgba(22,240,200,.4);}
+/* travelling glint at the leading edge of the fill */
+.blade .fill::after{content:"";position:absolute;right:-2px;top:-7px;width:4px;height:20px;
+  background:var(--text);transform:skewX(-22deg);
+  box-shadow:0 0 16px rgba(232,238,245,.95),0 0 26px var(--glow-teal);}
+/* hairline rails framing the blade track */
+.blade::before{content:"";position:absolute;left:0;right:0;top:-6px;height:1px;
+  background:var(--steel-edge);}
+.blade::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:1px;
+  background:var(--steel-edge);}
+
+/* ---- corner data tags flanking the center column (deliberate HUD labels) ---- */
+.tag{position:absolute;font-family:var(--mono);letter-spacing:.34em;font-size:19px;
+  color:var(--teal);text-indent:.34em;opacity:.85;white-space:nowrap;
+  text-shadow:0 0 12px rgba(22,240,200,.35);
+  animation:fade 1s var(--ease) both .95s;}
+.tag::before{content:"";display:inline-block;width:9px;height:9px;margin-right:14px;
+  background:var(--oni);transform:translateY(1px) rotate(45deg);
+  box-shadow:0 0 10px var(--glow-oni);}
+.tag--tl{left:300px;top:300px;}
+.tag--tr{right:300px;top:300px;text-indent:0;}
+
+/* handle — oni-red, lower right */
+.handle{position:absolute;right:72px;bottom:64px;font-family:var(--mono);
+  letter-spacing:.3em;font-size:26px;color:var(--text);text-indent:.3em;
+  text-shadow:0 0 16px rgba(255,45,75,.45);
+  animation:fade 1s var(--ease) both 1s;}
+.handle::before{content:"> ";color:var(--teal);text-shadow:0 0 12px rgba(22,240,200,.5);}
+
+/* shared fade keyframe (transform/opacity only) */
+@keyframes fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.3em;padding:0 .26em;margin:0 .4em 0 0;
+  border:2px solid currentColor;border-radius:.3em;font-weight:800;font-style:normal;
+  text-align:center;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .scan{animation:none;display:none;}
+#stage.render .tick,
+#stage.render .kanji,
+#stage.render .crest,
+#stage.render .kicker,
+#stage.render .title,
+#stage.render .rule,
+#stage.render .sub,
+#stage.render .blade,
+#stage.render .tag,
+#stage.render .handle{animation:none!important;}
+#stage.render .title{opacity:1;transform:scaleX(.94);}
+#stage.render .crest,
+#stage.render .kicker,
+#stage.render .rule,
+#stage.render .sub,
+#stage.render .blade,
+#stage.render .tag,
+#stage.render .handle{opacity:1;transform:none;}
+#stage.render .kanji{opacity:1;transform:none;}
+#stage.render .tick{opacity:.8;transform:none;}

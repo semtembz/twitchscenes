@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Vapor Circuit — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Slots: ?kicker=... ?sub=... ?tag=... ?tag2=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- synthwave backdrop: chrome sun + perspective grid floor -->
+    <div class="sky" aria-hidden="true"></div>
+    <div class="sun" aria-hidden="true"></div>
+    <div class="horizon" aria-hidden="true"></div>
+    <div class="grid" aria-hidden="true"></div>
+    <div class="gridhaze" aria-hidden="true"></div>
+
+    <!-- animated PCB circuit traces / vias / data packets (margins only) -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- CRT sheen + vignette -->
+    <div class="scan" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">5</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-no">6</span><span class="slot-txt">your text here</span></div>
+
+    <!-- CENTER CONSOLE — the clear zone -->
+    <main class="console">
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">7</span><span class="slot-txt">your text here</span></p>
+      <h1 class="title">
+        <span class="line" data-t="BE RIGHT">BE RIGHT</span>
+        <span class="line" data-t="BACK">BACK</span>
+      </h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">8</span><span class="slot-txt">your text here</span></p>
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

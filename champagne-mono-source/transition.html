@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Champagne Mono Gold Light-Sweep Curtain</title>
+  <!--
+    CHAMPAGNE MONO stinger ("The Invitation"). A single luminous IVORY/champagne
+    curtain sweeps diagonally across the frame from the lower-left to the upper-right
+    on a soft 105deg lean (NOT a centre-meet like Velvet Lounge). The leading edge is
+    a bright champagne LIGHT-BAND — a thin gold hairline rule travels just ahead of it
+    with tiny diamond endcaps, like the engraved rule under the title. A scatter of
+    fine champagne gold-dust motes and a few delicate gilt diamonds drift up through the
+    sweep; a soft warm cream/gold light-flash blooms at full cover. The curtain then
+    slides on off the top-right and the screen clears.
+    LIGHT + airy + expensive — the opposite of the dark velvet wipe. No glitch.
+
+    Transparent before & after, deterministic (seeded RNG, no Math.random in the frame),
+    sine-driven cover (0->1->0), plays ONCE then clears.
+      ?loop=1     loop it (for previewing)
+      ?ms=1300    total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it as a
+    Stinger transition with the Transition Point at ~50% (the full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (champagne mono) ---- */
+    const IVORY = '#FBF7EF', IVORY_LT = '#FFFDF8', PAPER = '#EDE6DA';
+    const GOLD = '#C9A86A', GOLD_DEEP = '#9C8458', GOLD_LT = '#E6D2A6', CREAM = '#FFF6E2';
+    const DUSTS = [GOLD_LT, CREAM, GOLD, '#D8BE86'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- diagonal sweep geometry. The curtain travels along the screen-normal
+       of a 105deg lean: we measure each pixel's projection onto a unit axis and
+       compare it to a moving threshold. axis points toward upper-right; the band
+       has soft feathered shoulders so the leading edge reads as light, not a hard
+       cut. travel goes from fully off (lower-left) to fully past (upper-right). ---- */
+    const ANG = (105 * Math.PI) / 180;            // lean of the curtain
+    const ax = Math.cos(ANG), ay = Math.sin(ANG); // sweep axis (toward upper-right area)
+    // projection range across the whole frame corners, so we can normalise 0..1
+    const corners = [[0,0],[W,0],[0,H],[W,H]].map(([x,y]) => (x-CX)*ax + (y-CY)*ay);
+    const PMIN = Math.min(...corners), PMAX = Math.max(...corners);
+    const PSPAN = PMAX - PMIN;
+    const FEATHER = PSPAN * 0.16;                 // soft leading-edge width
+
+    /* ---- deterministic seeded RNG (mulberry-ish LCG); positions are a function of
+       t so the look is stable frame-to-frame and identical in the export. ---- */
+    let seed = 0xC9A8;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    // fine champagne gold-dust motes drifting up through the sweep
+    const N_DUST = 70;
+    const dust = Array.from({ length: N_DUST }, () => ({
+      x0: R(W * 0.06, W * 0.94), y0: R(H * 0.50, H * 1.14),
+      rise: R(H * 0.55, H * 1.18), sway: R(16, 64), swf: R(1.0, 2.6), phase: R(0, 6.2832),
+      s: R(1.2, 3.6), c: DUSTS[(rnd() * DUSTS.length) | 0],
+      lead: R(0, 0.34), span: R(0.46, 0.84), a: R(0.35, 0.9), tw: R(1.3, 2.4),
+    }));
+
+    // a few delicate larger gilt DIAMONDS (the deco endcap motif) tumbling slowly
+    const N_DIA = 9;
+    const dia = Array.from({ length: N_DIA }, () => ({
+      x0: R(W * 0.12, W * 0.88), y0: R(H * 0.62, H * 1.05),
+      rise: R(H * 0.5, H * 0.95), sway: R(20, 60), swf: R(0.8, 1.8), phase: R(0, 6.2832),
+      s: R(7, 15), rot: R(0, 6.2832), spin: R(-1.4, 1.4),
+      lead: R(0.02, 0.30), span: R(0.5, 0.82), a: R(0.45, 0.85),
+    }));
+
+    /* ---- the IVORY light curtain. We sweep a champagne-tinted ivory wash across
+       the frame on the diagonal axis. cover (0..1..0) drives the threshold so the
+       curtain rolls in to full cover at t=0.5 then rolls back out. A bright leading
+       LIGHT-BAND glows along the advancing edge. ---- */
+    function drawCurtain(cover, t) {
+      if (cover <= 0.001) return;
+      // edge position along the projection axis. At cover=1 the trailing wall has
+      // crossed enough that the whole frame is washed; we still draw a leading glow.
+      // map cover -> normalised edge in 0..1 (0 = nothing covered, 1 = fully covered)
+      const edgeN = cover;                                    // 0..1
+      const edgeP = PMIN - FEATHER + edgeN * (PSPAN + 2 * FEATHER); // proj value of the edge
+
+      // Fill the covered region with a champagne ivory gradient. We build it as a
+      // linear gradient ALONG the sweep axis so the fill itself has warm depth.
+      // gradient endpoints in screen space: from far behind the edge to the edge.
+      const gx0 = CX + (PMIN - PSPAN * 0.2) * ax, gy0 = CY + (PMIN - PSPAN * 0.2) * ay;
+      const gx1 = CX + edgeP * ax,                gy1 = CY + edgeP * ay;
+      const g = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+      g.addColorStop(0.00, IVORY);
+      g.addColorStop(0.45, IVORY_LT);
+      g.addColorStop(0.80, '#FFFCF4');
+      g.addColorStop(1.00, CREAM);
+
+      // Clip to the covered half-plane (proj <= edgeP), with a feathered shoulder
+      // approximated by drawing a soft band gradient over the boundary afterwards.
+      ctx.save();
+      // build clip polygon: all four corners that are "behind" the edge, plus the two
+      // intersection points of the edge line with the frame. Simpler & robust: fill a
+      // big rotated rect covering the behind region.
+      ctx.beginPath();
+      // a rectangle in axis-space: u in [PMIN-PSPAN, edgeP], v across the frame width
+      const vHalf = PSPAN;                                    // generous cross extent
+      const ux = ax, uy = ay, vx = -ay, vy = ax;              // u along axis, v perpendicular
+      const uA = PMIN - PSPAN, uB = edgeP;
+      const p = (u, v) => [CX + u * ux + v * vx, CY + u * uy + v * vy];
+      const c0 = p(uA, -vHalf), c1 = p(uB, -vHalf), c2 = p(uB, vHalf), c3 = p(uA, vHalf);
+      ctx.moveTo(c0[0], c0[1]); ctx.lineTo(c1[0], c1[1]);
+      ctx.lineTo(c2[0], c2[1]); ctx.lineTo(c3[0], c3[1]); ctx.closePath();
+      ctx.clip();
+
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // warm paper grain inside the curtain (subtle, multiply) so it isn't flat
+      ctx.globalAlpha = 0.05 * cover;
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = GOLD_DEEP;
+      ctx.lineWidth = 1;
+      for (let u = uA; u < uB; u += 8) {
+        const a0 = p(u, -vHalf), a1 = p(u, vHalf);
+        ctx.beginPath(); ctx.moveTo(a0[0], a0[1]); ctx.lineTo(a1[0], a1[1]); ctx.stroke();
+      }
+      ctx.restore();
+
+      // ---- the bright leading LIGHT-BAND along the advancing edge ----
+      const edgeA = Math.sin(clamp01(t) * Math.PI);           // strongest mid-sweep
+      if (edgeA > 0.02) {
+        const ux2 = ax, uy2 = ay, vx2 = -ay, vy2 = ax;
+        const pe = (u, v) => [CX + u * ux2 + v * vx2, CY + u * uy2 + v * vy2];
+        // soft wide champagne wash just behind the edge
+        const bandW = FEATHER * 1.1;
+        const bg = ctx.createLinearGradient(
+          CX + (edgeP - bandW) * ax, CY + (edgeP - bandW) * ay,
+          CX + (edgeP + bandW * 0.3) * ax, CY + (edgeP + bandW * 0.3) * ay
+        );
+        bg.addColorStop(0.0, 'rgba(255,251,240,0)');
+        bg.addColorStop(0.6, 'rgba(255,251,240,' + (0.5 * edgeA).toFixed(3) + ')');
+        bg.addColorStop(0.85, 'rgba(230,210,166,' + (0.42 * edgeA).toFixed(3) + ')');
+        bg.addColorStop(1.0, 'rgba(201,168,106,0)');
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const vH = PSPAN;
+        const q0 = pe(edgeP - bandW, -vH), q1 = pe(edgeP + bandW * 0.3, -vH);
+        const q2 = pe(edgeP + bandW * 0.3, vH), q3 = pe(edgeP - bandW, vH);
+        ctx.beginPath();
+        ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]);
+        ctx.lineTo(q2[0], q2[1]); ctx.lineTo(q3[0], q3[1]); ctx.closePath();
+        ctx.fillStyle = bg; ctx.fill();
+        ctx.restore();
+
+        // a crisp champagne HAIRLINE rule riding just ahead of the edge, with the
+        // delicate diamond endcap motif from the brand rule.
+        const lp0 = pe(edgeP, -vH), lp1 = pe(edgeP, vH);
+        ctx.save();
+        ctx.shadowColor = GOLD_LT; ctx.shadowBlur = 26;
+        ctx.globalAlpha = 0.9 * edgeA;
+        ctx.strokeStyle = GOLD_LT; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(lp0[0], lp0[1]); ctx.lineTo(lp1[0], lp1[1]); ctx.stroke();
+        // a softer deep-gold underline a hair behind
+        ctx.globalAlpha = 0.5 * edgeA; ctx.shadowBlur = 8;
+        ctx.strokeStyle = GOLD_DEEP; ctx.lineWidth = 1.2;
+        const lb0 = pe(edgeP - 5, -vH), lb1 = pe(edgeP - 5, vH);
+        ctx.beginPath(); ctx.moveTo(lb0[0], lb0[1]); ctx.lineTo(lb1[0], lb1[1]); ctx.stroke();
+        ctx.restore();
+
+        // three gilt diamond endcaps spaced along the leading rule
+        for (const fv of [-vH * 0.55, 0, vH * 0.55]) {
+          const dp = pe(edgeP, fv);
+          drawDiamond(dp[0], dp[1], lerp(6, 12, edgeA), ANG + Math.PI / 4, 0.85 * edgeA, GOLD_LT, true);
+        }
+      }
+    }
+
+    function drawDiamond(x, y, s, rot, alpha, color, glow) {
+      if (alpha <= 0.02) return;
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+      if (glow) { ctx.shadowColor = GOLD_LT; ctx.shadowBlur = 14; }
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+      ctx.fillStyle = 'rgba(201,168,106,0.16)';
+      ctx.beginPath();
+      ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawDust(t, cover) {
+      ctx.save();
+      for (const d of dust) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = d.x0 + Math.sin(d.phase + lt * d.swf * 6.2832) * d.sway;
+        const py = d.y0 - d.rise * lt;
+        const ends = Math.sin(lt * Math.PI);                 // 0 at ends, 1 mid
+        const twk = 0.55 + Math.sin(d.phase + lt * d.tw * 6.2832) * 0.45;
+        const present = lerp(0.4, 1, cover);
+        const a = d.a * ends * twk * present;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = d.c;
+        ctx.shadowColor = GOLD_LT;
+        ctx.shadowBlur = 7;
+        const s = d.s;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(px), Math.round(py - s));
+        ctx.lineTo(Math.round(px + s), Math.round(py));
+        ctx.lineTo(Math.round(px), Math.round(py + s));
+        ctx.lineTo(Math.round(px - s), Math.round(py));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawDiamonds(t, cover) {
+      for (const d of dia) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = d.x0 + Math.sin(d.phase + lt * d.swf * 6.2832) * d.sway;
+        const py = d.y0 - d.rise * lt;
+        const ends = Math.sin(lt * Math.PI);
+        const present = lerp(0.35, 1, cover);
+        const a = d.a * ends * present;
+        const s = d.s * (0.7 + 0.3 * ends);
+        drawDiamond(px, py, s, d.rot + d.spin * lt * 6.2832, a, GOLD, true);
+      }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawCurtain(cover, t);
+
+      // inner luminance vignette over the ivory wash so it reads as a lit page, not flat
+      if (cover > 0.02) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(CX, CY, H * 0.16, CX, CY, H * 0.95);
+        vg.addColorStop(0, 'rgba(255,253,248,0)');
+        vg.addColorStop(1, 'rgba(156,132,88,' + (0.16 * cover).toFixed(3) + ')');
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawDiamonds(t, cover);
+      drawDust(t, cover);
+
+      // soft cream/gold light-flash at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(255,246,226,' + (0.42 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.5, 'rgba(230,210,166,' + (0.18 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(230,210,166,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Vapor Circuit — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Outrun Motherboard" language: thin neon
+       circuit crop-brackets with via dots in the corners, a slim dark console
+       strip lower-left carrying a clean "ON AIR" status (functional, not a slot)
+       + @handle, an editable circuit-label slot top-right, and a faint drift of
+       data sparks hugging the strip. Almost everything stays transparent so the
+       gameplay shows through; all decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=ON%20AIR  ?render=1
+       Slot: ?tag2=... (top-right circuit label; use =- to remove). -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no synthwave backdrop, no grid/sun/vignette full-bleed */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of neon data sparks, very low alpha, near the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin neon circuit crop-brackets with a via dot, in the void corners ---- */
+    .ct{position:absolute;width:58px;height:58px;pointer-events:none;opacity:.78;
+      animation:ctin 1s var(--ease) both .2s;}
+    .ct::before,.ct::after{content:"";position:absolute;background:var(--cyan);
+      box-shadow:0 0 8px rgba(38,214,255,.6);}
+    .ct::before{width:58px;height:2px;} .ct::after{width:2px;height:58px;}
+    /* via dot sat at the elbow of each bracket */
+    .ct i{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--pink);
+      box-shadow:0 0 10px var(--pink);}
+    .ct--tl{left:48px;top:48px;}  .ct--tl::before{left:0;top:0;}  .ct--tl::after{left:0;top:0;}  .ct--tl i{left:-3px;top:-3px;}
+    .ct--tr{right:48px;top:48px;} .ct--tr::before{right:0;top:0;} .ct--tr::after{right:0;top:0;} .ct--tr i{right:-3px;top:-3px;}
+    .ct--bl{left:48px;bottom:48px;}  .ct--bl::before{left:0;bottom:0;}  .ct--bl::after{left:0;bottom:0;}  .ct--bl i{left:-3px;bottom:-3px;}
+    .ct--br{right:48px;bottom:48px;} .ct--br::before{right:0;bottom:0;} .ct--br::after{right:0;bottom:0;} .ct--br i{right:-3px;bottom:-3px;}
+    @keyframes ctin{from{opacity:0}to{opacity:.78}}
+
+    /* tiny mono node labels beside two brackets (circuit-readout motif) */
+    .ctlbl{position:absolute;font-family:var(--mono);font-size:12px;letter-spacing:.24em;
+      color:rgba(38,214,255,.4);pointer-events:none;animation:ctin 1s var(--ease) both .35s;}
+    .ctlbl::before{content:"// ";color:var(--pink);opacity:.7;}
+    .ctlbl--tl{left:118px;top:50px;} .ctlbl--br{right:118px;bottom:52px;text-align:right;}
+
+    /* ---- slim dark console strip, lower-left, with a neon trace edge ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:58px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 22px;
+      background:linear-gradient(180deg, rgba(26,11,46,.62), rgba(10,4,22,.5));
+      border:1px solid rgba(38,214,255,.32);
+      box-shadow:0 22px 60px rgba(0,0,0,.5),
+        inset 0 0 40px rgba(138,75,255,.10),
+        0 0 26px rgba(38,214,255,.10);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* a bright energized trace runs along the top edge of the strip */
+    .slot::before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;
+      pointer-events:none;
+      background:linear-gradient(90deg,transparent,var(--violet) 16%,var(--cyan) 50%,var(--pink) 84%,transparent);
+      box-shadow:0 0 12px rgba(38,214,255,.6);}
+    /* a travelling pulse node rides that top trace */
+    .slot::after{content:"";position:absolute;top:-4px;left:-8px;width:8px;height:8px;
+      border-radius:50%;background:#fff;pointer-events:none;mix-blend-mode:screen;
+      box-shadow:0 0 10px #fff,0 0 18px var(--cyan),0 0 28px var(--pink);
+      animation:slotpulse 4.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotpulse{0%{left:-8px;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:calc(100% + 8px);opacity:0}}
+
+    /* "ON AIR" status — CLEAN functional label, pulsing via LED + spaced mono caps */
+    .slot .tag{display:flex;align-items:center;gap:11px;
+      font-family:var(--mono);letter-spacing:.36em;font-size:16px;font-weight:600;
+      text-transform:uppercase;color:var(--cyan);text-indent:.36em;
+      text-shadow:0 0 12px rgba(38,214,255,.5);}
+    .slot .tag .led{width:9px;height:9px;border-radius:50%;background:var(--pink);
+      box-shadow:0 0 12px var(--pink);animation:vialed 1.9s ease-in-out infinite;}
+    @keyframes vialed{0%,100%{opacity:1;box-shadow:0 0 12px var(--pink)}50%{opacity:.4;box-shadow:0 0 5px var(--pink)}}
+
+    /* thin neon bus divider with a tiny via diamond between status and handle */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--cyan),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--cyan);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px rgba(38,214,255,.5);}
+
+    /* handle — gold mono, matching the synthwave handle treatment */
+    .slot .who{font-family:var(--mono);letter-spacing:.24em;font-size:24px;color:var(--gold);
+      text-indent:.24em;text-shadow:0 0 14px rgba(255,209,102,.45);white-space:nowrap;}
+
+    /* small mono circuit-label slot, top-right (editable) */
+    .node-tr{position:absolute;top:44px;right:120px;display:flex;align-items:center;gap:12px;
+      font-family:var(--mono);letter-spacing:.4em;font-size:16px;color:var(--cyan);
+      text-indent:.4em;opacity:.85;white-space:nowrap;text-shadow:0 0 12px rgba(38,214,255,.45);
+      animation:ctin 1s var(--ease) both .3s;}
+    .node-tr .pt{width:7px;height:7px;border:1px solid var(--pink);transform:rotate(45deg);
+      box-shadow:0 0 8px rgba(255,106,213,.5);}
+    /* keep the editable-slot italic/badge styling readable in the HUD */
+    .node-tr.is-slot{font-style:italic;}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .ct,#stage.render .ctlbl,#stage.render .node-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .led{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .ct,#stage.render .ctlbl{opacity:.78;}
+    #stage.render .node-tr{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin neon circuit crop-brackets with via dots in all four corners -->
+    <span class="ct ct--tl" aria-hidden="true"><i></i></span>
+    <span class="ct ct--tr" aria-hidden="true"><i></i></span>
+    <span class="ct ct--bl" aria-hidden="true"><i></i></span>
+    <span class="ct ct--br" aria-hidden="true"><i></i></span>
+    <span class="ctlbl ctlbl--tl" aria-hidden="true">NODE 7A.1C</span>
+    <span class="ctlbl ctlbl--br" aria-hidden="true">BUS 0x26D6</span>
+
+    <!-- small circuit-label slot, top-right (editable "[ your text here ]") -->
+    <div class="node-tr is-slot" id="tag2" data-slot="tag2"><span class="pt" aria-hidden="true"></span><span class="slot-no">23</span><span class="slot-txt">your text here</span></div>
+
+    <!-- slim console strip, lower-left: clean ON AIR status + @handle -->
+    <div class="slot">
+      <span class="tag"><span class="led" aria-hidden="true"></span>ON AIR</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + tag (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+    const tag = params.get("tag"), tagEl = document.querySelector(".slot .tag");
+    if (tag && tagEl) tagEl.lastChild.textContent = tag;
+
+    /* ---- editable text slots: any [data-slot] ships "[24] your text here";
+       ?slotname=Text sets it, ?slotname=- (or empty/none/off) removes it. ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      // preserve any leading decorative mark (.pt) — set text on the last child
+      const target = node.lastChild && node.lastChild.nodeType === 3 ? node.lastChild : node;
+      target.textContent = v;
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a few subtle drifting neon data sparks (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x7A1C >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const NEON = ["#FF6AD5","#8A4BFF","#26D6FF"];
+    const sparks = Array.from({ length: Math.max(0, num("sparks", 46)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.5), vx: R(-3, 3)/60, vy: R(-3, 4)/60,
+      ph: R(0, 6.28), tw: R(0.4, 1.3), a: R(0.16, 0.5), c: NEON[(srnd()*NEON.length)|0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of sparks){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.04 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.55 + Math.sin(p.ph * p.tw) * 0.45;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 6 * p.z;
+        const sz = Math.max(1, Math.round(p.z * 1.6));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__vaporDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

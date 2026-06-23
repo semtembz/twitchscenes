@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Champagne Mono — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one editorial champagne-gold ~16:9 webcam frame.
+       Place your camera BEHIND this overlay; the inside of the frame is fully
+       transparent so the camera shows through it.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630
+       Editable slot: ?cap=...  (=- removes the top-left caption slot) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint gold-dust motes drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);
+      animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* champagne-gold hairline border; INSIDE stays transparent.
+       a thin luminous frame matching the editorial plate language. */
+    .frame{position:absolute;inset:0;background:transparent;
+      border:1px solid var(--hair);
+      box-shadow:
+        0 0 0 1px rgba(255,253,248,.45),
+        0 0 24px rgba(201,168,106,.30),
+        0 18px 60px rgba(156,132,88,.18),
+        inset 0 0 28px rgba(255,253,248,.30);}
+    /* inner hairline double rule, inset from the frame (transparent inside) */
+    .frame::before{content:"";position:absolute;inset:11px;border:1px solid var(--hair-soft);
+      pointer-events:none;}
+    /* a slow champagne light-sweep crawling along the frame edges */
+    .frame::after{content:"";position:absolute;inset:-1px;pointer-events:none;mix-blend-mode:screen;
+      background:linear-gradient(115deg, transparent 42%, rgba(255,251,240,.5) 49%, rgba(201,168,106,.18) 51%, transparent 60%);
+      background-size:260% 100%;
+      animation:framesweep 9s linear infinite;}
+    @keyframes framesweep{0%{background-position:150% 0}100%{background-position:-60% 0}}
+
+    /* delicate gold filigree flourishes in every corner of the frame
+       (same engraved language as the centered plate) */
+    .corner{position:absolute;width:104px;height:104px;pointer-events:none;opacity:.95;
+      animation:cornerin 1.1s var(--ease) both .3s;}
+    .corner svg{width:100%;height:100%;display:block;}
+    .corner--tl{left:16px;top:16px;}
+    .corner--tr{right:16px;top:16px;transform:scaleX(-1);}
+    .corner--bl{left:16px;bottom:16px;transform:scaleY(-1);}
+    .corner--br{right:16px;bottom:16px;transform:scale(-1,-1);}
+    @keyframes cornerin{from{opacity:0}to{opacity:.95}}
+
+    /* handle nameplate — engraved ivory plate clipped to bottom-center of the frame */
+    .plate-tag{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:14px;white-space:nowrap;
+      background:
+        radial-gradient(120% 160% at 50% 0%, rgba(255,253,248,.85), transparent 75%),
+        linear-gradient(180deg, rgba(255,253,248,.78), rgba(237,230,218,.62));
+      border:1px solid var(--hair);padding:9px 30px;
+      box-shadow:0 14px 32px rgba(156,132,88,.2), inset 0 0 24px rgba(255,253,248,.7);}
+    .plate-tag::before{content:"";position:absolute;inset:4px;border:1px solid var(--hair-soft);
+      pointer-events:none;}
+    .plate-tag .who{font-family:var(--serif);
+      font-weight:600;letter-spacing:.02em;font-size:26px;color:var(--ink);
+      text-shadow:0 1px 0 rgba(255,253,248,.8);}
+    .plate-tag .dia{width:9px;height:9px;border:1px solid var(--gold);transform:rotate(45deg);
+      background:var(--gold);box-shadow:0 0 10px var(--gold-glow);
+      animation:pulse 2.6s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* small editable caption slot + diamond, top-left above the frame */
+    .cap{position:absolute;left:6px;top:-44px;display:flex;align-items:center;gap:13px;
+      font-family:var(--sans);
+      letter-spacing:.5em;font-size:17px;color:var(--gold-deep);text-indent:.5em;opacity:.88;
+      white-space:nowrap;}
+    .cap .dia{flex:0 0 auto;width:8px;height:8px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 8px var(--gold-glow);}
+
+    /* corner crest mark — thin gold double rule + diamond, top-right above the frame */
+    .crest-tr{position:absolute;right:6px;top:-46px;display:flex;align-items:center;gap:14px;}
+    .crest-tr .r{width:66px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-deep));}
+    .crest-tr .dia{width:11px;height:11px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 12px var(--gold-glow);}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .corner{animation:none!important;}
+    #stage.render .frame::after{animation:none;display:none;}
+    #stage.render .plate-tag .dia{animation:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .corner{opacity:.95;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- delicate gold filigree flourishes in every corner of the frame -->
+      <span class="corner corner--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.3" stroke-linecap="round">
+            <path d="M6 6 L48 6"/><path d="M6 6 L6 48"/>
+            <path d="M6 6 C40 8 60 28 62 62"/>
+            <path d="M14 14 C36 16 50 30 52 52" stroke="#9C8458" stroke-width="1"/>
+          </g>
+          <circle cx="6" cy="6" r="3.2" fill="#9C8458"/>
+          <circle cx="62" cy="62" r="2.4" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.3" stroke-linecap="round">
+            <path d="M6 6 L48 6"/><path d="M6 6 L6 48"/>
+            <path d="M6 6 C40 8 60 28 62 62"/>
+            <path d="M14 14 C36 16 50 30 52 52" stroke="#9C8458" stroke-width="1"/>
+          </g>
+          <circle cx="6" cy="6" r="3.2" fill="#9C8458"/>
+          <circle cx="62" cy="62" r="2.4" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.3" stroke-linecap="round">
+            <path d="M6 6 L48 6"/><path d="M6 6 L6 48"/>
+            <path d="M6 6 C40 8 60 28 62 62"/>
+            <path d="M14 14 C36 16 50 30 52 52" stroke="#9C8458" stroke-width="1"/>
+          </g>
+          <circle cx="6" cy="6" r="3.2" fill="#9C8458"/>
+          <circle cx="62" cy="62" r="2.4" fill="#C9A86A"/>
+        </svg>
+      </span>
+      <span class="corner corner--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C9A86A" stroke-width="1.3" stroke-linecap="round">
+            <path d="M6 6 L48 6"/><path d="M6 6 L6 48"/>
+            <path d="M6 6 C40 8 60 28 62 62"/>
+            <path d="M14 14 C36 16 50 30 52 52" stroke="#9C8458" stroke-width="1"/>
+          </g>
+          <circle cx="6" cy="6" r="3.2" fill="#9C8458"/>
+          <circle cx="62" cy="62" r="2.4" fill="#C9A86A"/>
+        </svg>
+      </span>
+
+      <!-- editable caption slot: type your text or delete the line (or ?cap=-) -->
+      <span class="cap is-slot" data-slot="cap"><span class="dia" aria-hidden="true"></span><span class="slot-no">25</span><span class="slot-txt">your text here</span></span>
+      <span class="crest-tr" aria-hidden="true"><span class="r"></span><span class="dia"></span></span>
+      <div class="plate-tag"><span class="dia" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- editable text slots (verbatim engine loop) ---- */
+    document.querySelectorAll("[data-slot]").forEach((el)=>{const v=params.get(el.dataset.slot); if(v==null)return; if(v==="-"||v===""||v==="none"||v==="off"){el.remove();return;} el.textContent=v; el.classList.remove("is-slot");});
+
+    /* ---- canvas: faint gold-dust motes drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = (cv && cv.width) || 1920, H = (cv && cv.height) || 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const dust = Array.from({ length: Math.max(0, num("dust", 38)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: R(-9, -2) / 60, sway: R(0.3, 1.2),
+      ph: R(0, 6.28), tw: R(0.6, 1.5), a: R(0.12, 0.4), warm: Math.random() < 0.4,
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const d of dust){
+        d.y += d.vy * dt * 60; d.ph += 0.035 * dt * 60; d.x += Math.sin(d.ph) * d.sway * 0.55;
+        if (d.y < -10){ d.y = H + 10; d.x = Math.random() * W; }
+        if (d.x < -12) d.x = W + 12; if (d.x > W + 12) d.x = -12;
+        const tw = 0.5 + Math.sin(d.ph * d.tw) * 0.5;
+        ctx.globalAlpha = d.a * tw;
+        ctx.fillStyle = d.warm ? "#9C8458" : "#C9A86A"; ctx.shadowColor = "#C9A86A"; ctx.shadowBlur = 5 * d.z;
+        const s = Math.max(1, Math.round(d.z * 1.6));
+        ctx.fillRect(Math.round(d.x), Math.round(d.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__champDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

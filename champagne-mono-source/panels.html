@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Champagne Mono — Twitch Panels (generator)</title>
+  <!--
+    CHAMPAGNE MONO · "The Invitation" — Twitch profile PANELS generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the light editorial
+    champagne-gold-on-ivory invitation language:
+        - a luminous ivory engraved card with a thin champagne-gold hairline
+          frame + an inset double-rule
+        - delicate gold filigree corner flourishes (matching the plate corners)
+        - a thin deep-gold deco LINE icon (heart, calendar, list, ...)
+        - the label set in a high-contrast Didot serif (ink) with a small
+          spaced sans kicker above it and a hairline gold underline w/ diamond
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Champagne Mono palette (mirrors shared.css tokens) ---- */
+    :root{
+      --ivory:#FBF7EF; --paper:#EDE6DA; --gold:#C9A86A; --gold-deep:#9C8458;
+      --ink:#13110D; --dim:rgba(19,17,13,.52);
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;
+      font-family:"Optima","Gill Sans","Futura","Century Gothic",system-ui,sans-serif;
+      color:var(--ink);padding:36px 32px 60px;min-height:100vh;
+      background:
+        radial-gradient(900px 540px at 50% -8%, #FFFDF8, transparent 60%),
+        radial-gradient(700px 480px at 100% 110%, rgba(201,168,106,.10), transparent 60%),
+        linear-gradient(168deg, #FEFBF5, var(--ivory) 52%, var(--paper));}
+    .kicker{font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
+      letter-spacing:6px;font-size:12px;color:var(--gold-deep);text-transform:uppercase;
+      margin:0 0 8px;display:flex;align-items:center;gap:11px;text-indent:6px;}
+    .dia{width:9px;height:9px;border:1px solid var(--gold);transform:rotate(45deg);
+      box-shadow:0 0 10px rgba(201,168,106,.45);}
+    h1{font-family:"Didot","Bodoni MT","Bodoni 72","Hoefler Text",Georgia,serif;
+      font-weight:600;font-size:32px;letter-spacing:.5px;margin:0 0 6px;color:var(--ink);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:720px;line-height:1.6;
+      font-family:"Didot","Bodoni MT",Georgia,serif;font-style:italic;font-size:17px;}
+    code{font-family:"Courier New",monospace;color:var(--gold-deep);
+      background:rgba(201,168,106,.12);padding:2px 7px;border-radius:3px;font-style:normal;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;font-weight:600;
+      font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:12px 24px;cursor:pointer;
+      color:var(--ivory);background:linear-gradient(180deg,var(--gold),var(--gold-deep));
+      border:1px solid rgba(156,132,88,.6);border-radius:2px;
+      box-shadow:0 6px 24px rgba(156,132,88,.22);}
+    button:hover{filter:brightness(1.05);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(255,253,248,.65);padding:16px;border-radius:4px;
+      border:1px solid rgba(156,132,88,.28);box-shadow:0 10px 30px rgba(156,132,88,.10);}
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame{border-radius:3px;overflow:hidden;display:block;background-color:#EDE6DA;
+      background-image:
+        linear-gradient(45deg,#dcd2c020 25%,transparent 25%),
+        linear-gradient(-45deg,#dcd2c020 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#dcd2c020 75%),
+        linear-gradient(-45deg,transparent 75%,#dcd2c020 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;
+      margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:"Optima","Gill Sans",system-ui,sans-serif;letter-spacing:2px;
+      color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:"Optima","Gill Sans",system-ui,sans-serif;letter-spacing:1px;
+      color:var(--gold-deep);text-decoration:none;
+      border:1px solid rgba(156,132,88,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(201,168,106,.16);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>CHAMPAGNE MONO · PANELS</p>
+  <h1>Champagne Mono — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the editorial invitation style:
+    a luminous ivory card, a thin champagne-gold hairline frame, filigree corners, and a
+    delicate deep-gold deco line icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var IVORY = '#FBF7EF', PAPER = '#EDE6DA';
+    var GOLD = '#C9A86A', GOLD_DEEP = '#9C8458', INK = '#13110D';
+    var DIM = 'rgba(19,17,13,0.52)';
+
+    // ---- Panel inventory (12, per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'people' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // delicate gold filigree corner flourish (mirrors the plate-corner SVG):
+    // an L of hairlines + a sweeping inner curl + two node dots. Drawn from a
+    // top-left origin; flip with scale() to place in other corners.
+    function filigree(ctx, ox, oy, s, flipX, flipY) {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      // outer L rules
+      ctx.strokeStyle = GOLD; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(2, 2); ctx.lineTo(2 + s * 0.78, 2);
+      ctx.moveTo(2, 2); ctx.lineTo(2, 2 + s * 0.78);
+      ctx.stroke();
+      // sweeping outer curl
+      ctx.beginPath();
+      ctx.moveTo(2, 2);
+      ctx.bezierCurveTo(s * 0.72, 2 + s * 0.06, s * 1.05, s * 0.5, s * 1.08, s * 1.08);
+      ctx.stroke();
+      // inner hairline curl (deep gold)
+      ctx.strokeStyle = GOLD_DEEP; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(2 + s * 0.22, 2 + s * 0.22);
+      ctx.bezierCurveTo(s * 0.64, s * 0.30, s * 0.9, s * 0.55, s * 0.92, s * 0.92);
+      ctx.stroke();
+      // node dots
+      ctx.fillStyle = GOLD_DEEP;
+      ctx.beginPath(); ctx.arc(2, 2, 2, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = GOLD;
+      ctx.beginPath(); ctx.arc(s * 1.08, s * 1.08, 1.6, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // soft warm bloom (blurred radial gradient) — keeps the ivory card lit
+    function bloom(ctx, cx, cy, rad, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0,    'rgba(201,168,106,' + alpha + ')');
+      g.addColorStop(0.6,  'rgba(201,168,106,' + (alpha * 0.32).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(201,168,106,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 4;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+      var rad = 5;
+
+      // ivory engraved card body (luminous, lightly warm)
+      ctx.save();
+      roundRect(ctx, x, y, w, h, rad);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(255,253,248,0.96)');
+      bg.addColorStop(1, 'rgba(237,230,218,0.94)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // warm blooms keep the card lit, not flat
+      bloom(ctx, 64, 18, 130, 0.16);
+      bloom(ctx, 260, 92, 120, 0.10);
+
+      // faint warm paper grain (subtle horizontal striping)
+      ctx.fillStyle = 'rgba(156,132,88,0.030)';
+      for (var sy = y; sy < y + h; sy += 3) ctx.fillRect(0, sy, W, 1);
+
+      // gentle inner luminance vignette (light, not dark)
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(255,253,248,0.20)');
+      vg.addColorStop(1, 'rgba(156,132,88,0.06)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // filigree corner flourishes (small, in all four corners)
+      var fs = 20;
+      filigree(ctx, x + 5,     y + 5,     fs, false, false);
+      filigree(ctx, x + w - 5, y + 5,     fs, true,  false);
+      filigree(ctx, x + 5,     y + h - 5, fs, false, true);
+      filigree(ctx, x + w - 5, y + h - 5, fs, true,  true);
+
+      // thin deep-gold deco LINE icon (left zone)
+      drawIcon(ctx, p.icon, 28, H / 2, 28);
+
+      // a thin vertical gold hairline separating icon zone from text
+      ctx.save();
+      var ruleX = x + 50;
+      ctx.strokeStyle = 'rgba(156,132,88,0.55)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ruleX, y + 18); ctx.lineTo(ruleX, y + h - 18); ctx.stroke();
+      // diamond endcaps on the rule
+      ctx.fillStyle = GOLD;
+      [y + 18, y + h - 18].forEach(function (cy) {
+        ctx.save(); ctx.translate(ruleX, cy); ctx.rotate(Math.PI / 4);
+        ctx.strokeStyle = GOLD; ctx.lineWidth = 1; ctx.strokeRect(-2.2, -2.2, 4.4, 4.4);
+        ctx.restore();
+      });
+      ctx.restore();
+
+      // small spaced sans kicker above the label
+      ctx.save();
+      ctx.font = '600 9px "Optima","Gill Sans",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = GOLD_DEEP;
+      drawSpaced(ctx, 'CHAMPAGNE MONO', 64, 32, 2.0);
+      ctx.restore();
+
+      // label in high-contrast Didot serif (ink), shrink-to-fit
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 28;
+      var maxW = W - 64 - 22;
+      ctx.font = '600 ' + size + 'px "Didot","Bodoni MT","Hoefler Text",Georgia,serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '600 ' + size + 'px "Didot","Bodoni MT","Hoefler Text",Georgia,serif';
+      }
+      ctx.fillStyle = INK;
+      ctx.fillText(label, 64, 70);
+      ctx.restore();
+
+      // delicate gold underline rule with a center diamond
+      ctx.save();
+      var barX = 64, barY = 80, barW = W - 64 - 22;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0,    'rgba(201,168,106,0)');
+      grad.addColorStop(0.20, GOLD_DEEP);
+      grad.addColorStop(0.5,  GOLD);
+      grad.addColorStop(0.80, GOLD_DEEP);
+      grad.addColorStop(1,    'rgba(201,168,106,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.strokeStyle = GOLD;
+      ctx.save(); ctx.translate(barX + barW * 0.5, barY); ctx.rotate(Math.PI / 4);
+      ctx.strokeRect(-2.4, -2.4, 4.8, 4.8); ctx.restore();
+      ctx.restore();
+
+      // the champagne-gold frame: hairline double border ON TOP (not clipped)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(156,132,88,0.62)'; ctx.lineWidth = 1;
+      roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, rad);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(156,132,88,0.30)'; ctx.lineWidth = 1;
+      roundRect(ctx, x + 4.5, y + 4.5, w - 9, h - 9, Math.max(2, rad - 2));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw text with simple manual letter spacing (px between chars)
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- thin deep-gold deco LINE icons -----------------------------------
+    // Consistent thin gold stroke, centred on (cx, cy), ~s px box.
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = GOLD_DEEP;
+      ctx.fillStyle = GOLD_DEEP;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.2, 0, 6.2832);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.save(); ctx.translate(-h * 0.78, ly); ctx.rotate(Math.PI / 4);
+            ctx.strokeRect(-1.5, -1.5, 3, 3); ctx.restore();   // deco diamond bullet
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, 6.2832); ctx.stroke();
+          ctx.font = '600 ' + Math.round(s * 0.56) + 'px "Didot",Georgia,serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 1.8, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 1.8, 0, 6.2832); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          ctx.strokeRect(-h, -h * 0.55, s, s * 0.95);
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.5, 0, 6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, 6.2832); ctx.stroke();
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          ctx.save(); ctx.translate(0, -h * 0.25); ctx.rotate(Math.PI / 4);
+          ctx.strokeRect(-2, -2, 4, 4); ctx.restore();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rr2 = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rr2, Y = Math.sin(ang) * rr2;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'people': {
+          // two refined head+shoulders silhouettes
+          ctx.beginPath(); ctx.arc(-h * 0.42, -h * 0.28, h * 0.34, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(-h * 0.42, h * 0.62, h * 0.62, Math.PI * 1.15, Math.PI * 1.85);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.5, -h * 0.18, h * 0.30, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(h * 0.5, h * 0.66, h * 0.56, Math.PI * 1.18, Math.PI * 1.82);
+          ctx.stroke();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

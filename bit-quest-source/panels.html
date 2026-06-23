@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bit Quest — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the BIT QUEST 16-bit JRPG
+    language:
+        - a blue JRPG dialog/menu WINDOW (bright-blue vertical gradient fill)
+        - a crisp WHITE DOUBLE BORDER + a hard pixel drop shadow + dark keyline
+        - gold pixel corner gem rivets
+        - a chunky pixel LINE/SPRITE icon (heart, calendar, scroll, coin, ...)
+        - a blinking gold pixel "menu cursor" beside the blocky pixel label
+    Pixel feel comes from a blocky monospace at weight 700, a hard pixel
+    text-shadow, and image-rendering:pixelated. No CDN fonts.
+
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Bit Quest 16-bit JRPG palette (mirrors shared.css tokens) ---- */
+    :root {
+      --night:#2B1B4E; --night2:#1A1030;
+      --violet:#7B5CFF; --gold:#FFCB47; --teal:#3AD6C5; --pink:#FF8FB1;
+      --text:#FFFFFF;
+      --win-top:#3E63E8; --win-bot:#1B2C9E; --win-edge:#6E8BFF;
+      --ink:#150B2E; --dim:rgba(255,255,255,.62);
+      --pixel:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--pixel); font-weight: 700;
+      color: var(--text);
+      padding: 36px 32px 60px;
+      image-rendering: pixelated;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(123,92,255,0.28), transparent 60%),
+        radial-gradient(90% 70% at 84% 110%, rgba(58,214,197,0.10), transparent 60%),
+        linear-gradient(176deg, #34215C 0%, #2B1B4E 46%, #1A1030 100%);
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: var(--pixel); font-weight: 700;
+      letter-spacing: .30em; font-size: 13px;
+      color: var(--teal); text-transform: uppercase; margin: 0 0 10px;
+      display: flex; align-items: center; gap: 12px; text-shadow: 3px 3px 0 var(--ink);
+    }
+    .cur { color: var(--gold); text-shadow: 2px 2px 0 var(--ink); }
+    h1 { font-family: var(--pixel); font-weight: 700; font-size: 34px; letter-spacing: .02em;
+      margin: 0 0 8px; color: var(--text);
+      text-shadow: 4px 4px 0 var(--ink); -webkit-text-stroke: 1px var(--ink); }
+    h1 .accent { color: var(--gold); text-shadow: 4px 4px 0 var(--ink); }
+    p.lead { color: #DDE3FF; margin: 0 0 24px; max-width: 760px; line-height: 1.7;
+      font-family: var(--pixel); font-weight: 700; font-size: 15px; }
+    code { font-family: var(--pixel); color: var(--gold);
+      background: rgba(255,203,71,0.12); padding: 2px 7px; border-radius: 3px; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: var(--pixel); font-weight: 700;
+      font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+      padding: 13px 24px; cursor: pointer; color: var(--ink);
+      background: linear-gradient(180deg, #FFE89A, var(--gold));
+      border: 3px solid #FFFFFF; border-radius: 0;
+      box-shadow: 0 0 0 3px var(--ink), 6px 6px 0 rgba(15,8,32,0.5);
+    }
+    button:hover { filter: brightness(1.06); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(27,17,48,0.55); padding: 16px; border-radius: 4px;
+      border: 2px solid rgba(110,139,255,0.34);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 3px; overflow: hidden; display: block;
+      background-color: #150B2E;
+      background-image:
+        linear-gradient(45deg, #2b1b4e40 25%, transparent 25%),
+        linear-gradient(-45deg, #2b1b4e40 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2b1b4e40 75%),
+        linear-gradient(-45deg, transparent 75%, #2b1b4e40 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; image-rendering: pixelated; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: var(--pixel); font-weight: 700; letter-spacing: .12em;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: var(--pixel); font-weight: 700; letter-spacing: .08em;
+      color: var(--gold); text-decoration: none;
+      border: 2px solid rgba(255,203,71,0.4); border-radius: 2px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(255,203,71,0.16); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="cur">&#9654;</span>BIT QUEST &middot; PANELS</p>
+  <h1>BIT QUEST &mdash; TWITCH <span class="accent">PANELS</span></h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the 16-bit JRPG style:
+    a blue dialog window, white double border, gold gem rivets, a blinking menu cursor,
+    and a chunky pixel icon. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about &rarr; Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var GOLD = '#FFCB47', GOLD_HI = '#FFE89A', GOLD_LO = '#C9881C';
+    var TEAL = '#3AD6C5', PINK = '#FF8FB1', VIOLET = '#7B5CFF';
+    var WIN_TOP = '#3E63E8', WIN_MID = '#2B43C4', WIN_BOT = '#1B2C9E', WIN_EDGE = '#6E8BFF';
+    var INK = '#150B2E', TEXT = '#FFFFFF', SUB = '#DDE3FF';
+    var FONT = '"Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+
+    // ---- Panel inventory (12, per the design brief) ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'scroll' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'shield' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'party' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // gold pixel gem rivet (diamond w/ ink keyline) — the window-corner signature
+    function gem(ctx, cx, cy, d) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = INK;   ctx.fillRect(-d - 2, -d - 2, (d + 2) * 2, (d + 2) * 2);
+      ctx.fillStyle = GOLD;  ctx.fillRect(-d, -d, d * 2, d * 2);
+      ctx.fillStyle = GOLD_HI; ctx.fillRect(-d, -d, d, d);
+      ctx.restore();
+    }
+
+    // ---- the JRPG dialog WINDOW (matches the .window CSS exactly) ----------
+    // draws the layered white double border + ink keyline + hard drop shadow.
+    function drawWindow(ctx, x, y, w, h, r) {
+      // hard pixel drop shadow
+      ctx.fillStyle = 'rgba(15,8,32,0.55)';
+      roundRect(ctx, x + 5, y + 6, w, h, r); ctx.fill();
+      // dark keyline (outermost)
+      ctx.fillStyle = INK;
+      roundRect(ctx, x - 4, y - 4, w + 8, h + 8, r + 4); ctx.fill();
+      // outer white line
+      ctx.fillStyle = '#FFFFFF';
+      roundRect(ctx, x - 3, y - 3, w + 6, h + 6, r + 3); ctx.fill();
+      // blue gap between the two white lines
+      ctx.fillStyle = WIN_BOT;
+      roundRect(ctx, x - 1.5, y - 1.5, w + 3, h + 3, r + 1.5); ctx.fill();
+      // inner white line
+      ctx.fillStyle = '#FFFFFF';
+      roundRect(ctx, x, y, w, h, r); ctx.fill();
+      // bright blue gradient fill
+      var g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, WIN_TOP); g.addColorStop(0.52, WIN_MID); g.addColorStop(1, WIN_BOT);
+      ctx.fillStyle = g;
+      roundRect(ctx, x + 2.5, y + 2.5, w - 5, h - 5, Math.max(2, r - 2)); ctx.fill();
+      // inner blue highlight edge
+      ctx.save();
+      roundRect(ctx, x + 2.5, y + 2.5, w - 5, h - 5, Math.max(2, r - 2)); ctx.clip();
+      ctx.strokeStyle = WIN_EDGE; ctx.lineWidth = 2;
+      roundRect(ctx, x + 4, y + 4, w - 8, h - 8, Math.max(2, r - 3)); ctx.stroke();
+      // top sheen
+      var sh = ctx.createLinearGradient(0, y, 0, y + h * 0.45);
+      sh.addColorStop(0, 'rgba(255,255,255,0.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sh; ctx.fillRect(x, y, w, h * 0.45);
+      ctx.restore();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = false;
+
+      var m = 8;                       // outer margin (room for keyline + shadow)
+      var x = m, y = m, w = W - m * 2 - 3, h = H - m * 2 - 4;
+      drawWindow(ctx, x, y, w, h, 14);
+
+      // gold gem rivets in the corners
+      var gi = 13;
+      gem(ctx, x + gi, y + gi, 4);
+      gem(ctx, x + w - gi, y + gi, 4);
+      gem(ctx, x + gi, y + h - gi, 4);
+      gem(ctx, x + w - gi, y + h - gi, 4);
+
+      // chunky pixel icon, left side
+      var iconCx = x + 40, iconCy = y + h / 2;
+      drawIcon(ctx, p.icon, iconCx, iconCy, 34);
+
+      // a thin pixel divider between icon and label
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      for (var dy = y + 22; dy < y + h - 22; dy += 8) ctx.fillRect(x + 68, dy, 3, 4);
+
+      var textX = x + 80;
+
+      // kicker line with blinking-style gold cursor ▶ (rendered solid)
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = GOLD;
+      ctx.font = '700 13px ' + FONT;
+      pixShadow(ctx, function () { ctx.fillText('▶', textX, y + 34); }, 2, GOLD);
+      ctx.fillStyle = TEAL;
+      ctx.font = '700 11px ' + FONT;
+      pixShadow(ctx, function () { drawSpaced(ctx, 'MENU', textX + 22, y + 33, 2.2); }, 2, TEAL);
+
+      // label — blocky pixel caps, shrink-to-fit, with a hard pixel shadow
+      var label = p.title;
+      var size = 28;
+      var maxW = (x + w) - textX - 18;
+      ctx.font = '700 ' + size + 'px ' + FONT;
+      while (ctx.measureText(label).width > maxW && size > 13) {
+        size -= 1; ctx.font = '700 ' + size + 'px ' + FONT;
+      }
+      var ty = y + h - 22;
+      // hard pixel shadow (ink), then white face with gold-block underline accent
+      ctx.fillStyle = INK; ctx.fillText(label, textX + 3, ty + 3);
+      ctx.fillStyle = TEXT; ctx.fillText(label, textX, ty);
+
+      // a chunky gold/white pixel underline (EXP-bar flavored) under the label
+      var ux = textX, uw = Math.min(maxW, ctx.measureText(label).width);
+      var uy = y + h - 14;
+      for (var ub = 0; ub * 9 < uw; ub++) {
+        ctx.fillStyle = (ub % 2 === 0) ? GOLD : '#FFFFFF';
+        ctx.fillRect(ux + ub * 9, uy, 6, 4);
+      }
+    }
+
+    // run a draw fn with a hard pixel (offset) shadow in `col`
+    function pixShadow(ctx, fn, off, col) {
+      var prev = ctx.fillStyle;
+      ctx.save(); ctx.fillStyle = INK;
+      ctx.translate(off, off); fn(); ctx.restore();
+      ctx.fillStyle = col || prev; fn();
+    }
+
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        ctx.fillText(str[i], cx, y);
+        cx += ctx.measureText(str[i]).width + sp;
+      }
+    }
+
+    // ---- chunky pixel icons (filled blocky sprites, not hairline) ---------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      // soft gold glow behind the sprite
+      ctx.shadowColor = 'rgba(255,203,71,0.45)'; ctx.shadowBlur = 8;
+      ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+
+      switch (kind) {
+        case 'heart': {
+          ctx.fillStyle = PINK;
+          ctx.fillRect(-h, -h * 0.6, h * 0.7, h * 0.7);
+          ctx.fillRect(h * 0.3, -h * 0.6, h * 0.7, h * 0.7);
+          ctx.fillRect(-h, -h * 0.15, s, h * 0.55);
+          ctx.beginPath();
+          ctx.moveTo(-h, h * 0.4); ctx.lineTo(0, h); ctx.lineTo(h, h * 0.4); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#FFB9CC'; ctx.fillRect(-h * 0.8, -h * 0.45, h * 0.4, h * 0.4);
+          break;
+        }
+        case 'calendar': {
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(-h, -h * 0.7, s, s * 0.9);
+          ctx.fillStyle = PINK;      ctx.fillRect(-h, -h * 0.7, s, h * 0.4);
+          ctx.fillStyle = INK;       ctx.fillRect(-h * 0.6, -h, 4, h * 0.5); ctx.fillRect(h * 0.4, -h, 4, h * 0.5);
+          ctx.fillStyle = VIOLET;
+          for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++)
+            ctx.fillRect(-h * 0.55 + c * h * 0.5, -h * 0.05 + r * h * 0.4, 4, 4);
+          break;
+        }
+        case 'scroll': {
+          ctx.fillStyle = '#EBDCB0'; ctx.fillRect(-h * 0.8, -h * 0.8, s * 0.8, s * 0.8);
+          ctx.fillStyle = GOLD;      ctx.fillRect(-h, -h * 0.85, s * 0.2, s * 0.85);
+          ctx.fillRect(h * 0.6, -h * 0.85, s * 0.2, s * 0.85);
+          ctx.fillStyle = '#8A6A3A';
+          for (var i = 0; i < 3; i++) ctx.fillRect(-h * 0.55, -h * 0.45 + i * h * 0.45, h * 1.0, 3);
+          break;
+        }
+        case 'coin': {
+          ctx.fillStyle = INK;  ctx.beginPath(); ctx.arc(0, 0, h * 0.96, 0, 6.283); ctx.fill();
+          ctx.fillStyle = GOLD_LO; ctx.beginPath(); ctx.arc(0, 0, h * 0.86, 0, 6.283); ctx.fill();
+          ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.283); ctx.fill();
+          ctx.fillStyle = GOLD_HI; ctx.beginPath(); ctx.arc(-h * 0.22, -h * 0.22, h * 0.18, 0, 6.283); ctx.fill();
+          ctx.fillStyle = '#8A5A0E';
+          ctx.font = '700 ' + Math.round(s * 0.6) + 'px ' + FONT;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.shadowBlur = 0; ctx.fillText('G', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.fillStyle = VIOLET;
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 7); ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath(); ctx.arc(-h * 0.34, 0, 3.2, 0, 6.283); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.34, 0, 3.2, 0, 6.283); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.fillStyle = TEAL;
+          ctx.beginPath();
+          ctx.moveTo(-h, h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h, -h * 0.4, h * 0.85, -h * 0.75);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h, h * 0.2);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'play': {
+          ctx.fillStyle = '#FFFFFF'; roundRect(ctx, -h, -h * 0.7, s, s * 0.9, 5); ctx.fill();
+          ctx.fillStyle = PINK;      roundRect(ctx, -h + 3, -h * 0.7 + 3, s - 6, s * 0.9 - 6, 4); ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.2, -h * 0.3); ctx.lineTo(-h * 0.2, h * 0.28); ctx.lineTo(h * 0.42, 0); ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          ctx.fillStyle = '#FFFFFF'; roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.fill();
+          ctx.fillStyle = VIOLET;    ctx.fillRect(-h * 0.4, -h * 0.85, h * 0.8, h * 0.4);
+          ctx.fillStyle = INK;       ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.42, 0, 6.283); ctx.fill();
+          ctx.fillStyle = TEAL;      ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.28, 0, 6.283); ctx.fill();
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(h * 0.5, -h * 0.4, 5, 5);
+          break;
+        }
+        case 'tag': {
+          ctx.fillStyle = GOLD;
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-h * 0.45, -h * 0.45, 3.5, 0, 6.283); ctx.fill();
+          break;
+        }
+        case 'shield': {
+          ctx.fillStyle = TEAL;
+          ctx.beginPath();
+          ctx.moveTo(0, -h * 0.9);
+          ctx.lineTo(h * 0.85, -h * 0.55);
+          ctx.lineTo(h * 0.85, h * 0.2);
+          ctx.lineTo(0, h * 0.95);
+          ctx.lineTo(-h * 0.85, h * 0.2);
+          ctx.lineTo(-h * 0.85, -h * 0.55);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          // a pixel star on the shield
+          star(ctx, 0, -h * 0.05, h * 0.42, h * 0.18, 5); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.fillStyle = GOLD;
+          star(ctx, 0, 0, h * 0.95, h * 0.42, 5); ctx.fill();
+          ctx.fillStyle = GOLD_HI;
+          star(ctx, 0, -h * 0.1, h * 0.45, h * 0.2, 5); ctx.fill();
+          break;
+        }
+        case 'party': {
+          // three pixel heads (community)
+          var heads = [[-h * 0.55, GOLD], [0, TEAL], [h * 0.55, PINK]];
+          heads.forEach(function (hd) {
+            ctx.fillStyle = hd[1];
+            ctx.beginPath(); ctx.arc(hd[0], -h * 0.25, h * 0.28, 0, 6.283); ctx.fill();
+            roundRect(ctx, hd[0] - h * 0.32, h * 0.05, h * 0.64, h * 0.6, 4); ctx.fill();
+          });
+          break;
+        }
+        default:
+          ctx.fillStyle = GOLD; ctx.fillRect(-h * 0.6, -h * 0.6, s * 0.6, s * 0.6);
+      }
+      ctx.restore();
+    }
+
+    // n-point star path (centered)
+    function star(ctx, cx, cy, outer, inner, points) {
+      ctx.beginPath();
+      for (var i = 0; i < points * 2; i++) {
+        var rad = (i % 2 === 0) ? outer : inner;
+        var a = -Math.PI / 2 + i * Math.PI / points;
+        var px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+/* ============================================================
+   BIT QUEST — shared design system ("16-bit JRPG Menu")
+   A cozy SNES-era fantasy RPG. Behind everything: a tiled 16-bit
+   WORLD MAP drawn on a pixel canvas (grass/water/path/forest tiles
+   on an integer grid, image-rendering:pixelated) with a little
+   AIRSHIP drifting across the sky and twinkling overworld STARS.
+   The centerpiece is the iconic blue JRPG DIALOG / MENU WINDOW:
+   a rounded-rect box with a bright blue gradient fill, a crisp
+   WHITE DOUBLE BORDER and a hard drop shadow, holding the message
+   in a blocky 16-bit pixel font (hard pixel shadow). A pixel
+   cursor "▶" marks the active line; chunky HP/MP pixel bars and a
+   pixel-coin token sit at the edges as accents. The loading bar is
+   a JRPG "EXP" bar that fills in chunky pixel segments. Sprites are
+   kept to the margins so the window + bar stay clear. Bespoke to
+   THIS theme — shares only the invisible engine with other sources.
+   ============================================================ */
+:root{
+  /* palette (token NAMES stay stable across the source) */
+  --night:#2B1B4E;     /* deep RPG night */
+  --night2:#1A1030;    /* deeper night (vignette base) */
+  --violet:#7B5CFF;    /* violet */
+  --gold:#FFCB47;      /* gold */
+  --teal:#3AD6C5;      /* teal */
+  --pink:#FF8FB1;      /* pink */
+  --text:#FFFFFF;      /* white text */
+  /* JRPG menu window blues */
+  --win-top:#3E63E8;   /* bright window top */
+  --win-bot:#1B2C9E;   /* deep window bottom */
+  --win-edge:#6E8BFF;  /* inner blue edge */
+  /* derived */
+  --ink:#150B2E;       /* hard pixel shadow ink */
+  --dim:rgba(255,255,255,.62);
+  --pixel:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+  --ease:cubic-bezier(.18,.86,.26,1);
+  --step:steps(1,end);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);font-family:var(--pixel);
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  background:
+    radial-gradient(120% 80% at 50% 14%, rgba(123,92,255,.30), transparent 60%),
+    radial-gradient(90% 70% at 84% 96%, rgba(58,214,197,.10), transparent 60%),
+    linear-gradient(176deg, #34215C 0%, var(--night) 46%, var(--night2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;
+  image-rendering:pixelated; image-rendering:crisp-edges;}
+
+/* faint chunky scanline veil to sell the CRT/16-bit feel */
+.scanlines{position:absolute;inset:0;pointer-events:none;opacity:.16;mix-blend-mode:overlay;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.0) 0 3px, rgba(0,0,0,.6) 3px 4px);}
+/* deep RPG-night vignette to seat the scene */
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 360px rgba(15,8,32,.86), inset 0 0 120px rgba(15,8,32,.5);}
+
+/* ===== edge SPRITE accents (kept to the margins, away from text) ===== */
+/* chunky HP/MP pixel status bars — top-left party readout */
+.party{position:absolute;left:60px;top:60px;display:flex;flex-direction:column;gap:14px;
+  animation:popin .5s var(--ease) both .55s;}
+.stat{display:flex;align-items:center;gap:14px;}
+.stat .lbl{font-family:var(--pixel);font-weight:700;font-size:22px;letter-spacing:.12em;
+  color:var(--gold);text-shadow:3px 3px 0 var(--ink);width:46px;}
+.stat .gauge{position:relative;width:236px;height:20px;background:#0E0726;
+  border:3px solid #0E0726;box-shadow:0 0 0 3px rgba(255,255,255,.85), 7px 7px 0 rgba(15,8,32,.55);}
+.stat .gv{position:absolute;left:0;top:0;height:100%;
+  background-image:repeating-linear-gradient(90deg, transparent 0 18px, rgba(15,8,32,.45) 18px 20px);}
+.stat .gv.hp{width:84%;background-color:var(--pink);}
+.stat .gv.mp{width:62%;background-color:var(--teal);}
+
+/* a small pixel COIN / gil token — top-right accent */
+.coin{position:absolute;right:78px;top:64px;display:flex;align-items:center;gap:16px;
+  animation:popin .5s var(--ease) both .7s;}
+.coin .amt{font-family:var(--pixel);font-weight:700;font-size:26px;letter-spacing:.08em;
+  color:var(--gold);text-shadow:3px 3px 0 var(--ink);}
+.coin .tok{width:42px;height:42px;border-radius:50%;
+  background:radial-gradient(circle at 38% 34%, #FFE89A, var(--gold) 60%, #C9881C 100%);
+  box-shadow:inset 0 0 0 4px #C9881C, 0 0 0 4px var(--ink), 6px 6px 0 rgba(15,8,32,.5);
+  position:relative;}
+.coin .tok::after{content:"G";position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--pixel);font-weight:700;font-size:22px;color:#8A5A0E;}
+.coin .tok{animation:coinspin 3.4s var(--ease) infinite;}
+@keyframes coinspin{0%,72%{transform:scaleX(1)}82%{transform:scaleX(.18)}92%{transform:scaleX(1)}100%{transform:scaleX(1)}}
+
+/* ===== the centered JRPG MENU / DIALOG WINDOW (signature) ===== */
+.window{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1180px;min-height:498px;padding:64px 92px 76px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  /* bright blue gradient fill */
+  background:linear-gradient(180deg, var(--win-top) 0%, #2B43C4 52%, var(--win-bot) 100%);
+  border-radius:30px;
+  /* crisp white DOUBLE border + hard pixel drop shadow */
+  border:5px solid #FFFFFF;
+  box-shadow:
+    0 0 0 5px var(--win-bot),                 /* blue gap between the two white lines */
+    0 0 0 10px #FFFFFF,                        /* outer white line */
+    0 0 0 14px var(--ink),                     /* dark keyline */
+    18px 22px 0 rgba(15,8,32,.55),             /* hard drop shadow */
+    inset 0 0 0 4px var(--win-edge),           /* inner blue highlight edge */
+    inset 0 30px 60px rgba(110,139,255,.30);
+  animation:winin .62s var(--ease) both .12s;}
+/* subtle inner top sheen on the glassy blue */
+.window::before{content:"";position:absolute;left:14px;right:14px;top:14px;height:38%;
+  border-radius:20px 20px 40px 40px;pointer-events:none;opacity:.5;
+  background:linear-gradient(180deg, rgba(255,255,255,.22), transparent);}
+@keyframes winin{from{opacity:0;transform:translate(-50%,-50%) scale(.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* pixel CURSOR ▶ that blinks beside the kicker line */
+.cursor{display:inline-block;color:var(--gold);font-size:30px;line-height:1;margin-right:16px;
+  text-shadow:3px 3px 0 var(--ink);transform:translateY(2px);
+  animation:blink 1s var(--step) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+
+/* a little gold corner gem on each window corner (pixel rivets) */
+.gem{position:absolute;width:18px;height:18px;background:var(--gold);transform:rotate(45deg);
+  box-shadow:0 0 0 3px var(--ink), 0 0 14px rgba(255,203,71,.7);}
+.gem--tl{left:24px;top:24px;} .gem--tr{right:24px;top:24px;}
+.gem--bl{left:24px;bottom:24px;} .gem--br{right:24px;bottom:24px;}
+
+/* kicker — pixel caps with the blinking cursor */
+.kicker{display:flex;align-items:center;justify-content:center;margin:0 0 6px;
+  font-family:var(--pixel);font-weight:700;font-size:24px;letter-spacing:.30em;
+  text-transform:uppercase;color:var(--teal);text-indent:.30em;
+  text-shadow:3px 3px 0 var(--ink);}
+
+/* the blocky 16-bit pixel TITLE with a hard pixel shadow */
+.title{margin:8px 0 4px;font-family:var(--pixel);font-weight:700;
+  font-size:118px;line-height:.96;letter-spacing:.02em;text-transform:uppercase;
+  color:var(--text);
+  text-shadow:6px 6px 0 var(--ink), 0 0 0 #000;
+  -webkit-text-stroke:2px var(--ink);}
+.title .line{display:block;}
+.title .accent{color:var(--gold);
+  text-shadow:6px 6px 0 var(--ink), 0 0 26px rgba(255,203,71,.55);
+  -webkit-text-stroke:2px var(--ink);}
+
+/* a pixel divider row of gold blocks under the title */
+.divider{display:flex;gap:8px;justify-content:center;margin:14px 0 2px;}
+.divider i{width:16px;height:16px;background:rgba(255,255,255,.85);box-shadow:0 0 0 3px var(--ink);}
+.divider i:nth-child(2n){background:var(--gold);}
+
+/* sub — quiet pixel caption */
+.sub{margin:18px 0 0;font-family:var(--pixel);font-weight:700;font-size:24px;
+  letter-spacing:.14em;color:#DDE3FF;text-shadow:3px 3px 0 var(--ink);}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.3em;padding:0 .26em;margin:0 .4em 0 0;
+  border:2px solid currentColor;border-radius:.3em;font-weight:800;font-style:normal;
+  text-align:center;line-height:1.35;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* loading = a JRPG "EXP" bar that fills in chunky pixel segments (no numbers) */
+.exp{margin-top:42px;width:620px;height:30px;position:relative;
+  background:#0E0726;
+  border:4px solid #0E0726;
+  box-shadow:0 0 0 4px rgba(255,255,255,.9), 12px 12px 0 rgba(15,8,32,.5);}
+.exp .label{position:absolute;left:0;top:-40px;font-family:var(--pixel);font-weight:700;
+  font-size:22px;letter-spacing:.18em;color:var(--gold);text-shadow:3px 3px 0 var(--ink);}
+.exp .fill{position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(180deg, #8AF6EA 0%, var(--teal) 55%, #1E9C8E 100%);
+  /* clip the fill into discrete pixel cells so it reads as chunky EXP segments */
+  -webkit-mask:repeating-linear-gradient(90deg, #000 0 30px, transparent 30px 36px);
+          mask:repeating-linear-gradient(90deg, #000 0 30px, transparent 30px 36px);}
+/* bright leading edge of the fill */
+.exp .fill::after{content:"";position:absolute;right:0;top:0;width:4px;height:100%;
+  background:#CFFFF7;box-shadow:0 0 12px rgba(58,214,197,.9);}
+
+/* @handle — gold pixel nameplate, lower-right, on its own little plate */
+.handle{position:absolute;right:60px;bottom:54px;
+  font-family:var(--pixel);font-weight:700;font-size:26px;letter-spacing:.16em;
+  color:var(--gold);text-shadow:3px 3px 0 var(--ink);
+  padding:10px 20px;background:rgba(27,17,48,.72);
+  border:3px solid #FFFFFF;box-shadow:0 0 0 3px var(--ink), 7px 7px 0 rgba(15,8,32,.5);}
+
+@keyframes popin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .window,
+#stage.render .party,
+#stage.render .coin{animation:none!important;opacity:1!important;transform:none;}
+#stage.render .window{transform:translate(-50%,-50%) scale(1);}
+#stage.render .cursor{animation:none;opacity:1;}
+#stage.render .coin .tok{animation:none;transform:none;}

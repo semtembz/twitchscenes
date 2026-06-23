@@ -1,0 +1,282 @@
+/* ============================================================
+   VAPOR CIRCUIT — alert system ("Bus Packet")
+   A neon DATA-PACKET that docks bottom-left like a board component:
+   a dark chip-plate edged with a pink->violet->cyan chrome rail, a
+   hexagonal VIA NODE holding the event glyph, a //-prefixed circuit
+   kicker, a CHROME name (pink->violet->cyan gradient + scanline sheen
+   + glossy reflection), an emphasized neon AMOUNT readout for value
+   events, and a travelling trace strip across the bottom. TRANSPARENT
+   background so the packet composites over gameplay / the scene.
+   Cohesive with shared.css tokens: outrun palette, Eurostile display +
+   Consolas mono stacks, chrome title treatment, neon trace + via motif.
+   Each event gets a DISTINCT entrance motion (see alerts.js + the
+   per-event animation classes near the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --bg:#1A0B2E; --bg2:#10071F; --bg3:#0A0416;
+  --pink:#FF6AD5; --violet:#8A4BFF; --cyan:#26D6FF; --gold:#FFD166;
+  --text:#F3E9FF; --chrome-hi:#FFFFFF; --chrome-lo:#7A6BB0;
+  /* derived */
+  --trace:rgba(38,214,255,.5);
+  --rail:rgba(38,214,255,.45);
+  --rail-soft:rgba(138,75,255,.22);
+  --plate:rgba(16,7,31,.80);
+  --plate2:rgba(10,4,22,.72);
+  --dim:#C9B6F2;
+  --ease:cubic-bezier(.16,.84,.28,1);
+  --display:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+  --mono:"Consolas","SFMono-Regular",ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--mono);}
+
+/* one canvas for the data-packet spark burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert packet: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:828px;padding:32px 44px 34px 40px;
+  background:
+    radial-gradient(120% 130% at 0% 0%, rgba(138,75,255,.20), transparent 62%),
+    linear-gradient(150deg, var(--plate), var(--plate2));
+  border:1px solid var(--rail);
+  /* chip-plate corner cut (top-left + bottom-right) — a board component */
+  clip-path:polygon(
+    0 22px, 22px 0,
+    100% 0,
+    100% calc(100% - 22px), calc(100% - 22px) 100%,
+    0 100%);
+  box-shadow:
+    0 38px 110px rgba(0,0,0,.6),
+    0 0 70px rgba(38,214,255,.10),
+    inset 0 0 80px rgba(16,7,31,.5);
+  display:grid;grid-template-columns:140px 1fr;column-gap:32px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* faint inner chrome rail echoing the clip + a soft sheen sheet */
+.alert::before{content:"";position:absolute;inset:8px;pointer-events:none;opacity:.7;
+  border:1px solid var(--rail-soft);clip-path:inherit;}
+
+/* a slow neon light-sweep travelling diagonally across the plate */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.55;
+  background:linear-gradient(115deg, transparent 42%, rgba(38,214,255,.16) 49%,
+    rgba(255,106,213,.10) 51%, transparent 60%);
+  animation:alert-sweep 4.2s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-32%)}100%{transform:translateX(32%)}}
+
+/* bright chrome RAIL down the left edge — the bus accent */
+.alert .rail{position:absolute;left:8px;top:24px;bottom:24px;width:4px;
+  background:linear-gradient(180deg,var(--pink),var(--violet) 50%,var(--cyan));
+  box-shadow:0 0 16px rgba(38,214,255,.8),0 0 10px rgba(255,106,213,.6);}
+
+/* ---- the hexagonal VIA glyph NODE ---- */
+.alert .node{width:140px;height:140px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* hexagonal clip — a board via */
+  clip-path:polygon(25% 3%,75% 3%,99% 50%,75% 97%,25% 97%,1% 50%);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(38,214,255,.24), transparent 60%),
+    radial-gradient(120% 120% at 50% 100%, rgba(255,106,213,.18), transparent 60%),
+    linear-gradient(160deg, rgba(26,11,46,.92), rgba(10,4,22,.96));
+  box-shadow:inset 0 0 0 1px var(--rail), inset 0 0 30px rgba(38,214,255,.14);}
+.alert .node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.45;
+  clip-path:polygon(25% 3%,75% 3%,99% 50%,75% 97%,25% 97%,1% 50%);
+  box-shadow:inset 0 0 0 1px var(--rail-soft);}
+.alert .node .glyph{font-family:var(--display);font-size:66px;line-height:1;
+  font-weight:700;color:var(--cyan);
+  text-shadow:0 0 22px rgba(38,214,255,.7), 0 0 12px rgba(255,106,213,.5), 0 2px 1px rgba(10,4,22,.6);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* clinical mono readout row (LED + bus id) */
+.alert .read{font-family:var(--mono);font-size:14px;letter-spacing:.16em;color:var(--dim);
+  display:flex;align-items:center;gap:16px;margin:0 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;opacity:.8;}
+.alert .read .led{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 10px var(--cyan);flex:none;
+  animation:alert-blink 1.5s steps(1,end) infinite;}
+@keyframes alert-blink{0%,70%{opacity:1}71%,100%{opacity:.2}}
+.alert .read .ok{color:var(--cyan);}
+
+/* the //-prefixed kicker event label (hidden in noname mode where the
+   big headline already shows the event) */
+.alert .kick{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--pink);text-indent:.42em;margin:0 0 4px;
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  text-shadow:0 0 14px rgba(255,106,213,.5);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick::before{content:"//";color:var(--cyan);opacity:.8;letter-spacing:0;}
+
+/* big chrome EVENT / NAME headline — pink->violet->cyan gradient + reflection */
+.alert .name{position:relative;font-family:var(--display);font-size:80px;line-height:.92;
+  font-weight:700;letter-spacing:.01em;text-transform:uppercase;margin:0;
+  font-stretch:expanded;
+  background:linear-gradient(180deg,
+    #FFFFFF 0%, #E9D6FF 16%, var(--pink) 42%, var(--violet) 64%, var(--cyan) 88%, #BFF4FF 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,.08);
+  filter:drop-shadow(0 0 26px rgba(255,106,213,.4)) drop-shadow(0 3px 0 rgba(10,4,22,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* chrome scanline sheen striped across the glyph faces */
+.alert .name::before{content:attr(data-t);position:absolute;inset:0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;pointer-events:none;
+  background:repeating-linear-gradient(180deg, rgba(255,255,255,.5) 0 2px, transparent 2px 7px);
+  mix-blend-mode:screen;opacity:.5;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount readout (neon chrome gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--display);font-size:44px;font-weight:700;letter-spacing:.01em;
+  margin:8px 0 0;display:none;line-height:1;font-stretch:expanded;
+  background:linear-gradient(180deg,var(--text) 0%,var(--cyan) 48%,var(--pink) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(38,214,255,.45));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet mono telemetry sub-line (ships EMPTY by spec; reserved slot) */
+.alert .sub{font-family:var(--mono);font-size:18px;letter-spacing:.14em;color:var(--dim);
+  margin:8px 0 0;min-height:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin travelling TRACE strip across the bottom of the packet
+   (via-dash track that echoes the loading bar) */
+.alert .strip{position:absolute;left:40px;right:44px;bottom:14px;height:3px;opacity:.75;
+  border-radius:2px;
+  background:repeating-linear-gradient(90deg,
+    rgba(38,214,255,.7) 0 12px, transparent 12px 18px);
+  -webkit-mask:linear-gradient(90deg,#000,#000 62%,transparent);
+          mask:linear-gradient(90deg,#000,#000 62%,transparent);}
+/* a pulse node riding the strip */
+.alert .strip::after{content:"";position:absolute;left:0;top:50%;width:10px;height:10px;
+  transform:translate(-50%,-50%);border-radius:50%;background:#fff;
+  box-shadow:0 0 10px #fff,0 0 18px var(--cyan);
+  animation:strip-run 2.6s linear infinite;}
+@keyframes strip-run{0%{left:0;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:60%;opacity:0}}
+
+/* bus-id tag readout, top-right of the packet */
+.alert .nid{position:absolute;top:16px;right:26px;font-family:var(--mono);
+  font-size:13px;letter-spacing:.32em;color:var(--cyan);opacity:.7;text-indent:.32em;
+  text-transform:uppercase;}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/drop-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .46s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-44px) scale(.985)}}
+
+/* 1 follower — calm rise up from below (a component seats onto the board) */
+.alert.ev-follower.show{animation:fx-follower .66s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(72px)}
+  70%{opacity:1;transform:translateY(-8px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — power-up: scale from a point + unblur (energizing) */
+.alert.ev-subscriber.show{animation:fx-subscriber .72s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.6);filter:blur(8px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — slide in from the left along the bus with a firm dock */
+.alert.ev-member.show{animation:fx-member .6s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(14px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick pop + upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .58s var(--ease) forwards;transform-origin:18% 80%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(42px) scale(.9)}
+  55%{opacity:1;transform:translateY(-12px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + settle bounce (premium, amount event) */
+.alert.ev-donation.show{animation:fx-donation .76s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-96px)}
+  60%{opacity:1;transform:translateY(12px)}
+  82%{transform:translateY(-5px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal expand (bus opens) via scaleX */
+.alert.ev-host.show{animation:fx-host .68s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.1)}
+  60%{opacity:1;transform:scaleX(1.02)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big arrival: overshoot rush in from the left + shake settle */
+.alert.ev-raid.show{animation:fx-raid .82s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.05)}
+  55%{opacity:1;transform:translateX(28px) scale(1.02)}
+  72%{transform:translateX(-13px)}
+  86%{transform:translateX(7px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft pulse-in (a node lights up) */
+.alert.ev-like.show{animation:fx-like .62s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe in from lower-left (forward signal) */
+.alert.ev-share.show{animation:fx-share .6s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-130px) skewX(-10deg)}
+  70%{opacity:1;transform:translateX(8px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + rotate settle (a chip pinned to the board) */
+.alert.ev-star.show{animation:fx-star .72s var(--ease) forwards;transform-origin:18% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-72px) rotate(-5deg)}
+  62%{opacity:1;transform:translateY(8px) rotate(2deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — zoom-in toward the viewer + settle (loud, amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .7s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.4)}
+  60%{opacity:1;transform:scale(.96)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + unblur from the right edge (recurring support glides in) */
+.alert.ev-supporter.show{animation:fx-supporter .7s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateX(60px) translateY(20px);filter:blur(6px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateX(0) translateY(0);filter:blur(0)}}
+
+/* glyph via node pops in slightly after the card (shared by all events) */
+.alert.show .node .glyph{animation:fx-glyph .6s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.16)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .strip::after{animation:none;display:none;}
+#stage.render .alert .read .led{animation:none;opacity:1;}
+#stage.render .alert .node .glyph{animation:none!important;opacity:1;transform:scale(1);}

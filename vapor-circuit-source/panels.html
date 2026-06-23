@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vapor Circuit — Twitch Panels (generator)</title>
+  <!--
+    VAPOR CIRCUIT · "Outrun Motherboard" Twitch PANELS generator.
+
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Vapor Circuit synthwave
+    language:
+        - a dark-purple PCB plate with a thin neon-cyan frame + corner vias
+        - a tiny perspective-grid floor + horizon seam glowing at the bottom
+        - margin-routed right-angle CIRCUIT TRACES (pink/violet/cyan) with via dots
+        - a neon line icon (heart, calendar, list, ...) in a left node-well
+        - the label in a wide chrome outrun sans with a pink->violet->cyan glow
+    Each panel has its own Download button + a "Download all".
+
+    All random scatter is from a SEEDED LCG (no Math.random), so re-running
+    produces an identical set. Fonts are system/web-safe (no CDN).
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Vapor Circuit palette (mirrors shared.css tokens) ---- */
+    :root{
+      --bg:#1A0B2E; --bg2:#10071F; --bg3:#0A0416;
+      --pink:#FF6AD5; --violet:#8A4BFF; --cyan:#26D6FF; --gold:#FFD166;
+      --text:#F3E9FF; --chrome-hi:#FFFFFF; --chrome-lo:#7A6BB0;
+      --display:"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+      --mono:"Consolas","SFMono-Regular",ui-monospace,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);color:var(--text);padding:36px 32px 60px;
+      background:
+        radial-gradient(900px 520px at 18% -10%, rgba(138,75,255,.20), transparent 60%),
+        radial-gradient(720px 480px at 100% 110%, rgba(38,214,255,.12), transparent 60%),
+        linear-gradient(160deg, #21103B, var(--bg3));
+      min-height:100vh;}
+    .kicker{font-family:var(--mono);letter-spacing:.5em;font-size:12px;color:var(--cyan);
+      text-transform:uppercase;margin:0 0 8px;text-shadow:0 0 14px rgba(38,214,255,.5);}
+    .kicker::before{content:"// ";opacity:.7;}
+    h1{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.02em;margin:0 0 6px;
+      text-transform:uppercase;color:var(--text);text-shadow:0 0 26px rgba(255,106,213,.35);}
+    p.lead{color:#C9B6F2;margin:0 0 24px;max-width:760px;line-height:1.6;font-size:15px;}
+    code{font-family:var(--mono);color:var(--cyan);background:rgba(38,214,255,.10);
+      padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:3px;
+      text-transform:uppercase;padding:12px 24px;cursor:pointer;color:var(--bg3);
+      background:linear-gradient(180deg,var(--cyan),var(--violet));
+      border:1px solid rgba(38,214,255,.6);border-radius:3px;
+      box-shadow:0 6px 24px rgba(138,75,255,.35);}
+    button:hover{filter:brightness(1.1);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(16,7,31,.55);padding:16px;border-radius:5px;
+      border:1px solid rgba(138,75,255,.30);}
+    /* checkerboard so transparent corners are visible */
+    .frame{border-radius:4px;overflow:hidden;display:block;background-color:#0e0720;
+      background-image:
+        linear-gradient(45deg,#1a0f3220 25%,transparent 25%),
+        linear-gradient(-45deg,#1a0f3220 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1a0f3220 75%),
+        linear-gradient(-45deg,transparent 75%,#1a0f3220 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:var(--mono);letter-spacing:2px;color:#C9B6F2;text-transform:uppercase;}
+    .card-row a{font-family:var(--mono);letter-spacing:1px;color:var(--cyan);text-decoration:none;
+      border:1px solid rgba(38,214,255,.36);border-radius:3px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(38,214,255,.16);}
+  </style>
+</head>
+<body>
+  <p class="kicker">VAPOR CIRCUIT · PANELS</p>
+  <h1>Vapor Circuit — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the outrun-motherboard style:
+    a dark PCB plate, a neon frame with corner vias, a glowing grid seam, margin circuit
+    traces, and a chrome label. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var W = 320, H = 100;
+    var BG = '#1A0B2E', BG2 = '#10071F', BG3 = '#0A0416';
+    var PINK = '#FF6AD5', VIOLET = '#8A4BFF', CYAN = '#26D6FF', GOLD = '#FFD166';
+    var TEXT = '#F3E9FF';
+    var NEON = [PINK, VIOLET, CYAN];
+
+    // ---- panel inventory ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT',     icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donations', title: 'DONATIONS', icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'users' }
+    ];
+
+    // ---- seeded LCG (per-panel seed) — no Math.random ----
+    function makeRand(seed) {
+      var s = seed >>> 0;
+      return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    function strSeed(str) { var h = 0x7A1C; for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0x7fffffff; return h; }
+    var R = function (rnd, a, b) { return a + rnd() * (b - a); };
+
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    var snap = function (v) { return Math.round(v / 10) * 10; };
+
+    // a margin-routed right-angle PCB trace (kept out of central clear rect)
+    function drawTrace(ctx, rnd, col, clear) {
+      var x = snap(R(rnd, 8, W - 8)), y = (rnd() < 0.5) ? snap(R(rnd, 6, 18)) : snap(R(rnd, H - 18, H - 6));
+      var dir = (y < H / 2) ? 1 : 3; // start heading toward interior edge
+      var pts = [{ x: x, y: y }];
+      var segs = 3 + ((rnd() * 3) | 0);
+      for (var i = 0; i < segs; i++) {
+        var len = snap(R(rnd, 18, 64));
+        var nx = x, ny = y;
+        if (dir === 0) nx += len; else if (dir === 1) ny += len; else if (dir === 2) nx -= len; else ny -= len;
+        // avoid central clear band
+        if (nx > clear.x0 && nx < clear.x1 && ny > clear.y0 && ny < clear.y1) {
+          if (dir === 0) nx = clear.x0; else if (dir === 2) nx = clear.x1;
+          else if (dir === 1) ny = clear.y0; else ny = clear.y1;
+        }
+        nx = Math.max(4, Math.min(W - 4, nx)); ny = Math.max(4, Math.min(H - 4, ny));
+        pts.push({ x: nx, y: ny }); x = nx; y = ny;
+        if (rnd() < 0.75) dir = (dir + (rnd() < 0.5 ? 1 : 3)) & 3;
+      }
+      // base dim trace
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(120,150,210,0.20)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+      ctx.stroke();
+      // neon glow pass
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.42; ctx.shadowColor = col; ctx.shadowBlur = 6; ctx.lineWidth = 1.1;
+      ctx.stroke();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      // junction via dots
+      ctx.fillStyle = col; ctx.globalAlpha = 0.8;
+      for (var k = 0; k < pts.length; k++) { ctx.beginPath(); ctx.arc(pts[k].x, pts[k].y, 1.5, 0, 6.2832); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+      var rnd = makeRand(strSeed(p.id));
+      var pad = 3, x = pad, y = pad, w = W - pad * 2, h = H - pad * 2, rad = 9;
+
+      // ---- PCB plate body, clipped to rounded rect ----
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, rad); ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(33,16,59,0.95)'); bg.addColorStop(0.62, 'rgba(16,7,31,0.96)'); bg.addColorStop(1, 'rgba(10,4,22,0.98)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // violet/cyan blooms
+      [[250, 14, 130, 'rgba(138,75,255,0.20)'], [40, 96, 110, 'rgba(38,214,255,0.14)']].forEach(function (b) {
+        var g = ctx.createRadialGradient(b[0], b[1], 0, b[0], b[1], b[2]);
+        g.addColorStop(0, b[3]); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+
+      // tiny perspective grid floor near the bottom (receding lines)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(38,214,255,0.16)'; ctx.lineWidth = 1;
+      var hz = H - 20;
+      for (var gy = 0; gy < 5; gy++) { var yy = hz + gy * gy * 1.7; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
+      for (var gx = -6; gx <= 6; gx++) {
+        ctx.beginPath(); ctx.moveTo(W / 2 + gx * 26, hz); ctx.lineTo(W / 2 + gx * 64, H); ctx.stroke();
+      }
+      ctx.restore();
+      // horizon seam
+      ctx.save();
+      ctx.strokeStyle = CYAN; ctx.lineWidth = 1.4; ctx.shadowColor = CYAN; ctx.shadowBlur = 9; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(0, hz); ctx.lineTo(W, hz); ctx.stroke();
+      ctx.restore();
+
+      // margin circuit traces (kept out of label clear zone)
+      var clear = { x0: 56, x1: W - 14, y0: 30, y1: 78 };
+      var nt = 4;
+      for (var t = 0; t < nt; t++) drawTrace(ctx, rnd, NEON[t % NEON.length], clear);
+
+      // scanlines
+      ctx.globalAlpha = 0.10; ctx.fillStyle = '#fff';
+      for (var sy = 0; sy < H; sy += 3) ctx.fillRect(0, sy, W, 1);
+      ctx.globalAlpha = 1;
+
+      // vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,4,22,0.55)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- left node-well + icon ----
+      var iconCx = 30, iconCy = H / 2;
+      ctx.save();
+      var well = ctx.createRadialGradient(iconCx, iconCy, 0, iconCx, iconCy, 24);
+      well.addColorStop(0, 'rgba(38,214,255,0.18)'); well.addColorStop(1, 'rgba(38,214,255,0)');
+      ctx.fillStyle = well; ctx.beginPath(); ctx.arc(iconCx, iconCy, 24, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      drawIcon(ctx, p.icon, iconCx, iconCy, 28, NEON[strSeed(p.id) % 3]);
+
+      // bus line connecting icon -> label
+      ctx.save();
+      var busX = 54;
+      ctx.strokeStyle = 'rgba(38,214,255,0.5)'; ctx.lineWidth = 1; ctx.shadowColor = CYAN; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(busX, 20); ctx.lineTo(busX, H - 20); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // via caps
+      ctx.fillStyle = PINK; ctx.shadowColor = PINK; ctx.shadowBlur = 6;
+      [20, H - 20].forEach(function (cy) { ctx.beginPath(); ctx.arc(busX, cy, 2.4, 0, 6.2832); ctx.fill(); });
+      ctx.restore();
+
+      // ---- kicker (mono micro-caps) ----
+      ctx.save();
+      ctx.font = '700 9px ' + cssMono(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(38,214,255,0.5)'; ctx.shadowBlur = 6;
+      drawSpaced(ctx, '// VAPOR CIRCUIT', 66, 32, 1.4);
+      ctx.restore();
+
+      // ---- chrome label (wide outrun sans, pink->violet->cyan gradient) ----
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 30, maxW = W - 66 - 18;
+      ctx.font = '700 ' + size + 'px ' + cssDisplay();
+      while (ctx.measureText(label).width > maxW && size > 14) { size -= 1; ctx.font = '700 ' + size + 'px ' + cssDisplay(); }
+      var ty = 70;
+      var tg = ctx.createLinearGradient(0, ty - size, 0, ty + 4);
+      tg.addColorStop(0, '#FFFFFF'); tg.addColorStop(0.30, '#E9D6FF'); tg.addColorStop(0.55, PINK);
+      tg.addColorStop(0.78, VIOLET); tg.addColorStop(1, CYAN);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(255,106,213,0.5)'; ctx.shadowBlur = 14;
+      ctx.fillText(label, 66, ty);
+      ctx.shadowBlur = 0;
+      // scanline sheen across the glyphs
+      ctx.save();
+      ctx.beginPath(); ctx.rect(66, ty - size, maxW, size + 4); ctx.clip();
+      ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.4; ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      for (var shy = ty - size; shy < ty + 4; shy += 5) ctx.fillRect(66, shy, maxW, 1.4);
+      ctx.restore();
+      ctx.restore();
+
+      // ---- neon bus-line under the label with end vias ----
+      ctx.save();
+      var barX = 66, barY = 80, barW = maxW;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(138,75,255,0)'); grad.addColorStop(0.18, VIOLET);
+      grad.addColorStop(0.5, CYAN); grad.addColorStop(0.82, PINK); grad.addColorStop(1, 'rgba(255,106,213,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1.4; ctx.shadowColor = CYAN; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN; ctx.shadowColor = CYAN; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(barX + barW * 0.5, barY, 2.2, 0, 6.2832); ctx.fill();
+      ctx.restore();
+
+      // ---- neon frame + corner vias on top ----
+      ctx.save();
+      roundRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, rad);
+      ctx.strokeStyle = 'rgba(38,214,255,0.55)'; ctx.lineWidth = 1.2; ctx.shadowColor = CYAN; ctx.shadowBlur = 7;
+      ctx.stroke(); ctx.shadowBlur = 0;
+      roundRectPath(ctx, x + 4.5, y + 4.5, w - 9, h - 9, rad - 3);
+      ctx.strokeStyle = 'rgba(138,75,255,0.30)'; ctx.lineWidth = 1; ctx.stroke();
+      // corner via nodes
+      var cv = [[x + 9, y + 9], [x + w - 9, y + 9], [x + 9, y + h - 9], [x + w - 9, y + h - 9]];
+      cv.forEach(function (c, i) {
+        ctx.fillStyle = (i % 2 ? PINK : CYAN); ctx.shadowColor = (i % 2 ? PINK : CYAN); ctx.shadowBlur = 7;
+        ctx.beginPath(); ctx.arc(c[0], c[1], 2.6, 0, 6.2832); ctx.fill();
+        ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(c[0], c[1], 1, 0, 6.2832); ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function cssDisplay() { return '"Eurostile","Bahnschrift","Arial Narrow",system-ui,sans-serif'; }
+    function cssMono() { return '"Consolas","SFMono-Regular",ui-monospace,monospace'; }
+
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) { ctx.fillText(str[i], cx, y); cx += ctx.measureText(str[i]).width + sp; }
+    }
+
+    // ---- neon line icons (single shared stroke + glow per call) ----
+    function drawIcon(ctx, kind, cx, cy, s, col) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = col; ctx.shadowBlur = 8;
+
+      switch (kind) {
+        case 'heart':
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath(); ctx.stroke(); break;
+        case 'calendar':
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h); ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h); ctx.lineTo(h * 0.55, -h * 0.5); ctx.stroke();
+          for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++) {
+            ctx.beginPath(); ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.2, 0, 6.2832); ctx.fill();
+          } break;
+        case 'list':
+          ctx.lineWidth = 2;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath(); ctx.arc(-h * 0.78, ly, 1.8, 0, 6.2832); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          } break;
+        case 'coin':
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, 6.2832); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s * 0.56) + 'px ' + cssDisplay();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 1); break;
+        case 'discord':
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 1.8, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 1.8, 0, 6.2832); ctx.fill(); break;
+        case 'twitter':
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath(); ctx.stroke(); break;
+        case 'play':
+          roundRectPath(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32); ctx.lineTo(-h * 0.22, h * 0.28); ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath(); ctx.fill(); break;
+        case 'camera':
+          roundRectPath(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.5, 0, 6.2832); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55); ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85); ctx.lineTo(h * 0.35, -h * 0.55); ctx.stroke(); break;
+        case 'tag':
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85); ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1); ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15); ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, 6.2832); ctx.stroke(); break;
+        case 'ribbon':
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85); ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2); ctx.lineTo(h * 0.5, h * 0.85); ctx.lineTo(h * 0.1, h * 0.55); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, 2, 0, 6.2832); ctx.fill(); break;
+        case 'star':
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke(); break;
+        case 'users':
+          ctx.beginPath(); ctx.arc(-h * 0.35, -h * 0.25, h * 0.32, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.78, h * 0.78);
+          ctx.quadraticCurveTo(-h * 0.35, h * 0.16, h * 0.08, h * 0.78); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.45, -h * 0.32, h * 0.26, 0, 6.2832); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(h * 0.12, h * 0.62);
+          ctx.quadraticCurveTo(h * 0.5, h * 0.12, h * 0.86, h * 0.62); ctx.stroke(); break;
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ----
+    var grid = document.getElementById('grid'); var made = [];
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) { dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); }); })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+        card.appendChild(frame); card.appendChild(row); grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+    function save(canvas, id) {
+      var a = document.createElement('a'); a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+    }
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0; (function next() { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 200); })();
+    });
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build); else build();
+  })();
+  </script>
+</body>
+</html>

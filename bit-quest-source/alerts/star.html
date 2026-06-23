@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Bit Quest &mdash; Star Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="star">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <!-- gold corner-gem rivets -->
+      <span class="gem gem--tl" aria-hidden="true"></span>
+      <span class="gem gem--tr" aria-hidden="true"></span>
+      <span class="gem gem--bl" aria-hidden="true"></span>
+      <span class="gem gem--br" aria-hidden="true"></span>
+      <span class="tagid" aria-hidden="true">LV.99</span>
+
+      <!-- pixel item-icon plate holding the event glyph -->
+      <div class="icon" aria-hidden="true"><span class="glyph" id="glyph">&#11014;</span></div>
+
+      <div class="meta">
+        <p class="kick"><span class="cursor" aria-hidden="true">&#9654;</span><span id="kick-label">LEVEL UP</span></p>
+        <h1 class="name" id="name">Player1</h1>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub"></p>
+      </div>
+
+      <span class="strip" aria-hidden="true"></span>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

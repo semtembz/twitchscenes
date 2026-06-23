@@ -118,13 +118,18 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
     repeating-linear-gradient(0deg, rgba(11,16,20,.5) 0 1px, transparent 1px 40px),
     linear-gradient(180deg, rgba(44,60,71,.18), rgba(11,16,20,.28));
   box-shadow:inset 0 0 60px rgba(0,0,0,.5);}
-.bay .leaf--l{left:0;border-right:2px solid var(--amber);
-  animation:leafL 1.1s var(--ease-mech) both .15s;}
-.bay .leaf--r{right:0;border-left:2px solid var(--amber);
-  animation:leafR 1.1s var(--ease-mech) both .15s;}
-/* glowing centre seam line where the doors meet */
-.bay .seam{position:absolute;left:50%;top:8px;bottom:8px;width:2px;transform:translateX(-50%);
-  background:linear-gradient(180deg,transparent,var(--amber),transparent);
+.bay .leaf--l{left:0;animation:leafL 1.1s var(--ease-mech) both .15s;}
+.bay .leaf--r{right:0;animation:leafR 1.1s var(--ease-mech) both .15s;}
+/* bright amber inner edge of each leaf — height-limited so the door division
+   reads behind the headline but never crosses the telemetry block / charge bar */
+.bay .leaf--l::after,.bay .leaf--r::after{content:"";position:absolute;top:0;bottom:255px;width:2px;
+  background:linear-gradient(180deg,var(--amber) 78%,transparent 100%);opacity:.9;}
+.bay .leaf--l::after{right:0;}
+.bay .leaf--r::after{left:0;}
+/* glowing centre seam line where the doors meet — stops above the telemetry
+   block so its amber glow never crosses the title text or the charge bar */
+.bay .seam{position:absolute;left:50%;top:8px;bottom:255px;width:2px;transform:translateX(-50%);
+  background:linear-gradient(180deg,transparent 6%,var(--amber) 30%,var(--amber) 70%,transparent 96%);
   box-shadow:0 0 16px var(--amber-glow);z-index:2;
   animation:seampulse 2.6s ease-in-out infinite;}
 @keyframes bayin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
@@ -250,9 +255,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   font-family:"Bahnschrift","DIN Condensed","Stencil Std","Impact",system-ui,sans-serif;
   font-size:20px;letter-spacing:.28em;font-weight:700;text-transform:uppercase;
   color:rgba(245,166,35,.78);text-shadow:0 1px 0 #0B1014;}
-.stencil--tl{left:108px;top:74px;}
-.stencil--tr{right:108px;top:74px;color:rgba(200,210,217,.6);}
-.stencil--bl{left:108px;bottom:74px;color:rgba(200,210,217,.55);font-size:16px;letter-spacing:.22em;}
+.stencil--tl{left:132px;top:74px;}
+.stencil--tr{right:132px;top:74px;color:rgba(200,210,217,.6);}
+.stencil--bl{left:132px;bottom:74px;color:rgba(200,210,217,.55);font-size:16px;letter-spacing:.22em;}
 
 /* bay designation plate (top-center stamp on the frame) */
 .desig{position:absolute;left:50%;top:64px;transform:translateX(-50%);z-index:11;
@@ -264,7 +269,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 @keyframes reddot{0%,50%{opacity:1}51%,100%{opacity:.25}}
 
 /* handle — mono, lower-right on the steel */
-.handle{position:absolute;right:108px;bottom:74px;z-index:11;
+.handle{position:absolute;right:132px;bottom:74px;z-index:11;
   font-family:"Consolas","SFMono-Regular",ui-monospace,monospace;
   letter-spacing:.22em;font-size:24px;font-weight:700;color:var(--amber);
   text-shadow:0 0 14px rgba(245,166,35,.35);}

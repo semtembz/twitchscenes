@@ -78,6 +78,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   width:1180px;height:680px;padding:72px 92px 64px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   background:
+    /* CLEAR ZONE: a soft dark core that sits over the rotating globe so the
+       headline + bar stay legible; the globe still glows around the panel edges */
+    radial-gradient(86% 82% at 50% 54%, rgba(5,8,18,.88) 0%, rgba(5,8,18,.74) 52%, rgba(5,8,18,.30) 80%, transparent 100%),
     linear-gradient(180deg, rgba(54,194,255,.06), rgba(27,43,107,.16)),
     var(--panel);
   border:1px solid var(--panel-edge);

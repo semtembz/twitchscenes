@@ -85,13 +85,20 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   70%{opacity:1;}
   100%{opacity:1;transform:translateY(0) scale(1) rotate(-4deg);}}
 
-/* kicker — spaced comic caps inside the starburst */
+/* kicker — spaced comic caps inside the starburst.
+   Constrained to the starburst's flat inner safe zone (~230px) and allowed to
+   wrap so the editable slot + [N] badge never spill past the jagged spikes. */
 .kicker{position:relative;z-index:2;margin:0;
+  max-width:236px;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 .12em;
   font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;
-  font-size:60px;font-weight:900;letter-spacing:.01em;line-height:.9;
+  font-size:40px;font-weight:900;letter-spacing:.005em;line-height:.92;
   text-transform:uppercase;color:var(--ink);transform:rotate(-4deg);
-  -webkit-text-stroke:2px var(--ink);}
-#stage.done .kicker{color:var(--comic-red);-webkit-text-stroke:2px var(--ink);}
+  -webkit-text-stroke:1.5px var(--ink);}
+#stage.done .kicker{color:var(--comic-red);-webkit-text-stroke:1.5px var(--ink);}
+/* inside the burst the slot wraps as: [N] on one row, the placeholder below it */
+.kicker.is-slot .slot-no{font-size:.7em;margin:0;line-height:1.2;}
+.kicker.is-slot .slot-txt{flex:1 0 100%;text-align:center;}
 
 /* ---- the heavy comic TITLE — black ink, bold colour offset shadow + outline, tilted ---- */
 .title{margin:6px 0 2px;line-height:.82;text-transform:uppercase;

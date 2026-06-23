@@ -215,8 +215,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 .bar .fill .bean{position:absolute;right:-8px;top:50%;width:20px;height:20px;
   transform:translateY(-50%) rotate(18deg);}
 
-/* handle — cozy, lower-right on the windowsill */
-.handle{position:absolute;right:150px;bottom:60px;
+/* handle — cozy, on the windowsill; sits in the clear gap between the
+   mug (left) and the potted plant (right) so it never tucks under either */
+.handle{position:absolute;right:404px;bottom:62px;
   font-size:27px;font-weight:600;letter-spacing:.22em;text-indent:.22em;color:var(--coffee);
   opacity:.9;text-shadow:0 1px 0 rgba(244,235,226,.5);}
 

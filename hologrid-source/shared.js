@@ -87,7 +87,9 @@
     ctx = cv.getContext("2d");
     if (!ctx) return;
     W = cv.width || 1920; H = cv.height || 1080;
-    CX = W * 0.5; CY = H * 0.575; GLOBE_R = Math.min(W, H) * 0.30;
+    /* globe sits lower + a touch smaller so its bright equator band projects
+       BELOW the centered headline (clear zone for the title + bar) */
+    CX = W * 0.5; CY = H * 0.70; GLOBE_R = Math.min(W, H) * 0.265;
 
     // GLOBE: lat/long lattice of 3D unit-sphere points (projected each frame)
     const LAT = 9, LON = 18;

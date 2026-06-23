@@ -231,11 +231,18 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   box-shadow:0 8px 20px rgba(108,122,224,.18), inset 0 2px 0 rgba(255,255,255,.9);
   animation:popin 1s var(--ease) both 1.4s;}
 
-/* a tiny corner soap-tag, top-left on the bath */
-.tag{position:absolute;left:70px;top:58px;z-index:3;
+/* a tiny corner soap-tag, top-left on the bath — sits in a soft white pill
+   (same language as the kicker/handle) so it stays clearly legible and never
+   visually merges with a drifting bubble's rim/specular dot in the open bath */
+.tag{position:absolute;left:70px;top:54px;z-index:3;
   font-family:var(--display);font-weight:700;letter-spacing:.34em;font-size:20px;
-  color:var(--ink-soft);text-indent:.34em;opacity:.85;
+  color:var(--ink);text-indent:.34em;opacity:1;
+  padding:9px 22px;border-radius:999px;
+  background:rgba(255,255,255,.62);
+  box-shadow:0 6px 16px rgba(108,122,224,.16), inset 0 2px 0 rgba(255,255,255,.9);
   animation:popin 1s var(--ease) both 1.5s;}
+.tag .slot-no{border-color:var(--ink-soft);}
+.tag .slot-txt{opacity:.62;}
 
 /* shared entrance keyframes (animate transform/opacity ONLY) */
 @keyframes popin{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:scale(1)}}

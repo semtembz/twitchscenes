@@ -87,8 +87,10 @@
     W = cv.width || 1920; H = cv.height || 1080;
     const R = (a, b) => a + Math.random() * (b - a);
     // blocky drifting pixel clouds (each is a small rect cluster), slow horizontal drift
+    // clouds ride the UPPER sky band only — kept above the kicker/title so they
+    // never drift across the centered headline or the top editable text slot
     clouds = Array.from({ length: num("clouds", 6) }, () => ({
-      x: R(0, W), y: R(70, 460), s: (R(3, 6) | 0), v: R(6, 14) / 60,
+      x: R(0, W), y: R(64, 150), s: (R(3, 5) | 0), v: R(6, 14) / 60,
     }));
   }
 
@@ -211,9 +213,12 @@
     const groundY = H - TILE * 2;          // top of the 2-row dirt strip
     // floating block row (bricks + question-blocks) sitting above ground
     const blockY = groundY - TILE * 3;
-    const pattern = ["b", "q", "b", "b", "q", "b"]; // repeating layout
-    // place a short floating cluster left-of-center and right-of-center
-    const clusters = [W * 0.16, W * 0.66];
+    const pattern = ["b", "q", "b", "b", "q"]; // repeating layout (5 tiles)
+    // place the floating clusters HARD to the edges so the centered title +
+    // loading bar fall in a clean clear lane through the middle of the screen.
+    const leftStart = Math.round((W * 0.012) / PX) * PX;          // far-left cluster start
+    const rightStart = Math.round((W - W * 0.012 - pattern.length * TILE) / PX) * PX; // far-right cluster start
+    const clusters = [leftStart, rightStart];
     for (const startX of clusters) {
       for (let i = 0; i < pattern.length; i++) {
         const bx = Math.round((startX + i * TILE) / PX) * PX;
@@ -221,9 +226,9 @@
       }
     }
 
-    // green pipes
-    drawPipe(Math.round(W * 0.40 / PX) * PX, groundY - 224, 224);
-    drawPipe(Math.round(W * 0.84 / PX) * PX, groundY - 160, 160);
+    // green pipes — kept off to the SIDES, never in the center channel
+    drawPipe(Math.round(W * 0.05 / PX) * PX, groundY - 224, 224);
+    drawPipe(Math.round(W * 0.875 / PX) * PX, groundY - 160, 160);
 
     // dirt ground strip (2 tiles tall)
     ctx.fillStyle = COL.ground; ctx.fillRect(0, groundY, W, TILE * 2);
@@ -235,9 +240,10 @@
     // a horizontal seam between the two dirt rows
     for (let gx = 0; gx <= W; gx += TILE) ctx.fillRect(gx + TILE / 2, groundY + TILE, PX, TILE);
 
-    // bobbing coin sprite hovering above the left block cluster
+    // bobbing coin sprite hovering above the left block cluster (off-center,
+    // so it never lands on the centered title second line)
     coinT += dt;
-    drawCoin(W * 0.16 + TILE * 5.5, blockY - 60, coinT);
+    drawCoin(leftStart + TILE * 2, blockY - 84, coinT);
   }
 
   /* ---- timeline driver ---- */

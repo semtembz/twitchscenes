@@ -89,7 +89,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 /* =========================================================
    The LOWER-THIRD bar stack (the signature composition)
    ========================================================= */
-.lower{position:absolute;left:0;right:0;bottom:96px;padding:0 60px;}
+.lower{position:absolute;left:0;right:0;bottom:122px;padding:0 60px;}
 
 /* thin accent rail that snaps in first */
 .lower__rail{height:8px;width:0;margin:0 0 0 0;
@@ -97,8 +97,10 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   box-shadow:0 0 18px rgba(22,184,255,.6);
   animation:railgrow .55s var(--ease) both .1s;}
 
-/* the main chamfered bar holding kicker + title */
-.bar{position:relative;display:flex;align-items:stretch;margin-top:14px;height:172px;
+/* the main chamfered bar holding kicker + title.
+   height fits the full stacked plate content (sup + title + sub + progress)
+   so nothing overflows onto the ticker; flag clip-paths scale to it. */
+.bar{position:relative;display:flex;align-items:stretch;margin-top:14px;min-height:300px;
   filter:drop-shadow(0 22px 50px rgba(0,0,0,.55));}
 
 /* left orange flag with the kicker / LIVE label */
@@ -181,8 +183,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 .ticker__track span b{color:var(--orange);font-style:normal;}
 @keyframes tickscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
-/* the @handle, parked above the ticker on the right */
-.handle{position:absolute;right:62px;bottom:74px;font-weight:800;letter-spacing:3px;
+/* the @handle, parked in the clear gap between the bar bottom and the
+   ticker top on the right (bar bottom ~960, ticker top 1026). */
+.handle{position:absolute;right:70px;bottom:80px;font-weight:800;letter-spacing:3px;
   font-size:26px;color:var(--blue);text-shadow:0 0 14px rgba(22,184,255,.5);
   animation:bugin .7s var(--ease) both .4s;}
 

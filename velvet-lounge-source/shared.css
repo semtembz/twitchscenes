@@ -134,10 +134,15 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   border:1px solid var(--brass-lt);transform:translateY(-50%) rotate(45deg);
   background:var(--brass-lt);box-shadow:0 0 12px var(--glow);}
 
-/* corner monogram tags (outside the frame, on the velvet) */
+/* corner monogram tags — flank the TOP EDGE of the centered frame so they
+   read as deliberate deco labels anchored to the composition, not stranded
+   slots floating in the screen corners. (frame: 1180px wide, centered ->
+   edges at x=370/1550; top edge at y=184. Sit just above it, aligned to
+   the frame's vertical edges.) */
 .mono{position:absolute;font-family:"Optima","Gill Sans","Futura",system-ui,sans-serif;
-  letter-spacing:.5em;font-size:20px;color:var(--brass);text-indent:.5em;opacity:.8;}
-.mono--tl{left:64px;top:54px;} .mono--tr{right:64px;top:54px;text-indent:0;}
+  letter-spacing:.5em;font-size:20px;color:var(--brass);text-indent:.5em;opacity:.8;
+  white-space:nowrap;}
+.mono--tl{left:372px;top:138px;} .mono--tr{right:372px;top:138px;text-indent:0;}
 
 /* handle — brass, lower right on the velvet */
 .handle{position:absolute;right:64px;bottom:50px;

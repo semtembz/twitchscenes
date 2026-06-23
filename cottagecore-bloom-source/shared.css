@@ -97,14 +97,17 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 @keyframes cardin{from{opacity:0;transform:translate(-50%,-50%) scale(.965) rotate(-.4deg)}
   to{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}}
 
-/* hand-drawn IVY / pressed-flower sprigs in the corners of the card */
-.sprig{position:absolute;width:280px;height:280px;pointer-events:none;
+/* hand-drawn IVY / pressed-flower sprigs in the corners of the card.
+   Sized + tucked so the pressed flower (the part that reaches toward
+   centre) stays clear ABOVE/LEFT of the title's first line — the headline
+   keeps a clean zone on every scene. All four corners stay identical. */
+.sprig{position:absolute;width:236px;height:236px;pointer-events:none;
   filter:drop-shadow(0 3px 4px rgba(90,74,58,.14));}
 .sprig svg{width:100%;height:100%;display:block;}
-.sprig--tl{left:-26px;top:-30px;transform-origin:top left;animation:sprigin 1.2s var(--ease) both .30s;}
-.sprig--tr{right:-26px;top:-30px;transform:scaleX(-1);transform-origin:top right;animation:sprigin 1.2s var(--ease) both .42s;}
-.sprig--bl{left:-26px;bottom:-30px;transform:scaleY(-1);transform-origin:bottom left;animation:sprigin 1.2s var(--ease) both .54s;}
-.sprig--br{right:-26px;bottom:-30px;transform:scale(-1,-1);transform-origin:bottom right;animation:sprigin 1.2s var(--ease) both .66s;}
+.sprig--tl{left:-40px;top:-44px;transform-origin:top left;animation:sprigin 1.2s var(--ease) both .30s;}
+.sprig--tr{right:-40px;top:-44px;transform:scaleX(-1);transform-origin:top right;animation:sprigin 1.2s var(--ease) both .42s;}
+.sprig--bl{left:-40px;bottom:-44px;transform:scaleY(-1);transform-origin:bottom left;animation:sprigin 1.2s var(--ease) both .54s;}
+.sprig--br{right:-40px;bottom:-44px;transform:scale(-1,-1);transform-origin:bottom right;animation:sprigin 1.2s var(--ease) both .66s;}
 @keyframes sprigin{from{opacity:0;transform:var(--sprig-rest,none) scale(.6)}to{opacity:1}}
 /* keep the mirrored rest transforms during/after the keyframe */
 .sprig--tl{--sprig-rest:none;}

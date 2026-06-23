@@ -103,11 +103,15 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 .hero{position:absolute;left:50%;top:var(--horizon);transform:translate(-50%,-50%);
   width:1500px;text-align:center;pointer-events:none;z-index:3;}
 
+/* kicker = a HUD chip that floats over the sun; opaque plate keeps the
+   slot text legible against the bright disc + chrome stripes, and the
+   extra margin gives a clear gap above the big title. */
 .kick{font-family:"Courier New",monospace;letter-spacing:9px;font-size:26px;font-weight:700;
   color:var(--teal);text-shadow:0 0 14px rgba(0,224,208,.6);
-  display:inline-flex;align-items:center;gap:16px;margin-bottom:14px;
-  padding:8px 22px;border:1px solid rgba(0,224,208,.45);border-radius:4px;
-  background:rgba(11,0,32,.45);backdrop-filter:blur(2px);
+  display:inline-flex;align-items:center;gap:16px;margin-bottom:44px;
+  padding:11px 26px;border:1px solid rgba(0,224,208,.6);border-radius:5px;
+  background:rgba(7,0,22,.86);backdrop-filter:blur(3px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45), 0 8px 26px rgba(0,0,0,.55), 0 0 26px rgba(0,224,208,.22);
   animation:rise .8s var(--ease) both .35s;}
 .kick .star{width:13px;height:13px;background:var(--pink);box-shadow:0 0 12px var(--pink);
   transform:rotate(45deg);}
@@ -147,8 +151,10 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   text-align:center;line-height:1.35;}
 .is-slot .slot-txt{opacity:.5;}
 
-/* ---- NEON loading strip along the grid horizon (no numbers) ---- */
-.bar{position:absolute;left:50%;top:calc(var(--horizon) + 26px);transform:translateX(-50%);
+/* ---- NEON loading strip on the grid floor, well below the title (no numbers).
+   Sits on a near grid row so it reads as part of the road, with a clear gap
+   under the headline + sub slot so nothing crosses the hero text. ---- */
+.bar{position:absolute;left:50%;top:900px;transform:translateX(-50%);
   width:920px;height:14px;z-index:3;
   border-radius:8px;background:rgba(11,0,32,.6);
   border:1px solid rgba(0,224,208,.35);overflow:hidden;
@@ -166,8 +172,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   letter-spacing:4px;font-size:26px;color:var(--teal);
   text-shadow:0 0 12px rgba(0,224,208,.55);z-index:3;}
 .handle--big{font-size:32px;color:var(--pink);text-shadow:0 0 14px rgba(255,46,151,.5);}
-/* ending screen: big, centered under the title (no loading bar) */
-.handle--center{right:auto;bottom:auto;left:50%;top:calc(var(--horizon) + 96px);
+/* ending screen: big, centered well below the title + sub slot (no loading bar),
+   sitting on the open grid so it never crosses the headline or the sub line. */
+.handle--center{right:auto;bottom:auto;left:50%;top:300px;top:calc(var(--horizon) + 300px);
   transform:translateX(-50%);font-size:54px;letter-spacing:7px;
   color:var(--teal);text-shadow:0 0 18px rgba(0,224,208,.7), 0 0 40px rgba(255,46,151,.35);
   animation:rise .8s var(--ease) both .5s;}

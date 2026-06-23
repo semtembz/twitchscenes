@@ -64,7 +64,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .coords i{position:absolute;font-style:normal;}
 .coords .cx0{left:64px;top:26px;}      .coords .cx1{left:50%;top:26px;transform:translateX(-50%);}
 .coords .cx2{right:64px;top:26px;}      .coords .cy0{left:26px;top:120px;}
-.coords .cy1{left:26px;top:50%;transform:translateY(-50%);} .coords .cy2{left:26px;bottom:120px;}
+.coords .cy1{left:26px;top:50%;transform:translateY(-50%);} .coords .cy2{left:26px;bottom:196px;}
 
 /* deep vignette to seat the void */
 .vign{position:absolute;inset:0;pointer-events:none;
@@ -172,7 +172,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 /* corner labels on the void (outside the card) */
 .tag{position:absolute;font-family:var(--mono);font-size:16px;letter-spacing:.40em;
   color:var(--accent);text-indent:.40em;opacity:.78;text-transform:uppercase;}
-.tag--tl{left:64px;top:120px;}
+.tag--tl{left:64px;top:172px;}
 .tag--bl{left:64px;bottom:110px;color:var(--dim);}
 /* a tiny readout note under the bottom-left label */
 .tag--note{left:64px;bottom:78px;font-size:13px;letter-spacing:.22em;color:rgba(127,180,214,.4);}

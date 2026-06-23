@@ -11,13 +11,23 @@
     /* ending: no loading bar — the @handle is the hero. Pressed under the
        divider/sub sits a larger dusty-rose handle with a little tag line,
        all breathing INSIDE the 712px herbarium card. Uses only shared
-       tokens + the shared fadeup keyframe; render mode freezes the hero. */
-    .ending .sub{margin-top:22px;}
-    .ending .handle-hero{margin-top:34px;font-size:52px;letter-spacing:.22em;text-indent:.22em;
+       tokens + the shared fadeup keyframe; render mode freezes the hero.
+       This screen carries a 3-LINE headline ("THANKS / FOR / WATCHING") plus
+       a hero handle + tag, so the column is taller than the other scenes.
+       The shared 150px title would push the crest/kicker above the card's
+       top edge (into the corner sprig) and spill the hero/tag past the
+       bottom deckle. We scope a tighter scale HERE so everything sits
+       cleanly inside the 712px card — design + tokens untouched. */
+    .ending .title{font-size:112px;margin:8px 0 4px;}
+    .ending .crest{margin-bottom:4px;}
+    .ending .kicker{margin-bottom:2px;}
+    .ending .divider{margin-top:6px;}
+    .ending .sub{margin-top:18px;}
+    .ending .handle-hero{margin-top:24px;font-size:48px;letter-spacing:.22em;text-indent:.22em;
       color:var(--rose);
       text-shadow:0 1px 0 rgba(255,253,244,.7), 0 3px 18px rgba(226,160,180,.35);
       animation:fadeup 1s var(--ease) both 1.2s;}
-    .ending .handle-tag{margin-top:14px;
+    .ending .handle-tag{margin-top:12px;
       font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,"Avenir Next",system-ui,sans-serif;
       letter-spacing:.42em;font-size:18px;text-indent:.42em;color:var(--leaf-deep);opacity:.85;
       text-transform:uppercase;animation:fadeup 1s var(--ease) both 1.3s;}

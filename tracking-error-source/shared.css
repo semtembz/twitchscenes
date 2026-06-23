@@ -193,8 +193,11 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
    LOADING BAR = a tape-progress / timecode strap pinned bottom
    (the actual 60s timer fills this; OSD digits are decorative)
    ============================================================ */
+/* width kept clear of the bottom-left TIMECODE OSD (which ends ~x=380):
+   1080px centered -> left edge at x=420, so the bar + its red tape-head
+   marker never sit under the timecode digits. */
 .strap{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);z-index:36;
-  width:1240px;
+  width:1080px;
   animation:warpin 1.1s var(--ease) both .3s;}
 .strap-head{display:flex;justify-content:space-between;align-items:flex-end;
   font-family:var(--osd);font-weight:700;font-size:26px;letter-spacing:.28em;

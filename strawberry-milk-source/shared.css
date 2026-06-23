@@ -137,7 +137,10 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
    CUTE PROGRESS — a GLASS filling up with pink strawberry MILK
    (no numbers; the hidden timer drives --p 0..1 via .fill height)
    ============================================================ */
-.glass{position:relative;width:560px;height:104px;margin:34px auto 6px;
+/* wrapper gives the straw a positioning context OUTSIDE the glass clip so it
+   can poke up over the rim without ever crossing the progress track */
+.glasswrap{position:relative;width:560px;margin:34px auto 6px;}
+.glass{position:relative;width:560px;height:104px;
   border-radius:30px 30px 36px 36px;
   background:rgba(255,255,255,.6);
   box-shadow:inset 0 0 0 6px var(--gloss), inset 0 0 0 10px rgba(255,179,198,.45),
@@ -161,7 +164,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0));
   pointer-events:none;}
 /* straw poking out of the glass */
-.straw{position:absolute;right:64px;top:-30px;width:18px;height:150px;border-radius:10px;
+.straw{position:absolute;right:64px;top:-30px;width:18px;height:124px;border-radius:10px;
   background:repeating-linear-gradient(135deg, var(--hot) 0 12px, var(--gloss) 12px 24px);
   transform:rotate(12deg);transform-origin:bottom center;z-index:3;
   box-shadow:0 6px 12px rgba(164,93,110,.25);}

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Witching Hour (PNG generator)</title>
+  <!--
+    WITCHING HOUR · "The Candlelit Study" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = an editable tagline. The centre is decorative only — a faint candle-gold
+    celestial arch + crescent + bokeh — so the player can sit over it.
+
+    Everything random is drawn from a SEEDED LCG, so the embers / dust scatter is
+    identical on every render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --near-black:#0B0E12; --teal:#14323A; --gold:#C9A24B; --plum:#5B2A4E;
+      --cream:#E8E0CC; --gold-lt:#E7C878; --dim:rgba(232,224,204,.56);
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Hoefler Text","Iowan Old Style","Palatino Linotype",Georgia,serif;
+      background:#06080B;color:var(--cream);padding:32px;}
+    h1{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-weight:600;font-size:28px;
+      color:var(--cream);letter-spacing:1px;margin:0 0 6px;text-shadow:0 0 22px rgba(231,200,120,.30);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;letter-spacing:7px;font-size:13px;
+      color:var(--gold-lt);margin:0 0 14px;text-transform:uppercase;text-indent:7px;}
+    button{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-weight:600;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--near-black);
+      background:linear-gradient(180deg,var(--gold-lt),var(--gold));border:1px solid rgba(231,200,120,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(201,162,75,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0c1014;padding:14px;border:1px solid #20303a;border-radius:6px;
+      display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(231,200,120,0.45);
+      background:rgba(11,14,18,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(232,224,204,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--gold-lt);background:#10161c;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">WITCHING HOUR · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the candlelit-study style — seeded so the
+    embers and gold dust are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    const NEAR_BLACK = '#0B0E12', TEAL = '#14323A', PLUM = '#5B2A4E';
+    const GOLD = '#C9A24B', GOLD_LT = '#E7C878', CREAM = '#E8E0CC';
+    const DIM = 'rgba(232,224,204,0.56)';
+    const HAZE = [TEAL, GOLD, PLUM, GOLD_LT];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed){ let s = seed >>> 0; return () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s/0x7fffffff; }; }
+    const R = (rnd, a, b) => a + rnd()*(b - a);
+
+    function bloom(x, y, r, color, alpha){
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    function star4(cx, cy, r){
+      ctx.beginPath();
+      ctx.moveTo(cx, cy-r); ctx.lineTo(cx + r*0.3, cy - r*0.3);
+      ctx.lineTo(cx+r, cy); ctx.lineTo(cx + r*0.3, cy + r*0.3);
+      ctx.lineTo(cx, cy+r); ctx.lineTo(cx - r*0.3, cy + r*0.3);
+      ctx.lineTo(cx-r, cy); ctx.lineTo(cx - r*0.3, cy - r*0.3);
+      ctx.closePath(); ctx.fill();
+    }
+    function crescent(cx, cy, r){
+      ctx.save();
+      ctx.shadowColor = 'rgba(231,200,120,0.6)'; ctx.shadowBlur = 16;
+      ctx.fillStyle = GOLD_LT;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fill();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc(cx + r*0.5, cy - r*0.16, r*0.92, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- faint candle-gold celestial ARCH (centre, behind the player) ----
+    function drawArch(cx, cy, scale){
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      ctx.globalAlpha = 0.5;
+      // a gothic-pointed arch (study window) with two slim pilasters
+      ctx.strokeStyle = 'rgba(201,162,75,0.6)'; ctx.lineWidth = 3;
+      ctx.shadowColor = GOLD; ctx.shadowBlur = 20; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-90, 86);
+      ctx.lineTo(-90, -30);
+      ctx.quadraticCurveTo(-90, -96, 0, -116);
+      ctx.quadraticCurveTo(90, -96, 90, -30);
+      ctx.lineTo(90, 86);
+      ctx.stroke();
+      // inner hairline arch
+      ctx.strokeStyle = 'rgba(231,200,120,0.45)'; ctx.lineWidth = 1.4; ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(-70, 86);
+      ctx.lineTo(-70, -34);
+      ctx.quadraticCurveTo(-70, -86, 0, -102);
+      ctx.quadraticCurveTo(70, -86, 70, -34);
+      ctx.lineTo(70, 86);
+      ctx.stroke();
+      // crescent moon set at the apex
+      ctx.shadowBlur = 0;
+      crescent(0, -122, 14);
+      // celestial spokes rising inside the arch
+      ctx.strokeStyle = 'rgba(231,200,120,0.16)'; ctx.lineWidth = 1;
+      for (let i=-4;i<=4;i++){ ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(i*14, 76); ctx.stroke(); }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred branding block: crescent + deco kicker, big serif title, italic sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText){
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // kicker spaced caps
+      ctx.font = '500 22px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(231,200,120,0.35)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 130, 8);
+      const kw = spacedWidth(kickerLabel, 8);
+      // flanking crescents
+      ctx.shadowBlur = 0;
+      crescent(cx - kw/2 - 22, 130, 7);
+      crescent(cx + kw/2 + 22, 130, 7);
+
+      // title — engraved serif, candle-gold gradient, warm glow
+      ctx.font = '600 ' + titleSize + 'px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+      const tg = ctx.createLinearGradient(0, 198 - titleSize/2, 0, 198 + titleSize/2);
+      tg.addColorStop(0, GOLD_LT); tg.addColorStop(0.56, GOLD); tg.addColorStop(1, '#9a7a32');
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(231,200,120,0.45)'; ctx.shadowBlur = 32;
+      ctx.fillText(titleText, cx, 226);
+      ctx.shadowBlur = 0;
+
+      // star-capped rule under the title
+      const ruW = Math.min(360, titleSize*4);
+      const ug = ctx.createLinearGradient(cx - ruW/2, 0, cx + ruW/2, 0);
+      ug.addColorStop(0, 'rgba(201,162,75,0)'); ug.addColorStop(0.22, GOLD);
+      ug.addColorStop(0.5, GOLD_LT); ug.addColorStop(0.78, GOLD); ug.addColorStop(1, 'rgba(201,162,75,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - ruW/2, 290); ctx.lineTo(cx + ruW/2, 290); ctx.stroke();
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(231,200,120,0.7)'; ctx.shadowBlur = 8;
+      star4(cx - ruW/2 - 14, 290, 4.5); star4(cx + ruW/2 + 14, 290, 4.5);
+      ctx.shadowBlur = 0;
+
+      // subtitle — italic aged serif
+      ctx.font = 'italic 400 22px "Hoefler Text","Iowan Old Style","Palatino Linotype",Georgia,serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 332);
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0x5B2A4E); // fixed seed (plum hex) -> identical scatter
+
+      // ---- BACKGROUND: candlelit near-black/teal ground ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0E1318'); grad.addColorStop(0.6, NEAR_BLACK); grad.addColorStop(1, '#06080B');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // warm candle pool behind the centre + teal glows flanking
+      bloom(W/2, H/2 + 14, 700, 'rgba(20,50,58,0.50)', 1);
+      bloom(W/2, H/2, 480, 'rgba(231,200,120,0.14)', 1);
+      bloom(W*0.16, H*0.32, 360, 'rgba(91,42,78,0.30)', 1);
+      bloom(W*0.84, H*0.32, 360, 'rgba(20,50,58,0.45)', 1);
+
+      // ---- SEEDED BOKEH HAZE ----
+      for (let i=0;i<11;i++){
+        const x = R(rnd,0,W), y = R(rnd,0,H), r = R(rnd,80,210);
+        const c = HAZE[(rnd()*HAZE.length)|0], a = R(rnd,0.04,0.11);
+        bloom(x, y, r, c, a);
+      }
+
+      // ---- faint celestial arch centre ----
+      drawArch(W/2, H/2 + 24, 1.25);
+
+      // ---- SEEDED GOLD DUST into the LEFT and RIGHT thirds ----
+      ctx.save();
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = GOLD_LT;
+      for (let i=0;i<56;i++){
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd,40,620) : R(rnd,W-620,W-40);
+        const y = R(rnd,18,H-18);
+        const z = R(rnd,0.5,1.6), a = R(rnd,0.28,0.82);
+        ctx.globalAlpha = a; ctx.shadowBlur = 6*z;
+        const sp = Math.max(1, Math.round(z*1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- aged-paper sheen striping ----
+      ctx.save();
+      ctx.globalAlpha = 0.35; ctx.fillStyle = 'rgba(232,224,204,0.04)';
+      for (let y=0;y<H;y+=10) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W/2, H/2, H*0.30, W/2, H/2, W*0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(4,6,9,0.72)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[22] your text here', '[ your text ]', 72, '[23] your text here');
+
+      // accent celestial rails flanking the centre clear-zone (gold ticks)
+      ctx.fillStyle = 'rgba(201,162,75,0.42)';
+      for (let yy = 96; yy < H - 70; yy += 16){ ctx.fillRect(672, yy, 2, 7); ctx.fillRect(1246, yy, 2, 7); }
+      // a small crescent capping each rail
+      [[673, 80], [1246, 80], [673, H - 70], [1246, H - 70]].forEach(([x, y]) => crescent(x, y, 6));
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp){
+      let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp){
+      let cx = x; for (const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp){
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left'; drawSpacedFrom(str, x - total/2, y, sp); ctx.textAlign = prev;
+    }
+
+    function download(){
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

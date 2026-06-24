@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Nebula Drift — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one cosmic ~16:9 webcam frame. Place your camera
+       BEHIND this overlay; the inside of the frame is fully transparent so the
+       camera shows through it (corner alpha 0).
+       Optional URL params: ?handle=@you   ?pos=center|lower   ?w=1120&h=630
+       Editable slot: ?slot=...  (use =- to remove it) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint cosmic warp motes drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.5;}
+
+    /* the cam frame wrapper — centred or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);pointer-events:none;
+      animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* glowing cyan hairline border; INSIDE stays transparent.
+       wide cosmic chamfered corners (clean, not a plain rectangle). */
+    .frame{position:absolute;inset:0;background:transparent;
+      border:1px solid var(--cyan);
+      box-shadow:
+        0 0 0 1px rgba(2,3,8,.5),
+        0 0 22px rgba(0,217,255,.35),
+        0 0 60px rgba(108,92,231,.18),
+        inset 0 0 26px rgba(0,217,255,.10);
+      clip-path:polygon(
+        0 26px,26px 0,
+        calc(100% - 26px) 0,100% 26px,
+        100% calc(100% - 26px),calc(100% - 26px) 100%,
+        26px 100%,0 calc(100% - 26px));}
+    /* inner indigo hairline double border (transparent inside) */
+    .frame::before{content:"";position:absolute;inset:9px;border:1px solid var(--hair-soft);
+      clip-path:inherit;pointer-events:none;}
+    /* a slow cyan light-sweep skims the top edge of the frame */
+    .frame::after{content:"";position:absolute;left:-10%;right:-10%;top:0;height:2px;pointer-events:none;
+      mix-blend-mode:screen;opacity:.7;
+      background:linear-gradient(90deg,transparent,rgba(0,217,255,.6),transparent);
+      animation:edgeglow 5.5s ease-in-out infinite;}
+    @keyframes edgeglow{0%,100%{opacity:.25;transform:translateX(-6%)}50%{opacity:.8;transform:translateX(6%)}}
+
+    /* corner warp-node brackets in every corner of the frame */
+    .node{position:absolute;width:46px;height:46px;pointer-events:none;
+      animation:nodein 1.1s var(--ease) both .3s;}
+    .node::before,.node::after{content:"";position:absolute;background:var(--cyan);
+      box-shadow:0 0 10px var(--glow-cyan);}
+    .node::before{left:0;top:0;width:46px;height:2px;}
+    .node::after{left:0;top:0;width:2px;height:46px;}
+    /* a small diamond pip riding each corner */
+    .node .pip{position:absolute;left:-4px;top:-4px;width:9px;height:9px;transform:rotate(45deg);
+      background:var(--white);box-shadow:0 0 12px var(--glow-cyan),0 0 4px var(--white);}
+    .node--tl{left:-1px;top:-1px;}
+    .node--tr{right:-1px;top:-1px;transform:scaleX(-1);}
+    .node--bl{left:-1px;bottom:-1px;transform:scaleY(-1);}
+    .node--br{right:-1px;bottom:-1px;transform:scale(-1,-1);}
+    @keyframes nodein{from{opacity:0}to{opacity:1}}
+
+    /* handle nameplate — chamfered cosmic pill clipped to bottom-centre of the frame */
+    .plate{position:absolute;left:50%;bottom:-19px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:14px;white-space:nowrap;pointer-events:none;
+      background:linear-gradient(180deg, rgba(8,9,22,.86), rgba(2,3,8,.80));
+      border:1px solid var(--hair);padding:8px 26px;
+      box-shadow:0 12px 30px rgba(2,3,8,.5), 0 0 22px rgba(0,217,255,.14);
+      clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%);}
+    .plate .who{font-family:var(--display);font-weight:700;letter-spacing:.06em;
+      font-size:26px;text-transform:uppercase;color:var(--white);
+      text-shadow:0 0 16px rgba(0,217,255,.4),0 0 6px rgba(234,242,255,.35);}
+    .plate .dia{width:9px;height:9px;transform:rotate(45deg);background:var(--white);
+      box-shadow:0 0 10px var(--glow-cyan);flex:none;
+      animation:pulse 2.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+    /* small editable caption slot, top-left above the frame (flavor brand tag) */
+    .slot-cap{position:absolute;left:6px;top:-42px;display:flex;align-items:center;gap:13px;
+      pointer-events:none;
+      font-family:var(--mono);letter-spacing:.42em;font-size:17px;
+      color:var(--cyan);text-indent:.42em;opacity:.85;white-space:nowrap;
+      text-shadow:0 0 12px rgba(0,217,255,.4);}
+    .slot-cap .dia{width:8px;height:8px;transform:rotate(45deg);background:var(--white);
+      box-shadow:0 0 8px var(--glow-cyan);flex:none;}
+
+    /* corner crest mark — top-right above the frame */
+    .crest-tr{position:absolute;right:6px;top:-44px;display:flex;align-items:center;gap:14px;
+      pointer-events:none;}
+    .crest-tr .r{width:64px;height:1px;
+      background:linear-gradient(90deg,transparent,var(--indigo) 30%,var(--cyan) 70%,transparent);}
+    .crest-tr .dia{width:11px;height:11px;transform:rotate(45deg);background:var(--white);
+      box-shadow:0 0 12px var(--glow-cyan);}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .node{animation:none!important;}
+    #stage.render .frame::after,#stage.render .plate .dia{animation:none;}
+    #stage.render .frame::after{display:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .node{opacity:1;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- cosmic corner warp-nodes in every corner -->
+      <span class="node node--tl" aria-hidden="true"><span class="pip"></span></span>
+      <span class="node node--tr" aria-hidden="true"><span class="pip"></span></span>
+      <span class="node node--bl" aria-hidden="true"><span class="pip"></span></span>
+      <span class="node node--br" aria-hidden="true"><span class="pip"></span></span>
+
+      <!-- editable caption slot, top-left above the frame -->
+      <span class="slot-cap is-slot" data-slot="slot">
+        <span class="dia" aria-hidden="true"></span><span class="slot-no">24</span><span class="slot-txt">your text here</span>
+      </span>
+      <span class="crest-tr" aria-hidden="true"><span class="r"></span><span class="dia"></span></span>
+
+      <!-- handle nameplate, clipped to bottom-centre of the frame -->
+      <div class="plate"><span class="dia" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- editable text slots: [data-slot] ships a "[24] your text here" placeholder.
+       ?slot=Text sets it; ?slot=- (or empty/none/off) removes it entirely. ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      node.textContent = v;
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: faint cosmic warp motes drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const COL = ["#00D9FF", "#6C5CE7", "#FF7AB6", "#EAF2FF"];
+    const motes = Array.from({ length: Math.max(0, num("motes", 38)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.4), vx: R(-6, 6) / 60, vy: R(-5, 4) / 60,
+      ph: R(0, 6.28), tw: R(0.5, 1.6), a: R(0.16, 0.55), col: COL[(Math.random() * COL.length) | 0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const m of motes){
+        m.x += m.vx * dt * 60; m.y += m.vy * dt * 60; m.ph += 0.04 * dt * 60;
+        if (m.x < -10){ m.x = W + 10; m.y = Math.random() * H; }
+        if (m.x > W + 10){ m.x = -10; m.y = Math.random() * H; }
+        if (m.y < -10){ m.y = H + 10; m.x = Math.random() * W; }
+        if (m.y > H + 10){ m.y = -10; m.x = Math.random() * W; }
+        const tw = 0.55 + Math.sin(m.ph * m.tw) * 0.45;
+        ctx.globalAlpha = m.a * tw;
+        ctx.fillStyle = m.col; ctx.shadowColor = m.col; ctx.shadowBlur = 6 * m.z;
+        const s = Math.max(1, Math.round(m.z * 1.7));
+        ctx.fillRect(Math.round(m.x), Math.round(m.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__nebulaDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

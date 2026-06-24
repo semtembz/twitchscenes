@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Kitsune Lantern — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable text: ?kicker=...&sub=...&tag=...&tag2=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- TORII gate silhouettes flanking the margins (behind the lanterns) -->
+    <div class="torii torii--l" aria-hidden="true">
+      <svg viewBox="0 0 280 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#C73D1E"/>
+            <stop offset="1" stop-color="#5e1c0d"/>
+          </linearGradient>
+        </defs>
+        <g fill="url(#tg)">
+          <!-- top lintel (kasagi) with upward sweep -->
+          <path d="M2 40 Q140 8 278 40 L278 70 Q140 38 2 70 Z"/>
+          <!-- second rail (nuki) -->
+          <rect x="22" y="96" width="236" height="26"/>
+          <!-- left pillar -->
+          <rect x="60" y="62" width="34" height="318"/>
+          <!-- right pillar -->
+          <rect x="186" y="62" width="34" height="318"/>
+        </g>
+      </svg>
+    </div>
+    <div class="torii torii--r" aria-hidden="true">
+      <svg viewBox="0 0 280 380" xmlns="http://www.w3.org/2000/svg">
+        <g fill="url(#tg)">
+          <path d="M2 40 Q140 8 278 40 L278 70 Q140 38 2 70 Z"/>
+          <rect x="22" y="96" width="236" height="26"/>
+          <rect x="60" y="62" width="34" height="318"/>
+          <rect x="186" y="62" width="34" height="318"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- hanging paper LANTERNS (chochin) down each margin -->
+    <div class="lantern lantern--1 kanji" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+    <div class="lantern lantern--2" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+    <div class="lantern lantern--3" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+    <div class="lantern lantern--4" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+    <div class="lantern lantern--5 kanji" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+    <div class="lantern lantern--6" aria-hidden="true"><div class="cord"></div><div class="cap"></div><div class="body"></div><div class="foot"></div><div class="tassel"></div></div>
+
+    <!-- atmosphere overlays -->
+    <div class="mist" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+    <div class="seal seal--tl is-slot" data-slot="tag"><span class="slot-no">5</span><span class="slot-txt">your text here</span></div>
+    <div class="seal seal--tr is-slot" data-slot="tag2"><span class="slot-no">6</span><span class="slot-txt">your text here</span></div>
+
+    <main class="panel">
+      <!-- fox-mask crest + double rule -->
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span>
+        <svg class="mask" viewBox="0 0 88 60" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#FFD166" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+            <!-- fox-mask outline: two ears + tapered muzzle -->
+            <path d="M44 56 L10 30 L16 8 L34 22 Q44 16 54 22 L72 8 L78 30 Z"/>
+            <!-- snout / nose -->
+            <path d="M44 56 L36 40 Q44 44 52 40 Z" fill="rgba(255,106,61,.5)" stroke="#FF6A3D"/>
+            <!-- eye marks -->
+            <path d="M26 30 q6 -6 12 0" stroke="#FF6A3D"/>
+            <path d="M50 30 q6 -6 12 0" stroke="#FF6A3D"/>
+          </g>
+        </svg>
+        <span class="r r--r"></span>
+      </div>
+
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">7</span><span class="slot-txt">your text here</span></p>
+      <h1 class="title">BE RIGHT<span class="accent">BACK</span></h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">8</span><span class="slot-txt">your text here</span></p>
+
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <!-- kanji 狐 accent (translucent seal, lower void) -->
+    <div class="kanji-mark" aria-hidden="true">狐</div>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

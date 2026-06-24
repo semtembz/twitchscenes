@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Kitsune Lantern Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box). Each event keeps its DISTINCT motion.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0A0610; color: #F6EFE8;
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", Georgia, "Times New Roman", serif; }
+    h1 { font-size: 22px; color: #FFD166; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: #C9B7A8; line-height: 1.55; margin: 0 0 14px; max-width: 860px; }
+    code { color: #F6EFE8; background: #1B1230; padding: 2px 6px; border-radius: 3px; }
+    label { color: #FFD166; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #160E22; color: #F6EFE8;
+      border: 1px solid #FF6A3D; border-radius: 4px; margin-right: 16px; }
+    input { width: 150px; }
+    button { font-size: 15px; padding: 13px 26px; background: linear-gradient(180deg,#FFD166,#FF6A3D);
+      color: #160E22; border: 1px solid #FFD166; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #FFD166; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #FFD166; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #1B1230; }
+    .checker {
+      background-color: #100A16;
+      background-image:
+        linear-gradient(45deg, #1B1230 25%, transparent 25%),
+        linear-gradient(-45deg, #1B1230 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1B1230 75%),
+        linear-gradient(-45deg, transparent 75%, #1B1230 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Kitsune Lantern Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once (with that event's distinct motion) on the
+     canvas mirror below; when it finishes your browser downloads
+     <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" value="Viewer" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" value="500" /></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const ORANGE = '#FF6A3D', ORANGE_DEEP = '#C73D1E', VIOLET = '#7B5CFF',
+          GOLD = '#FFD166', CREAM = '#F6EFE8', DIM = '#C9B7A8';
+    const MINCHO = '"Yu Mincho","Hiragino Mincho ProN","Songti SC",Georgia,"Times New Roman",serif';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    // `kicker` is the FUNCTIONAL event label (kept); the flavor `sub` ships "".
+    const EVENTS = {
+      follower:   { glyph:"狐", kicker:"NEW FOLLOWER",   sub:"", motes:16, amount:false },
+      subscriber: { glyph:"灯", kicker:"NEW SUBSCRIBER", sub:"", motes:20, amount:false },
+      member:     { glyph:"友", kicker:"NEW MEMBER",     sub:"", motes:20, amount:false },
+      cheer:      { glyph:"祝", kicker:"CHEER",          sub:"", motes:24, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"恩", kicker:"DONATION",       sub:"", motes:26, amount:true,  amtPre:"$" },
+      host:       { glyph:"門", kicker:"NOW HOSTING",    sub:"", motes:34, amount:true,  amtPre:"", amtSuf:" GUESTS" },
+      raid:       { glyph:"嵐", kicker:"RAID ARRIVING",  sub:"", motes:46, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"愛", kicker:"NEW LIKE",       sub:"", motes:14, amount:false },
+      share:      { glyph:"伝", kicker:"SHARED",         sub:"", motes:18, amount:false },
+      star:       { glyph:"星", kicker:"NEW STAR",       sub:"", motes:22, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"光", kicker:"SUPER CHAT",     sub:"", motes:28, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"縁", kicker:"NEW SUPPORTER",  sub:"", motes:24, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 140, 806 wide) =====
+    const CARD_W = 806, CARD_H = 214;
+    const CARD_X0 = 96;                  // resting left
+    const CARD_Y = H - 140 - CARD_H;     // bottom:140 -> top y
+
+    // ===== easing + keyframe helpers (mirror alerts.js) =====
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    function kf(ms, dur, stops) {
+      const t = clamp01(ms / dur);
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const a = stops[i-1], b = stops[i];
+          const seg = (t - a[0]) / (b[0] - a[0] || 1);
+          return a[1] + (b[1] - a[1]) * easeOut(seg);
+        }
+      }
+      return stops[stops.length - 1][1];
+    }
+    // each motion -> {dx,dy,sx,sy,rot,skew,blur,ox,oy,o} for a given ms (mirror of CSS)
+    const MOTIONS = {
+      follower(ms,d){ return {dy:kf(ms,d,[[0,64],[.7,-8],[1,0]]),o:clamp01(ms/(d*.5))}; },
+      subscriber(ms,d){ const s=kf(ms,d,[[0,.62],[1,1]]); return {sx:s,sy:s,blur:kf(ms,d,[[0,9],[.6,0],[1,0]]),o:clamp01(ms/(d*.55)),ox:.18,oy:.5}; },
+      member(ms,d){ return {dx:kf(ms,d,[[0,-150],[.72,14],[1,0]]),o:clamp01(ms/(d*.45))}; },
+      cheer(ms,d){ const s=kf(ms,d,[[0,.9],[.55,1.05],[1,1]]); return {dy:kf(ms,d,[[0,40],[.55,-11],[1,0]]),sx:s,sy:s,o:clamp01(ms/(d*.45)),ox:.18,oy:.84}; },
+      donation(ms,d){ return {dy:kf(ms,d,[[0,-92],[.6,13],[.82,-5],[1,0]]),o:clamp01(ms/(d*.5))}; },
+      host(ms,d){ return {sx:kf(ms,d,[[0,.12],[.6,1.02],[1,1]]),sy:1,o:clamp01(ms/(d*.4)),ox:0,oy:.5}; },
+      raid(ms,d){ const s=kf(ms,d,[[0,1.05],[.55,1.02],[1,1]]); return {dx:kf(ms,d,[[0,-280],[.55,28],[.72,-13],[.86,7],[1,0]]),sx:s,sy:s,o:clamp01(ms/(d*.4))}; },
+      like(ms,d){ const s=kf(ms,d,[[0,.84],[.6,1.06],[1,1]]); return {sx:s,sy:s,o:clamp01(ms/(d*.45)),ox:.18,oy:.5}; },
+      share(ms,d){ return {dx:kf(ms,d,[[0,-128],[.7,8],[1,0]]),skew:kf(ms,d,[[0,-9],[.7,2],[1,0]]),o:clamp01(ms/(d*.45))}; },
+      star(ms,d){ return {dy:kf(ms,d,[[0,-72],[.62,8],[1,0]]),rot:kf(ms,d,[[0,-4],[.62,1.5],[1,0]]),o:clamp01(ms/(d*.5)),ox:.18,oy:.3}; },
+      superchat(ms,d){ const s=kf(ms,d,[[0,1.36],[.6,.97],[1,1]]); return {sx:s,sy:s,o:clamp01(ms/(d*.5)),ox:.18,oy:.5}; },
+      supporter(ms,d){ return {dy:kf(ms,d,[[0,54],[1,0]]),blur:kf(ms,d,[[0,6],[.6,0],[1,0]]),o:clamp01(ms/(d*.5))}; },
+    };
+    const ENTER = { follower:660, subscriber:740, member:620, cheer:580, donation:780, host:700, raid:820, like:620, share:600, star:720, superchat:700, supporter:700 };
+
+    // rounded-rect path helper
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawMote(p) {
+      const breathe = 0.8 + 0.2 * Math.sin((2.4 - p.life) * 5 + p.ph);
+      const r = p.r * breathe;
+      if (r < 0.5) return;
+      const x = Math.round(p.x), y = Math.round(p.y);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+      const a = Math.max(0, p.a);
+      if (p.warm) {
+        g.addColorStop(0.0, 'rgba(255,229,170,' + (a * 0.85).toFixed(3) + ')');
+        g.addColorStop(0.35, 'rgba(255,106,61,' + (a * 0.5).toFixed(3) + ')');
+        g.addColorStop(1.0, 'rgba(255,106,61,0)');
+      } else {
+        g.addColorStop(0.0, 'rgba(206,196,255,' + (a * 0.8).toFixed(3) + ')');
+        g.addColorStop(0.35, 'rgba(123,92,255,' + (a * 0.5).toFixed(3) + ')');
+        g.addColorStop(1.0, 'rgba(123,92,255,0)');
+      }
+      ctx.globalAlpha = 1; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = Math.min(1, a * 1.3) * breathe;
+      ctx.fillStyle = p.warm ? '#FFF1D6' : '#E8E2FF';
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1, r * 0.34), 0, 6.2832); ctx.fill();
+    }
+
+    // ===== one full alert clip as a function of time =====
+    // Timeline (ms): entrance(per event, settled by `enter`) | hold to 4000+enter | out .5
+    function clipState(type, name, amountStr) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const enter = ENTER[type] || 660, HOLD = 4000, EXIT = 500, holdEnd = enter + HOLD;
+      const DUR = holdEnd + EXIT;
+      const showAmount = !!(cfg.amount && amountStr);
+      const burst = [];
+      let spawned1 = false, spawned2 = false;
+
+      function spawn(n) {
+        const ox = CARD_X0 + 122, oy = CARD_Y + CARD_H - 4;
+        for (let i = 0; i < n; i++) {
+          const ang = R(-Math.PI, 0), sp = R(20, 150) / 60;
+          burst.push({
+            x: ox + R(-34, 34), y: oy + R(-30, 30),
+            vx: Math.cos(ang) * sp + R(-0.4, 0.4),
+            vy: Math.sin(ang) * sp - R(0.3, 1.2),
+            g: R(-8, 18) / 3600, r: R(5, 13), ph: R(0, 6.28),
+            a: 1, life: R(1.2, 2.4), warm: Math.random() < 0.45,
+          });
+        }
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g;
+          p.vx *= 0.99; p.vy *= 0.99;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y < -60) burst.splice(i, 1);
+        }
+      }
+
+      const motionFn = MOTIONS[type] || MOTIONS.follower;
+
+      const render = function (ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // motion state
+        let st;
+        if (ms < holdEnd) st = motionFn(ms, enter);
+        else { const p = clamp01((ms - holdEnd) / EXIT); st = { dx: -46 * easeOut(p), sx: 1 - 0.015 * easeOut(p), sy: 1 - 0.015 * easeOut(p), o: 1 - p }; }
+        const dx = st.dx || 0, dy = st.dy || 0, sx = (st.sx == null ? 1 : st.sx), sy = (st.sy == null ? 1 : st.sy);
+        const rot = (st.rot || 0) * Math.PI / 180, skew = (st.skew || 0) * Math.PI / 180;
+        const blur = st.blur || 0, op = st.o == null ? 1 : st.o;
+        const ox = st.ox == null ? 0.5 : st.ox, oy = st.oy == null ? 0.5 : st.oy;
+
+        // spawn bursts (staggered like the live JS)
+        if (!spawned1 && ms >= 210) { spawn(cfg.motes); spawned1 = true; }
+        if (!spawned2 && cfg.motes >= 30 && ms >= 580) { spawn(Math.round(cfg.motes * 0.6)); spawned2 = true; }
+        stepBurst();
+
+        // draw motes behind the card while it's visible
+        if (op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1;
+
+        if (op <= 0.01) return;
+
+        // apply the transform around the origin point (mirrors transform-origin)
+        const px = CARD_X0 + CARD_W * ox, py = CARD_Y + CARD_H * oy;
+        ctx.save();
+        ctx.globalAlpha = op;
+        if (blur > 0) ctx.filter = 'blur(' + blur.toFixed(2) + 'px)';
+        ctx.translate(px + dx, py + dy);
+        ctx.transform(sx, 0, Math.tan(skew), sy, 0, 0);
+        ctx.rotate(rot);
+        ctx.translate(-px, -py);
+
+        const x = CARD_X0, y = CARD_Y;
+
+        // card body (washi plate + gold hairline + warm glow)
+        ctx.shadowColor = 'rgba(255,106,61,0.16)'; ctx.shadowBlur = 50;
+        roundRect(x, y, CARD_W, CARD_H, 10);
+        const body = ctx.createLinearGradient(x, y, x + CARD_W * 0.7, y + CARD_H);
+        body.addColorStop(0, 'rgba(22,14,32,0.84)'); body.addColorStop(1, 'rgba(12,7,18,0.74)');
+        ctx.fillStyle = body; ctx.fill();
+        ctx.shadowBlur = 0;
+        // warm top glaze
+        const glaze = ctx.createLinearGradient(x, y, x, y + CARD_H * 0.6);
+        glaze.addColorStop(0, 'rgba(255,209,102,0.10)'); glaze.addColorStop(1, 'rgba(255,209,102,0)');
+        roundRect(x, y, CARD_W, CARD_H, 10); ctx.fillStyle = glaze; ctx.fill();
+        // outer gold hairline
+        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,209,102,0.42)';
+        roundRect(x + 0.5, y + 0.5, CARD_W - 1, CARD_H - 1, 10); ctx.stroke();
+        // inner hairline
+        ctx.strokeStyle = 'rgba(255,209,102,0.22)';
+        roundRect(x + 10, y + 10, CARD_W - 20, CARD_H - 20, 6); ctx.stroke();
+
+        // left warm seam
+        const seam = ctx.createLinearGradient(0, y + 22, 0, y + CARD_H - 22);
+        seam.addColorStop(0, GOLD); seam.addColorStop(0.55, ORANGE); seam.addColorStop(1, ORANGE_DEEP);
+        ctx.fillStyle = seam; ctx.shadowColor = 'rgba(255,106,61,0.7)'; ctx.shadowBlur = 14;
+        ctx.fillRect(x + 10, y + 22, 4, CARD_H - 44); ctx.shadowBlur = 0;
+
+        // ---- hanging-lantern glyph node ----
+        const ncx = x + 40 + 66;             // node centre x (col 132 wide, padding-left 40)
+        const bodyTop = y + 32 + 27;         // lantern body top
+        const bw = 104, bh = 108;
+        // cord
+        ctx.strokeStyle = 'rgba(255,209,102,0.42)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ncx, y + 30); ctx.lineTo(ncx, y + 30 + 22); ctx.stroke();
+        // cap
+        ctx.fillStyle = '#2a1810'; ctx.fillRect(ncx - 17, y + 32 + 18, 34, 11);
+        // lantern body (glowing chochin)
+        const bg = ctx.createRadialGradient(ncx, bodyTop + bh * 0.44, 4, ncx, bodyTop + bh * 0.44, bw * 0.62);
+        bg.addColorStop(0, GOLD); bg.addColorStop(0.46, ORANGE); bg.addColorStop(0.84, ORANGE_DEEP); bg.addColorStop(1, '#7e2412');
+        ctx.save();
+        ctx.beginPath(); ctx.ellipse(ncx, bodyTop + bh / 2, bw / 2, bh / 2, 0, 0, 6.2832); ctx.clip();
+        ctx.shadowColor = 'rgba(255,106,61,0.55)'; ctx.shadowBlur = 40;
+        ctx.fillStyle = bg; ctx.fillRect(ncx - bw / 2, bodyTop, bw, bh);
+        ctx.shadowBlur = 0;
+        // paper ribbing
+        ctx.strokeStyle = 'rgba(120,30,14,0.32)'; ctx.lineWidth = 2;
+        for (let ry = bodyTop + 8; ry < bodyTop + bh; ry += 13) { ctx.beginPath(); ctx.moveTo(ncx - bw / 2, ry); ctx.lineTo(ncx + bw / 2, ry); ctx.stroke(); }
+        ctx.restore();
+        // foot
+        ctx.fillStyle = '#2a1810'; ctx.fillRect(ncx - 15, bodyTop + bh, 30, 9);
+        // painted glyph
+        ctx.fillStyle = CREAM; ctx.shadowColor = 'rgba(126,36,18,0.85)'; ctx.shadowBlur = 14;
+        ctx.font = '52px ' + MINCHO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.glyph, ncx, bodyTop + bh / 2 + 2); ctx.shadowBlur = 0;
+
+        // ---- meta column ----
+        const mx = x + 40 + 132 + 32;
+        ctx.textAlign = 'left';
+        // kicker diamond
+        ctx.save();
+        ctx.translate(mx + 5, y + 46); ctx.rotate(Math.PI / 4);
+        ctx.strokeStyle = GOLD; ctx.lineWidth = 1; ctx.shadowColor = 'rgba(255,209,102,0.6)'; ctx.shadowBlur = 8;
+        ctx.strokeRect(-5, -5, 10, 10); ctx.restore(); ctx.shadowBlur = 0;
+        // kicker (spaced mincho caps)
+        ctx.fillStyle = GOLD; ctx.font = '600 21px ' + MINCHO; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(spacedCaps(cfg.kicker), mx + 24, y + 53);
+        // name (cream mincho)
+        ctx.fillStyle = CREAM; ctx.shadowColor = 'rgba(255,106,61,0.28)'; ctx.shadowBlur = 40;
+        ctx.font = '700 60px ' + MINCHO;
+        const maxName = CARD_W - (40 + 132 + 32) - 44;
+        ctx.fillText(clampText((name || 'Viewer').toUpperCase(), maxName), mx, y + 122);
+        ctx.shadowBlur = 0;
+        // amount (lantern-gold) OR rule
+        if (showAmount) {
+          ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(255,106,61,0.5)'; ctx.shadowBlur = 16;
+          ctx.font = '700 34px ' + MINCHO;
+          ctx.fillText(amountStr, mx, y + 160); ctx.shadowBlur = 0;
+        } else {
+          // delicate foxfire rule
+          const rl = ctx.createLinearGradient(mx, 0, mx + 200, 0);
+          rl.addColorStop(0, ORANGE); rl.addColorStop(0.5, GOLD); rl.addColorStop(1, 'rgba(255,209,102,0)');
+          ctx.strokeStyle = rl; ctx.lineWidth = 1; ctx.beginPath();
+          ctx.moveTo(mx, y + 150); ctx.lineTo(mx + 200, y + 150); ctx.stroke();
+          // diamond cap
+          ctx.save(); ctx.translate(mx - 7, y + 150); ctx.rotate(Math.PI / 4);
+          ctx.strokeStyle = GOLD; ctx.shadowColor = 'rgba(255,209,102,0.6)'; ctx.shadowBlur = 6;
+          ctx.strokeRect(-3.5, -3.5, 7, 7); ctx.restore(); ctx.shadowBlur = 0;
+        }
+
+        // seal tag (top-right mincho)
+        ctx.fillStyle = GOLD; ctx.globalAlpha = op * 0.82;
+        ctx.font = '16px ' + MINCHO; ctx.textAlign = 'right';
+        ctx.fillText('狐 火', x + CARD_W - 26, y + 32);
+        ctx.globalAlpha = op;
+        // seal rule
+        ctx.strokeStyle = 'rgba(255,209,102,0.7)'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(x + CARD_W - 26 - 92, y + 46); ctx.lineTo(x + CARD_W - 26, y + 46); ctx.stroke();
+
+        ctx.restore();
+        ctx.filter = 'none';
+      };
+      render.DUR = DUR;
+      return render;
+    }
+
+    // letter-space a string a touch to read as spaced caps on canvas
+    function spacedCaps(str) { return String(str).split('').join('  '); }
+
+    // clamp a string to a pixel width with the name font
+    function clampText(str, maxW) {
+      ctx.save(); ctx.font = '700 60px ' + MINCHO;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr);
+      r(ENTER[type] + 1500); // mid-hold frame
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr);
+      const DUR = render.DUR;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

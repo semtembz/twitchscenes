@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Aurora Noir — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Aurora behind Black Glass" language: thin
+       iridescent mint->violet hairline corner ticks in the void corners, a slim
+       frosted BLACK-GLASS strip lower-left carrying @handle + a small editable
+       brand label slot and a "LIVE" status dot, plus a tiny iridescent node tag
+       top-right. Almost everything stays transparent so the gameplay shows
+       through; only a faint drift of aurora light-motes hugs the strip.
+       Decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=[ your text here ]  ?render=1
+       (?tag=- removes the editable label) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no sky background, no full-bleed haze/sweep/vignette */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of aurora light-motes, very low alpha, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin iridescent hairline corner ticks in the void corners ---- */
+    .at{position:absolute;width:52px;height:52px;pointer-events:none;opacity:.66;
+      animation:atin 1s var(--ease) both .2s;}
+    .at::before,.at::after{content:"";position:absolute;
+      box-shadow:0 0 8px rgba(91,224,192,.32);}
+    .at::before{width:52px;height:1px;
+      background:linear-gradient(90deg,var(--edge-mint),transparent);}
+    .at::after{width:1px;height:52px;
+      background:linear-gradient(180deg,var(--edge-mint),transparent);}
+    .at--tl{left:46px;top:46px;}  .at--tl::before{left:0;top:0;}  .at--tl::after{left:0;top:0;}
+    .at--tr{right:46px;top:46px;} .at--tr::before{right:0;top:0;background:linear-gradient(270deg,var(--edge-violet),transparent);} .at--tr::after{right:0;top:0;background:linear-gradient(180deg,var(--edge-violet),transparent);}
+    .at--bl{left:46px;bottom:46px;}  .at--bl::before{left:0;bottom:0;}  .at--bl::after{left:0;bottom:0;background:linear-gradient(0deg,var(--edge-mint),transparent);}
+    .at--br{right:46px;bottom:46px;} .at--br::before{right:0;bottom:0;background:linear-gradient(270deg,var(--edge-violet),transparent);} .at--br::after{right:0;bottom:0;background:linear-gradient(0deg,var(--edge-violet),transparent);}
+    @keyframes atin{from{opacity:0}to{opacity:.66}}
+
+    /* ---- slim frosted black-glass telemetry strip, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 24px;
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(20,22,29,.50), rgba(8,9,13,.62));
+      -webkit-backdrop-filter:blur(13px) saturate(122%);
+              backdrop-filter:blur(13px) saturate(122%);
+      border:1px solid var(--edge);
+      box-shadow:0 22px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(234,240,242,.10),
+        inset 0 0 60px rgba(8,9,13,.40), 0 0 30px rgba(91,224,192,.05);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* thin iridescent edge (mint->violet) that catches the aurora */
+    .slot::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.4px;
+      pointer-events:none;
+      background:linear-gradient(120deg, var(--edge-mint) 0%, rgba(234,240,242,.10) 42%,
+        rgba(234,240,242,.04) 62%, var(--edge-violet) 100%);
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;opacity:.85;}
+    /* slow iridescent light-sweep travels along the strip */
+    .slot .sweep{content:"";position:absolute;top:0;bottom:0;width:130px;left:-130px;pointer-events:none;
+      border-radius:inherit;mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(91,224,192,.14), rgba(138,123,255,.12), transparent);
+      animation:slotsweep 6.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-130px}100%{left:100%}}
+
+    /* "LIVE" status — pulsing iridescent dot + spaced caps (functional label, clean) */
+    .slot .tag{display:flex;align-items:center;gap:11px;
+      font-family:var(--sans);letter-spacing:.36em;font-size:16px;font-weight:500;
+      text-transform:uppercase;color:var(--mint);text-indent:.36em;
+      text-shadow:0 0 14px rgba(91,224,192,.4);}
+    .slot .tag .dot{width:9px;height:9px;border-radius:50%;
+      background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+      box-shadow:0 0 12px var(--glow-mint),0 0 18px var(--glow-violet);
+      animation:dotpulse 2.2s ease-in-out infinite;}
+    @keyframes dotpulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--glow-mint),0 0 18px var(--glow-violet)}50%{opacity:.42;box-shadow:0 0 6px var(--glow-mint)}}
+
+    /* thin iridescent divider with a tiny center diamond, between tag and handle */
+    .slot .div{position:relative;width:1px;height:32px;
+      background:linear-gradient(180deg,transparent,var(--mint),var(--violet),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border-radius:50%;transform:translate(-50%,-50%);
+      background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+      box-shadow:0 0 8px var(--glow-mint);}
+
+    /* handle — light wide-tracked sans in white */
+    .slot .who{font-family:var(--sans);font-weight:400;letter-spacing:.22em;font-size:24px;
+      color:var(--white);text-indent:.22em;
+      text-shadow:0 0 14px rgba(91,224,192,.32),0 0 24px rgba(138,123,255,.2);white-space:nowrap;}
+
+    /* small EDITABLE brand label tag, top-right (an is-slot "[23] your text here") */
+    .node-tr{position:absolute;top:44px;right:118px;display:flex;align-items:center;gap:13px;
+      font-family:var(--sans);font-weight:400;letter-spacing:.4em;font-size:16px;
+      color:var(--mint);text-indent:.4em;opacity:.8;white-space:nowrap;
+      text-shadow:0 0 12px rgba(91,224,192,.3);
+      animation:atin 1s var(--ease) both .3s;}
+    .node-tr .pt{width:8px;height:8px;border-radius:50%;flex:0 0 auto;
+      background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+      box-shadow:0 0 8px var(--glow-mint);}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .at,#stage.render .node-tr{animation:none!important;}
+    #stage.render .slot .sweep{animation:none;display:none;}
+    #stage.render .slot .tag .dot{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .at{opacity:.66;}
+    #stage.render .node-tr{opacity:.8;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin iridescent hairline corner ticks in all four corners -->
+    <span class="at at--tl" aria-hidden="true"></span>
+    <span class="at at--tr" aria-hidden="true"></span>
+    <span class="at at--bl" aria-hidden="true"></span>
+    <span class="at at--br" aria-hidden="true"></span>
+
+    <!-- small editable brand label, top-right (type your own, or set ?tag=- to remove) -->
+    <div class="node-tr is-slot" id="tag" data-slot="tag"><span class="pt" aria-hidden="true"></span><span class="slot-no">23</span><span class="slot-txt">your text here</span></div>
+
+    <!-- slim frosted black-glass telemetry strip, lower-left -->
+    <div class="slot">
+      <span class="sweep" aria-hidden="true"></span>
+      <span class="tag"><span class="dot" aria-hidden="true"></span>LIVE</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    /* ---- editable text slots: any [data-slot] ships a "[24] your text here"
+       placeholder. ?slotname=Text sets it; ?slotname=- (or empty/none/off) removes it. ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      const txt = node.querySelector(".slot-txt");
+      if (txt) txt.textContent = v; else node.textContent = v;
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a few subtle drifting aurora light-motes (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0xA09A >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const motes = Array.from({ length: Math.max(0, num("motes", 56)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vx: R(-3, 3)/60, vy: R(-7, -1)/60,
+      ph: R(0, 6.28), tw: R(0.4, 1.4), a: R(0.16, 0.6), mint: srnd() < 0.55,
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.shadowBlur = 0;
+      for (const p of motes){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.045 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) { p.y = H + 8; p.x = srnd() * W; }
+        const tw = 0.5 + Math.sin(p.ph * p.tw) * 0.5;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.mint ? "#5BE0C0" : "#8A7BFF";
+        const sz = Math.max(1, Math.round(p.z * 1.6));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+    }
+    window.__auroraDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

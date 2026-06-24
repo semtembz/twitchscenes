@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Aurora Noir Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event (and toggle "no name" — the shipping mode), optionally tweak
+    name/amount, click Record — the alert plays once on a canvas mirror while it
+    records, then your browser downloads `alert-<event>.webm`. Drop it on an OBS
+    Media source as your alert overlay (or feed it to your alert box).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.3s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #08090D; color: #EAF0F2;
+      font-family: "Segoe UI", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    h1 { font-size: 20px; color: #5BE0C0; letter-spacing: 4px; margin: 0 0 10px; text-transform: uppercase; }
+    p  { color: #9AA7B4; line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #EAF0F2; background: #14161D; padding: 2px 6px; border-radius: 3px; }
+    label { color: #5BE0C0; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 13px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #14161D; color: #EAF0F2;
+      border: 1px solid #5BE0C0; border-radius: 6px; margin-right: 16px; font-family: inherit; }
+    input[type="text"] { width: 150px; }
+    button { font-size: 14px; padding: 13px 26px;
+      background: linear-gradient(100deg,#5BE0C0,#EAF0F2 50%,#8A7BFF);
+      color: #08090D; border: 1px solid #EAF0F2; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 6px; text-transform: uppercase; font-family: inherit; }
+    button:hover:not(:disabled) { filter: brightness(1.08); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .chk { display: flex; align-items: center; gap: 7px; }
+    .chk input { width: auto; margin: 0; }
+    #status { color: #5BE0C0; }
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #14161D; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #08090D;
+      background-image:
+        linear-gradient(45deg, #14161D 25%, transparent 25%),
+        linear-gradient(-45deg, #14161D 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #14161D 75%),
+        linear-gradient(-45deg, transparent 75%, #14161D 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Aurora Noir Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set name / amount, then click Record.
+     Leave <strong>No name</strong> on to ship the event-headline mode (your alert platform overlays
+     the live viewer name). The clip plays once on the canvas mirror below; when it finishes your
+     browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label><select id="ev"></select></span>
+    <span><label for="nm">Name</label><input id="nm" type="text" value="Viewer" /></span>
+    <span><label for="am">Amount</label><input id="am" type="text" value="500" /></span>
+    <label class="chk"><input id="noname" type="checkbox" checked /> No name (shipping)</label>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const MINT = '#5BE0C0', VIOLET = '#8A7BFF', WHITE = '#EAF0F2', DIM = '#9AA7B4';
+    const TINT = ['#5BE0C0', '#8A7BFF', '#EAF0F2', '#78C8E0'];
+    const SANS = '"Segoe UI", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"✦", kicker:"NEW FOLLOWER",   sub:"", motes:16, amount:false },
+      subscriber: { glyph:"❋", kicker:"NEW SUBSCRIBER", sub:"", motes:22, amount:false },
+      member:     { glyph:"◈", kicker:"NEW MEMBER",     sub:"", motes:22, amount:false },
+      cheer:      { glyph:"❅", kicker:"CHEER",          sub:"", motes:26, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"◆", kicker:"DONATION",       sub:"", motes:28, amount:true,  amtPre:"$" },
+      host:       { glyph:"❖", kicker:"NOW HOSTING",    sub:"", motes:34, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+      raid:       { glyph:"✺", kicker:"RAID INBOUND",   sub:"", motes:48, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"♡", kicker:"NEW LIKE",       sub:"", motes:14, amount:false },
+      share:      { glyph:"➤", kicker:"SHARED",         sub:"", motes:18, amount:false },
+      star:       { glyph:"★", kicker:"NEW STAR",       sub:"", motes:24, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"✸", kicker:"SUPER CHAT",     sub:"", motes:30, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"✪", kicker:"NEW SUPPORTER",  sub:"", motes:24, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 140, 840 wide) =====
+    const CARD_W = 840, CARD_H = 196;
+    const CARD_X = 96;
+    const CARD_Y = H - 140 - CARD_H;
+    const RAD = 24;
+
+    // ===== easing + keyframe interp (mirror alerts.js) =====
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    function kf(ms, dur, stops) {
+      const t = clamp01(ms / dur);
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const a = stops[i - 1], b = stops[i];
+          const seg = (t - a[0]) / (b[0] - a[0] || 1);
+          return a[1] + (b[1] - a[1]) * easeOut(seg);
+        }
+      }
+      return stops[stops.length - 1][1];
+    }
+
+    // per-event transform -> {dx,dy,sx,sy,rot(rad),skew(rad),blur,ox,oy,op}
+    // ox/oy are the transform-origin (0..1) within the card box. (mirror of alerts.js MOTIONS)
+    function motion(type, ms, enter) {
+      const d = enter;
+      let dx=0, dy=0, sx=1, sy=1, rot=0, skew=0, blur=0, ox=0.5, oy=0.5, op=1;
+      switch (type) {
+        case 'follower':  dy = kf(ms,d,[[0,74],[.7,-9],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'subscriber': sx = sy = kf(ms,d,[[0,.6],[1,1]]); blur = kf(ms,d,[[0,9],[.6,0],[1,0]]); op = clamp01(ms/(d*.55)); ox=0.16; break;
+        case 'member':    dx = kf(ms,d,[[0,-150],[.72,15],[1,0]]); op = clamp01(ms/(d*.45)); break;
+        case 'cheer':     dy = kf(ms,d,[[0,42],[.55,-11],[1,0]]); sx=sy=kf(ms,d,[[0,.9],[.55,1.045],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; oy=0.82; break;
+        case 'donation':  dy = kf(ms,d,[[0,-96],[.6,13],[.82,-5],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'host':      sx = kf(ms,d,[[0,.12],[.6,1.02],[1,1]]); op = clamp01(ms/(d*.4)); ox=0; break;
+        case 'raid':      dx = kf(ms,d,[[0,-280],[.55,28],[.72,-13],[.86,6],[1,0]]); sx=sy=kf(ms,d,[[0,1.04],[.55,1.02],[1,1]]); op=clamp01(ms/(d*.4)); break;
+        case 'like':      sx=sy = kf(ms,d,[[0,.84],[.6,1.05],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; break;
+        case 'share':     dx = kf(ms,d,[[0,-130],[.7,9],[1,0]]); skew = kf(ms,d,[[0,-9],[.7,2],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.45)); break;
+        case 'star':      dy = kf(ms,d,[[0,-74],[.62,8],[1,0]]); rot = kf(ms,d,[[0,-4],[.62,1.5],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.5)); ox=0.16; oy=0.3; break;
+        case 'superchat': sx=sy = kf(ms,d,[[0,1.38],[.6,.97],[1,1]]); op=clamp01(ms/(d*.5)); ox=0.16; break;
+        case 'supporter': dy = kf(ms,d,[[0,56],[1,0]]); blur = kf(ms,d,[[0,6],[.6,0],[1,0]]); op=clamp01(ms/(d*.5)); break;
+        default:          dy = kf(ms,d,[[0,74],[.7,-9],[1,0]]); op = clamp01(ms/(d*.5));
+      }
+      return {dx,dy,sx,sy,rot,skew,blur,ox,oy,op};
+    }
+    const ENTER = { follower:680, subscriber:740, member:620, cheer:600, donation:780, host:700, raid:820, like:640, share:620, star:740, superchat:720, supporter:720 };
+
+    // ===== rounded-rect + hexagon path helpers =====
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function hexPath(cx, cy, w, h) {
+      // matches clip-path polygon(25% 3%,75% 3%,98% 50%,75% 97%,25% 97%,2% 50%)
+      const pts = [[.25,.03],[.75,.03],[.98,.5],[.75,.97],[.25,.97],[.02,.5]];
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = cx + p[0]*w, y = cy + p[1]*h;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.closePath();
+    }
+
+    // ===== aurora-mote burst (mirror of alerts.js) =====
+    function drawMote(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      const tw = 0.55 + Math.sin(p.ph) * 0.45;
+      ctx.globalAlpha = Math.max(0, p.a) * tw;
+      ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 12;
+      if (p.spark) {
+        const r = p.s * 1.7, w = Math.max(0.6, p.s * 0.34);
+        ctx.fillRect(-r, -w / 2, r * 2, w);
+        ctx.fillRect(-w / 2, -r, w, r * 2);
+      } else {
+        ctx.beginPath(); ctx.arc(0, 0, p.s, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // clamp a string to a pixel width in the current font
+    function clampText(str, maxW) {
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) return s;
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const enter = ENTER[type] || 680, HOLD = 4100, EXIT = 500, holdEnd = enter + HOLD;
+      const DUR = holdEnd + EXIT;
+      const burst = [];
+      let sp1 = false, sp2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n) {
+        const ox = CARD_X + 74, oy = CARD_Y + CARD_H - 66;
+        for (let i = 0; i < n; i++) {
+          const ang = R(-Math.PI, Math.PI), sp = R(36, 220)/60;
+          burst.push({
+            x: ox + R(-34,34), y: oy + R(-34,34),
+            vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp - R(0.4,1.6),
+            g: R(36,100)/3600, s: R(1.6,4.4), rot: R(0,6.28), vr: R(-2.2,2.2)/60,
+            a: 1, life: R(1.2,2.4), ph: R(0,6.28), tw: R(0.6,1.6),
+            spark: Math.random() < 0.42, c: TINT[(Math.random()*TINT.length)|0],
+          });
+        }
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr; p.ph += 0.16;
+          p.vx *= 0.99; p.vy *= 0.99;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      function drawCard(m) {
+        const ox = CARD_X + m.ox * CARD_W, oy = CARD_Y + m.oy * CARD_H;
+        ctx.save();
+        ctx.globalAlpha = m.op;
+        // apply transform around the origin
+        ctx.translate(ox + m.dx, oy + m.dy);
+        ctx.scale(m.sx, m.sy);
+        ctx.rotate(m.rot);
+        ctx.transform(1, 0, Math.tan(m.skew), 1, 0, 0); // skewX
+        ctx.translate(-ox, -oy);
+
+        const x = CARD_X, y = CARD_Y;
+
+        // ---- card body (frosted black glass) ----
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 70; ctx.shadowOffsetY = 28;
+        roundRect(x, y, CARD_W, CARD_H, RAD);
+        const body = ctx.createLinearGradient(x, y, x, y + CARD_H);
+        body.addColorStop(0, 'rgba(20,22,29,0.52)'); body.addColorStop(1, 'rgba(8,9,13,0.64)');
+        ctx.fillStyle = body; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        // inner top-light pool
+        ctx.save(); roundRect(x, y, CARD_W, CARD_H, RAD); ctx.clip();
+        const pool = ctx.createRadialGradient(x + CARD_W/2, y, 0, x + CARD_W/2, y, CARD_W*0.6);
+        pool.addColorStop(0, 'rgba(91,224,192,0.07)'); pool.addColorStop(1, 'rgba(91,224,192,0)');
+        ctx.fillStyle = pool; ctx.fillRect(x, y, CARD_W, CARD_H*0.6);
+        ctx.restore();
+        // thin iridescent mint->violet edge
+        ctx.lineWidth = 1.5;
+        const edge = ctx.createLinearGradient(x, y, x + CARD_W, y + CARD_H);
+        edge.addColorStop(0, 'rgba(91,224,192,0.55)'); edge.addColorStop(0.38, 'rgba(234,240,242,0.10)');
+        edge.addColorStop(0.6, 'rgba(234,240,242,0.06)'); edge.addColorStop(1, 'rgba(138,123,255,0.55)');
+        ctx.strokeStyle = edge; roundRect(x + 0.75, y + 0.75, CARD_W - 1.5, CARD_H - 1.5, RAD - 0.75); ctx.stroke();
+
+        // ---- iridescent hexagonal glyph node ----
+        const ns = 148, nx = x + 40, ny = y + (CARD_H - ns)/2;
+        const ng = ctx.createLinearGradient(nx, ny, nx, ny + ns);
+        ng.addColorStop(0, 'rgba(20,22,29,0.72)'); ng.addColorStop(1, 'rgba(8,9,13,0.94)');
+        hexPath(nx, ny, ns, ns); ctx.fillStyle = ng; ctx.fill();
+        // mint top glow + violet bottom glow inside the hex
+        ctx.save(); hexPath(nx, ny, ns, ns); ctx.clip();
+        const gtop = ctx.createRadialGradient(nx+ns/2, ny, 0, nx+ns/2, ny, ns*0.7);
+        gtop.addColorStop(0, 'rgba(91,224,192,0.20)'); gtop.addColorStop(1, 'rgba(91,224,192,0)');
+        ctx.fillStyle = gtop; ctx.fillRect(nx, ny, ns, ns);
+        const gbot = ctx.createRadialGradient(nx+ns/2, ny+ns, 0, nx+ns/2, ny+ns, ns*0.7);
+        gbot.addColorStop(0, 'rgba(138,123,255,0.18)'); gbot.addColorStop(1, 'rgba(138,123,255,0)');
+        ctx.fillStyle = gbot; ctx.fillRect(nx, ny, ns, ns);
+        ctx.restore();
+        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(234,240,242,0.16)'; hexPath(nx, ny, ns, ns); ctx.stroke();
+        // glyph — iridescent gradient fill via a clipped gradient
+        ctx.save();
+        ctx.font = '300 62px ' + SANS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const gg = ctx.createLinearGradient(nx, ny, nx + ns, ny + ns);
+        gg.addColorStop(0, MINT); gg.addColorStop(0.52, WHITE); gg.addColorStop(1, VIOLET);
+        ctx.fillStyle = gg; ctx.shadowColor = 'rgba(91,224,192,0.5)'; ctx.shadowBlur = 20;
+        ctx.fillText(cfg.glyph, nx + ns/2, ny + ns/2 + 2);
+        ctx.restore(); ctx.shadowBlur = 0;
+
+        // ---- meta column ----
+        const mx = x + 40 + ns + 34;
+        const maxW = CARD_W - (40 + ns + 34) - 46;
+        ctx.textAlign = 'left';
+
+        // crest (short rule + aurora dot)
+        const cy0 = y + 40;
+        const cr = ctx.createLinearGradient(mx, 0, mx + 34, 0);
+        cr.addColorStop(0, 'rgba(91,224,192,0)'); cr.addColorStop(1, MINT);
+        ctx.strokeStyle = cr; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(mx, cy0); ctx.lineTo(mx + 34, cy0); ctx.stroke();
+        ctx.fillStyle = WHITE; ctx.shadowColor = MINT; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(mx + 46, cy0, 4, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+
+        // kicker (wide-tracked mint) — shown only when name is present
+        ctx.textBaseline = 'alphabetic';
+        let headY;
+        if (!noname) {
+          ctx.font = '400 21px ' + SANS; ctx.fillStyle = MINT;
+          ctx.shadowColor = 'rgba(91,224,192,0.34)'; ctx.shadowBlur = 14;
+          tracked(cfg.kicker, mx, y + 78, 9.2); ctx.shadowBlur = 0; // ~.44em of 21px
+          headY = y + 134;
+        } else {
+          headY = y + 116;
+        }
+
+        // big headline (light-weight sans) — event label (noname) or viewer name
+        const head = noname ? cfg.kicker : (name || 'Viewer');
+        ctx.font = '200 70px ' + SANS; ctx.fillStyle = WHITE;
+        ctx.shadowColor = 'rgba(234,240,242,0.20)'; ctx.shadowBlur = 30;
+        ctx.fillText(clampText(head.toUpperCase(), maxW), mx, headY);
+        ctx.shadowBlur = 0;
+
+        // amount (iridescent) OR sub
+        if (showAmount) {
+          ctx.save();
+          ctx.font = '300 42px ' + SANS;
+          const aw = Math.min(ctx.measureText(amountStr).width, maxW);
+          const ag = ctx.createLinearGradient(mx, 0, mx + aw, 0);
+          ag.addColorStop(0, MINT); ag.addColorStop(0.46, WHITE); ag.addColorStop(1, VIOLET);
+          ctx.fillStyle = ag; ctx.shadowColor = 'rgba(91,224,192,0.4)'; ctx.shadowBlur = 20;
+          ctx.fillText(clampText(amountStr, maxW), mx, headY + 44);
+          ctx.restore();
+        }
+
+        // node id (top-right wide-tracked violet) — right-aligned via pre-measured width
+        ctx.fillStyle = VIOLET; ctx.globalAlpha = m.op * 0.78; ctx.textAlign = 'left';
+        ctx.font = '400 14px ' + SANS; ctx.shadowColor = 'rgba(138,123,255,0.3)'; ctx.shadowBlur = 10;
+        const tagTxt = 'AURORA NOIR', tagTrk = 4.8;            // ~.34em of 14px
+        const tagW = trackedWidth(tagTxt, tagTrk);
+        tracked(tagTxt, x + CARD_W - 24 - tagW, y + 30, tagTrk);
+        ctx.shadowBlur = 0; ctx.globalAlpha = m.op;
+
+        // bottom iridescent rule (fades out to the right)
+        const ry = y + CARD_H - 18, rx0 = x + 40, rx1 = x + CARD_W - 46;
+        const rr = ctx.createLinearGradient(rx0, 0, rx1, 0);
+        rr.addColorStop(0, 'rgba(91,224,192,0)'); rr.addColorStop(0.22, MINT);
+        rr.addColorStop(0.5, WHITE); rr.addColorStop(0.78, VIOLET); rr.addColorStop(1, 'rgba(138,123,255,0)');
+        ctx.strokeStyle = rr; ctx.lineWidth = 1; ctx.globalAlpha = m.op * 0.8;
+        ctx.beginPath(); ctx.moveTo(rx0, ry); ctx.lineTo(rx1, ry); ctx.stroke();
+        ctx.globalAlpha = m.op;
+
+        ctx.restore();
+      }
+
+      // draw a string with per-character letter-spacing (mimics CSS letter-spacing,
+      // which canvas fillText can't do). `trk` is the extra px between glyphs.
+      function tracked(str, x, y, trk) {
+        const s = String(str).toUpperCase();
+        let cx = x;
+        for (const ch of s) {
+          ctx.fillText(ch, cx, y);
+          cx += ctx.measureText(ch).width + trk;
+        }
+      }
+      // total advance width of a tracked string (for right-alignment)
+      function trackedWidth(str, trk) {
+        const s = String(str).toUpperCase();
+        let w = 0;
+        for (const ch of s) w += ctx.measureText(ch).width + trk;
+        return Math.max(0, w - trk); // no trailing track after the last glyph
+      }
+
+      const render = function (ms) {
+        ctx.clearRect(0, 0, W, H);
+        let m;
+        if (ms < holdEnd) {
+          m = motion(type, ms, enter);
+        } else {
+          const p = clamp01((ms - holdEnd) / EXIT);
+          m = { dx: -44*easeOut(p), dy:0, sx: 1-0.015*easeOut(p), sy: 1-0.015*easeOut(p), rot:0, skew:0, blur:0, ox:0.5, oy:0.5, op: 1-p };
+        }
+        // bursts (staggered like the live JS)
+        if (!sp1 && ms >= 210) { spawn(cfg.motes); sp1 = true; }
+        if (!sp2 && cfg.motes >= 30 && ms >= 580) { spawn(Math.round(cfg.motes*0.6)); sp2 = true; }
+        stepBurst();
+        // additive aurora dust behind the card
+        ctx.globalCompositeOperation = 'lighter';
+        if (m.op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+        if (m.op > 0.01) drawCard(m);
+      };
+      render.DUR = DUR;
+      return render;
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      r(ENTER[type] + 1200);
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const c = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return c.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      const DUR = render.DUR;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

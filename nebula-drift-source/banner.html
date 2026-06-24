@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Nebula Drift (PNG generator)</title>
+  <!--
+    NEBULA DRIFT · "Warp Through The Veil" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = an editable tagline. The centre is decorative only — a warp vanishing
+    point with streaks + a soft nebula glow — so the player can sit over it without
+    hiding anything important.
+
+    Everything random is drawn from a SEEDED mulberry32 RNG (same family as
+    shared.js), so the star + streak scatter is identical on every render —
+    Math.random is never used.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it
+    is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --space:#05060F; --space2:#020308;
+      --indigo:#6C5CE7; --cyan:#00D9FF; --pink:#FF7AB6; --white:#EAF2FF;
+      --dim:rgba(234,242,255,.55);
+      --display:"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+      --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--display);background:var(--space2);color:var(--white);padding:32px;}
+    h1{font-weight:700;font-size:28px;letter-spacing:.04em;margin:0 0 6px;text-transform:uppercase;
+      text-shadow:0 0 22px rgba(108,92,231,.45),0 0 14px rgba(0,217,255,.3);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:860px;line-height:1.6;font-family:var(--mono);font-size:14px;}
+    .kicker{font-family:var(--mono);letter-spacing:.42em;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-indent:.42em;text-shadow:0 0 14px rgba(0,217,255,.45);}
+    button{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+      padding:13px 26px;color:var(--space2);background:linear-gradient(180deg,var(--cyan),var(--indigo));
+      border:1px solid rgba(0,217,255,.6);border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(0,217,255,.25);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:#06070f;padding:14px;border:1px solid #1a1c33;border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(0,217,255,0.45);
+      background:rgba(8,9,22,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(234,242,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:var(--mono);font-size:12px;letter-spacing:2px;}
+    code{font-family:var(--mono);color:var(--cyan);background:#0c0e1c;padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">NEBULA DRIFT · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the deep-space warp style — seeded so the
+    nebula and starfield are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative (a warp vanishing point) so
+    Twitch's offline player can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    const INDIGO = '#6C5CE7', CYAN = '#00D9FF', PINK = '#FF7AB6', WHITE = '#EAF2FF';
+    const NEB = [[108,92,231],[0,217,255],[255,122,182]];
+    const DISPLAY = '"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif';
+    const MONO    = '"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed){
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, rgb, alpha){
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const c = rgb[0]+','+rgb[1]+','+rgb[2];
+      g.addColorStop(0,   'rgba('+c+','+alpha+')');
+      g.addColorStop(0.5, 'rgba('+c+','+(alpha*0.4).toFixed(3)+')');
+      g.addColorStop(1,   'rgba('+c+',0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    function diamond(x, y, s, fill){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4);
+      ctx.fillStyle = fill; ctx.fillRect(-s, -s, s*2, s*2); ctx.restore();
+    }
+
+    // ---- a centred branding block: kicker + diamonds, big sans title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText){
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // kicker — spaced mono caps with flanking diamonds
+      ctx.font = '600 22px ' + MONO;
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,217,255,0.35)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 132, 9);
+      const kw = spacedWidth(kickerLabel, 9);
+      ctx.shadowColor = 'rgba(0,217,255,0.6)'; ctx.shadowBlur = 10;
+      diamond(cx - kw/2 - 20, 132, 5, WHITE);
+      diamond(cx + kw/2 + 20, 132, 5, WHITE);
+      ctx.shadowBlur = 0;
+
+      // title — clean wide cosmic sans, cyan->white->pink gradient + glow
+      ctx.font = '700 ' + titleSize + 'px ' + DISPLAY;
+      const tg = ctx.createLinearGradient(cx - 320, 0, cx + 320, 0);
+      tg.addColorStop(0, CYAN); tg.addColorStop(0.46, WHITE); tg.addColorStop(1, PINK);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(0,217,255,0.45)'; ctx.shadowBlur = 34;
+      ctx.fillText(titleText, cx, 226);
+      ctx.shadowBlur = 0;
+
+      // tri-colour rule + diamond node under the title
+      const ruW = Math.min(380, titleSize * 4.2);
+      const ug = ctx.createLinearGradient(cx - ruW/2, 0, cx + ruW/2, 0);
+      ug.addColorStop(0, 'rgba(108,92,231,0)'); ug.addColorStop(0.2, INDIGO);
+      ug.addColorStop(0.5, CYAN); ug.addColorStop(0.8, PINK); ug.addColorStop(1, 'rgba(255,122,182,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - ruW/2, 290); ctx.lineTo(cx + ruW/2, 290); ctx.stroke();
+      ctx.shadowColor = 'rgba(0,217,255,0.7)'; ctx.shadowBlur = 8;
+      diamond(cx, 290, 4, WHITE); ctx.shadowBlur = 0;
+
+      // subtitle — clean mono cosmic readout
+      ctx.font = '400 22px ' + MONO;
+      ctx.fillStyle = 'rgba(234,242,255,0.55)';
+      ctx.fillText(subText, cx, 338);
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0x6C5CE7);          // fixed seed -> identical scatter every render
+
+      // centre vanishing point (behind the offline player)
+      const VPX = W/2, VPY = H/2;
+
+      // ---- BACKGROUND: deep void gradient ----
+      const grad = ctx.createRadialGradient(W/2, H/2, 60, W/2, H/2, W*0.6);
+      grad.addColorStop(0, '#0A0B1A'); grad.addColorStop(0.6, '#05060F'); grad.addColorStop(1, '#020308');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // ---- nebula glow behind the centre + soft blooms flanking ----
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(W/2, H/2, 520, NEB[1], 0.16);
+      bloom(W*0.16, H*0.34, 320, NEB[0], 0.14);
+      bloom(W*0.84, H*0.32, 320, NEB[2], 0.12);
+      // a few seeded extra blooms toward the edges
+      for (let i = 0; i < 5; i++){
+        let x = R(rnd, 0, W), y = R(rnd, 0, H);
+        const edge = R(rnd, 0.6, 1.05);
+        x = W/2 + (x - W/2) * edge; y = H/2 + (y - H/2) * edge;
+        bloom(x, y, R(rnd, 120, 260), NEB[i % 3], R(rnd, 0.05, 0.1));
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- WARP-STREAKS radiating from the centre VP (decorative core) ----
+      ctx.lineCap = 'round';
+      const RM = Math.hypot(W/2, H/2) + 120;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 64; i++){
+        const ang = R(rnd, 0, 6.283);
+        const d = R(rnd, 60, RM*0.96);
+        const grow = d / RM;
+        const len = R(rnd, 34, 120) * (0.35 + grow * 1.6);
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        const x1 = VPX + ca*d,       y1 = VPY + sa*d;
+        const x2 = VPX + ca*(d-len), y2 = VPY + sa*(d-len);
+        const col = NEB[(rnd()*3)|0];
+        const a = R(rnd, 0.16, 0.46) * Math.min(1, grow*2.6);
+        const g2 = ctx.createLinearGradient(x2, y2, x1, y1);
+        g2.addColorStop(0, 'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+        g2.addColorStop(1, 'rgba('+col[0]+','+col[1]+','+col[2]+','+a.toFixed(3)+')');
+        ctx.strokeStyle = g2; ctx.lineWidth = R(rnd, 0.8, 2.2) * (0.6 + grow);
+        ctx.beginPath(); ctx.moveTo(Math.round(x2), Math.round(y2)); ctx.lineTo(Math.round(x1), Math.round(y1)); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- PARALLAX STARFIELD ----
+      for (let i = 0; i < 180; i++){
+        const x = R(rnd, 0, W), y = R(rnd, 0, H);
+        const z = R(rnd, 0.25, 1);
+        const tint = rnd();
+        const col = tint < 0.18 ? CYAN : tint < 0.34 ? PINK : tint < 0.52 ? INDIGO : WHITE;
+        const a = R(rnd, 0.35, 0.9) * (0.6 + z*0.4);
+        ctx.globalAlpha = a; ctx.fillStyle = col;
+        if (z > 0.78){ ctx.shadowColor = col; ctx.shadowBlur = 5; } else ctx.shadowBlur = 0;
+        const sz = Math.max(1, Math.round(0.5 + z*1.7));
+        ctx.fillRect(Math.round(x) - (sz>>1), Math.round(y) - (sz>>1), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W/2, H/2, H*0.28, W/2, H/2, W*0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,3,8,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[21] your text here', '[ YOUR TEXT ]', 72, '[22] your text here');
+
+      // ---- accent dash rails flanking the centre clear-zone (warp ticks) ----
+      ctx.fillStyle = 'rgba(0,217,255,0.42)';
+      for (let yy = 96; yy < H - 70; yy += 16){ ctx.fillRect(672, yy, 3, 7); ctx.fillRect(1245, yy, 3, 7); }
+      ctx.shadowColor = 'rgba(0,217,255,0.6)'; ctx.shadowBlur = 8;
+      [[673, 80], [1246, 80], [673, H-70], [1246, H-70]].forEach(([x, y]) => diamond(x, y, 4, WHITE));
+      ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp){
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp){
+      let cx = x;
+      for (const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp){
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total/2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download(){
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

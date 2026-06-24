@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Aurora Noir Aurora-Veil Glass Slide</title>
+  <!--
+    AURORA NOIR stinger ("Aurora Veil"). A wall of iridescent mint->violet
+    AURORA CURTAINS sweeps up the frame and undulates to full darkness; at the
+    peak a frosted BLACK-GLASS slab slides shut across the centre with a thin
+    iridescent edge that flares, a fine veil of upward-drifting light motes, and
+    a soft mint/violet light-bloom. Then the curtains thin, the glass parts, and
+    the screen clears. Bespoke aurora motion — additive light ribbons + black
+    glass, NOT a recolor of any other theme's curtain/velvet/brass wipe.
+    Transparent before & after, deterministic, sine-driven, ~1300ms. Luxe, no glitch.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (aurora noir) ---- */
+    const BLACK = '#08090D', BLACK2 = '#14161D', BLACK3 = '#05060A';
+    const MINT = [91, 224, 192], VIOLET = [138, 123, 255], WHITE = [234, 240, 242];
+    // iridescent curtain tints (mint <-> violet), as RGB triples
+    const TINTS = [
+      [91, 224, 192],    // mint
+      [138, 123, 255],   // violet
+      [120, 200, 224],   // mint-cyan blend
+      [110, 160, 240],   // violet-blue blend
+    ];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a > 1 ? 1 : a).toFixed(3) + ')';
+
+    /* ---- deterministic seeded RNG (mulberry32-ish); positions are a function
+       of t so the look is stable frame-to-frame and identical in the export.
+       NO Math.random in the frame fn. ---- */
+    let _s = 0xA09A >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    /* ---- the AURORA CURTAINS: vertical iridescent ribbons that sweep UP from
+       the floor and fill the frame as cover rises. Each ribbon is a stack of
+       wave-shifted horizontal scan-bands (so it undulates like a real curtain),
+       drawn additively for a luminous mint->violet sheen. ---- */
+    const N_CURT = 11;
+    const curtains = Array.from({ length: N_CURT }, () => ({
+      x: R(0.02, 0.98) * W,      // horizontal centre
+      w: R(150, 360),            // ribbon half-width
+      amp: R(50, 170),           // horizontal sway amplitude
+      sw: R(2.4, 5.0),           // sway frequency across the sweep
+      ph: R(0, 6.2832),          // phase
+      reach: R(0.78, 1.18),      // how far up the frame this curtain climbs (0..1+)
+      a: R(0.22, 0.46),          // peak alpha
+      bsp: R(1.4, 3.2),          // brightness breathe speed
+      bph: R(0, 6.2832),
+      lead: R(0, 0.16),          // staggered start so the wall builds raggedly
+      c: TINTS[(srnd() * TINTS.length) | 0],
+    }));
+
+    // one aurora curtain. `climb` 0..1 = how far the wall has risen (smoothed cover).
+    function drawCurtain(d, t, climb) {
+      const lt = clamp01((climb - d.lead) / (1 - d.lead));
+      if (lt <= 0.001) return;
+      const [r, gn, b] = d.c;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const bands = 30;
+      const top = H * (1 - d.reach * lt);        // current top edge of the risen ribbon
+      const span = H - top;
+      const breathe = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * d.bsp + d.bph));
+      for (let i = 0; i < bands; i++) {
+        const f = i / (bands - 1);               // 0 top .. 1 bottom
+        const y = top + f * span;
+        // traveling wave down the ribbon -> the curtain undulates sideways
+        const wave = Math.sin(t * d.sw + d.ph + f * 3.4) * d.amp
+                   + Math.sin(t * d.sw * 0.55 + d.ph * 1.7 - f * 1.6) * (d.amp * 0.4);
+        const cx = d.x + wave;
+        // vertical envelope: bright near the rising crest, fading toward the floor
+        const vEnv = Math.sin(Math.min(1, (1 - f) / 0.34) * Math.PI * 0.5) * (0.4 + 0.6 * (1 - f * 0.5));
+        const a = d.a * breathe * Math.max(0, vEnv);
+        if (a <= 0.004) continue;
+        const x0 = cx - d.w, x1 = cx + d.w;
+        const g = ctx.createLinearGradient(x0, 0, x1, 0);
+        g.addColorStop(0.0, rgba(d.c, 0));
+        g.addColorStop(0.5, rgba(d.c, a));
+        g.addColorStop(1.0, rgba(d.c, 0));
+        ctx.fillStyle = g;
+        const bh = Math.ceil(span / bands) + 2;
+        ctx.fillRect(Math.round(x0), Math.round(y), Math.round(d.w * 2), bh);
+      }
+      ctx.restore();
+    }
+
+    /* ---- a fine VEIL of upward-drifting light motes (the luminous dust in the
+       aurora air). Windowed so the veil builds with the sweep and thins as it
+       parts; deterministic from t. ---- */
+    const N_MOTE = 90;
+    const motes = Array.from({ length: N_MOTE }, () => ({
+      x0: R(0, W), y0: R(H * 0.55, H * 1.12),
+      rise: R(H * 0.5, H * 1.15), sway: R(20, 80), swf: R(1.0, 2.8), phase: R(0, 6.2832),
+      s: R(1.2, 3.6), mint: srnd() < 0.55,
+      lead: R(0, 0.34), span: R(0.5, 0.9), a: R(0.35, 0.95), tw: R(1.2, 2.4),
+    }));
+
+    function drawMotes(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const m of motes) {
+        const lt = clamp01((t - m.lead) / m.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = m.x0 + Math.sin(m.phase + lt * m.swf * 6.2832) * m.sway;
+        const py = m.y0 - m.rise * lt;
+        const ends = Math.sin(lt * Math.PI);                  // 0 at ends, 1 mid
+        const twk = 0.55 + Math.sin(m.phase + lt * m.tw * 6.2832) * 0.45;
+        const present = lerp(0.45, 1, cover);
+        const a = m.a * ends * twk * present;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = m.mint ? '#5BE0C0' : '#8A7BFF';
+        const s = m.s;
+        ctx.fillRect(Math.round(px - s / 2), Math.round(py - s / 2), Math.round(s), Math.round(s));
+      }
+      ctx.restore();
+    }
+
+    /* ---- the frosted BLACK-GLASS slab: once the aurora wall is near full, a
+       darkened glass panel slides DOWN from the top to meet a panel sliding UP
+       from the floor, closing across the centre seam. A thin iridescent
+       mint->violet edge runs along each leading edge and flares at the seam. ---- */
+    function drawGlass(cover) {
+      // glass closes over the back half of the rise: maps cover 0.45..1 -> 0..1
+      const g = smooth((cover - 0.45) / 0.55);
+      if (g <= 0.001) return;
+      const half = CY * g;                       // each slab covers this many px from its edge
+
+      // top slab (slides down) + bottom slab (slides up) — darkened frosted glass
+      for (const top of [true, false]) {
+        const y0 = top ? 0 : H - half;
+        const y1 = top ? half : H;
+        const grad = ctx.createLinearGradient(0, top ? 0 : H, 0, top ? half : H - half);
+        grad.addColorStop(0.00, 'rgba(5,6,10,0.86)');
+        grad.addColorStop(0.55, 'rgba(8,9,13,0.80)');
+        grad.addColorStop(0.90, 'rgba(20,22,29,0.72)');
+        grad.addColorStop(1.00, 'rgba(20,22,29,0.58)');   // softer toward the seam
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, Math.floor(y0), W, Math.ceil(y1 - y0) + 1);
+        // a faint top inner-light pool where the aurora catches the glass
+        ctx.globalCompositeOperation = 'lighter';
+        const pool = ctx.createLinearGradient(0, top ? 0 : H, 0, top ? half : H - half);
+        pool.addColorStop(0, rgba(MINT, 0.05 * g));
+        pool.addColorStop(0.5, rgba(MINT, 0.0));
+        ctx.fillStyle = pool;
+        ctx.fillRect(0, Math.floor(y0), W, Math.ceil(y1 - y0) + 1);
+        ctx.restore();
+      }
+
+      // thin iridescent leading edge (mint->violet) along each slab's inner border
+      const edgeA = Math.sin(g * Math.PI) * 0.5 + 0.5 * g;   // bright through the close
+      if (edgeA > 0.02 && half > 2 && half < CY - 1) {
+        const yT = half, yB = H - half;
+        const eg = ctx.createLinearGradient(0, 0, W, 0);
+        eg.addColorStop(0.0, rgba(MINT, 0));
+        eg.addColorStop(0.18, rgba(MINT, 1));
+        eg.addColorStop(0.5, rgba(WHITE, 1));
+        eg.addColorStop(0.82, rgba(VIOLET, 1));
+        eg.addColorStop(1.0, rgba(VIOLET, 0));
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.9 * edgeA;
+        ctx.fillStyle = eg;
+        ctx.fillRect(0, Math.round(yT) - 1, W, 2);          // top slab edge
+        ctx.fillRect(0, Math.round(yB) - 1, W, 2);          // bottom slab edge
+        // soft wide glow behind each edge
+        ctx.globalAlpha = 0.22 * edgeA;
+        ctx.fillRect(0, Math.round(yT) - 9, W, 18);
+        ctx.fillRect(0, Math.round(yB) - 9, W, 18);
+        ctx.restore();
+      }
+    }
+
+    /* ---- soft iridescent light-bloom at the seam when the glass closes
+       (full cover). A mint->violet radial wash, not a white blowout. ---- */
+    function drawBloom(t, cover) {
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.06, 2));
+      if (flash <= 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+      fg.addColorStop(0.0, rgba(WHITE, 0.34 * flash));
+      fg.addColorStop(0.32, rgba(MINT, 0.18 * flash));
+      fg.addColorStop(0.7, rgba(VIOLET, 0.10 * flash));
+      fg.addColorStop(1.0, rgba(VIOLET, 0));
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+      // a tight iridescent seam line across the centre at the very peak
+      ctx.globalAlpha = flash;
+      const sg = ctx.createLinearGradient(0, 0, W, 0);
+      sg.addColorStop(0.0, rgba(MINT, 0));
+      sg.addColorStop(0.25, rgba(MINT, 0.8));
+      sg.addColorStop(0.5, rgba(WHITE, 0.9));
+      sg.addColorStop(0.75, rgba(VIOLET, 0.8));
+      sg.addColorStop(1.0, rgba(VIOLET, 0));
+      ctx.fillStyle = sg;
+      ctx.fillRect(0, CY - 1, W, 2);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full at t=0.5
+      const climb = smooth(cover);                           // eased rise of the aurora wall
+
+      // 1) aurora curtains sweep up and fill the frame (behind everything)
+      for (const d of curtains) drawCurtain(d, t, climb);
+
+      // 2) the upward veil of light motes
+      drawMotes(t, cover);
+
+      // 3) frosted black-glass slabs close across the seam (in front of aurora)
+      drawGlass(cover);
+
+      // 4) iridescent seam bloom at full cover
+      drawBloom(t, cover);
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

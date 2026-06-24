@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Aurora Noir (PNG generator)</title>
+  <!--
+    AURORA NOIR · "aurora behind black glass" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the aurora-noir look (black sky, a slow iridescent
+    mint->violet AURORA BOREALIS sheen, fine drifting light particles, a deep
+    vignette, and a CENTERED frosted black-glass panel with a thin iridescent
+    edge holding the OFFLINE title) onto a <canvas> and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the aurora/particles are
+    identical on every render (Math.random is never used) — re-running gives the
+    same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --black:#08090D; --black2:#14161D; --black3:#05060A;
+      --mint:#5BE0C0; --violet:#8A7BFF; --white:#EAF0F2; --dim:#9AA7B4;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+      background:var(--black3);color:var(--white);padding:32px;}
+    h1{font-weight:200;font-size:28px;color:var(--white);letter-spacing:.04em;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(91,224,192,.24);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:820px;line-height:1.6;
+      font-style:italic;font-weight:300;font-size:16px;}
+    .kicker{letter-spacing:.42em;font-size:13px;color:var(--mint);margin:0 0 14px;
+      text-transform:uppercase;text-indent:.42em;text-shadow:0 0 14px rgba(91,224,192,.4);}
+    button{font-family:inherit;font-weight:600;font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+      padding:13px 26px;color:var(--black3);background:linear-gradient(180deg,var(--mint),#3fbfa3);
+      border:1px solid rgba(91,224,192,.6);border-radius:3px;cursor:pointer;
+      box-shadow:0 0 30px rgba(91,224,192,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0a0c12;padding:14px;border:1px solid #1c2330;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--mint);background:#0e1118;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">AURORA NOIR · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the aurora-behind-black-glass style — seeded so the
+    aurora and light particles are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const BLACK = '#08090D', BLACK3 = '#05060A';
+    const MINT = '#5BE0C0', VIOLET = '#8A7BFF', WHITE = '#EAF0F2', DIM = '#9AA7B4';
+    // iridescent curtain tints (mint <-> violet, matching shared.js)
+    const TINTS = [[91,224,192],[138,123,255],[120,200,224],[110,160,240]];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft radial bloom ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- rounded rectangle path ----
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- one aurora curtain: a soft vertical additive ribbon that undulates
+    // down its length (a frozen still of the shared.js drawCurtain look) ----
+    function drawCurtain(cx, halfW, topY, botY, rgb, peakA, phase, ampPx) {
+      const [r, gn, b] = rgb;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const bands = 30, span = botY - topY;
+      for (let i = 0; i < bands; i++) {
+        const f = i / (bands - 1);
+        const y = topY + f * span;
+        const wave = Math.sin(phase + f * 3.2) * ampPx
+                   + Math.sin(phase * 1.7 - f * 1.6) * (ampPx * 0.4);
+        const x = cx + wave;
+        const vEnv = Math.sin(Math.min(1, f / 0.28) * Math.PI * 0.5) * (1 - f) * (1 - f * 0.3);
+        const a = peakA * Math.max(0, vEnv);
+        if (a <= 0.004) continue;
+        const x0 = x - halfW, x1 = x + halfW;
+        const g = ctx.createLinearGradient(x0, 0, x1, 0);
+        g.addColorStop(0.0, 'rgba(' + r + ',' + gn + ',' + b + ',0)');
+        g.addColorStop(0.5, 'rgba(' + r + ',' + gn + ',' + b + ',' + a.toFixed(3) + ')');
+        g.addColorStop(1.0, 'rgba(' + r + ',' + gn + ',' + b + ',0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(Math.round(x0), Math.round(y), Math.round(halfW * 2), Math.ceil(span / bands) + 2);
+      }
+      ctx.restore();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x5BE0C0); // fixed seed (mint hex) -> identical aurora every render
+
+      // ---- BACKGROUND: deep black sky gradient (mirrors shared.js drawBg) ----
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#0B0D13'); sky.addColorStop(0.55, BLACK); sky.addColorStop(1, BLACK3);
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // faint cool floor glows
+      bloom(W * 0.16, H * 0.94, W * 0.42, 'rgba(91,224,192,0.06)', 1);
+      bloom(W * 0.86, H * 0.96, W * 0.42, 'rgba(138,123,255,0.07)', 1);
+
+      // ---- AURORA CURTAINS (seeded; drift to a fixed frozen phase) ----
+      const NC = 7;
+      for (let i = 0; i < NC; i++) {
+        const tint = TINTS[(rnd() * TINTS.length) | 0];
+        const cx = R(rnd, -0.1, 1.1) * W;
+        const halfW = R(rnd, 180, 420);
+        const topY = R(rnd, -0.25, 0.18) * H;
+        const botY = R(rnd, 0.62, 1.18) * H;
+        const peakA = R(rnd, 0.10, 0.22);
+        const phase = R(rnd, 0, 6.283);
+        const ampPx = R(rnd, 60, 200);
+        drawCurtain(cx, halfW, topY, botY, tint, peakA, phase, ampPx);
+      }
+
+      // ---- FINE DRIFTING LIGHT PARTICLES (seeded scatter) ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 110; i++) {
+        const x = R(rnd, 10, W - 10), y = R(rnd, 10, H - 10);
+        const z = R(rnd, 0.5, 1.8), a = R(rnd, 0.18, 0.7);
+        const mint = rnd() < 0.55;
+        ctx.globalAlpha = a; ctx.shadowColor = mint ? MINT : VIOLET; ctx.shadowBlur = 6 * z;
+        ctx.fillStyle = mint ? MINT : VIOLET;
+        const sp = Math.max(1, Math.round(z * 1.8));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- a slow iridescent grazing sweep (frozen on the still) ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const sweep = ctx.createLinearGradient(W * 0.30, 0, W * 0.66, H);
+      sweep.addColorStop(0.40, 'rgba(0,0,0,0)');
+      sweep.addColorStop(0.48, 'rgba(91,224,192,0.06)');
+      sweep.addColorStop(0.52, 'rgba(138,123,255,0.06)');
+      sweep.addColorStop(0.60, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- DEEP VIGNETTE so the aurora reads behind the glass ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(3,4,8,0.92)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTERED FROSTED BLACK-GLASS PANEL — the signature composition
+      // ============================================================
+      const fw = 1200, fh = 660;
+      const fx = (W - fw) / 2, fy = (H - fh) / 2;
+      const rad = 30;
+
+      // soft drop shadow under the glass
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.62)'; ctx.shadowBlur = 120; ctx.shadowOffsetY = 50;
+      roundRect(fx, fy, fw, fh, rad);
+      ctx.fillStyle = 'rgba(8,9,13,0.55)';
+      ctx.fill();
+      ctx.restore();
+
+      // darkened frosted glass body (we can't blur the page, so emulate with a
+      // semi-opaque dark fill + an inner top-light pool)
+      ctx.save();
+      roundRect(fx, fy, fw, fh, rad); ctx.clip();
+      const gbg = ctx.createLinearGradient(0, fy, 0, fy + fh);
+      gbg.addColorStop(0, 'rgba(20,22,29,0.55)');
+      gbg.addColorStop(1, 'rgba(8,9,13,0.66)');
+      ctx.fillStyle = gbg; ctx.fillRect(fx, fy, fw, fh);
+      // inner top-light pool (where the aurora hits the glass)
+      const pool = ctx.createLinearGradient(0, fy, 0, fy + fh * 0.6);
+      pool.addColorStop(0, 'rgba(91,224,192,0.08)');
+      pool.addColorStop(1, 'rgba(91,224,192,0)');
+      ctx.fillStyle = pool; ctx.fillRect(fx, fy, fw, fh);
+      ctx.restore();
+
+      // the thin iridescent glass edge (mint->violet)
+      ctx.save();
+      const eg = ctx.createLinearGradient(fx, fy, fx + fw, fy + fh);
+      eg.addColorStop(0, 'rgba(91,224,192,0.55)');
+      eg.addColorStop(0.38, 'rgba(234,240,242,0.14)');
+      eg.addColorStop(0.62, 'rgba(234,240,242,0.08)');
+      eg.addColorStop(1, 'rgba(138,123,255,0.55)');
+      ctx.strokeStyle = eg; ctx.lineWidth = 1.6;
+      roundRect(fx + 0.8, fy + 0.8, fw - 1.6, fh - 1.6, rad); ctx.stroke();
+      ctx.restore();
+
+      // ---- frame content (centered) ----
+      const cx = W / 2;
+
+      // crest: iridescent rule — dot — rule
+      ctx.save();
+      const crestY = fy + 150;
+      const rl = ctx.createLinearGradient(cx - 120, 0, cx - 16, 0);
+      rl.addColorStop(0, 'rgba(91,224,192,0)'); rl.addColorStop(1, MINT);
+      ctx.strokeStyle = rl; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - 120, crestY); ctx.lineTo(cx - 18, crestY); ctx.stroke();
+      const rr = ctx.createLinearGradient(cx + 16, 0, cx + 120, 0);
+      rr.addColorStop(0, VIOLET); rr.addColorStop(1, 'rgba(138,123,255,0)');
+      ctx.strokeStyle = rr;
+      ctx.beginPath(); ctx.moveTo(cx + 18, crestY); ctx.lineTo(cx + 120, crestY); ctx.stroke();
+      // iridescent dot
+      const dg = ctx.createRadialGradient(cx - 2, crestY - 2, 0, cx, crestY, 8);
+      dg.addColorStop(0, WHITE); dg.addColorStop(0.6, MINT); dg.addColorStop(1, VIOLET);
+      ctx.fillStyle = dg; ctx.shadowColor = 'rgba(91,224,192,0.7)'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(cx, crestY, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // kicker — spaced light caps (mint)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 25px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = MINT;
+      ctx.shadowColor = 'rgba(91,224,192,0.4)'; ctx.shadowBlur = 16;
+      drawSpacedCentered('[17] your text here', cx, fy + 222, 12);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // big light-weight TITLE: OFFLINE (white) + a soft layered aurora glow
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '200 184px "Segoe UI",system-ui,sans-serif';
+      // layered glow passes (mint, then violet, then white core)
+      ctx.fillStyle = WHITE;
+      ctx.shadowColor = 'rgba(91,224,192,0.45)'; ctx.shadowBlur = 70;
+      drawSpacedCentered('OFFLINE', cx, fy + 358, 14);
+      ctx.shadowColor = 'rgba(138,123,255,0.4)'; ctx.shadowBlur = 100;
+      drawSpacedCentered('OFFLINE', cx, fy + 358, 14);
+      ctx.shadowColor = 'rgba(234,240,242,0.3)'; ctx.shadowBlur = 30;
+      drawSpacedCentered('OFFLINE', cx, fy + 358, 14);
+      ctx.restore();
+
+      // delicate iridescent underline rule with a centre dot
+      ctx.save();
+      const ruY = fy + 452, ruW = 300;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(91,224,192,0)'); ug.addColorStop(0.26, MINT);
+      ug.addColorStop(0.5, WHITE); ug.addColorStop(0.74, VIOLET); ug.addColorStop(1, 'rgba(138,123,255,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(91,224,192,0.7)'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(cx, ruY, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // subtitle — refined light italic
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'italic 300 30px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText('[18] your text here', cx, fy + 506);
+      ctx.restore();
+
+      // ---- corner brand tags flanking the top edge of the glass ----
+      ctx.save();
+      ctx.font = '400 18px "Segoe UI",system-ui,sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = MINT; ctx.shadowColor = 'rgba(91,224,192,0.3)'; ctx.shadowBlur = 12;
+      ctx.textAlign = 'left';  drawSpaced('[19] your text here', fx + 4, fy - 24, 6);
+      ctx.fillStyle = VIOLET; ctx.shadowColor = 'rgba(138,123,255,0.3)';
+      ctx.textAlign = 'right'; drawSpacedRight('[20] your text here', fx + fw - 4, fy - 24, 6);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, iridescent) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.save();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '400 26px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(91,224,192,0.4)'; ctx.shadowBlur = 16;
+      ctx.fillText(handleAt, W - 64, H - 60);
+      ctx.shadowBlur = 0;
+      ctx.font = '300 18px "Segoe UI",system-ui,sans-serif'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 34);
+      ctx.restore();
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

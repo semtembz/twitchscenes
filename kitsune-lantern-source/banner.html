@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Kitsune Lantern (PNG generator)</title>
+  <!--
+    KITSUNE LANTERN · "Foxfire Night" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = an editable tagline. The centre is decorative only — a vermilion TORII
+    gate silhouette with a hanging chochin lantern + foxfire glow — so the player can
+    sit over it without hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the wisp / ember scatter is
+    identical on every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --night:#100A16; --night2:#0A0610; --night-violet:#1B1230;
+      --orange:#FF6A3D; --orange-deep:#C73D1E; --violet:#7B5CFF;
+      --gold:#FFD166; --cream:#F6EFE8; --dim:#C9B7A8;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;
+      font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC","Georgia","Times New Roman",serif;
+      background:var(--night2);color:var(--cream);padding:32px;}
+    h1{font-weight:700;font-size:28px;color:var(--cream);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(255,106,61,.30);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;font-style:italic;font-size:17px;}
+    .kicker{letter-spacing:.5em;font-size:13px;color:var(--gold);margin:0 0 14px;text-transform:uppercase;text-indent:.5em;}
+    button{font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;font-weight:700;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--night2);
+      background:linear-gradient(180deg,var(--gold),var(--orange));border:1px solid rgba(255,209,102,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(255,106,61,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#140d1c;padding:14px;border:1px solid #2a1c3a;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(255,209,102,0.45);
+      background:rgba(20,12,30,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(246,239,232,0.72);display:flex;align-items:center;justify-content:center;
+      font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--gold);background:#1a1126;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">KITSUNE LANTERN · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the foxfire-night style — seeded so the
+    wisps and embers are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is a decorative torii so Twitch's
+    offline player can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const NIGHT = '#100A16', NIGHT2 = '#0A0610', NIGHT_VIOLET = '#1B1230';
+    const ORANGE = '#FF6A3D', ORANGE_DEEP = '#C73D1E', VIOLET = '#7B5CFF';
+    const GOLD = '#FFD166', CREAM = '#F6EFE8', DIM = '#C9B7A8';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- vermilion TORII gate silhouette (centre decoration, behind player) ----
+    function torii(cx, baseY, tw, th) {
+      ctx.save();
+      ctx.translate(cx - tw / 2, baseY - th);
+      ctx.globalAlpha = 0.92;
+      ctx.shadowColor = 'rgba(199,61,30,0.4)'; ctx.shadowBlur = 40;
+      const g = ctx.createLinearGradient(0, 0, 0, th);
+      g.addColorStop(0, ORANGE_DEEP); g.addColorStop(1, '#5e1c0d');
+      ctx.fillStyle = g;
+      const sx = tw / 280, sy = th / 380;
+      ctx.beginPath();
+      ctx.moveTo(2 * sx, 40 * sy);
+      ctx.quadraticCurveTo(140 * sx, 8 * sy, 278 * sx, 40 * sy);
+      ctx.lineTo(278 * sx, 70 * sy);
+      ctx.quadraticCurveTo(140 * sx, 38 * sy, 2 * sx, 70 * sy);
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillRect(22 * sx, 96 * sy, 236 * sx, 26 * sy);
+      ctx.fillRect(60 * sx, 62 * sy, 34 * sx, 318 * sy);
+      ctx.fillRect(186 * sx, 62 * sy, 34 * sx, 318 * sy);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a hanging chochin lantern with warm glow, optional 狐 ----
+    function lantern(cx, cordTop, scale, withKanji) {
+      ctx.save();
+      ctx.translate(cx, cordTop);
+      ctx.scale(scale, scale);
+      const bodyW = 88, bodyH = 116, cordH = 40;
+      const capY = cordH, bodyY = capY + 11;
+      const cy = bodyY + bodyH / 2;
+      ctx.strokeStyle = 'rgba(255,209,102,0.4)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, capY); ctx.stroke();
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const halo = ctx.createRadialGradient(0, cy, 0, 0, cy, bodyW * 1.15);
+      halo.addColorStop(0, 'rgba(255,106,61,0.45)'); halo.addColorStop(1, 'rgba(255,106,61,0)');
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, cy, bodyW * 1.15, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#2a160d';
+      roundRect(-14, capY, 28, 11, 3); ctx.fill();
+      ctx.save();
+      roundRect(-bodyW / 2, bodyY, bodyW, bodyH, 40); ctx.clip();
+      const bg = ctx.createRadialGradient(0, cy - 6, 4, 0, cy, bodyW * 0.7);
+      bg.addColorStop(0, '#FFE7B0'); bg.addColorStop(0.46, ORANGE);
+      bg.addColorStop(0.84, ORANGE_DEEP); bg.addColorStop(1, '#7e2412');
+      ctx.fillStyle = bg; ctx.fillRect(-bodyW, bodyY - 8, bodyW * 2, bodyH + 16);
+      ctx.strokeStyle = 'rgba(120,30,14,0.4)'; ctx.lineWidth = 2;
+      for (let ry = bodyY + 12; ry < bodyY + bodyH; ry += 13) {
+        ctx.beginPath(); ctx.moveTo(-bodyW, ry); ctx.lineTo(bodyW, ry); ctx.stroke();
+      }
+      if (withKanji) {
+        ctx.fillStyle = 'rgba(246,239,232,0.82)';
+        ctx.font = '700 52px "Yu Mincho","Hiragino Mincho ProN","Georgia",serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(126,36,18,0.8)'; ctx.shadowBlur = 8;
+        ctx.fillText('狐', 0, cy + 2); ctx.shadowBlur = 0;
+      }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,209,102,0.5)'; ctx.lineWidth = 2;
+      roundRect(-bodyW / 2, bodyY, bodyW, bodyH, 40); ctx.stroke();
+      ctx.fillStyle = '#2a160d';
+      roundRect(-12, bodyY + bodyH, 24, 8, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,106,61,0.7)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, bodyY + bodyH + 8); ctx.lineTo(0, bodyY + bodyH + 30); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- fox-mask crest small mark ----
+    function foxMask(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-44, -30);
+      ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(255,106,61,0.55)'; ctx.shadowBlur = 12;
+      ctx.strokeStyle = GOLD;
+      ctx.beginPath();
+      ctx.moveTo(44, 56); ctx.lineTo(10, 30); ctx.lineTo(16, 8); ctx.lineTo(34, 22);
+      ctx.quadraticCurveTo(44, 16, 54, 22); ctx.lineTo(72, 8); ctx.lineTo(78, 30);
+      ctx.closePath(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,106,61,0.5)'; ctx.strokeStyle = ORANGE;
+      ctx.beginPath(); ctx.moveTo(44, 56); ctx.lineTo(36, 40);
+      ctx.quadraticCurveTo(44, 44, 52, 40); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(26, 30); ctx.quadraticCurveTo(32, 24, 38, 30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(50, 30); ctx.quadraticCurveTo(56, 24, 62, 30); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- a centred branding block: fox-mask crest, kicker, mincho title, sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // small fox-mask + flanking gold rule above the kicker
+      foxMask(cx, 104, 0.78);
+      ctx.save();
+      ctx.strokeStyle = GOLD; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.7;
+      ctx.beginPath(); ctx.moveTo(cx - 96, 104); ctx.lineTo(cx - 40, 104); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + 40, 104); ctx.lineTo(cx + 96, 104); ctx.stroke();
+      ctx.restore();
+
+      // kicker — spaced mincho caps in gold
+      ctx.font = '600 22px "Yu Mincho","Hiragino Mincho ProN","Georgia",serif';
+      ctx.fillStyle = GOLD;
+      ctx.shadowColor = 'rgba(255,209,102,0.35)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 162, 8);
+      ctx.shadowBlur = 0;
+
+      // title — mincho serif, gold-to-vermilion gradient, warm glow
+      ctx.font = '700 ' + titleSize + 'px "Yu Mincho","Hiragino Mincho ProN","Georgia",serif';
+      const tg = ctx.createLinearGradient(0, 232 - titleSize / 2, 0, 232 + titleSize / 2);
+      tg.addColorStop(0, GOLD); tg.addColorStop(0.56, ORANGE); tg.addColorStop(1, ORANGE_DEEP);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(255,106,61,0.45)'; ctx.shadowBlur = 34;
+      ctx.fillText(titleText, cx, 240);
+      ctx.shadowBlur = 0;
+
+      // foxfire rule + diamonds under the title
+      const ruW = Math.min(360, titleSize * 4.6);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(255,106,61,0)'); ug.addColorStop(0.22, ORANGE);
+      ug.addColorStop(0.5, GOLD); ug.addColorStop(0.78, ORANGE); ug.addColorStop(1, 'rgba(255,106,61,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 300); ctx.lineTo(cx + ruW / 2, 300); ctx.stroke();
+      ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(255,209,102,0.7)'; ctx.shadowBlur = 7;
+      ctx.save(); ctx.translate(cx, 300); ctx.rotate(Math.PI / 4); ctx.fillRect(-3.5, -3.5, 7, 7); ctx.restore();
+      ctx.shadowBlur = 0;
+
+      // subtitle — refined italic mincho
+      ctx.font = 'italic 400 23px "Yu Mincho","Hiragino Mincho ProN","Georgia",serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 346);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x7B5CFF); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: deep indigo foxfire night ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#160E22'); grad.addColorStop(0.6, NIGHT); grad.addColorStop(1, NIGHT2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // warm centre glow + violet flanks
+      bloom(W / 2, H / 2 + 30, 720, 'rgba(255,106,61,0.16)', 1);
+      bloom(W / 2, H / 2, 520, 'rgba(255,209,102,0.10)', 1);
+      bloom(W * 0.16, H * 0.34, 360, 'rgba(123,92,255,0.16)', 1);
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(123,92,255,0.14)', 1);
+
+      // ---- centre decoration: torii gate + hanging lantern (behind player) ----
+      torii(W / 2, H - 8, 360, 430);
+      lantern(W / 2, 6, 1.0, true);
+
+      // ---- SEEDED FOXFIRE WISP HAZE ----
+      for (let i = 0; i < 13; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H), r = R(rnd, 80, 210);
+        const warm = rnd() < 0.45;
+        const c = warm ? 'rgba(255,106,61,' : 'rgba(123,92,255,';
+        const a = R(rnd, 0.05, 0.12);
+        bloom(x, y, r, c + a.toFixed(3) + ')', 1);
+      }
+
+      // ---- SEEDED GOLD EMBERS scattered into LEFT and RIGHT thirds ----
+      ctx.save();
+      ctx.fillStyle = GOLD; ctx.shadowColor = ORANGE;
+      for (let i = 0; i < 64; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 640) : R(rnd, W - 640, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.5, 1.6), a = R(rnd, 0.3, 0.85);
+        ctx.globalAlpha = a; ctx.shadowBlur = 6 * z;
+        const sp = Math.max(1, Math.round(z * 1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- paper-grain weave ----
+      ctx.save();
+      ctx.globalAlpha = 0.4; ctx.strokeStyle = 'rgba(246,239,232,0.03)'; ctx.lineWidth = 1;
+      for (let gx = -H; gx < W; gx += 9) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx + H, H); ctx.stroke(); }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(8,4,14,0.7)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[19] your text here', '[ your text ]', 72, '[20] your text here');
+
+      // accent dash rails flanking the centre clear-zone (foxfire ticks)
+      ctx.fillStyle = 'rgba(255,209,102,0.45)';
+      for (let yy = 96; yy < H - 70; yy += 16) { ctx.fillRect(672, yy, 3, 7); ctx.fillRect(1245, yy, 3, 7); }
+      ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(255,209,102,0.6)'; ctx.shadowBlur = 8;
+      [[673, 80], [1246, 80], [673, H - 70], [1246, H - 70]].forEach(([x, y]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

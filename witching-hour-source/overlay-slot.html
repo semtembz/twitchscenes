@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Witching Hour — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Candlelit Study" language: thin candle-gold
+       hairline corner accents with a tiny celestial star-compass mark, a slim
+       parchment-dark engraved strip lower-left carrying a "LIVE" status with a
+       glowing flame ember + @handle, and a small editable brand tag top-right.
+       Almost everything stays transparent so the gameplay shows through; only a
+       faint drift of gold embers/dust lives near the strip. Decoration is
+       pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=...  ?render=1
+       Editable text: ?tag=...  (=- removes it) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no study background, no candle/sheen/vign full-bleed */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of gold embers/dust, very low alpha, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin candle-gold hairline corner accents in the margins ---- */
+    .ec{position:absolute;width:56px;height:56px;pointer-events:none;opacity:.78;
+      animation:ecin 1s var(--ease) both .2s;}
+    .ec::before,.ec::after{content:"";position:absolute;background:var(--line);
+      box-shadow:0 0 7px rgba(231,200,120,.22);}
+    .ec::before{width:56px;height:1px;} .ec::after{width:1px;height:56px;}
+    .ec--tl{left:46px;top:46px;}  .ec--tl::before{left:0;top:0;}  .ec--tl::after{left:0;top:0;}
+    .ec--tr{right:46px;top:46px;} .ec--tr::before{right:0;top:0;} .ec--tr::after{right:0;top:0;}
+    .ec--bl{left:46px;bottom:46px;}  .ec--bl::before{left:0;bottom:0;}  .ec--bl::after{left:0;bottom:0;}
+    .ec--br{right:46px;bottom:46px;} .ec--br::before{right:0;bottom:0;} .ec--br::after{right:0;bottom:0;}
+    @keyframes ecin{from{opacity:0}to{opacity:.78}}
+
+    /* a tiny celestial star-compass mark nested in each corner accent */
+    .star{position:absolute;width:15px;height:15px;pointer-events:none;
+      animation:ecin 1s var(--ease) both .35s;}
+    .star svg{width:100%;height:100%;display:block;}
+    .star--tl{left:50px;top:50px;} .star--br{right:50px;bottom:50px;}
+
+    /* ---- slim parchment-dark engraved strip, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:20px;padding:0 30px 0 24px;
+      background:linear-gradient(180deg, rgba(20,50,58,.30), rgba(6,8,11,.46));
+      border:1px solid var(--line);
+      box-shadow:0 20px 56px rgba(0,0,0,.55), inset 0 0 44px rgba(7,9,12,.5),
+        0 0 26px rgba(231,200,120,.06);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* inner hairline double border */
+    .slot::before{content:"";position:absolute;inset:5px;border:1px solid var(--line-soft);
+      pointer-events:none;}
+    /* slow warm candle-light sweep travels along the strip */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:120px;left:-120px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(231,200,120,.14), transparent);
+      animation:slotsweep 6.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-120px}100%{left:100%}}
+
+    /* "LIVE" status — engraved spaced caps + a glowing flame ember */
+    .slot .stat{display:flex;align-items:center;gap:12px;
+      font-family:var(--serif-title);
+      letter-spacing:.40em;font-size:17px;font-weight:500;text-transform:uppercase;
+      color:var(--gold-lt);text-indent:.40em;text-shadow:0 0 14px rgba(231,200,120,.4);}
+    /* a small burning flame ember (matches the loading-bar wick) */
+    .slot .stat .ember{width:9px;height:9px;
+      border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+      background:radial-gradient(circle at 50% 60%, #FFF1C2, var(--gold-lt) 55%, rgba(201,162,75,0) 100%);
+      box-shadow:0 0 16px var(--glow),0 0 6px #FFF1C2;
+      animation:emberpulse 2.4s ease-in-out infinite;}
+    @keyframes emberpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}
+
+    /* thin candle-gold divider rule with a tiny star, between status and handle */
+    .slot .div{position:relative;width:1px;height:32px;
+      background:linear-gradient(180deg,transparent,var(--gold),transparent);}
+    .slot .div::after{content:"✦";position:absolute;left:50%;top:50%;
+      transform:translate(-50%,-50%);font-size:10px;line-height:0;color:var(--gold-lt);
+      text-shadow:0 0 8px var(--glow);}
+
+    /* handle — engraved candle-gold serif */
+    .slot .who{font-family:var(--serif-title);
+      letter-spacing:.18em;font-size:27px;color:var(--cream);text-indent:.18em;
+      text-shadow:0 2px 0 rgba(0,0,0,.3),0 0 22px rgba(231,200,120,.32);white-space:nowrap;}
+
+    /* small editable brand tag, top-right (engraved spaced caps + crescent) */
+    .tag-tr{position:absolute;top:46px;right:118px;display:flex;align-items:center;gap:14px;
+      font-family:var(--serif-title);font-style:normal;
+      letter-spacing:.46em;font-size:17px;color:var(--gold);text-indent:.46em;opacity:.82;
+      text-transform:uppercase;white-space:nowrap;text-shadow:0 0 12px rgba(201,162,75,.3);
+      animation:fade 1s var(--ease) both .3s;}
+    /* slot styling shouldn't italicize this engraved tag */
+    .tag-tr.is-slot{font-style:normal;}
+    .tag-tr .moon{width:13px;height:13px;position:relative;flex:none;
+      filter:drop-shadow(0 0 6px var(--glow));}
+    .tag-tr .moon::before{content:"";position:absolute;inset:0;border-radius:50%;
+      box-shadow:inset -5px 1px 0 0 var(--gold-lt);}
+    @keyframes fade{from{opacity:0}to{opacity:.82}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .ec,#stage.render .star,#stage.render .tag-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .stat .ember{animation:none;opacity:1;transform:none;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .ec,#stage.render .star{opacity:.78;}
+    #stage.render .tag-tr{opacity:.82;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin candle-gold hairline corner accents in all four margins -->
+    <span class="ec ec--tl" aria-hidden="true"></span>
+    <span class="ec ec--tr" aria-hidden="true"></span>
+    <span class="ec ec--bl" aria-hidden="true"></span>
+    <span class="ec ec--br" aria-hidden="true"></span>
+    <!-- tiny celestial star-compass marks nested into two corners -->
+    <span class="star star--tl" aria-hidden="true">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#E7C878" stroke-width="6">
+        <path d="M50 6 L57 43 L94 50 L57 57 L50 94 L43 57 L6 50 L43 43 Z" fill="rgba(201,162,75,0.10)"/>
+        <circle cx="50" cy="50" r="4" fill="#E7C878" stroke="none"/>
+      </svg>
+    </span>
+    <span class="star star--br" aria-hidden="true">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#E7C878" stroke-width="6">
+        <path d="M50 6 L57 43 L94 50 L57 57 L50 94 L43 57 L6 50 L43 43 Z" fill="rgba(201,162,75,0.10)"/>
+        <circle cx="50" cy="50" r="4" fill="#E7C878" stroke="none"/>
+      </svg>
+    </span>
+
+    <!-- small editable brand tag, top-right -->
+    <div class="tag-tr is-slot" id="tag" data-slot="tag">
+      <span class="moon" aria-hidden="true"></span><span class="slot-no">24</span><span class="slot-txt">your text here</span>
+    </div>
+
+    <!-- slim parchment-dark engraved strip, lower-left -->
+    <div class="slot">
+      <span class="stat"><span class="ember" aria-hidden="true"></span>LIVE</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    /* ---- editable text slot: [data-slot] ships a muted "[ your text here ]".
+       ?tag=Text sets it; ?tag=- (or empty/none/off) removes it entirely.
+       The leading crescent <span> is preserved when text is set. ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      const moon = node.querySelector(".moon");
+      node.textContent = "";
+      if (moon) node.appendChild(moon);
+      node.appendChild(document.createTextNode(v));
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a sparse drift of gold embers/dust (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x7717 >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const embers = Array.from({ length: Math.max(0, num("embers", 40)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: R(-12, -3)/60, sway: R(0.3, 1.1),
+      ph: R(0, 6.28), tw: R(0.5, 1.4), a: R(0.18, 0.6),
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const e of embers){
+        e.y += e.vy * dt * 60; e.ph += 0.035 * dt * 60; e.x += Math.sin(e.ph) * e.sway * 0.6;
+        if (e.y < -12){ e.y = H + 12; e.x = (e.x + 137) % W; }
+        const tw = 0.55 + Math.sin(e.ph * e.tw) * 0.45;
+        ctx.globalAlpha = e.a * tw;
+        ctx.fillStyle = "#E7C878"; ctx.shadowColor = "#E7C878"; ctx.shadowBlur = 6 * e.z;
+        const sz = Math.max(1, Math.round(e.z * 1.6));
+        ctx.fillRect(Math.round(e.x), Math.round(e.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__witchDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

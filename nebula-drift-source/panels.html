@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nebula Drift — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the NEBULA DRIFT
+    "Warp Through The Veil" deep-space language:
+        - a deep-void card bloomed with a soft indigo/cyan/pink nebula haze
+        - a few warp-streaks raking in from a corner vanishing point + dust stars
+        - a thin cyan hairline frame with a diamond node on the left rail
+        - a clean wide cosmic-sans label (cyan->white->pink gradient) with glow
+        - a thin cyan line icon for each panel
+    Each panel has its own Download button + a "Download all".
+
+    Everything random is drawn from a SEEDED mulberry32 RNG (the same family
+    used by shared.js), so the star + streak scatter is identical on every
+    render — Math.random is never used.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Nebula Drift palette (mirrors shared.css tokens) ---- */
+    :root{
+      --space:#05060F; --space2:#020308;
+      --indigo:#6C5CE7; --cyan:#00D9FF; --pink:#FF7AB6; --white:#EAF2FF;
+      --dim:rgba(234,242,255,.55); --dimmer:rgba(234,242,255,.34);
+      --display:"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+      --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;font-family:var(--display);color:var(--white);
+      padding:36px 32px 60px;min-height:100vh;
+      background:
+        radial-gradient(900px 520px at 80% -8%, rgba(108,92,231,.20), transparent 60%),
+        radial-gradient(720px 480px at 4% 108%, rgba(0,217,255,.12), transparent 60%),
+        linear-gradient(160deg, #0A0B1A, var(--space2));
+    }
+    .kicker{font-family:var(--mono);letter-spacing:.42em;font-size:12px;
+      color:var(--cyan);text-transform:uppercase;margin:0 0 8px;
+      display:flex;align-items:center;gap:11px;text-indent:.42em;
+      text-shadow:0 0 14px rgba(0,217,255,.45);}
+    .dia{width:9px;height:9px;background:var(--white);transform:rotate(45deg);
+      box-shadow:0 0 14px rgba(0,217,255,.7);}
+    h1{font-weight:700;font-size:32px;letter-spacing:.04em;margin:0 0 6px;
+      text-transform:uppercase;color:var(--white);
+      text-shadow:0 0 28px rgba(108,92,231,.45),0 0 16px rgba(0,217,255,.3);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:760px;line-height:1.6;
+      font-family:var(--mono);font-size:14px;letter-spacing:.02em;}
+    code{font-family:var(--mono);color:var(--cyan);
+      background:rgba(0,217,255,.08);padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{
+      font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.18em;
+      text-transform:uppercase;padding:12px 24px;cursor:pointer;color:var(--space2);
+      background:linear-gradient(180deg,var(--cyan),var(--indigo));
+      border:1px solid rgba(0,217,255,.6);border-radius:3px;
+      box-shadow:0 6px 26px rgba(0,217,255,.28);}
+    button:hover{filter:brightness(1.1);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(8,9,22,.6);padding:16px;border-radius:6px;
+      border:1px solid rgba(108,92,231,.30);}
+    /* checkerboard so transparent card corners are visible */
+    .frame{
+      border-radius:4px;overflow:hidden;display:block;background-color:#06070f;
+      background-image:
+        linear-gradient(45deg,#14172a40 25%,transparent 25%),
+        linear-gradient(-45deg,#14172a40 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#14172a40 75%),
+        linear-gradient(-45deg,transparent 75%,#14172a40 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;
+      margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:var(--mono);letter-spacing:.16em;
+      color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:var(--mono);letter-spacing:.08em;color:var(--cyan);
+      text-decoration:none;border:1px solid rgba(0,217,255,.34);border-radius:3px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(0,217,255,.14);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>NEBULA DRIFT · PANELS</p>
+  <h1>Nebula Drift — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the deep-space warp style:
+    a void card bloomed with nebula haze, warp-streaks &amp; dust stars, a cyan hairline frame,
+    and a clean wide cosmic label. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var W = 320, H = 100;
+    var INDIGO = '#6C5CE7', CYAN = '#00D9FF', PINK = '#FF7AB6', WHITE = '#EAF2FF';
+    var NEB = [[108,92,231],[0,217,255],[255,122,182]];
+
+    // 12 panels (About, Schedule, Rules, Donations, Discord, Twitter, YouTube,
+    // Instagram, Merch, Sponsors, Subscribe, Community).
+    var PANELS = [
+      { id:'about',     title:'ABOUT',      icon:'orbit' },
+      { id:'schedule',  title:'SCHEDULE',   icon:'calendar' },
+      { id:'rules',     title:'RULES',      icon:'list' },
+      { id:'donations', title:'DONATIONS',  icon:'coin' },
+      { id:'discord',   title:'DISCORD',    icon:'discord' },
+      { id:'twitter',   title:'TWITTER',    icon:'twitter' },
+      { id:'youtube',   title:'YOUTUBE',    icon:'play' },
+      { id:'instagram', title:'INSTAGRAM',  icon:'camera' },
+      { id:'merch',     title:'MERCH',      icon:'tag' },
+      { id:'sponsors',  title:'SPONSORS',   icon:'ribbon' },
+      { id:'subscribe', title:'SUBSCRIBE',  icon:'star' },
+      { id:'community', title:'COMMUNITY',  icon:'users' }
+    ];
+
+    // ---- seeded mulberry32 RNG (same family as shared.js) ----
+    function makeRand(seed){
+      var s = seed >>> 0;
+      return function(){
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        var t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function rr(rnd, a, b){ return a + rnd() * (b - a); }
+
+    function roundRectPath(ctx, x, y, w, h, r){
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y,   x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x,   y+h, r);
+      ctx.arcTo(x,   y+h, x,   y,   r);
+      ctx.arcTo(x,   y,   x+w, y,   r);
+      ctx.closePath();
+    }
+
+    // soft nebula bloom (additive radial)
+    function bloom(ctx, cx, cy, rad, rgb, alpha){
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      var c = rgb[0]+','+rgb[1]+','+rgb[2];
+      g.addColorStop(0,   'rgba('+c+','+alpha+')');
+      g.addColorStop(0.5, 'rgba('+c+','+(alpha*0.4).toFixed(3)+')');
+      g.addColorStop(1,   'rgba('+c+',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+    }
+
+    // ---- panel renderer ----
+    function drawPanel(ctx, p){
+      ctx.clearRect(0, 0, W, H);
+      var rnd = makeRand(0x9E3779B9 ^ hashStr(p.id));  // deterministic per panel
+
+      var pad = 3, x = pad, y = pad, w = W - pad*2, h = H - pad*2, rad = 7;
+
+      // ---- void card body, clipped to a soft rounded rect ----
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, rad);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, 'rgba(10,11,26,0.96)');
+      bg.addColorStop(0.55, 'rgba(5,6,15,0.97)');
+      bg.addColorStop(1, 'rgba(2,3,8,0.98)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // vanishing point upper-right of the card -> warp-streaks rake from there
+      var VPX = W * 0.84, VPY = H * 0.16;
+
+      // nebula blooms biased to the right + corners (centre/label stays dark)
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(ctx, W*0.80, H*0.20, 130, NEB[0], 0.22);
+      bloom(ctx, W*0.92, H*0.78, 100, NEB[1], 0.16);
+      bloom(ctx, W*0.62, H*1.02, 90,  NEB[2], 0.12);
+
+      // warp-streaks radiating from the VP toward the right edge
+      ctx.lineCap = 'round';
+      for (var i = 0; i < 10; i++){
+        var ang = rr(rnd, -0.9, 1.5);            // fan toward right/bottom-right
+        var d = rr(rnd, 26, 120);
+        var len = rr(rnd, 16, 46);
+        var ca = Math.cos(ang), sa = Math.sin(ang);
+        var x1 = VPX + ca*d,        y1 = VPY + sa*d;
+        var x2 = VPX + ca*(d-len),  y2 = VPY + sa*(d-len);
+        if (x1 < W*0.40) continue;               // keep streaks off the label zone
+        var col = NEB[(rnd()*3)|0], a = rr(rnd, 0.18, 0.5);
+        var grad = ctx.createLinearGradient(x2, y2, x1, y1);
+        grad.addColorStop(0, 'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+        grad.addColorStop(1, 'rgba('+col[0]+','+col[1]+','+col[2]+','+a.toFixed(3)+')');
+        ctx.strokeStyle = grad; ctx.lineWidth = rr(rnd, 0.8, 2);
+        ctx.beginPath(); ctx.moveTo(Math.round(x2), Math.round(y2)); ctx.lineTo(Math.round(x1), Math.round(y1)); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // dust stars scattered (kept mostly off the left label block)
+      for (var s = 0; s < 34; s++){
+        var sx = rr(rnd, 6, w), sy = rr(rnd, 6, h-6);
+        if (sx < 150 && sy > 26 && sy < 84) continue;  // protect the text band
+        var z = rr(rnd, 0.3, 1), sa2 = rr(rnd, 0.25, 0.85);
+        var tint = rnd();
+        ctx.globalAlpha = sa2;
+        ctx.fillStyle = tint < 0.2 ? CYAN : tint < 0.36 ? PINK : tint < 0.55 ? INDIGO : WHITE;
+        if (z > 0.8){ ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 4; } else ctx.shadowBlur = 0;
+        var sz = Math.max(1, Math.round(z*1.8));
+        ctx.fillRect(Math.round(sx), Math.round(sy), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // deep card vignette keeps the centre/text legible
+      var vg = ctx.createRadialGradient(W*0.34, H/2, 26, W*0.34, H/2, 220);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(2,3,8,0.6)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- left rail: thin cyan hairline + diamond node (the signature node) ----
+      var railX = x + 48;
+      ctx.save();
+      var rg = ctx.createLinearGradient(railX, y+16, railX, y+h-16);
+      rg.addColorStop(0, 'rgba(108,92,231,0)');
+      rg.addColorStop(0.5, 'rgba(0,217,255,0.7)');
+      rg.addColorStop(1, 'rgba(255,122,182,0)');
+      ctx.strokeStyle = rg; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(0,217,255,0.6)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(railX, y+16); ctx.lineTo(railX, y+h-16); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // diamond node mid-rail
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.8)'; ctx.shadowBlur = 10;
+      ctx.save(); ctx.translate(railX, H/2); ctx.rotate(Math.PI/4); ctx.fillRect(-3, -3, 6, 6); ctx.restore();
+      ctx.restore();
+
+      // ---- thin cyan line icon ----
+      drawIcon(ctx, p.icon, 25, H/2, 30);
+
+      // ---- kicker: spaced mono cosmic caps ----
+      ctx.save();
+      ctx.font = '600 9px ' + MONO;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(0,217,255,0.85)';
+      ctx.shadowColor = 'rgba(0,217,255,0.4)'; ctx.shadowBlur = 6;
+      drawSpaced(ctx, 'NEBULA DRIFT', 62, 30, 2.0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- label: clean wide cosmic sans, cyan->white->pink gradient + glow ----
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 30, maxW = W - 62 - 18;
+      ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      while (ctx.measureText(label).width > maxW && size > 15){
+        size -= 1; ctx.font = '700 ' + size + 'px ' + DISPLAY;
+      }
+      var ty = 70;
+      var tg = ctx.createLinearGradient(62, 0, 62 + maxW, 0);
+      tg.addColorStop(0, CYAN); tg.addColorStop(0.46, WHITE); tg.addColorStop(1, PINK);
+      ctx.shadowColor = 'rgba(0,217,255,0.5)'; ctx.shadowBlur = 16;
+      ctx.fillStyle = tg;
+      ctx.fillText(label, 62, ty);
+      ctx.restore();
+
+      // ---- tri-colour underline rule with a centre diamond node ----
+      ctx.save();
+      var barX = 62, barY = 80, barW = maxW;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(108,92,231,0)');
+      grad.addColorStop(0.2, INDIGO);
+      grad.addColorStop(0.5, CYAN);
+      grad.addColorStop(0.8, PINK);
+      grad.addColorStop(1, 'rgba(255,122,182,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.7)'; ctx.shadowBlur = 6;
+      ctx.save(); ctx.translate(barX + barW*0.5, barY); ctx.rotate(Math.PI/4); ctx.fillRect(-2.2, -2.2, 4.4, 4.4); ctx.restore();
+      ctx.restore();
+
+      // ---- frame: thin cyan hairline rounded border on top ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,217,255,0.42)'; ctx.lineWidth = 1;
+      roundRectPath(ctx, x+0.5, y+0.5, w-1, h-1, rad);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(108,92,231,0.22)';
+      roundRectPath(ctx, x+3.5, y+3.5, w-7, h-7, rad-2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    var DISPLAY = '"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif';
+    var MONO    = '"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+
+    function hashStr(str){
+      var h = 0x811c9dc5;
+      for (var i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      return h >>> 0;
+    }
+
+    function drawSpaced(ctx, str, x, y, sp){
+      var cx = x;
+      for (var i = 0; i < str.length; i++){
+        var ch = str[i]; ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- thin cyan line icons (centred on cx,cy in a ~s box) ----
+    function drawIcon(ctx, kind, cx, cy, s){
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = CYAN; ctx.fillStyle = CYAN;
+      ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(0,217,255,0.6)'; ctx.shadowBlur = 7;
+
+      switch (kind){
+        case 'orbit': {
+          ctx.beginPath(); ctx.arc(0, 0, h*0.42, 0, Math.PI*2); ctx.stroke();      // planet
+          ctx.save(); ctx.rotate(-0.5);
+          ctx.beginPath(); ctx.ellipse(0, 0, h*0.95, h*0.4, 0, 0, Math.PI*2); ctx.stroke(); // ring
+          ctx.restore();
+          ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(h*0.78, -h*0.34, 1.7, 0, Math.PI*2); ctx.fill(); // moon
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h*0.7, s, s*0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h*0.35); ctx.lineTo(h, -h*0.35);
+          ctx.moveTo(-h*0.55, -h);  ctx.lineTo(-h*0.55, -h*0.5);
+          ctx.moveTo(h*0.55, -h);   ctx.lineTo(h*0.55, -h*0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++){
+            ctx.beginPath(); ctx.arc(-h*0.5 + c*h*0.5, -h*0.02 + r*h*0.45, 1.3, 0, Math.PI*2); ctx.fill();
+          }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++){
+            var ly = -h*0.6 + i*h*0.6;
+            ctx.save(); ctx.translate(-h*0.78, ly); ctx.rotate(Math.PI/4); ctx.fillRect(-1.6, -1.6, 3.2, 3.2); ctx.restore();
+            ctx.beginPath(); ctx.moveTo(-h*0.42, ly); ctx.lineTo(h*0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h*0.95, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h*0.72, 0, Math.PI*2); ctx.stroke();
+          ctx.font = '700 ' + Math.round(s*0.56) + 'px ' + DISPLAY;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.85, -h*0.45);
+          ctx.quadraticCurveTo(0, -h*0.85, h*0.85, -h*0.45);
+          ctx.lineTo(h*0.7, h*0.55);
+          ctx.quadraticCurveTo(h*0.45, h*0.8, h*0.2, h*0.55);
+          ctx.lineTo(-h*0.2, h*0.55);
+          ctx.quadraticCurveTo(-h*0.45, h*0.8, -h*0.7, h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.32, 0, 2, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.32, 0, 2, 0, Math.PI*2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.9, h*0.25);
+          ctx.quadraticCurveTo(-h*0.1, h*0.55, h*0.55, -h*0.05);
+          ctx.quadraticCurveTo(h*0.95, -h*0.35, h*0.85, -h*0.7);
+          ctx.quadraticCurveTo(h*0.4, -h*0.35, -h*0.1, -h*0.2);
+          ctx.quadraticCurveTo(-h*0.6, -h*0.05, -h*0.9, h*0.25);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRectIcon(ctx, -h, -h*0.7, s, s*0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.22, -h*0.32); ctx.lineTo(-h*0.22, h*0.28); ctx.lineTo(h*0.42, -h*0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRectIcon(ctx, -h, -h*0.55, s, s*0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h*0.1, h*0.4, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.55, -h*0.25, 1.6, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.35, -h*0.55); ctx.lineTo(-h*0.15, -h*0.85); ctx.lineTo(h*0.15, -h*0.85); ctx.lineTo(h*0.35, -h*0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.1, -h*0.85); ctx.lineTo(h*0.85, -h*0.85); ctx.lineTo(h*0.85, h*0.1);
+          ctx.lineTo(-h*0.15, h*0.85); ctx.lineTo(-h*0.85, h*0.15); ctx.lineTo(-h*0.85, -h*0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.5, -h*0.5, 2, 0, Math.PI*2); ctx.stroke();
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h*0.25, h*0.55, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.3, h*0.2); ctx.lineTo(-h*0.5, h*0.85); ctx.lineTo(-h*0.1, h*0.55);
+          ctx.moveTo(h*0.3, h*0.2);  ctx.lineTo(h*0.5, h*0.85);  ctx.lineTo(h*0.1, h*0.55);
+          ctx.stroke();
+          ctx.save(); ctx.translate(0, -h*0.25); ctx.rotate(Math.PI/4); ctx.fillStyle = WHITE; ctx.fillRect(-2, -2, 4, 4); ctx.restore();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++){
+            var radq = (sp % 2 === 0) ? h*0.95 : h*0.42;
+            var ang = -Math.PI/2 + sp*Math.PI/5;
+            var X = Math.cos(ang)*radq, Y = Math.sin(ang)*radq;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'users': {
+          ctx.beginPath(); ctx.arc(-h*0.34, -h*0.2, h*0.32, 0, Math.PI*2); ctx.stroke();   // head A
+          ctx.beginPath();
+          ctx.moveTo(-h*0.82, h*0.7);
+          ctx.quadraticCurveTo(-h*0.34, h*0.12, h*0.14, h*0.7);
+          ctx.stroke();                                                                     // body A
+          ctx.beginPath(); ctx.arc(h*0.42, -h*0.32, h*0.26, 0, Math.PI*2); ctx.stroke();    // head B
+          ctx.beginPath();
+          ctx.moveTo(h*0.12, h*0.62);
+          ctx.quadraticCurveTo(h*0.5, h*0.16, h*0.88, h*0.62);
+          ctx.stroke();                                                                     // body B
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h*0.7, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRectIcon(ctx, x, y, w, h, r){
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y,   x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x,   y+h, r);
+      ctx.arcTo(x,   y+h, x,   y,   r);
+      ctx.arcTo(x,   y,   x+w, y,   r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ----
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build(){
+      for (var i = 0; i < PANELS.length; i++){
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id){
+          dl.addEventListener('click', function (e){ e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id){
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function (){
+      var i = 0;
+      (function next(){
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id); i++; setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook
+    window.__exportAssets = function (){
+      return made.map(function (m){ return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build);
+    else build();
+  })();
+  </script>
+</body>
+</html>

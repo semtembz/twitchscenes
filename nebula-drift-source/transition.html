@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Nebula Drift Warp-Jump</title>
+  <!--
+    NEBULA DRIFT stinger ("Warp Jump"). The screen punches into hyperspace: a dense
+    field of stars STRETCHES into warp-streaks that accelerate outward from an
+    off-centre vanishing point; a BILLOWING NEBULA (indigo / cyan / pink additive
+    blooms) floods up from the edges and fills the frame; at the full-cover peak a
+    bright cyan/white WARP-FLASH pops at the vanishing point. Then the warp
+    decelerates, the nebula recedes, the streaks shrink back into points, and the
+    screen clears. Transparent before & after, deterministic seeded RNG, sine-driven
+    cover, ~1300ms. Cosmic, dynamic, sci-fi — bespoke to Nebula Drift (NOT a recolor
+    of the velvet curtain wipe; this is warp-streak + nebula-bloom motion).
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover flash).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (Nebula Drift) ---- */
+    const NEB = [
+      [108, 92, 231],   // indigo
+      [0, 217, 255],    // cyan
+      [255, 122, 182],  // pink
+    ];
+    const WHITE = [234, 242, 255];
+
+    /* vanishing point — off-centre upper-right, matching the source's warp origin.
+       The whole warp radiates from here so the motion reads as the SAME drift the
+       Starting-Soon screen runs, only punched to hyperspace speed. */
+    const VPX = W * 0.69, VPY = H * 0.36;
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+
+    /* ---- deterministic seeded RNG (mulberry32) — same generator as the source's
+       field so the warp is reproducible frame-to-frame and identical in the export.
+       NO Math.random in the frame fn. ---- */
+    let _s = 0x9E37 >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    const rayMax = Math.hypot(Math.max(VPX, W - VPX), Math.max(VPY, H - VPY)) + 220;
+
+    /* ---- WARP-STREAKS: ~150 stars on rays from the VP. Each has a base distance;
+       at warp the whole field is scaled outward (warp drift) and each point is
+       stretched into a streak whose length grows with cover (the hyperspace pull). */
+    const N_STREAK = 150;
+    const streaks = Array.from({ length: N_STREAK }, () => {
+      const ang = R(0, 6.2832);
+      return {
+        ang,
+        d0: R(30, rayMax * 0.92),                 // resting distance from VP
+        col: NEB[(srnd() * 3) | 0],
+        w: R(0.8, 2.6),
+        a: R(0.4, 0.95),
+        push: R(0.7, 1.6),                        // per-streak warp-pull factor
+        lead: R(0, 0.12),                         // staggered stretch start
+      };
+    });
+
+    /* ---- BILLOWING NEBULA: additive blooms biased to the edges/corners that
+       flood inward and fill at full cover (then recede). Same palette + breathe as
+       the source nebula. ---- */
+    const N_BLOOM = 11;
+    const blooms = Array.from({ length: N_BLOOM }, (_, i) => {
+      let x = R(0, W), y = R(0, H);
+      const edge = R(0.6, 1.05);
+      x = CX + (x - CX) * edge * 1.2;
+      y = CY + (y - CY) * edge * 1.2;
+      return {
+        x, y, r: R(360, 720), c: NEB[i % NEB.length],
+        a: R(0.10, 0.22), ph: R(0, 6.2832), ps: R(0.8, 1.7),
+        lead: R(0, 0.22),                         // staggered bloom-in
+      };
+    });
+
+    /* ---- a sparse flurry of bright spark-points born at the VP and flung outward
+       at the peak (debris pulled into the warp) ---- */
+    const N_SPARK = 46;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      ang: R(0, 6.2832),
+      reach: R(rayMax * 0.4, rayMax * 1.05),
+      s: R(1.6, 4.4),
+      c: srnd() < 0.5 ? WHITE : NEB[(srnd() * 3) | 0],
+      lead: R(0.1, 0.42), span: R(0.4, 0.7), a: R(0.4, 0.95),
+    }));
+
+    /* ---- the billowing nebula flood ---- */
+    function drawNebula(t, cover) {
+      if (cover <= 0.01) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const b of blooms) {
+        const bt = smooth((cover - b.lead) / (1 - b.lead));
+        if (bt <= 0.01) continue;
+        const breathe = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(b.ph + t * 6.2832 * b.ps));
+        const rr = b.r * (0.7 + bt * 0.7) * (1 + Math.sin(b.ph) * 0.12);
+        const cx = Math.round(b.x), cy = Math.round(b.y);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+        const a = b.a * bt * breathe;
+        g.addColorStop(0.0, rgba(b.c, (a).toFixed(3)));
+        g.addColorStop(0.5, rgba(b.c, (a * 0.42).toFixed(3)));
+        g.addColorStop(1.0, rgba(b.c, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- the warp-streak starfield punching to hyperspace ---- */
+    function drawStreaks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      // the whole field accelerates outward + stretches with cover (warp pull)
+      for (const s of streaks) {
+        const st = smooth((cover - s.lead) / (1 - s.lead));   // this streak's warp amount
+        // outward scroll: distance grows as we punch in, eases back as we exit
+        const d = s.d0 + rayMax * 0.55 * st * s.push;
+        // streak length: short points at rest -> long light-streaks at full warp
+        const len = (3 + 230 * st * s.push);
+        const ca = Math.cos(s.ang), sa = Math.sin(s.ang);
+        const x1 = VPX + ca * d, y1 = VPY + sa * d;
+        const x2 = VPX + ca * (d - len), y2 = VPY + sa * (d - len);
+        // fade streaks that run off the very edge, and keep the VP core clear
+        const grow = clamp01(d / rayMax);
+        const edgeFade = 1 - Math.max(0, (grow - 0.9) / 0.1);
+        const a = s.a * Math.min(1, (0.25 + st * 1.2)) * Math.max(0, edgeFade) * (0.35 + 0.65 * cover);
+        if (a <= 0.02) continue;
+        const grad = ctx.createLinearGradient(x2, y2, x1, y1);
+        grad.addColorStop(0, rgba(s.col, 0));
+        grad.addColorStop(1, rgba(s.col, a.toFixed(3)));
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = s.w * (0.7 + cover * 0.9);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x2), Math.round(y2));
+        ctx.lineTo(Math.round(x1), Math.round(y1));
+        ctx.stroke();
+        // bright leading tip
+        ctx.globalAlpha = Math.min(1, a * 1.2);
+        ctx.fillStyle = rgba(WHITE, (a * 0.9).toFixed(3));
+        ctx.fillRect(Math.round(x1) - 1, Math.round(y1) - 1, 2, 2);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    /* ---- debris sparks flung out of the vanishing point ---- */
+    function drawSparks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const p of sparks) {
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const e = smooth(lt);
+        const d = 30 + p.reach * e;
+        const ca = Math.cos(p.ang), sa = Math.sin(p.ang);
+        const px = VPX + ca * d, py = VPY + sa * d;
+        const ends = Math.sin(lt * Math.PI);                 // 0 at ends, 1 mid
+        const a = p.a * ends * (0.4 + 0.6 * cover);
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = rgba(p.c, 1);
+        ctx.shadowColor = rgba(p.c, 1); ctx.shadowBlur = 10;
+        const sz = Math.max(1, Math.round(p.s));
+        ctx.fillRect(Math.round(px) - (sz >> 1), Math.round(py) - (sz >> 1), sz, sz);
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full at t=0.5
+
+      // deep-space veil rising under the warp so the nebula reads as a real void
+      if (cover > 0.01) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, Math.max(W, H) * 0.95);
+        vg.addColorStop(0.0, 'rgba(10,11,26,' + (0.62 * cover).toFixed(3) + ')');
+        vg.addColorStop(0.55, 'rgba(5,6,15,' + (0.86 * cover).toFixed(3) + ')');
+        vg.addColorStop(1.0, 'rgba(2,3,8,' + (0.97 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawNebula(t, cover);
+      drawStreaks(t, cover);
+      drawSparks(t, cover);
+
+      // bright cyan/white WARP-FLASH bursting from the VP at the full-cover peak
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const fg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, W * 0.62);
+        fg.addColorStop(0.0, rgba(WHITE, (0.5 * flash).toFixed(3)));
+        fg.addColorStop(0.28, rgba([0, 217, 255], (0.26 * flash).toFixed(3)));
+        fg.addColorStop(0.62, rgba([108, 92, 231], (0.1 * flash).toFixed(3)));
+        fg.addColorStop(1.0, rgba([108, 92, 231], 0));
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        // a hot pinpoint core at the vanishing point
+        const cr = lerp(20, 150, flash);
+        const cg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, cr);
+        cg.addColorStop(0, rgba(WHITE, (0.9 * flash).toFixed(3)));
+        cg.addColorStop(1, rgba(WHITE, 0));
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.arc(VPX, VPY, cr, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

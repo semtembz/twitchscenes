@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Nebula Drift (PNG generator)</title>
+  <!--
+    NEBULA DRIFT · "Warp Through The Veil" deep-space OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the warp look (deep void gradient, a BILLOWING NEBULA of soft
+    indigo/cyan/pink blooms biased to the margins, a dense PARALLAX STARFIELD, and
+    WARP-STREAKS radiating from an off-centre vanishing point, a spinning distant
+    galaxy accent in the upper-right margin) onto a <canvas>, then draws the
+    centred clean cosmic wordmark OFFLINE (cyan->white->pink gradient + glow), a
+    tri-colour hair-rule with a diamond node, an editable subtitle + corner HUD
+    tags, and the @handle — and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED mulberry32 RNG (same family as
+    shared.js), so the star + bloom scatter is identical on every render —
+    Math.random is never used.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --space:#05060F; --space2:#020308;
+      --indigo:#6C5CE7; --cyan:#00D9FF; --pink:#FF7AB6; --white:#EAF2FF;
+      --dim:rgba(234,242,255,.55);
+      --display:"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+      --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--display);background:var(--space2);color:var(--white);padding:32px;}
+    h1{font-weight:700;font-size:28px;letter-spacing:.04em;margin:0 0 6px;text-transform:uppercase;
+      text-shadow:0 0 22px rgba(108,92,231,.45),0 0 14px rgba(0,217,255,.3);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:var(--mono);font-size:14px;}
+    .kicker{font-family:var(--mono);letter-spacing:.42em;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-indent:.42em;text-shadow:0 0 14px rgba(0,217,255,.45);}
+    button{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+      padding:13px 26px;color:var(--space2);background:linear-gradient(180deg,var(--cyan),var(--indigo));
+      border:1px solid rgba(0,217,255,.6);border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(0,217,255,.25);}
+    button:hover{filter:brightness(1.1);}
+    .preview{margin-top:22px;background:#06070f;padding:14px;border:1px solid #1a1c33;border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:var(--mono);color:var(--cyan);background:#0c0e1c;padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">NEBULA DRIFT · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the deep-space warp style — seeded so the
+    nebula and starfield are reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    const INDIGO = '#6C5CE7', CYAN = '#00D9FF', PINK = '#FF7AB6', WHITE = '#EAF2FF';
+    const NEB = [[108,92,231],[0,217,255],[255,122,182]];
+    const DISPLAY = '"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif';
+    const MONO    = '"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded mulberry32 (same family as shared.js) — NEVER Math.random ----
+    function makeRand(seed){
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, rgb, alpha){
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const c = rgb[0]+','+rgb[1]+','+rgb[2];
+      g.addColorStop(0,   'rgba('+c+','+alpha+')');
+      g.addColorStop(0.5, 'rgba('+c+','+(alpha*0.4).toFixed(3)+')');
+      g.addColorStop(1,   'rgba('+c+',0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    // a distant spinning galaxy accent (matches the CSS .galaxy in the margin)
+    function galaxy(gx, gy, rad){
+      ctx.save();
+      ctx.translate(gx, gy);
+      // soft core
+      const core = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+      core.addColorStop(0,    'rgba(234,242,255,0.9)');
+      core.addColorStop(0.26, 'rgba(0,217,255,0.35)');
+      core.addColorStop(0.48, 'rgba(108,92,231,0.18)');
+      core.addColorStop(0.7,  'rgba(108,92,231,0)');
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = core; ctx.beginPath(); ctx.arc(0, 0, rad, 0, 6.2832); ctx.fill();
+      // a couple of faint spiral sweeps
+      ctx.rotate(-0.6);
+      for (let arm = 0; arm < 2; arm++){
+        ctx.rotate(Math.PI);
+        ctx.strokeStyle = arm === 0 ? 'rgba(0,217,255,0.18)' : 'rgba(255,122,182,0.14)';
+        ctx.lineWidth = 6; ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let a = 0; a < 3.0; a += 0.12){
+          const rr = rad * 0.34 + a * rad * 0.30;
+          const px = Math.cos(a) * rr, py = Math.sin(a) * rr * 0.62;
+          if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
+    }
+
+    function diamond(x, y, s, fill){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4);
+      ctx.fillStyle = fill; ctx.fillRect(-s, -s, s*2, s*2); ctx.restore();
+    }
+
+    async function draw(){
+      await document.fonts.ready;
+      const rnd = makeRand(0x9E3779B9);          // fixed seed -> identical field every render
+
+      // vanishing point off-centre (upper-right) so the centred title isn't pierced
+      const VPX = W * 0.69, VPY = H * 0.36;
+
+      // ---- BACKGROUND: deep void gradient (mirrors shared.css #stage base) ----
+      const grad = ctx.createRadialGradient(W*0.5, H*0.46, 80, W*0.5, H*0.46, W*0.72);
+      grad.addColorStop(0, '#0A0B1A'); grad.addColorStop(0.46, '#05060F'); grad.addColorStop(1, '#020308');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // ---- BILLOWING NEBULA: soft additive blooms biased to the margins/corners ----
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(W*0.78, H*0.16, W*0.40, NEB[0], 0.20);
+      bloom(W*0.14, H*0.86, W*0.34, NEB[1], 0.13);
+      bloom(W*0.90, H*0.92, W*0.30, NEB[2], 0.11);
+      bloom(W*0.06, H*0.18, W*0.26, NEB[0], 0.10);
+      // a few seeded extra blooms pushed toward the edges
+      for (let i = 0; i < 6; i++){
+        let x = R(rnd, 0, W), y = R(rnd, 0, H);
+        const edge = R(rnd, 0.6, 1.05);
+        x = W/2 + (x - W/2) * edge; y = H/2 + (y - H/2) * edge;
+        bloom(x, y, R(rnd, 220, 460), NEB[i % 3], R(rnd, 0.05, 0.11));
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- WARP-STREAKS radiating from the VP toward the edges ----
+      ctx.lineCap = 'round';
+      const RM = Math.hypot(Math.max(VPX, W-VPX), Math.max(VPY, H-VPY)) + 200;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 90; i++){
+        const ang = R(rnd, 0, 6.283);
+        const d = R(rnd, 120, RM*0.96);
+        const grow = d / RM;
+        const len = R(rnd, 40, 150) * (0.35 + grow * 1.6);
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        const x1 = VPX + ca*d,       y1 = VPY + sa*d;
+        const x2 = VPX + ca*(d-len), y2 = VPY + sa*(d-len);
+        // keep the longest/nearest streaks from crossing the centred title corridor
+        const midX = (x1+x2)/2, midY = (y1+y2)/2;
+        if (midX > W*0.30 && midX < W*0.70 && midY > H*0.38 && midY < H*0.66) continue;
+        const col = NEB[(rnd()*3)|0];
+        const a = R(rnd, 0.18, 0.5) * Math.min(1, grow*2.4);
+        const g2 = ctx.createLinearGradient(x2, y2, x1, y1);
+        g2.addColorStop(0, 'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+        g2.addColorStop(1, 'rgba('+col[0]+','+col[1]+','+col[2]+','+a.toFixed(3)+')');
+        ctx.strokeStyle = g2; ctx.lineWidth = R(rnd, 0.8, 2.4) * (0.6 + grow);
+        ctx.beginPath(); ctx.moveTo(Math.round(x2), Math.round(y2)); ctx.lineTo(Math.round(x1), Math.round(y1)); ctx.stroke();
+        ctx.fillStyle = 'rgba(234,242,255,'+(a*0.9).toFixed(3)+')';
+        ctx.fillRect(Math.round(x1)-1, Math.round(y1)-1, 2, 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- PARALLAX STARFIELD: dense twinkling points in 3 depth layers ----
+      for (let i = 0; i < 320; i++){
+        const x = R(rnd, 0, W), y = R(rnd, 0, H);
+        const z = R(rnd, 0.25, 1);
+        const tint = rnd();
+        const col = tint < 0.18 ? CYAN : tint < 0.34 ? PINK : tint < 0.52 ? INDIGO : WHITE;
+        const a = R(rnd, 0.35, 0.95) * (0.6 + z*0.4);
+        ctx.globalAlpha = a; ctx.fillStyle = col;
+        if (z > 0.78){ ctx.shadowColor = col; ctx.shadowBlur = 6; } else ctx.shadowBlur = 0;
+        const sz = Math.max(1, Math.round(0.5 + z*1.8));
+        ctx.fillRect(Math.round(x) - (sz>>1), Math.round(y) - (sz>>1), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- distant spinning galaxy accent in the upper-right margin ----
+      galaxy(W*0.83 + 70, H*0.18, 150);
+
+      // ---- slow diagonal warp light-shaft (frozen on the still) ----
+      ctx.save();
+      const sweep = ctx.createLinearGradient(W*0.30, 0, W*0.70, H);
+      sweep.addColorStop(0.40, 'rgba(0,0,0,0)');
+      sweep.addColorStop(0.49, 'rgba(0,217,255,0.08)');
+      sweep.addColorStop(0.51, 'rgba(234,242,255,0.04)');
+      sweep.addColorStop(0.60, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- deep-space vignette so the nebula reads as edge-light ----
+      const vig = ctx.createRadialGradient(W/2, H/2, H*0.30, W/2, H/2, W*0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,3,8,0.92)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTRED COSMIC COMPOSITION — the legible clear corridor
+      // ============================================================
+      const cx = W/2;
+
+      // crest: cyan rule + diamond node + cyan rule above the kicker
+      ctx.save();
+      const crestY = H*0.30;
+      const rl = ctx.createLinearGradient(cx - 150, 0, cx - 22, 0);
+      rl.addColorStop(0, 'rgba(0,217,255,0)'); rl.addColorStop(1, CYAN);
+      ctx.strokeStyle = rl; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - 150, crestY); ctx.lineTo(cx - 22, crestY); ctx.stroke();
+      const rg = ctx.createLinearGradient(cx + 22, 0, cx + 150, 0);
+      rg.addColorStop(0, CYAN); rg.addColorStop(1, 'rgba(0,217,255,0)');
+      ctx.strokeStyle = rg;
+      ctx.beginPath(); ctx.moveTo(cx + 22, crestY); ctx.lineTo(cx + 150, crestY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.7)'; ctx.shadowBlur = 14;
+      diamond(cx, crestY, 6, WHITE);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // kicker — spaced mono cosmic caps (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 24px ' + MONO;
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,217,255,0.4)'; ctx.shadowBlur = 18;
+      drawSpacedCentered('[17] your text here', cx, H*0.30 + 56, 12);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // big clean wide cosmic TITLE: OFFLINE (cyan->white->pink gradient + glow)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 220px ' + DISPLAY;
+      const ty = H*0.49;
+      const tg = ctx.createLinearGradient(cx - 520, 0, cx + 520, 0);
+      tg.addColorStop(0, CYAN); tg.addColorStop(0.46, WHITE); tg.addColorStop(1, PINK);
+      ctx.fillStyle = tg;
+      ctx.shadowColor = 'rgba(0,217,255,0.5)'; ctx.shadowBlur = 70;
+      ctx.fillText('OFFLINE', cx, ty);
+      ctx.shadowColor = 'rgba(255,122,182,0.35)'; ctx.shadowBlur = 40;
+      ctx.fillText('OFFLINE', cx, ty);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // tri-colour hair-rule with a diamond node, below the title
+      ctx.save();
+      const ruY = H*0.49 + 150, ruW = 420;
+      const ug = ctx.createLinearGradient(cx - ruW/2, 0, cx + ruW/2, 0);
+      ug.addColorStop(0, 'rgba(108,92,231,0)'); ug.addColorStop(0.2, INDIGO);
+      ug.addColorStop(0.5, CYAN); ug.addColorStop(0.8, PINK); ug.addColorStop(1, 'rgba(255,122,182,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - ruW/2, ruY); ctx.lineTo(cx + ruW/2, ruY); ctx.stroke();
+      ctx.shadowColor = 'rgba(0,217,255,0.7)'; ctx.shadowBlur = 12;
+      diamond(cx, ruY, 5, WHITE);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // subtitle — clean mono cosmic readout (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '400 30px ' + MONO;
+      ctx.fillStyle = 'rgba(234,242,255,0.55)';
+      drawSpacedCentered('[18] your text here', cx, ruY + 60, 6);
+      ctx.restore();
+
+      // ---- corner HUD tags on the void (editable placeholders, in the margins) ----
+      ctx.save();
+      ctx.font = '600 18px ' + MONO;
+      ctx.fillStyle = CYAN; ctx.textBaseline = 'alphabetic';
+      ctx.shadowColor = 'rgba(0,217,255,0.4)'; ctx.shadowBlur = 12;
+      ctx.textAlign = 'left';  drawSpaced('[19] your text here', 64, 72, 7);
+      drawSpaced('[20] your text here', 64, H - 56, 7);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, starlight white) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 26px ' + MONO;
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.5)'; ctx.shadowBlur = 16;
+      ctx.fillText(handleAt, W - 64, H - 60);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 18px ' + MONO; ctx.fillStyle = 'rgba(234,242,255,0.5)';
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 34);
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp){
+      let cx = x;
+      for (const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function spacedWidth(str, sp){
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedCentered(str, x, y, sp){
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total/2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download(){
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: cv.toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

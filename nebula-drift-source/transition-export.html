@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Nebula Drift Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the warp-jump stinger to a transparent .webm at 1920x1080 60fps.
+    Click "Record .webm" — the stinger plays once while it records, then your
+    browser downloads `transition.webm` automatically. Use that file as an OBS
+    Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.3s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #05060F; color: #EAF2FF;
+      font-family: "Bahnschrift", "Eurostile", "Arial Narrow", system-ui, sans-serif; }
+    h1 { font-size: 22px; color: #00D9FF; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 0 0 16px rgba(0,217,255,.45); }
+    p  { color: #9FB3D8; line-height: 1.55; margin: 0 0 14px; max-width: 820px;
+      font-family: "Consolas", ui-monospace, monospace; }
+    code { color: #00D9FF; background: #1a1c3344; padding: 2px 6px; border-radius: 4px;
+      font-family: "Consolas", "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #6C5CE7; color: #EAF2FF;
+      border: 2px solid #00D9FF; border-radius: 10px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase;
+      font-family: "Bahnschrift", "Eurostile", system-ui, sans-serif; }
+    button:hover:not(:disabled) { background: #00D9FF; color: #05060F; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #00D9FF; font-family: "Consolas", monospace; }
+    .stage { background: #0a0b1a55; border: 1px solid rgba(0,217,255,.22); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #05060F;
+      background-image:
+        linear-gradient(45deg, #161830 25%, transparent 25%),
+        linear-gradient(-45deg, #161830 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #161830 75%),
+        linear-gradient(-45deg, transparent 75%, #161830 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Nebula Drift Transition → .webm</h1>
+  <p>Records the warp-jump stinger to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 650 ms</strong>
+     (half the default 1300 ms — that's the full-cover warp-flash when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1300;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const NEB = [
+      [108, 92, 231],   // indigo
+      [0, 217, 255],    // cyan
+      [255, 122, 182],  // pink
+    ];
+    const WHITE = [234, 242, 255];
+    const VPX = W * 0.69, VPY = H * 0.36;
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+
+    let _s = 0x9E37 >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    const rayMax = Math.hypot(Math.max(VPX, W - VPX), Math.max(VPY, H - VPY)) + 220;
+
+    const N_STREAK = 150;
+    const streaks = Array.from({ length: N_STREAK }, () => {
+      const ang = R(0, 6.2832);
+      return {
+        ang,
+        d0: R(30, rayMax * 0.92),
+        col: NEB[(srnd() * 3) | 0],
+        w: R(0.8, 2.6),
+        a: R(0.4, 0.95),
+        push: R(0.7, 1.6),
+        lead: R(0, 0.12),
+      };
+    });
+
+    const N_BLOOM = 11;
+    const blooms = Array.from({ length: N_BLOOM }, (_, i) => {
+      let x = R(0, W), y = R(0, H);
+      const edge = R(0.6, 1.05);
+      x = CX + (x - CX) * edge * 1.2;
+      y = CY + (y - CY) * edge * 1.2;
+      return {
+        x, y, r: R(360, 720), c: NEB[i % NEB.length],
+        a: R(0.10, 0.22), ph: R(0, 6.2832), ps: R(0.8, 1.7),
+        lead: R(0, 0.22),
+      };
+    });
+
+    const N_SPARK = 46;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      ang: R(0, 6.2832),
+      reach: R(rayMax * 0.4, rayMax * 1.05),
+      s: R(1.6, 4.4),
+      c: srnd() < 0.5 ? WHITE : NEB[(srnd() * 3) | 0],
+      lead: R(0.1, 0.42), span: R(0.4, 0.7), a: R(0.4, 0.95),
+    }));
+
+    function drawNebula(t, cover) {
+      if (cover <= 0.01) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const b of blooms) {
+        const bt = smooth((cover - b.lead) / (1 - b.lead));
+        if (bt <= 0.01) continue;
+        const breathe = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(b.ph + t * 6.2832 * b.ps));
+        const rr = b.r * (0.7 + bt * 0.7) * (1 + Math.sin(b.ph) * 0.12);
+        const cx = Math.round(b.x), cy = Math.round(b.y);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+        const a = b.a * bt * breathe;
+        g.addColorStop(0.0, rgba(b.c, (a).toFixed(3)));
+        g.addColorStop(0.5, rgba(b.c, (a * 0.42).toFixed(3)));
+        g.addColorStop(1.0, rgba(b.c, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawStreaks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      for (const s of streaks) {
+        const st = smooth((cover - s.lead) / (1 - s.lead));
+        const d = s.d0 + rayMax * 0.55 * st * s.push;
+        const len = (3 + 230 * st * s.push);
+        const ca = Math.cos(s.ang), sa = Math.sin(s.ang);
+        const x1 = VPX + ca * d, y1 = VPY + sa * d;
+        const x2 = VPX + ca * (d - len), y2 = VPY + sa * (d - len);
+        const grow = clamp01(d / rayMax);
+        const edgeFade = 1 - Math.max(0, (grow - 0.9) / 0.1);
+        const a = s.a * Math.min(1, (0.25 + st * 1.2)) * Math.max(0, edgeFade) * (0.35 + 0.65 * cover);
+        if (a <= 0.02) continue;
+        const grad = ctx.createLinearGradient(x2, y2, x1, y1);
+        grad.addColorStop(0, rgba(s.col, 0));
+        grad.addColorStop(1, rgba(s.col, a.toFixed(3)));
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = s.w * (0.7 + cover * 0.9);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x2), Math.round(y2));
+        ctx.lineTo(Math.round(x1), Math.round(y1));
+        ctx.stroke();
+        ctx.globalAlpha = Math.min(1, a * 1.2);
+        ctx.fillStyle = rgba(WHITE, (a * 0.9).toFixed(3));
+        ctx.fillRect(Math.round(x1) - 1, Math.round(y1) - 1, 2, 2);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawSparks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const p of sparks) {
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const e = smooth(lt);
+        const d = 30 + p.reach * e;
+        const ca = Math.cos(p.ang), sa = Math.sin(p.ang);
+        const px = VPX + ca * d, py = VPY + sa * d;
+        const ends = Math.sin(lt * Math.PI);
+        const a = p.a * ends * (0.4 + 0.6 * cover);
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = rgba(p.c, 1);
+        ctx.shadowColor = rgba(p.c, 1); ctx.shadowBlur = 10;
+        const sz = Math.max(1, Math.round(p.s));
+        ctx.fillRect(Math.round(px) - (sz >> 1), Math.round(py) - (sz >> 1), sz, sz);
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);
+      if (cover > 0.01) {
+        ctx.save();
+        const vg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, Math.max(W, H) * 0.95);
+        vg.addColorStop(0.0, 'rgba(10,11,26,' + (0.62 * cover).toFixed(3) + ')');
+        vg.addColorStop(0.55, 'rgba(5,6,15,' + (0.86 * cover).toFixed(3) + ')');
+        vg.addColorStop(1.0, 'rgba(2,3,8,' + (0.97 * cover).toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      drawNebula(t, cover);
+      drawStreaks(t, cover);
+      drawSparks(t, cover);
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const fg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, W * 0.62);
+        fg.addColorStop(0.0, rgba(WHITE, (0.5 * flash).toFixed(3)));
+        fg.addColorStop(0.28, rgba([0, 217, 255], (0.26 * flash).toFixed(3)));
+        fg.addColorStop(0.62, rgba([108, 92, 231], (0.1 * flash).toFixed(3)));
+        fg.addColorStop(1.0, rgba([108, 92, 231], 0));
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        const cr = lerp(20, 150, flash);
+        const cg = ctx.createRadialGradient(VPX, VPY, 0, VPX, VPY, cr);
+        cg.addColorStop(0, rgba(WHITE, (0.9 * flash).toFixed(3)));
+        cg.addColorStop(1, rgba(WHITE, 0));
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.arc(VPX, VPY, cr, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

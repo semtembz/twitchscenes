@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Nebula Drift — Be Right Back</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable slots: ?kicker=...  ?sub=...  ?tag=...  ?tag2=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the generative deep-space field: billowing nebula + parallax starfield + warp-streaks -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- atmospheric overlays (margins/edges only — never cross the centre) -->
+    <div class="veil" aria-hidden="true"></div>
+    <div class="drift" aria-hidden="true"></div>
+    <div class="galaxy" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.)
+         These HUD tags live in the screen corners (margins), clear of the centred title/bar. -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">5</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--bl is-slot" data-slot="tag2"><span class="slot-no">6</span><span class="slot-txt">your text here</span></div>
+
+    <!-- the centred clear corridor: kicker / title / rule / sub / bar -->
+    <main class="core">
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span><span class="dot"></span><span class="r r--r"></span>
+      </div>
+
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">7</span><span class="slot-txt">your text here</span></p>
+
+      <h1 class="title">BE RIGHT <span class="accent">BACK</span></h1>
+
+      <div class="rule" aria-hidden="true"></div>
+
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">8</span><span class="slot-txt">your text here</span></p>
+
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

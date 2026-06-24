@@ -1,0 +1,220 @@
+/* ============================================================
+   KITSUNE LANTERN — shared design system ("Foxfire Night")
+   A mystical yokai folklore night. Deep indigo-black sky; rows of
+   hanging paper LANTERNS (chochin) glow warm orange down the left &
+   right margins; a vermilion TORII gate stands in silhouette behind
+   them; drifting FOXFIRE (kitsune-bi) wisps + rising gold embers float
+   on a canvas field; a kanji accent (狐) sits like a seal. The message
+   is set in an elegant mincho serif — lantern-gold over cream paper —
+   inside a softly-lit washi panel, with a fox-mask crest above. The
+   loading line is a lantern WICK that fills warm. Warm + mysterious,
+   softer than the aggressive cyber themes.
+   Bespoke to THIS theme — shares only engine conventions with others.
+   ============================================================ */
+:root{
+  /* palette */
+  --night:#100A16;            /* near-black indigo night */
+  --night2:#0A0610;           /* deepest shadow */
+  --night-violet:#1B1230;     /* upper sky violet */
+  --orange:#FF6A3D;           /* lantern orange */
+  --orange-deep:#C73D1E;      /* vermilion / torii */
+  --violet:#7B5CFF;           /* foxfire violet */
+  --gold:#FFD166;             /* lantern gold */
+  --cream:#F6EFE8;            /* paper cream / text */
+  --dim:#C9B7A8;              /* muted warm grey for sub copy */
+  /* derived */
+  --hair:rgba(255,209,102,.42);          /* gold hairline */
+  --hair-soft:rgba(255,209,102,.22);
+  --glow-warm:rgba(255,106,61,.55);      /* lantern halo */
+  --glow-gold:rgba(255,209,102,.6);
+  --glow-fox:rgba(123,92,255,.5);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--cream);
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC","Georgia","Times New Roman",serif;
+  background:
+    radial-gradient(120% 78% at 50% 116%, rgba(255,106,61,.16), transparent 56%),
+    radial-gradient(90% 60% at 16% 30%, rgba(123,92,255,.12), transparent 60%),
+    radial-gradient(90% 60% at 84% 26%, rgba(255,209,102,.07), transparent 58%),
+    radial-gradient(140% 100% at 50% -10%, var(--night-violet), transparent 60%),
+    linear-gradient(180deg, #160E22 0%, var(--night) 52%, var(--night2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- atmosphere overlays ---- */
+/* a low ground-fog wash so the lanterns/torii feel rooted in night mist */
+.mist{position:absolute;left:0;right:0;bottom:0;height:46%;pointer-events:none;opacity:.7;
+  background:linear-gradient(180deg, transparent, rgba(255,106,61,.07) 55%, rgba(16,10,22,.55));}
+/* faint paper-grain weave so the sky reads as washi, not flat black */
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;
+  background:repeating-linear-gradient(122deg, rgba(246,239,232,.03) 0 1px, transparent 1px 7px);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 340px rgba(8,4,14,.86), inset 0 0 130px rgba(8,4,14,.5);}
+
+/* ============================================================
+   SIGNATURE COMPOSITION — TORII gate silhouette + hanging chochin
+   LANTERNS down the margins. All kept to the left/right edges so the
+   centred title + bar stay in a clear zone.
+   ============================================================ */
+/* the vermilion torii gate, a wide silhouette standing behind the lanterns */
+.torii{position:absolute;bottom:0;width:560px;height:760px;pointer-events:none;opacity:.9;
+  filter:drop-shadow(0 0 46px rgba(199,61,30,.34));
+  animation:rise 1.4s var(--ease) both .15s;}
+.torii svg{width:100%;height:100%;display:block;}
+.torii--l{left:-118px;}
+.torii--r{right:-118px;transform:scaleX(-1);}
+@keyframes rise{from{opacity:0;transform:translateY(34px)}to{opacity:.9;transform:translateY(0)}}
+.torii--r{animation-name:rise-r;}
+@keyframes rise-r{from{opacity:0;transform:scaleX(-1) translateY(34px)}to{opacity:.9;transform:scaleX(-1) translateY(0)}}
+
+/* a hanging paper LANTERN (chochin): a glowing capsule on a cord, with
+   ribbed paper bands + a warm internal light. Several hang at staggered
+   heights down each margin. The whole sprite sways gently. */
+.lantern{position:absolute;top:0;width:108px;pointer-events:none;transform-origin:50% -40px;
+  animation:sway 6s ease-in-out infinite, drop 1.2s var(--ease) both;}
+.lantern .cord{width:2px;height:var(--cord,150px);margin:0 auto;
+  background:linear-gradient(180deg, rgba(255,209,102,.0), var(--hair));}
+.lantern .cap{width:34px;height:12px;margin:-1px auto 0;border-radius:4px 4px 2px 2px;
+  background:linear-gradient(180deg,#3a2418,#1c1009);box-shadow:0 0 10px rgba(0,0,0,.6);}
+.lantern .body{position:relative;width:100%;height:142px;margin:0 auto;border-radius:54px/64px;
+  background:
+    radial-gradient(60% 52% at 50% 44%, var(--gold) 0%, var(--orange) 46%, var(--orange-deep) 84%, #7e2412 100%);
+  box-shadow:0 0 60px 8px var(--glow-warm), inset 0 0 32px rgba(255,237,190,.55), inset 0 -22px 30px rgba(126,36,18,.6);
+  /* paper ribbing */
+  background-blend-mode:normal;}
+.lantern .body::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:repeating-linear-gradient(180deg, rgba(120,30,14,.0) 0 14px, rgba(120,30,14,.34) 14px 16px);
+  -webkit-mask:radial-gradient(58% 52% at 50% 50%, #000 70%, transparent 100%);
+          mask:radial-gradient(58% 52% at 50% 50%, #000 70%, transparent 100%);}
+.lantern .body::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:30px;height:46px;color:var(--cream);opacity:.78;font-size:38px;line-height:46px;text-align:center;
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;text-shadow:0 0 8px rgba(126,36,18,.8);}
+.lantern .foot{width:30px;height:10px;margin:-1px auto 0;border-radius:2px 2px 4px 4px;
+  background:linear-gradient(180deg,#3a2418,#180c06);}
+.lantern .tassel{width:2px;height:34px;margin:0 auto;
+  background:linear-gradient(180deg,var(--orange),rgba(255,106,61,0));}
+/* a kanji painted on a couple of the lanterns */
+.lantern.kanji .body::after{content:"狐";}
+/* per-lantern placement + stagger (margins only) */
+.lantern--1{left:96px;--cord:130px;animation-delay:0s,.2s;animation-duration:6.4s,1.2s;}
+.lantern--2{left:212px;--cord:300px;transform:scale(.82);animation-delay:-2.2s,.34s;animation-duration:7.2s,1.2s;}
+.lantern--3{left:34px;--cord:470px;transform:scale(.7);animation-delay:-4s,.48s;animation-duration:6.8s,1.2s;}
+.lantern--4{right:96px;--cord:130px;animation-delay:-1.1s,.26s;animation-duration:6.6s,1.2s;}
+.lantern--5{right:212px;--cord:300px;transform:scale(.82);animation-delay:-3.3s,.4s;animation-duration:7.4s,1.2s;}
+.lantern--6{right:34px;--cord:470px;transform:scale(.7);animation-delay:-5s,.54s;animation-duration:6.6s,1.2s;}
+@keyframes sway{0%,100%{transform:rotate(-2.6deg)}50%{transform:rotate(2.6deg)}}
+/* keep scaled lanterns swaying about their scale */
+.lantern--2{animation-name:sway-s,drop;} .lantern--5{animation-name:sway-s,drop;}
+.lantern--3{animation-name:sway-xs,drop;} .lantern--6{animation-name:sway-xs,drop;}
+@keyframes sway-s{0%,100%{transform:scale(.82) rotate(-2.6deg)}50%{transform:scale(.82) rotate(2.6deg)}}
+@keyframes sway-xs{0%,100%{transform:scale(.7) rotate(-2.6deg)}50%{transform:scale(.7) rotate(2.6deg)}}
+@keyframes drop{from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
+
+/* ---- the CENTERED washi message panel (signature centre) ---- */
+.panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1060px;max-width:1060px;padding:78px 92px 72px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  background:
+    radial-gradient(120% 92% at 50% 8%, rgba(255,106,61,.12), transparent 64%),
+    linear-gradient(180deg, rgba(28,18,40,.62), rgba(14,8,18,.5));
+  border:1px solid var(--hair);border-radius:8px;
+  box-shadow:0 40px 130px rgba(6,3,12,.66), 0 0 80px rgba(255,106,61,.1), inset 0 0 70px rgba(20,12,30,.5);
+  animation:panelin 1s var(--ease) both .25s;}
+/* inner hairline + soft inner halo */
+.panel::before{content:"";position:absolute;inset:11px;border:1px solid var(--hair-soft);border-radius:5px;pointer-events:none;}
+/* faint paper light glazing down from the top of the panel */
+.panel::after{content:"";position:absolute;inset:11px;border-radius:5px;pointer-events:none;opacity:.6;
+  background:radial-gradient(90% 60% at 50% -8%, rgba(255,209,102,.14), transparent 60%);}
+@keyframes panelin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* fox-mask crest + double rule above the kicker */
+.crest{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px;}
+.crest .r{width:128px;height:1px;background:linear-gradient(90deg,transparent,var(--gold));}
+.crest .r--r{background:linear-gradient(90deg,var(--gold),transparent);}
+.crest .mask{width:44px;height:30px;display:block;filter:drop-shadow(0 0 12px var(--glow-warm));}
+
+/* kicker — spaced mincho caps in warm gold */
+.kicker{font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;
+  letter-spacing:.5em;font-size:24px;font-weight:600;text-transform:uppercase;
+  color:var(--gold);text-indent:.5em;text-shadow:0 0 18px rgba(255,209,102,.4);}
+
+/* the mincho TITLE — lantern-gold over cream with a warm foxfire glow */
+.title{margin:18px 0 4px;font-size:138px;line-height:.9;font-weight:700;letter-spacing:.015em;
+  text-transform:uppercase;color:var(--cream);
+  text-shadow:0 2px 0 rgba(0,0,0,.34), 0 0 56px rgba(255,106,61,.32);}
+.title .accent{display:block;
+  background:linear-gradient(180deg,var(--gold) 0%,var(--orange) 56%,var(--orange-deep) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 70px rgba(255,106,61,.5);filter:drop-shadow(0 2px 1px rgba(0,0,0,.42));}
+
+/* delicate underline rule with foxfire diamonds */
+.rule{width:320px;height:1px;margin:8px auto 0;position:relative;
+  background:linear-gradient(90deg,transparent,var(--orange) 22%,var(--gold) 50%,var(--orange) 78%,transparent);}
+.rule::before,.rule::after{content:"";position:absolute;top:50%;width:8px;height:8px;
+  border:1px solid var(--gold);transform:translateY(-50%) rotate(45deg);box-shadow:0 0 12px var(--glow-gold);}
+.rule::before{left:-15px;} .rule::after{right:-15px;}
+
+/* subtitle — refined italic mincho, generous space */
+.sub{margin-top:26px;font-style:italic;font-size:29px;letter-spacing:.05em;color:var(--dim);}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;vertical-align:.06em;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* loading = a lantern WICK light that fills warm (no numbers) */
+.bar{margin-top:44px;width:540px;height:3px;background:rgba(255,209,102,.16);position:relative;border-radius:2px;}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:2px;
+  background:linear-gradient(90deg,var(--orange-deep),var(--orange) 45%,var(--gold));
+  box-shadow:0 0 16px rgba(255,106,61,.8), 0 0 6px rgba(255,209,102,.9);}
+/* the travelling wick-flame head */
+.bar .fill::after{content:"";position:absolute;right:-5px;top:50%;width:12px;height:12px;
+  transform:translateY(-50%) rotate(45deg);background:var(--gold);
+  box-shadow:0 0 16px var(--glow-gold),0 0 8px rgba(255,106,61,.9);}
+
+/* corner brand tags — flank the TOP EDGE of the centred panel so they read
+   as deliberate seal labels anchored to the composition, not stranded in the
+   screen corners. (panel ~1060px wide, centred -> edges ~x=430/1490; top edge
+   ~y=232. Sit just above it, aligned to the panel's vertical edges.) */
+.seal{position:absolute;font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;
+  letter-spacing:.42em;font-size:20px;color:var(--gold);text-indent:.42em;opacity:.82;
+  white-space:nowrap;text-shadow:0 0 14px rgba(255,209,102,.3);}
+.seal--tl{left:432px;top:188px;} .seal--tr{right:432px;top:188px;text-indent:0;}
+
+/* the kanji 狐 accent — a large translucent seal glyph low-centre, behind copy
+   margins (kept clear of the title/bar by sitting in the lower void) */
+.kanji-mark{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;
+  font-size:128px;line-height:1;color:rgba(255,106,61,.12);pointer-events:none;
+  text-shadow:0 0 40px rgba(255,106,61,.12);animation:markin 1.6s var(--ease) both .6s;}
+@keyframes markin{from{opacity:0}to{opacity:1}}
+
+/* handle — warm gold, lower right on the night */
+.handle{position:absolute;right:62px;bottom:48px;
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Georgia",serif;
+  letter-spacing:.3em;font-size:26px;color:var(--gold);text-indent:.3em;
+  text-shadow:0 0 16px rgba(255,209,102,.4);}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .panel,
+#stage.render .torii,
+#stage.render .lantern,
+#stage.render .kanji-mark{animation:none!important;}
+#stage.render .panel{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#stage.render .torii{opacity:.9;}
+#stage.render .torii--r{transform:scaleX(-1);}
+#stage.render .lantern{opacity:1;}
+#stage.render .lantern--2,#stage.render .lantern--5{transform:scale(.82);}
+#stage.render .lantern--3,#stage.render .lantern--6{transform:scale(.7);}
+#stage.render .kanji-mark{opacity:1;}

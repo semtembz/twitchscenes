@@ -180,6 +180,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "acid-rave-source", "5606"],
       "port": 5606
+    },
+    {
+      "name": "witching-hour-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "witching-hour-source", "5607"],
+      "port": 5607
+    },
+    {
+      "name": "aurora-noir-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "aurora-noir-source", "5608"],
+      "port": 5608
+    },
+    {
+      "name": "nebula-drift-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "nebula-drift-source", "5609"],
+      "port": 5609
+    },
+    {
+      "name": "kitsune-lantern-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "kitsune-lantern-source", "5610"],
+      "port": 5610
     }
   ]
 }

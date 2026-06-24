@@ -1,0 +1,273 @@
+/* ============================================================
+   WITCHING HOUR — alert system ("The Summons Card")
+   A candlelit dark-academia ALERT: a parchment-dark "summons card"
+   anchored bottom-left, ringed by a hairline candle-gold double
+   border with celestial star-compass corners, an engraved gold
+   wax-seal SIGIL plate (the event glyph), a spaced engraved-caps
+   kicker, an old-style serif NAME line, an emphasized candle-gold
+   amount for value events, and a small etched sigil tag. A warm
+   candle-pool glows inside; a soft gold light breathes across the
+   seal. TRANSPARENT background so the card composites over the
+   scene / gameplay. Cohesive with shared.css tokens (near-black /
+   teal / candle-gold / cream, the engraved serifs, the star-cap
+   rules) — but its own bespoke composition, never a recolor.
+   Each event gets a DISTINCT entrance motion (the .ev-<type>
+   keyframes below + the render MOTIONS table in alerts.js).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --near-black:#0B0E12; --teal:#14323A; --gold:#C9A24B; --plum:#5B2A4E;
+  --cream:#E8E0CC; --gold-lt:#E7C878;
+  /* derived */
+  --line:rgba(201,162,75,.50);
+  --line-soft:rgba(201,162,75,.24);
+  --glow:rgba(231,200,120,.55);
+  --dim:rgba(232,224,204,.56);
+  --card:rgba(11,14,18,.82); --card2:rgba(6,8,11,.66);
+  --serif-title:"Trajan Pro","Cinzel","Optima",Georgia,"Times New Roman",serif;
+  --serif-body:"Hoefler Text","Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
+  --ease:cubic-bezier(.2,.78,.24,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--cream);background:transparent;
+  font-family:var(--serif-body);}
+
+/* one canvas for the ember / moth-dust burst, behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert "summons card": anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:138px;width:812px;padding:34px 46px 34px 40px;
+  background:
+    radial-gradient(120% 96% at 6% 6%, rgba(20,50,58,.40), transparent 64%),
+    radial-gradient(86% 80% at 88% 108%, rgba(91,42,78,.20), transparent 66%),
+    linear-gradient(150deg, var(--card), var(--card2));
+  border:1px solid var(--line);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,.62),
+    0 0 60px rgba(201,162,75,.08),
+    inset 0 0 96px rgba(7,9,12,.62),
+    inset 0 0 2px rgba(231,200,120,.16);
+  display:grid;grid-template-columns:150px 1fr;column-gap:34px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* inner hairline candle-gold double border (echoes the frame) */
+.alert::before{content:"";position:absolute;inset:9px;border:1px solid var(--line-soft);
+  pointer-events:none;}
+/* a soft warm candle-pool glow rising inside the card + a slow gold light breathe */
+.alert::after{content:"";position:absolute;inset:9px;pointer-events:none;opacity:.85;
+  background:radial-gradient(78% 120% at 16% 86%, rgba(231,200,120,.10), transparent 60%);
+  animation:alert-breathe 3.4s ease-in-out infinite;}
+@keyframes alert-breathe{0%,100%{opacity:.6}50%{opacity:.95}}
+
+/* delicate celestial star-compass CORNER accents on the card */
+.alert .corner{position:absolute;width:62px;height:62px;pointer-events:none;opacity:.9;}
+.alert .corner svg{width:100%;height:100%;display:block;}
+.alert .corner--tl{left:13px;top:13px;}
+.alert .corner--tr{right:13px;top:13px;transform:scaleX(-1);}
+.alert .corner--bl{left:13px;bottom:13px;transform:scaleY(-1);}
+.alert .corner--br{right:13px;bottom:13px;transform:scale(-1,-1);}
+
+/* ---- the wax-seal SIGIL plate: an engraved candle-gold medallion ---- */
+.alert .sigil{width:150px;height:150px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:
+    radial-gradient(120% 120% at 50% 22%, rgba(231,200,120,.16), transparent 58%),
+    radial-gradient(100% 100% at 50% 50%, rgba(20,50,58,.65), rgba(11,14,18,.95) 72%);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    inset 0 0 30px rgba(201,162,75,.16),
+    0 8px 26px rgba(0,0,0,.5);}
+/* an inner engraved ring + a faint star-compass tick ring */
+.alert .sigil::before{content:"";position:absolute;inset:14px;border-radius:50%;
+  border:1px solid var(--line-soft);pointer-events:none;}
+.alert .sigil::after{content:"";position:absolute;inset:6px;border-radius:50%;pointer-events:none;
+  opacity:.5;
+  background:repeating-conic-gradient(from 0deg, var(--line-soft) 0 1deg, transparent 1deg 30deg);
+  -webkit-mask:radial-gradient(circle, transparent 60%, #000 62%, #000 66%, transparent 68%);
+          mask:radial-gradient(circle, transparent 60%, #000 62%, #000 66%, transparent 68%);}
+.alert .sigil .glyph{position:relative;font-family:var(--serif-title);
+  font-size:74px;line-height:1;color:var(--gold-lt);
+  text-shadow:0 0 24px rgba(231,200,120,.6), 0 2px 1px rgba(4,7,10,.5);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* a crescent-moon + double-rule crest above the kicker */
+.alert .crest{display:flex;align-items:center;gap:14px;margin:0 0 8px;}
+.alert .crest .moon{width:14px;height:14px;position:relative;flex:none;
+  filter:drop-shadow(0 0 7px var(--glow));}
+.alert .crest .moon::before{content:"";position:absolute;inset:0;border-radius:50%;
+  box-shadow:inset -5px 1px 0 0 var(--gold-lt);}
+.alert .crest .r{width:64px;height:1px;flex:none;
+  background:linear-gradient(90deg,var(--gold),transparent);}
+
+/* engraved spaced-caps KICKER (the event label; hidden in noname mode,
+   where the big NAME line shows the event instead) */
+.alert .kick{font-family:var(--serif-title);font-size:21px;font-weight:500;
+  letter-spacing:.46em;text-transform:uppercase;color:var(--gold-lt);
+  text-indent:.46em;margin:0 0 4px;display:flex;align-items:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 0 14px rgba(231,200,120,.32);}
+
+/* big engraved old-style serif NAME / headline — clamped to one line so a
+   long viewer handle never breaks the card */
+.alert .name{font-family:var(--serif-title);font-size:70px;line-height:.96;
+  font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--cream);
+  margin:0;text-shadow:0 2px 0 rgba(0,0,0,.34), 0 0 52px rgba(231,200,120,.24);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (candle-gold gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat / value events. */
+.alert .amount{font-family:var(--serif-title);font-size:38px;font-weight:600;
+  letter-spacing:.03em;margin:8px 0 0;display:none;line-height:1;
+  background:linear-gradient(180deg,var(--gold-lt) 0%,var(--gold) 56%,#9a7a32 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 16px rgba(231,200,120,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet italic aged-serif sub-line (ships EMPTY) */
+.alert .sub{font-family:var(--serif-body);font-style:italic;font-size:22px;
+  letter-spacing:.05em;color:var(--dim);margin:8px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a small etched sigil TAG readout, top-right of the card */
+.alert .tagid{position:absolute;top:18px;right:30px;font-family:var(--serif-title);
+  font-size:15px;letter-spacing:.4em;color:var(--gold);opacity:.78;text-indent:.4em;
+  text-transform:uppercase;text-shadow:0 0 10px rgba(201,162,75,.32);}
+/* a thin star-tipped rule under the tag */
+.alert .tagrule{position:absolute;top:42px;right:30px;width:92px;height:1px;opacity:.72;
+  background:linear-gradient(90deg,transparent,var(--gold) 30%,var(--gold-lt) 70%);}
+.alert .tagrule::after{content:"✦";position:absolute;right:-13px;top:50%;
+  transform:translateY(-50%);font-size:10px;line-height:0;color:var(--gold-lt);
+  text-shadow:0 0 8px var(--glow);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct candlelit choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs. .hide is a
+   clean fade/sink so the demo chain never overlaps. Each motion reads
+   as something the candlelit study would do — drift in on warm air,
+   rise like smoke, kindle from a spark, swing in like a heavy door.
+   ============================================================ */
+.alert.hide{animation:alert-out .5s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateY(26px) scale(.985)}}
+
+/* 1 follower — drift up on warm candle-air + settle (gentle welcome) */
+.alert.ev-follower.show{animation:fx-follower .72s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(64px)}
+  70%{opacity:1;transform:translateY(-8px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — kindle in: scale up from an ember point + unblur (a glow taking shape) */
+.alert.ev-subscriber.show{animation:fx-subscriber .8s var(--ease) forwards;transform-origin:18% 64%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.62);filter:blur(9px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — engraved slide in from the left with a firm stop (a card laid on the desk) */
+.alert.ev-member.show{animation:fx-member .64s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(14px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick spark-pop + upward flicker (a flame leaping, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .6s var(--ease) forwards;transform-origin:18% 86%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(38px) scale(.9)}
+  52%{opacity:1;transform:translateY(-11px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend like dripping wax from above + gentle settle (premium, amount event) */
+.alert.ev-donation.show{animation:fx-donation .82s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-94px)}
+  60%{opacity:1;transform:translateY(12px)}
+  82%{transform:translateY(-5px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — the heavy study door swings open (3D hinge from the left edge) */
+.alert.ev-host.show{animation:fx-host .76s var(--ease) forwards;transform-origin:0% 50%;perspective:1400px;}
+@keyframes fx-host{
+  0%{opacity:0;transform:perspective(1400px) rotateY(-62deg)}
+  62%{opacity:1;transform:perspective(1400px) rotateY(7deg)}
+  100%{opacity:1;transform:perspective(1400px) rotateY(0)}}
+
+/* 7 raid — a coven arrives: overshoot rush in from the left + shake settle (big) */
+.alert.ev-raid.show{animation:fx-raid .86s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.04)}
+  54%{opacity:1;transform:translateX(28px) scale(1.02)}
+  72%{transform:translateX(-13px)}
+  86%{transform:translateX(6px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — a soft candle-breathe pulse-in (warm, quiet affection) */
+.alert.ev-like.show{animation:fx-like .66s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.05)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — a sealed letter sent: skew-swipe in from lower-left (forward motion) */
+.alert.ev-share.show{animation:fx-share .64s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-128px) skewX(-9deg)}
+  70%{opacity:1;transform:translateX(8px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — a star pinned to the chart: drop + slight rotate settle */
+.alert.ev-star.show{animation:fx-star .76s var(--ease) forwards;transform-origin:18% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-72px) rotate(-4.5deg)}
+  62%{opacity:1;transform:translateY(8px) rotate(1.6deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — a summons zooms in toward the viewer + settle (loud, amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .74s var(--ease) forwards;transform-origin:18% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.36)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rises like candle-smoke + unblur (calm, recurring patronage) */
+.alert.ev-supporter.show{animation:fx-supporter .76s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(56px);filter:blur(7px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* the wax-seal sigil glyph kindles in slightly after the card (shared by all) */
+.alert.show .sigil .glyph{animation:fx-glyph .66s var(--ease) both .16s;}
+@keyframes fx-glyph{
+  0%{opacity:0;transform:scale(.42)}
+  60%{opacity:1;transform:scale(1.14)}
+  100%{opacity:1;transform:scale(1)}}
+/* the seal medallion gets a faint warm pulse as the glyph lands */
+.alert.show .sigil{animation:fx-seal 1.2s var(--ease) both .16s;}
+@keyframes fx-seal{
+  0%{box-shadow:inset 0 0 0 1px var(--line),inset 0 0 30px rgba(201,162,75,.16),0 8px 26px rgba(0,0,0,.5);}
+  40%{box-shadow:inset 0 0 0 1px var(--gold-lt),inset 0 0 46px rgba(231,200,120,.34),0 8px 26px rgba(0,0,0,.5);}
+  100%{box-shadow:inset 0 0 0 1px var(--line),inset 0 0 30px rgba(201,162,75,.16),0 8px 26px rgba(0,0,0,.5);}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;opacity:.8;}
+#stage.render .alert.show .sigil,
+#stage.render .alert.show .sigil .glyph{animation:none!important;opacity:1;transform:none;}

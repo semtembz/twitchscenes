@@ -1,0 +1,181 @@
+/* ============================================================
+   AURORA NOIR — shared design system ("Aurora behind Black Glass")
+   Premium dark-luxe. A black canvas with a slow iridescent AURORA
+   BOREALIS sheen drifting behind everything — mint->violet ribbons of
+   soft light painted on a <canvas>. In front of it sits a darkened,
+   frosted BLACK-GLASS panel (subtle blur + a thin iridescent edge
+   that catches the aurora) holding the message. The title is white /
+   iridescent with a soft aurora glow; fine light particles drift; the
+   loading bar is a single thin iridescent aurora line.
+   Bespoke to THIS theme — shares only the invisible engine w/ others.
+   NOT platinum minimal, NOT amber broadcast, NOT warm deco.
+   ============================================================ */
+:root{
+  /* palette */
+  --black:#08090D; --black2:#14161D; --black3:#05060A;
+  --mint:#5BE0C0; --violet:#8A7BFF; --white:#EAF0F2;
+  --dim:#9AA7B4;
+  /* derived */
+  --edge:rgba(234,240,242,.16);               /* hairline glass edge */
+  --edge-mint:rgba(91,224,192,.55);
+  --edge-violet:rgba(138,123,255,.55);
+  --glow-mint:rgba(91,224,192,.45);
+  --glow-violet:rgba(138,123,255,.45);
+  --ease:cubic-bezier(.22,.8,.2,1);
+  --sans:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--black3);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);font-family:var(--sans);
+  background:
+    radial-gradient(120% 90% at 50% 8%, rgba(20,22,29,.85), transparent 60%),
+    radial-gradient(90% 70% at 16% 92%, rgba(91,224,192,.05), transparent 60%),
+    radial-gradient(90% 70% at 86% 96%, rgba(138,123,255,.06), transparent 60%),
+    linear-gradient(170deg, #0B0D13 0%, var(--black) 52%, var(--black3) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* a faint top-down luminance + deep vignette so the aurora reads behind glass */
+.haze{position:absolute;inset:0;pointer-events:none;opacity:.6;mix-blend-mode:screen;
+  background:radial-gradient(140% 70% at 50% -10%, rgba(91,224,192,.07), transparent 55%);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 420px rgba(3,4,8,.92), inset 0 0 140px rgba(3,4,8,.55);}
+
+/* a slow iridescent light-sweep grazing the glass */
+.sweep{position:absolute;inset:-20% -40%;pointer-events:none;mix-blend-mode:screen;opacity:.4;
+  background:linear-gradient(112deg, transparent 40%, rgba(91,224,192,.10) 48%, rgba(138,123,255,.10) 52%, transparent 60%);
+  animation:sweep 11s linear infinite;}
+@keyframes sweep{0%{transform:translateX(-20%)}100%{transform:translateX(20%)}}
+
+/* ---- the centered BLACK-GLASS panel (the signature composition) ---- */
+.glass{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1200px;height:660px;padding:76px 110px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  border-radius:30px;
+  background:
+    linear-gradient(180deg, rgba(20,22,29,.50), rgba(8,9,13,.62));
+  -webkit-backdrop-filter:blur(14px) saturate(125%);
+          backdrop-filter:blur(14px) saturate(125%);
+  border:1px solid var(--edge);
+  box-shadow:
+    0 50px 140px rgba(0,0,0,.62),
+    inset 0 1px 0 rgba(234,240,242,.10),
+    inset 0 0 120px rgba(8,9,13,.45);
+  animation:glassin 1s var(--ease) both .1s;}
+/* a thin iridescent edge (mint->violet) that catches the aurora */
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;
+  pointer-events:none;
+  background:linear-gradient(135deg,
+    var(--edge-mint) 0%, rgba(234,240,242,.10) 38%,
+    rgba(234,240,242,.04) 60%, var(--edge-violet) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:.9;}
+/* a soft iridescent inner top-light that pools where the aurora hits the glass */
+.glass::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 70% at 50% 0%, rgba(91,224,192,.08), transparent 60%);
+  -webkit-mask:linear-gradient(180deg,#000,transparent 55%);
+          mask:linear-gradient(180deg,#000,transparent 55%);}
+@keyframes glassin{from{opacity:0;transform:translate(-50%,-50%) scale(.965)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* a small iridescent crest above the kicker: rule — dot — rule */
+.crest{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:6px;
+  animation:fadeup .9s var(--ease) both .3s;}
+.crest .r{width:108px;height:1px;background:linear-gradient(90deg,transparent,var(--mint));}
+.crest .r--r{background:linear-gradient(90deg,var(--violet),transparent);}
+.crest .dot{width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+  box-shadow:0 0 14px var(--glow-mint);}
+
+/* kicker — fine wide-tracked caps, iridescent tint */
+.kicker{font-family:var(--sans);letter-spacing:.56em;font-size:23px;font-weight:400;
+  text-transform:uppercase;color:var(--mint);text-indent:.56em;
+  text-shadow:0 0 18px rgba(91,224,192,.40);
+  animation:fadeup .9s var(--ease) both .38s;}
+
+/* the TITLE — light weight, wide tracking, white with iridescent aurora glow */
+.title{margin:20px 0 8px;font-size:138px;line-height:.94;font-weight:200;letter-spacing:.10em;
+  text-transform:uppercase;text-indent:.10em;color:var(--white);
+  text-shadow:
+    0 0 42px rgba(234,240,242,.28),
+    0 0 90px rgba(91,224,192,.22),
+    0 0 130px rgba(138,123,255,.18);
+  animation:fadeup 1.05s var(--ease) both .46s;}
+/* second line = the iridescent aurora gradient that drifts gently */
+.title .accent{display:block;font-weight:300;letter-spacing:.085em;text-indent:.085em;
+  background:linear-gradient(100deg, var(--mint) 0%, var(--white) 42%, var(--violet) 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 34px rgba(91,224,192,.30)) drop-shadow(0 0 60px rgba(138,123,255,.22));
+  animation:fadeup 1.05s var(--ease) both .54s, auroraShift 9s ease-in-out infinite .6s;}
+@keyframes auroraShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* delicate iridescent underline rule below the title */
+.rule{width:280px;height:1px;margin:10px auto 0;position:relative;
+  background:linear-gradient(90deg,transparent,var(--mint) 26%,var(--white) 50%,var(--violet) 74%,transparent);
+  animation:fadeup 1s var(--ease) both .62s;}
+.rule::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+  box-shadow:0 0 14px var(--glow-mint);}
+
+/* subtitle — refined light italic, generous space */
+.sub{margin-top:26px;font-style:italic;font-size:28px;font-weight:300;letter-spacing:.05em;color:var(--dim);
+  animation:fadeup 1s var(--ease) both .7s;}
+
+@keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;vertical-align:.06em;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* loading = a single thin iridescent aurora line that fills (no numbers) */
+.bar{margin-top:46px;width:520px;height:2px;border-radius:2px;
+  background:rgba(234,240,242,.10);position:relative;
+  animation:fadeup 1s var(--ease) both .78s;}
+.bar .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:2px;
+  background:linear-gradient(90deg,var(--mint),var(--white) 60%,var(--violet));
+  box-shadow:0 0 16px rgba(91,224,192,.7),0 0 26px rgba(138,123,255,.4);}
+.bar .fill::after{content:"";position:absolute;right:-3px;top:50%;width:8px;height:8px;border-radius:50%;
+  transform:translateY(-50%);
+  background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 55%, var(--violet));
+  box-shadow:0 0 14px var(--glow-mint),0 0 22px var(--glow-violet);}
+
+/* corner brand tags — flank the TOP EDGE of the centered glass panel so they
+   read as deliberate labels anchored to the composition, not stranded in the
+   screen corners. (glass: 1200px wide, centered -> edges at x=360/1560; top
+   edge at y=210. Sit just above it, aligned to the panel's vertical edges.) */
+.tag{position:absolute;font-family:var(--sans);font-weight:400;
+  letter-spacing:.42em;font-size:18px;color:var(--mint);text-indent:.42em;opacity:.78;
+  white-space:nowrap;text-shadow:0 0 14px rgba(91,224,192,.3);
+  animation:fadeup .9s var(--ease) both .34s;}
+.tag--tl{left:362px;top:168px;} .tag--tr{right:362px;top:168px;text-indent:0;color:var(--violet);
+  text-shadow:0 0 14px rgba(138,123,255,.3);}
+
+/* handle — iridescent, lower right on the black */
+.handle{position:absolute;right:64px;bottom:50px;font-family:var(--sans);font-weight:400;
+  letter-spacing:.3em;font-size:24px;color:var(--white);text-indent:.3em;
+  text-shadow:0 0 16px rgba(91,224,192,.4),0 0 26px rgba(138,123,255,.25);
+  animation:fadeup 1s var(--ease) both .82s;}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm.
+   ============================================================ */
+#stage.render .glass,#stage.render .crest,#stage.render .kicker,
+#stage.render .title,#stage.render .title .accent,#stage.render .rule,
+#stage.render .sub,#stage.render .bar,#stage.render .tag,#stage.render .handle{animation:none!important;}
+#stage.render .sweep{animation:none;display:none;}
+#stage.render .glass{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#stage.render .crest,#stage.render .kicker,#stage.render .title,
+#stage.render .rule,#stage.render .sub,#stage.render .bar,
+#stage.render .tag,#stage.render .handle{opacity:1;transform:none;}
+#stage.render .title .accent{background-position:0% 50%;}

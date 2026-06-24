@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Kitsune Lantern Foxfire Bloom</title>
+  <!--
+    KITSUNE LANTERN stinger ("Lantern Light"). A warm paper-lantern GLOW blooms
+    open from the dark: a soft vermilion-to-gold light swells out of centre while
+    a swarm of FOXFIRE (kitsune-bi) wisps — violet + gold flame motes — spiral
+    INWARD around it, and two faint vermilion TORII-arc silhouettes sweep across
+    from the margins. At full cover (t=0.5) the screen is a sheet of warm lantern
+    light with a translucent 狐 kanji seal flaring at the core and a flurry of
+    rising gold embers. Then the light is SNUFFED like a blown candle — the glow
+    collapses, the wisps scatter outward, a curl of pale smoke lifts, and the
+    screen clears. Transparent before & after, deterministic (seeded RNG, no
+    Math.random in the frame fn), sine-driven, ~1300ms. Warm + mystical;
+    NO velvet curtain / no ice / no neon glitch.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add
+    it as a Stinger transition with the Transition Point at ~50% (full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (kitsune lantern) ---- */
+    const ORANGE = [255, 106, 61], ORANGE_DEEP = [199, 61, 30];
+    const GOLD = [255, 209, 102], CREAM = [246, 239, 232];
+    const VIOLET = [123, 92, 255], VIOLET_LT = [206, 196, 255];
+    const NIGHT = [16, 10, 22];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a).toFixed(3) + ')';
+
+    /* ---- seeded RNG (mulberry32), used ONCE up-front to lay out the foxfire
+       swarm + ember field; the frame fn is a pure deterministic function of t
+       (no Math.random in frame). ---- */
+    let _s = 0xF0CE >>> 0;
+    function rnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* FOXFIRE wisps: small flame motes that spiral IN toward the kindling
+       lantern as it blooms, then scatter OUT as it is snuffed. Each rides a
+       seeded ring radius + angle; cover drives how far it is pulled inward. */
+    const N_WISP = 46;
+    const wisps = Array.from({ length: N_WISP }, () => {
+      const ang = R(0, Math.PI * 2);
+      return {
+        ang,
+        r0: R(W * 0.30, W * 0.72),     // outer rest radius (in the void)
+        rIn: R(40, 240),               // how close it spirals at full bloom
+        swirl: R(1.0, 2.6) * (rnd() < 0.5 ? 1 : -1),  // spiral turns + direction
+        r: R(7, 22),                   // flame radius
+        breathe: R(1.2, 2.6), ph: R(0, 6.2832),
+        a: R(0.32, 0.7),
+        warm: rnd() < 0.42,            // gold ember vs violet foxfire
+        lead: R(0, 0.12),
+      };
+    });
+
+    /* rising GOLD EMBERS that lift through the warm sheet near full cover —
+       sparks coming off the lantern flame. */
+    const N_EMBER = 80;
+    const embers = Array.from({ length: N_EMBER }, () => ({
+      x: R(W * 0.10, W * 0.90), y0: R(H * 0.50, H * 1.04),
+      rise: R(H * 0.42, H * 0.92), sway: R(14, 56), swf: R(0.8, 2.2), phase: R(0, 6.2832),
+      s: R(1.2, 3.6), tw: R(1.2, 2.4), a: R(0.35, 0.9),
+      lead: R(0.10, 0.40), span: R(0.42, 0.7),
+      gold: rnd() < 0.7,
+    }));
+
+    /* a few pale SMOKE puffs that only appear on the snuff-out (back half),
+       curling up where the flame was. */
+    const N_SMOKE = 9;
+    const smoke = Array.from({ length: N_SMOKE }, () => ({
+      x0: CX + R(-160, 160), drift: R(-46, 46),
+      rise: R(180, 420), s: R(60, 150), sway: R(0.4, 1.4), phase: R(0, 6.2832),
+      a: R(0.05, 0.16), lead: R(0, 0.18),
+    }));
+
+    /* the warm lantern LIGHT bloom: a radial glow that swells from a point to
+       full-screen warmth as cover 0->1, with paper-warm core + vermilion rim. */
+    function drawBloom(cover) {
+      if (cover <= 0.002) return;
+      const e = smooth(cover);
+      const rad = lerp(60, Math.hypot(CX, CY) * 1.12, e);
+      // soft outer wash: deep vermilion fading to night, gives the "lit paper" body
+      const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, rad);
+      g.addColorStop(0.00, rgba(CREAM, 0.92 * e));
+      g.addColorStop(0.14, rgba(GOLD, 0.82 * e));
+      g.addColorStop(0.40, rgba(ORANGE, 0.66 * e));
+      g.addColorStop(0.72, rgba(ORANGE_DEEP, 0.40 * e));
+      g.addColorStop(1.00, rgba(NIGHT, 0));
+      ctx.save();
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // paper-ribbing: faint horizontal chochin bands over the warm core,
+      // strongest mid-sweep, masked to the bright centre so edges stay clean
+      const ribA = Math.sin(e * Math.PI) * 0.10;
+      if (ribA > 0.01) {
+        const coreR = rad * 0.5;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(CX, CY, coreR, 0, 6.2832); ctx.clip();
+        ctx.globalAlpha = ribA;
+        ctx.strokeStyle = rgba(ORANGE_DEEP, 1);
+        ctx.lineWidth = 2;
+        for (let y = CY - coreR; y <= CY + coreR; y += 22) {
+          ctx.beginPath(); ctx.moveTo(CX - coreR, Math.round(y)); ctx.lineTo(CX + coreR, Math.round(y)); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // bright crystallizing rim where the warm light meets the dark — the
+      // travelling lantern-light front. strongest at mid-sweep.
+      const frontA = Math.sin(e * Math.PI);
+      const fr = rad * 0.86;
+      if (frontA > 0.02 && fr > 4 && cover < 0.985) {
+        ctx.globalAlpha = 0.42 * frontA;
+        ctx.strokeStyle = rgba(GOLD, 1);
+        ctx.lineWidth = 3;
+        ctx.shadowColor = rgba(ORANGE, 1);
+        ctx.shadowBlur = 30;
+        ctx.beginPath(); ctx.arc(CX, CY, fr, 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = 0.16 * frontA;
+        ctx.lineWidth = 20;
+        ctx.beginPath(); ctx.arc(CX, CY, fr, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* two faint vermilion TORII-arc silhouettes sweep in from the L/R margins
+       and meet behind the bloom — a whisper of the gate, kept low-opacity so
+       it reads as folklore atmosphere, not a hard wipe. */
+    function drawToriiArc(cover) {
+      const e = smooth(cover);
+      const a = Math.sin(e * Math.PI) * 0.34;     // present only mid-sweep
+      if (a <= 0.02) return;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = rgba(ORANGE_DEEP, 1);
+      ctx.shadowColor = rgba(ORANGE_DEEP, 1);
+      ctx.shadowBlur = 38;
+      ctx.lineWidth = 30;
+      // each arc swings from its margin toward centre as e grows
+      const reach = lerp(W * 0.06, W * 0.30, e);
+      // left lintel arc
+      ctx.beginPath();
+      ctx.moveTo(0, CY - 220);
+      ctx.quadraticCurveTo(reach, CY - 320, reach + 40, CY + 360);
+      ctx.stroke();
+      // right lintel arc (mirror)
+      ctx.beginPath();
+      ctx.moveTo(W, CY - 220);
+      ctx.quadraticCurveTo(W - reach, CY - 320, W - reach - 40, CY + 360);
+      ctx.stroke();
+      // the top lintel beam crossing, thickening toward full cover
+      ctx.globalAlpha = a * 0.85;
+      ctx.lineWidth = 46;
+      ctx.beginPath();
+      ctx.moveTo(reach * 0.4, CY - 300);
+      ctx.quadraticCurveTo(CX, CY - 360, W - reach * 0.4, CY - 300);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* the foxfire swarm spiralling in / scattering out */
+    function drawWisps(t, cover) {
+      const e = smooth(cover);
+      ctx.save();
+      for (const w of wisps) {
+        const lt = clamp01((t - w.lead) / (1 - w.lead));
+        // radius: rest far out, pulled in to rIn at full bloom, back out as snuffed
+        const rr = lerp(w.r0, w.rIn, e);
+        const ang = w.ang + w.swirl * e * Math.PI;   // spiral as it draws in
+        const px = CX + Math.cos(ang) * rr;
+        const py = CY + Math.sin(ang) * (rr * 0.86);  // slight vertical squash
+        const breathe = 0.7 + 0.3 * Math.sin(t * w.breathe * 6.2832 + w.ph);
+        const rad = w.r * breathe * lerp(0.6, 1.25, e);
+        if (rad < 0.6) continue;
+        const a = w.a * lerp(0.25, 1, cover) * breathe;
+        if (a <= 0.02) continue;
+        const x = Math.round(px), y = Math.round(py);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 2.6);
+        if (w.warm) {
+          g.addColorStop(0.0, rgba(CREAM, a));
+          g.addColorStop(0.35, rgba(ORANGE, a * 0.6));
+          g.addColorStop(1.0, rgba(ORANGE, 0));
+        } else {
+          g.addColorStop(0.0, rgba(VIOLET_LT, a));
+          g.addColorStop(0.35, rgba(VIOLET, a * 0.6));
+          g.addColorStop(1.0, rgba(VIOLET, 0));
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, rad * 2.6, 0, 6.2832); ctx.fill();
+        // bright core
+        ctx.globalAlpha = Math.min(1, a * 1.4);
+        ctx.fillStyle = w.warm ? rgba(CREAM, 1) : rgba(VIOLET_LT, 1);
+        ctx.beginPath(); ctx.arc(x, y, Math.max(1, rad * 0.4), 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* rising gold embers through the warm sheet */
+    function drawEmbers(t) {
+      ctx.save();
+      for (const m of embers) {
+        const lt = clamp01((t - m.lead) / m.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const px = m.x + Math.sin(m.phase + lt * m.swf * 6.2832) * m.sway;
+        const py = m.y0 - m.rise * lt;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.5 + Math.sin(m.phase + lt * m.tw * 6.2832) * 0.5;
+        const a = m.a * ends * twk;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = m.gold ? rgba(GOLD, 1) : rgba(ORANGE, 1);
+        ctx.shadowColor = rgba(ORANGE, 1);
+        ctx.shadowBlur = 8;
+        const s = m.s;
+        ctx.fillRect(Math.round(px), Math.round(py), s, s);
+      }
+      ctx.restore();
+    }
+
+    /* pale curling smoke on the snuff-out (only back half of the timeline) */
+    function drawSmoke(t) {
+      if (t < 0.5) return;
+      const k = clamp01((t - 0.5) / 0.5);        // 0 at peak -> 1 at end
+      const fade = Math.sin(k * Math.PI);        // rise then dissipate
+      if (fade <= 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const p of smoke) {
+        const lt = clamp01((k - p.lead) / (1 - p.lead));
+        if (lt <= 0) continue;
+        const px = p.x0 + p.drift * lt + Math.sin(p.phase + lt * p.sway * 6.2832) * 26;
+        const py = CY - p.rise * lt;
+        const rad = p.s * (0.5 + lt);
+        const a = p.a * fade * (1 - lt * 0.5);
+        if (a <= 0.01) continue;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, rad);
+        g.addColorStop(0, rgba(CREAM, a));
+        g.addColorStop(1, rgba(CREAM, 0));
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(px, py, rad, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* a translucent 狐 kanji seal that flares at the core at full cover */
+    function drawKanji(t) {
+      const pk = Math.exp(-Math.pow((t - 0.5) / 0.085, 2));   // peaks at t=0.5
+      if (pk <= 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.5 * pk;
+      ctx.fillStyle = rgba(ORANGE_DEEP, 1);
+      ctx.shadowColor = rgba(ORANGE, 1);
+      ctx.shadowBlur = 50 * pk;
+      ctx.font = '700 ' + Math.round(lerp(360, 420, pk)) + 'px "Yu Mincho","Hiragino Mincho ProN","Songti SC","Georgia",serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('狐', CX, CY + 14);
+      // a thin gold stroke ghost on top
+      ctx.globalAlpha = 0.35 * pk;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = rgba(GOLD, 1);
+      ctx.shadowBlur = 0;
+      ctx.strokeText('狐', CX, CY + 14);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawBloom(cover);
+      drawToriiArc(cover);
+      drawWisps(t, cover);
+      drawEmbers(t);
+      drawKanji(t);
+      drawSmoke(t);
+
+      // warm lantern light-flash at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, rgba(CREAM, 0.46 * flash));
+        fg.addColorStop(0.42, rgba(GOLD, 0.22 * flash));
+        fg.addColorStop(1, rgba(ORANGE, 0));
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }          // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }     // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

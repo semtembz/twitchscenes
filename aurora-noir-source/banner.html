@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Aurora Noir (PNG generator)</title>
+  <!--
+    AURORA NOIR · "aurora behind black glass" PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + a STREAMER
+    kicker; right = an editable tagline. The centre is decorative only — a faint
+    frosted glass arch + aurora glow — so the player can sit over it without
+    hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the aurora / particles are
+    identical on every render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only;
+    it is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --black:#08090D; --black2:#14161D; --black3:#05060A;
+      --mint:#5BE0C0; --violet:#8A7BFF; --white:#EAF0F2; --dim:#9AA7B4;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+      background:var(--black3);color:var(--white);padding:32px;}
+    h1{font-weight:200;font-size:28px;color:var(--white);letter-spacing:.04em;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(91,224,192,.24);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-style:italic;font-weight:300;font-size:16px;}
+    .kicker{letter-spacing:.42em;font-size:13px;color:var(--mint);margin:0 0 14px;
+      text-transform:uppercase;text-indent:.42em;text-shadow:0 0 14px rgba(91,224,192,.4);}
+    button{font-family:inherit;font-weight:600;font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+      padding:13px 26px;color:var(--black3);background:linear-gradient(180deg,var(--mint),#3fbfa3);
+      border:1px solid rgba(91,224,192,.6);border-radius:3px;cursor:pointer;
+      box-shadow:0 0 30px rgba(91,224,192,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0a0c12;padding:14px;border:1px solid #1c2330;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    /* PREVIEW-ONLY ghost: shows roughly where Twitch's offline player sits. NOT
+       part of the downloaded PNG. */
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(91,224,192,0.45);
+      background:rgba(8,10,16,0.45);pointer-events:none;border-radius:8px;
+      color:rgba(234,240,242,0.72);display:flex;align-items:center;justify-content:center;
+      font-size:12px;letter-spacing:.16em;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--mint);background:#0e1118;
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">AURORA NOIR · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the aurora-behind-black-glass style — seeded so the
+    aurora and particles are reproducible. Identity sits on the <strong>left</strong>, the tagline
+    on the <strong>right</strong>; the centre is decorative so Twitch's offline player can sit over
+    it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const BLACK = '#08090D', BLACK3 = '#05060A';
+    const MINT = '#5BE0C0', VIOLET = '#8A7BFF', WHITE = '#EAF0F2', DIM = '#9AA7B4';
+    const TINTS = [[91,224,192],[138,123,255],[120,200,224],[110,160,240]];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // one aurora curtain (frozen still of shared.js drawCurtain)
+    function drawCurtain(cx, halfW, topY, botY, rgb, peakA, phase, ampPx) {
+      const [r, gn, b] = rgb;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const bands = 26, span = botY - topY;
+      for (let i = 0; i < bands; i++) {
+        const f = i / (bands - 1);
+        const y = topY + f * span;
+        const wave = Math.sin(phase + f * 3.2) * ampPx + Math.sin(phase * 1.7 - f * 1.6) * (ampPx * 0.4);
+        const x = cx + wave;
+        const vEnv = Math.sin(Math.min(1, f / 0.30) * Math.PI * 0.5) * (1 - f) * (1 - f * 0.3);
+        const a = peakA * Math.max(0, vEnv);
+        if (a <= 0.004) continue;
+        const x0 = x - halfW;
+        const g = ctx.createLinearGradient(x0, 0, x + halfW, 0);
+        g.addColorStop(0.0, 'rgba(' + r + ',' + gn + ',' + b + ',0)');
+        g.addColorStop(0.5, 'rgba(' + r + ',' + gn + ',' + b + ',' + a.toFixed(3) + ')');
+        g.addColorStop(1.0, 'rgba(' + r + ',' + gn + ',' + b + ',0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(Math.round(x0), Math.round(y), Math.round(halfW * 2), Math.ceil(span / bands) + 2);
+      }
+      ctx.restore();
+    }
+
+    // rounded rect path
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ---- faint frosted-glass ARCH (centre, behind the player) ----
+    function drawArch(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(scale, scale);
+      // a slim rounded-top glass tablet outline w/ iridescent edge
+      ctx.globalAlpha = 0.6;
+      const eg = ctx.createLinearGradient(-100, -120, 100, 100);
+      eg.addColorStop(0, 'rgba(91,224,192,0.5)');
+      eg.addColorStop(0.5, 'rgba(234,240,242,0.12)');
+      eg.addColorStop(1, 'rgba(138,123,255,0.5)');
+      ctx.strokeStyle = eg; ctx.lineWidth = 2.4;
+      ctx.shadowColor = 'rgba(91,224,192,0.4)'; ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.moveTo(-92, 96);
+      ctx.lineTo(-92, -52);
+      ctx.arc(0, -52, 92, Math.PI, 0, false);
+      ctx.lineTo(92, 96);
+      ctx.stroke();
+      // inner hairline arch
+      ctx.strokeStyle = 'rgba(234,240,242,0.2)'; ctx.lineWidth = 1.2; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(-72, 96);
+      ctx.lineTo(-72, -44);
+      ctx.arc(0, -44, 72, Math.PI, 0, false);
+      ctx.lineTo(72, 96);
+      ctx.stroke();
+      // iridescent keystone dot at the apex
+      ctx.shadowBlur = 14;
+      const dg = ctx.createRadialGradient(-2, -146, 0, 0, -144, 9);
+      dg.addColorStop(0, WHITE); dg.addColorStop(0.6, MINT); dg.addColorStop(1, VIOLET);
+      ctx.fillStyle = dg;
+      ctx.beginPath(); ctx.arc(0, -144, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+
+    // ---- a centred branding block: crest dot + kicker, big title, sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText, glowMint) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const accent = glowMint ? MINT : VIOLET;
+      const glowRGB = glowMint ? '91,224,192' : '138,123,255';
+
+      // kicker with flanking iridescent dots, spaced caps
+      ctx.font = '400 22px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = accent;
+      ctx.shadowColor = 'rgba(' + glowRGB + ',0.4)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 124, 8);
+      const kw = spacedWidth(kickerLabel, 8);
+      ctx.shadowBlur = 10;
+      [cx - kw / 2 - 22, cx + kw / 2 + 22].forEach(dx => {
+        ctx.beginPath(); ctx.arc(dx, 124, 3.2, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
+      // title — light-weight, white with a layered aurora glow (shrink-to-fit)
+      let ts = titleSize, trk = 4;
+      function fits(sz) {
+        ctx.font = '200 ' + sz + 'px "Segoe UI",system-ui,sans-serif';
+        return spacedWidth(titleText, trk) <= 760;
+      }
+      while (!fits(ts) && ts > 30) ts -= 2;
+      ctx.font = '200 ' + ts + 'px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = WHITE;
+      ctx.shadowColor = 'rgba(91,224,192,0.4)'; ctx.shadowBlur = 38;
+      drawSpacedCentered(titleText, cx, 214, trk);
+      ctx.shadowColor = 'rgba(138,123,255,0.3)'; ctx.shadowBlur = 60;
+      drawSpacedCentered(titleText, cx, 214, trk);
+      ctx.shadowBlur = 0;
+
+      // thin iridescent rule + centre dot under the title
+      const ruW = Math.min(360, ts * 4.4);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(91,224,192,0)'); ug.addColorStop(0.26, MINT);
+      ug.addColorStop(0.5, WHITE); ug.addColorStop(0.74, VIOLET); ug.addColorStop(1, 'rgba(138,123,255,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 286); ctx.lineTo(cx + ruW / 2, 286); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(91,224,192,0.7)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(cx, 286, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // subtitle — refined light italic
+      ctx.font = 'italic 300 22px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 330);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x8A7BFF); // fixed seed (violet hex) -> identical scatter
+
+      // ---- BACKGROUND: deep black sky gradient ----
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#0B0D13'); sky.addColorStop(0.6, BLACK); sky.addColorStop(1, BLACK3);
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // cool glows: centre wash + flanks
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(91,224,192,0.10)', 1);
+      bloom(W * 0.16, H * 0.42, 380, 'rgba(91,224,192,0.10)', 1);
+      bloom(W * 0.84, H * 0.42, 380, 'rgba(138,123,255,0.12)', 1);
+
+      // ---- AURORA CURTAINS (seeded; spread across, brightest at flanks) ----
+      const NC = 6;
+      for (let i = 0; i < NC; i++) {
+        const tint = TINTS[(rnd() * TINTS.length) | 0];
+        const cx = R(rnd, -0.05, 1.05) * W;
+        const halfW = R(rnd, 150, 360);
+        const topY = R(rnd, -0.30, 0.10) * H;
+        const botY = R(rnd, 0.70, 1.25) * H;
+        const peakA = R(rnd, 0.10, 0.20);
+        const phase = R(rnd, 0, 6.283);
+        const ampPx = R(rnd, 30, 90);
+        drawCurtain(cx, halfW, topY, botY, tint, peakA, phase, ampPx);
+      }
+
+      // ---- faint frosted-glass arch centre ----
+      drawArch(W / 2, H / 2 + 36, 1.18);
+
+      // ---- FINE LIGHT PARTICLES scattered into the LEFT and RIGHT thirds ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 64; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? R(rnd, 40, 620) : R(rnd, W - 620, W - 40);
+        const y = R(rnd, 18, H - 18);
+        const z = R(rnd, 0.5, 1.6), a = R(rnd, 0.18, 0.7);
+        const mint = rnd() < 0.55;
+        ctx.globalAlpha = a; ctx.shadowColor = mint ? MINT : VIOLET; ctx.shadowBlur = 6 * z;
+        ctx.fillStyle = mint ? MINT : VIOLET;
+        const sp = Math.max(1, Math.round(z * 1.7));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(3,4,8,0.74)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 72, 'twitch.tv/' + handleClean.toLowerCase(), true);
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[21] your text here', '[ YOUR TEXT ]', 72, '[22] your text here', false);
+
+      // accent tick rails flanking the centre clear-zone (iridescent dots)
+      ctx.fillStyle = 'rgba(91,224,192,0.4)';
+      for (let yy = 92; yy < H - 66; yy += 18) { ctx.fillRect(672, yy, 2, 8); ctx.fillRect(1246, yy, 2, 8); }
+      // iridescent dot caps on each rail
+      ctx.shadowColor = 'rgba(91,224,192,0.6)'; ctx.shadowBlur = 8;
+      [[673, 78], [1247, 78], [673, H - 64], [1247, H - 64]].forEach(([x, y]) => {
+        const dg = ctx.createRadialGradient(x - 1, y - 1, 0, x, y, 5);
+        dg.addColorStop(0, WHITE); dg.addColorStop(0.6, MINT); dg.addColorStop(1, VIOLET);
+        ctx.fillStyle = dg;
+        ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

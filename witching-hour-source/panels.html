@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Witching Hour — Twitch Panels (generator)</title>
+  <!--
+    WITCHING HOUR · "The Candlelit Study" dark-academia witchcraft PANELS.
+
+    Twitch profile panels are PNG images (recommended 320 x 100 px) you upload to
+    your channel's About page. This file renders each panel onto a <canvas> at
+    EXACTLY 320 x 100 in the Witching Hour language:
+        - a parchment-dark candlelit card on a deep near-black/teal ground
+        - a hairline candle-gold double border + delicate celestial corner ticks
+        - a thin candle-gold line glyph (heart, moon-calendar, sigil, ...)
+        - a small crescent-moon crest + the label in an engraved old-style serif,
+          candle-gold cream with a soft warm glow, on a star-capped underline rule
+    Each panel has its own Download button; "Download all" saves the set.
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Witching Hour "Candlelit Study" palette (mirrors shared.css tokens) ---- */
+    :root{
+      --near-black:#0B0E12; --teal:#14323A; --gold:#C9A24B; --plum:#5B2A4E;
+      --cream:#E8E0CC; --gold-lt:#E7C878; --dim:rgba(232,224,204,.56);
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:"Hoefler Text","Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
+      color:var(--cream); padding:36px 32px 60px; min-height:100vh;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(20,50,58,.45), transparent 60%),
+        radial-gradient(70% 60% at 14% 100%, rgba(91,42,78,.30), transparent 60%),
+        linear-gradient(168deg, #0E1318 0%, #0B0E12 55%, #06080B 100%);
+    }
+    .kicker{
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
+      letter-spacing:7px; font-size:12px; color:var(--gold-lt);
+      text-transform:uppercase; margin:0 0 8px; display:flex; align-items:center; gap:11px; text-indent:7px;
+    }
+    .moon{width:13px;height:13px;border-radius:50%;box-shadow:inset -5px 1px 0 0 var(--gold-lt);
+      filter:drop-shadow(0 0 8px rgba(231,200,120,.55));}
+    h1{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-weight:600;font-size:30px;
+      letter-spacing:1px;margin:0 0 6px;color:var(--cream);text-shadow:0 0 28px rgba(231,200,120,.30);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:720px;line-height:1.6;font-style:italic;font-size:17px;}
+    code{font-family:"Courier New",monospace;color:var(--gold-lt);
+      background:rgba(231,200,120,.08);padding:2px 7px;border-radius:3px;font-style:normal;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{
+      font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;font-weight:600;
+      font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:12px 24px;cursor:pointer;
+      color:var(--near-black);background:linear-gradient(180deg,var(--gold-lt),var(--gold));
+      border:1px solid rgba(231,200,120,.6);border-radius:2px;box-shadow:0 6px 24px rgba(201,162,75,.30);
+    }
+    button:hover{filter:brightness(1.08);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:26px;}
+    .card{background:rgba(11,14,18,.55);padding:16px;border-radius:4px;border:1px solid rgba(201,162,75,.26);}
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame{
+      border-radius:3px;overflow:hidden;display:block;background-color:#0c1014;
+      background-image:
+        linear-gradient(45deg,#16202420 25%,transparent 25%),
+        linear-gradient(-45deg,#16202420 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#16202420 75%),
+        linear-gradient(-45deg,transparent 75%,#16202420 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;
+    }
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;letter-spacing:2px;
+      color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;letter-spacing:1px;
+      color:var(--gold-lt);text-decoration:none;border:1px solid rgba(201,162,75,.34);border-radius:2px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(201,162,75,.16);}
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="moon"></span>WITCHING HOUR · PANELS</p>
+  <h1>Witching Hour — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the candlelit-study style:
+    a parchment-dark card, hairline candle-gold double border, celestial corner ticks,
+    a crescent crest and a thin gold line glyph. Download all then upload at
+    <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    // ---- Tokens (hex mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var NEAR_BLACK = '#0B0E12', TEAL = '#14323A', PLUM = '#5B2A4E';
+    var GOLD = '#C9A24B', GOLD_LT = '#E7C878', CREAM = '#E8E0CC';
+    var DIM = 'rgba(232,224,204,0.56)';
+
+    // ---- Panel inventory (12, per the brief) ----
+    var PANELS = [
+      { id:'about',     title:'ABOUT',     icon:'heart' },
+      { id:'schedule',  title:'SCHEDULE',  icon:'calendar' },
+      { id:'rules',     title:'RULES',     icon:'scroll' },
+      { id:'donations', title:'DONATIONS', icon:'chalice' },
+      { id:'discord',   title:'DISCORD',   icon:'discord' },
+      { id:'twitter',   title:'TWITTER',   icon:'feather' },
+      { id:'youtube',   title:'YOUTUBE',   icon:'play' },
+      { id:'instagram', title:'INSTAGRAM', icon:'camera' },
+      { id:'merch',     title:'MERCH',     icon:'potion' },
+      { id:'sponsors',  title:'SPONSORS',  icon:'sigil' },
+      { id:'subscribe', title:'SUBSCRIBE', icon:'star' },
+      { id:'community', title:'COMMUNITY', icon:'coven' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function bloom(ctx, cx, cy, rad, alpha){
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, 'rgba(231,200,120,' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(201,162,75,' + (alpha*0.32).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(201,162,75,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    function roundRect(ctx, x, y, w, h, r){
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y,   x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x,   y+h, r);
+      ctx.arcTo(x,   y+h, x,   y,   r);
+      ctx.arcTo(x,   y,   x+w, y,   r);
+      ctx.closePath();
+    }
+    // a tiny celestial compass-tick at a frame corner (two short rules + a spark)
+    function cornerTick(ctx, ox, oy, fx, fy){
+      ctx.save();
+      ctx.translate(ox, oy); ctx.scale(fx, fy);
+      ctx.strokeStyle = 'rgba(231,200,120,0.7)'; ctx.lineWidth = 1; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 11); ctx.lineTo(0, 0); ctx.lineTo(11, 0);  // L corner rule
+      ctx.stroke();
+      // little 4-point spark just inside
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(231,200,120,0.6)'; ctx.shadowBlur = 5;
+      star4(ctx, 7, 7, 3.2);
+      ctx.restore();
+    }
+    function star4(ctx, cx, cy, r){
+      ctx.beginPath();
+      ctx.moveTo(cx, cy-r); ctx.lineTo(cx + r*0.32, cy - r*0.32);
+      ctx.lineTo(cx+r, cy); ctx.lineTo(cx + r*0.32, cy + r*0.32);
+      ctx.lineTo(cx, cy+r); ctx.lineTo(cx - r*0.32, cy + r*0.32);
+      ctx.lineTo(cx-r, cy); ctx.lineTo(cx - r*0.32, cy - r*0.32);
+      ctx.closePath(); ctx.fill();
+    }
+    // a small crescent-moon crest mark
+    function crescent(ctx, cx, cy, r){
+      ctx.save();
+      ctx.shadowColor = 'rgba(231,200,120,0.6)'; ctx.shadowBlur = 7;
+      ctx.fillStyle = GOLD_LT;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+      // carve the inner disc with the background tone to make a crescent
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc(cx + r*0.55, cy - r*0.18, r*0.92, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    function drawSpaced(ctx, str, x, y, sp){
+      var cx = x;
+      for (var i=0;i<str.length;i++){ var ch = str[i]; ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p){
+      ctx.clearRect(0, 0, W, H);
+      var pad = 4, x = pad, y = pad, w = W - pad*2, h = H - pad*2;
+
+      // parchment-dark candlelit card body, clipped to a soft rounded rect
+      ctx.save();
+      roundRect(ctx, x, y, w, h, 8); ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(20,50,58,0.40)');
+      bg.addColorStop(0.5, 'rgba(11,14,18,0.86)');
+      bg.addColorStop(1, 'rgba(6,8,11,0.94)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // warm candle-pool blooms inside the card
+      bloom(ctx, 60, 50, 92, 0.16);
+      bloom(ctx, 250, 18, 120, 0.10);
+
+      // faint aged-paper striping
+      ctx.fillStyle = 'rgba(232,224,204,0.03)';
+      for (var sy = y; sy < y + h; sy += 8) ctx.fillRect(0, sy, W, 1);
+
+      // deep vignette to seat the candlelit dark
+      var vg = ctx.createRadialGradient(W/2, H/2, 36, W/2, H/2, 190);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(4,6,9,0.55)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // celestial corner ticks in the four card corners
+      cornerTick(ctx, x + 7,     y + 7,      1,  1);
+      cornerTick(ctx, x + w - 7, y + 7,     -1,  1);
+      cornerTick(ctx, x + 7,     y + h - 7,  1, -1);
+      cornerTick(ctx, x + w - 7, y + h - 7, -1, -1);
+
+      // candle-gold double border
+      ctx.save();
+      ctx.strokeStyle = 'rgba(201,162,75,0.55)'; ctx.lineWidth = 1;
+      roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 8); ctx.stroke();
+      ctx.strokeStyle = 'rgba(201,162,75,0.24)';
+      roundRect(ctx, x + 4.5, y + 4.5, w - 9, h - 9, 6); ctx.stroke();
+      ctx.restore();
+
+      // glyph zone on the left with a thin gold rule separating it
+      drawIcon(ctx, p.icon, 33, H/2, 30);
+      ctx.save();
+      var ruleX = 60;
+      ctx.strokeStyle = 'rgba(201,162,75,0.5)'; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(231,200,120,0.5)'; ctx.shadowBlur = 7;
+      ctx.beginPath(); ctx.moveTo(ruleX, y + 20); ctx.lineTo(ruleX, y + h - 20); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // star end-caps on the rule
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(231,200,120,0.6)'; ctx.shadowBlur = 5;
+      star4(ctx, ruleX, y + 20, 2.6); star4(ctx, ruleX, y + h - 20, 2.6);
+      ctx.restore();
+
+      // crescent crest + spaced kicker
+      crescent(ctx, 74, 30, 4.4);
+      ctx.save();
+      ctx.font = '600 9px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = DIM;
+      drawSpaced(ctx, 'WITCHING HOUR', 86, 33, 1.6);
+      ctx.restore();
+
+      // engraved candle-gold serif label (shrink-to-fit so long labels stay inside)
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 27, maxW = W - 74 - 22;
+      ctx.font = '600 ' + size + 'px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+      while (ctx.measureText(label).width > maxW && size > 13){
+        size -= 1; ctx.font = '600 ' + size + 'px "Trajan Pro","Cinzel","Optima",Georgia,serif';
+      }
+      var grad = ctx.createLinearGradient(0, 50, 0, 74);
+      grad.addColorStop(0, CREAM); grad.addColorStop(0.6, GOLD_LT); grad.addColorStop(1, GOLD);
+      ctx.fillStyle = grad;
+      ctx.shadowColor = 'rgba(231,200,120,0.45)'; ctx.shadowBlur = 15;
+      ctx.fillText(label, 74, 67);
+      ctx.restore();
+
+      // star-capped underline rule under the label
+      ctx.save();
+      var barX = 74, barY = 78, barW = W - 74 - 22;
+      var ug = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      ug.addColorStop(0, 'rgba(201,162,75,0)'); ug.addColorStop(0.2, GOLD);
+      ug.addColorStop(0.5, GOLD_LT); ug.addColorStop(0.8, GOLD); ug.addColorStop(1, 'rgba(201,162,75,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.fillStyle = GOLD_LT; ctx.shadowColor = 'rgba(231,200,120,0.7)'; ctx.shadowBlur = 5;
+      star4(ctx, barX, barY, 2.4); star4(ctx, barX + barW, barY, 2.4);
+      ctx.restore();
+    }
+
+    // ---- thin candle-gold line glyphs -------------------------------------
+    function drawIcon(ctx, kind, cx, cy, s){
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s/2;
+      ctx.strokeStyle = GOLD_LT; ctx.fillStyle = GOLD_LT;
+      ctx.lineWidth = 1.7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(231,200,120,0.5)'; ctx.shadowBlur = 6;
+
+      switch (kind){
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h*0.85);
+          ctx.bezierCurveTo(-h*1.25, h*0.05, -h*0.65, -h*0.95, 0, -h*0.25);
+          ctx.bezierCurveTo(h*0.65, -h*0.95, h*1.25, h*0.05, 0, h*0.85);
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'calendar': {  // a moon-phase calendar
+          ctx.strokeRect(-h, -h*0.7, s, s*0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h*0.34); ctx.lineTo(h, -h*0.34);
+          ctx.moveTo(-h*0.55, -h); ctx.lineTo(-h*0.55, -h*0.5);
+          ctx.moveTo(h*0.55, -h);  ctx.lineTo(h*0.55, -h*0.5);
+          ctx.stroke();
+          // moon-phase dots: new, crescent, full
+          ctx.beginPath(); ctx.arc(-h*0.5, h*0.18, 2, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,      h*0.18, 2, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.5,  h*0.18, 2, Math.PI*0.4, Math.PI*1.4); ctx.stroke();
+          break;
+        }
+        case 'scroll': {  // an old rolled scroll of rules
+          ctx.beginPath(); ctx.arc(-h*0.62, -h*0.72, h*0.22, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.62, h*0.72, h*0.22, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.62, -h*0.5); ctx.lineTo(h*0.42, -h*0.5);
+          ctx.moveTo(-h*0.42, h*0.5); ctx.lineTo(h*0.62, h*0.5);
+          ctx.moveTo(-h*0.42, -h*0.5); ctx.lineTo(-h*0.42, h*0.5);
+          ctx.moveTo(h*0.42, -h*0.5);  ctx.lineTo(h*0.42, h*0.5);
+          ctx.stroke();
+          // rule lines on the parchment
+          ctx.lineWidth = 1.1;
+          for (var ri=-1; ri<=1; ri++){
+            ctx.beginPath(); ctx.moveTo(-h*0.28, ri*h*0.26); ctx.lineTo(h*0.28, ri*h*0.26); ctx.stroke();
+          }
+          break;
+        }
+        case 'chalice': {  // a goblet for donations / offerings
+          ctx.beginPath();
+          ctx.moveTo(-h*0.6, -h*0.7);
+          ctx.lineTo(h*0.6, -h*0.7);
+          ctx.quadraticCurveTo(h*0.5, h*0.15, 0, h*0.2);
+          ctx.quadraticCurveTo(-h*0.5, h*0.15, -h*0.6, -h*0.7);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, h*0.2); ctx.lineTo(0, h*0.7);
+          ctx.moveTo(-h*0.4, h*0.85); ctx.lineTo(h*0.4, h*0.85);
+          ctx.stroke();
+          // a small spark rising from the cup
+          ctx.fillStyle = GOLD_LT; star4(ctx, 0, -h*0.42, 2.4);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.85, -h*0.45);
+          ctx.quadraticCurveTo(0, -h*0.85, h*0.85, -h*0.45);
+          ctx.lineTo(h*0.7, h*0.55);
+          ctx.quadraticCurveTo(h*0.45, h*0.8, h*0.2, h*0.55);
+          ctx.lineTo(-h*0.2, h*0.55);
+          ctx.quadraticCurveTo(-h*0.45, h*0.8, -h*0.7, h*0.55);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h*0.32, 0, 1.9, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.32, 0, 1.9, 0, Math.PI*2); ctx.fill();
+          break;
+        }
+        case 'feather': {  // a quill feather (twitter)
+          ctx.beginPath();
+          ctx.moveTo(-h*0.8, h*0.85);
+          ctx.quadraticCurveTo(h*0.2, h*0.1, h*0.85, -h*0.85);
+          ctx.quadraticCurveTo(h*0.1, -h*0.4, -h*0.3, h*0.3);
+          ctx.quadraticCurveTo(-h*0.55, h*0.55, -h*0.8, h*0.85);
+          ctx.closePath(); ctx.stroke();
+          // central rib
+          ctx.beginPath(); ctx.moveTo(-h*0.55, h*0.6); ctx.lineTo(h*0.6, -h*0.55); ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h*0.7, s, s*0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.22, -h*0.32); ctx.lineTo(-h*0.22, h*0.28); ctx.lineTo(h*0.42, -h*0.02);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h*0.55, s, s*0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h*0.1, h*0.4, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.55, -h*0.25, 1.5, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.35, -h*0.55); ctx.lineTo(-h*0.15, -h*0.85);
+          ctx.lineTo(h*0.15, -h*0.85); ctx.lineTo(h*0.35, -h*0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'potion': {  // a merch potion bottle
+          ctx.beginPath();
+          ctx.moveTo(-h*0.28, -h*0.85); ctx.lineTo(h*0.28, -h*0.85);
+          ctx.moveTo(-h*0.22, -h*0.85); ctx.lineTo(-h*0.22, -h*0.5);
+          ctx.lineTo(h*0.22, -h*0.5);  ctx.lineTo(h*0.22, -h*0.85);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h*0.22, -h*0.5);
+          ctx.quadraticCurveTo(-h*0.75, -h*0.2, -h*0.62, h*0.45);
+          ctx.quadraticCurveTo(-h*0.5, h*0.85, 0, h*0.85);
+          ctx.quadraticCurveTo(h*0.5, h*0.85, h*0.62, h*0.45);
+          ctx.quadraticCurveTo(h*0.75, -h*0.2, h*0.22, -h*0.5);
+          ctx.stroke();
+          // liquid line + spark
+          ctx.beginPath(); ctx.moveTo(-h*0.55, h*0.18); ctx.lineTo(h*0.55, h*0.18); ctx.stroke();
+          ctx.fillStyle = GOLD_LT; star4(ctx, h*0.18, h*0.42, 2);
+          break;
+        }
+        case 'sigil': {  // an alchemical sigil for sponsors (circle + triangle + dot)
+          ctx.beginPath(); ctx.arc(0, 0, h*0.92, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, -h*0.62); ctx.lineTo(h*0.55, h*0.36); ctx.lineTo(-h*0.55, h*0.36);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h*0.02, 1.8, 0, Math.PI*2); ctx.fill();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp=0; sp<10; sp++){
+            var rad = (sp%2===0) ? h*0.95 : h*0.42;
+            var ang = -Math.PI/2 + sp*Math.PI/5;
+            var X = Math.cos(ang)*rad, Y = Math.sin(ang)*rad;
+            if (sp===0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath(); ctx.stroke();
+          break;
+        }
+        case 'coven': {  // three linked moons for community
+          ctx.beginPath(); ctx.arc(-h*0.5, h*0.18, h*0.4, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h*0.5, h*0.18, h*0.4, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h*0.42, h*0.4, 0, Math.PI*2); ctx.stroke();
+          ctx.fillStyle = GOLD_LT;
+          ctx.beginPath(); ctx.arc(-h*0.5, h*0.18, 1.4, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h*0.5, h*0.18, 1.4, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0, -h*0.42, 1.4, 0, Math.PI*2); ctx.fill();
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h*0.7, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build(){
+      for (var i=0;i<PANELS.length;i++){
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function(canvas, id){
+          dl.addEventListener('click', function(e){ e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id){
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function(){
+      var i = 0;
+      (function next(){
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id); i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    // headless export hook: [{name, dataURL}] for every panel
+    window.__exportAssets = function(){
+      return made.map(function(m){ return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build); else build();
+  })();
+  </script>
+</body>
+</html>

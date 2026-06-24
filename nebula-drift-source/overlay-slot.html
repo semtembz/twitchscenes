@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Nebula Drift — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD: a slim cosmic readout strip lower-left with a clean
+       LIVE tag + @handle, a thin tri-colour hairline, a small editable corner slot
+       top-right, and a few drifting warp-streak motes hugging the strip. Most of the
+       screen stays transparent so gameplay shows through (corner alpha 0).
+       Optional URL params: ?handle=@you   ?tag=LIVE
+       Editable slot: ?slot=...  (use =- to remove it) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent overlay: no page chrome, no space backdrop, no vignette/veil/drift */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* only a few faint drifting warp motes near the strip (low alpha) */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* ---- slim cosmic HUD strip, lower-left ---- */
+    .hud{position:absolute;left:60px;bottom:54px;height:58px;
+      display:flex;align-items:center;gap:22px;padding:0 30px 0 24px;
+      pointer-events:none;
+      background:linear-gradient(180deg, rgba(8,9,22,.60), rgba(2,3,8,.46));
+      border:1px solid var(--hair);
+      box-shadow:0 18px 50px rgba(2,3,8,.55), inset 0 0 40px rgba(8,9,22,.5),
+        0 0 30px rgba(0,217,255,.10);
+      /* clipped corners — a clean wide cosmic chamfer, never a full rectangle */
+      clip-path:polygon(
+        0 12px,12px 0,
+        calc(100% - 12px) 0,100% 12px,
+        100% calc(100% - 12px),calc(100% - 12px) 100%,
+        12px 100%,0 calc(100% - 12px));
+      animation:hudin .9s var(--ease) both .15s;}
+    /* inner indigo hairline (echoes the strip chamfer) */
+    .hud::before{content:"";position:absolute;inset:5px;border:1px solid var(--hair-soft);
+      clip-path:inherit;pointer-events:none;}
+    /* slow cyan warp-sweep travels along the strip */
+    .hud::after{content:"";position:absolute;top:0;bottom:0;width:120px;left:-120px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(0,217,255,.18), transparent);
+      animation:hudsweep 6s linear infinite;}
+    @keyframes hudin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes hudsweep{0%{left:-120px}100%{left:100%}}
+
+    /* "LIVE" tag — spaced cosmic caps + a pulsing cyan diamond node.
+       Functional label kept clean (NOT a slot). */
+    .hud .live{display:flex;align-items:center;gap:12px;
+      font-family:var(--mono);letter-spacing:.42em;font-size:18px;font-weight:600;
+      text-transform:uppercase;color:var(--cyan);text-indent:.42em;
+      text-shadow:0 0 14px rgba(0,217,255,.45);white-space:nowrap;}
+    .hud .live .dia{width:10px;height:10px;transform:rotate(45deg);
+      background:var(--white);box-shadow:0 0 12px var(--glow-cyan),0 0 4px var(--white);
+      animation:pulse 2.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 12px var(--glow-cyan),0 0 4px var(--white)}
+      50%{opacity:.45;box-shadow:0 0 5px var(--glow-cyan)}}
+
+    /* thin tri-colour divider rule with a diamond, between tag and handle */
+    .hud .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--indigo) 24%,var(--cyan) 50%,var(--pink) 76%,transparent);}
+    .hud .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      transform:translate(-50%,-50%) rotate(45deg);background:var(--white);
+      box-shadow:0 0 8px var(--glow-cyan);}
+
+    /* handle — clean wide cosmic display caps in starlight white */
+    .hud .who{font-family:var(--display);font-weight:700;letter-spacing:.06em;
+      font-size:28px;text-transform:uppercase;color:var(--white);white-space:nowrap;
+      text-shadow:0 0 18px rgba(0,217,255,.45),0 0 6px rgba(234,242,255,.4);}
+
+    /* small editable corner slot, top-right margin (flavor brand tag) */
+    .slot-tr{position:absolute;top:46px;right:60px;display:flex;align-items:center;gap:14px;
+      pointer-events:none;
+      font-family:var(--mono);letter-spacing:.42em;font-size:18px;
+      color:var(--cyan);text-indent:.42em;opacity:.82;white-space:nowrap;
+      text-shadow:0 0 14px rgba(0,217,255,.4);
+      animation:fade .9s var(--ease) both .25s;}
+    .slot-tr .dia{width:9px;height:9px;transform:rotate(45deg);background:var(--white);
+      box-shadow:0 0 8px var(--glow-cyan);flex:none;}
+    @keyframes fade{from{opacity:0}to{opacity:.82}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .hud,#stage.render .slot-tr{animation:none!important;}
+    #stage.render .hud::after{animation:none;display:none;}
+    #stage.render .hud .live .dia{animation:none;}
+    #stage.render .hud{opacity:1;transform:none;}
+    #stage.render .slot-tr{opacity:.82;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- editable corner brand tag (margin, clear of the strip) -->
+    <div class="slot-tr is-slot" data-slot="slot">
+      <span class="dia" aria-hidden="true"></span><span class="slot-no">23</span><span class="slot-txt">your text here</span>
+    </div>
+
+    <!-- slim cosmic HUD strip, lower-left -->
+    <div class="hud">
+      <span class="live"><span class="dia" aria-hidden="true"></span>LIVE</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    /* ---- functional LIVE tag stays clean (not a slot); optional override ---- */
+    const tag = params.get("tag"), liveEl = document.querySelector(".hud .live");
+    if (tag && liveEl) liveEl.lastChild.textContent = tag;
+
+    /* ---- editable text slots: [data-slot] ships a "[23] your text here" placeholder.
+       ?slot=Text sets it; ?slot=- (or empty/none/off) removes it entirely. ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      node.textContent = v;
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a FEW faint drifting cosmic warp motes (low alpha) ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const COL = ["#00D9FF", "#6C5CE7", "#FF7AB6", "#EAF2FF"];
+    const motes = Array.from({ length: Math.max(0, num("motes", 30)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.4), vx: R(-7, 5) / 60, vy: R(-5, 3) / 60,
+      ph: R(0, 6.28), tw: R(0.5, 1.6), a: R(0.18, 0.6), col: COL[(Math.random() * COL.length) | 0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const m of motes){
+        m.x += m.vx * dt * 60; m.y += m.vy * dt * 60; m.ph += 0.04 * dt * 60;
+        if (m.x < -10){ m.x = W + 10; m.y = Math.random() * H; }
+        if (m.x > W + 10){ m.x = -10; m.y = Math.random() * H; }
+        if (m.y < -10){ m.y = H + 10; m.x = Math.random() * W; }
+        if (m.y > H + 10){ m.y = -10; m.x = Math.random() * W; }
+        const tw = 0.55 + Math.sin(m.ph * m.tw) * 0.45;
+        ctx.globalAlpha = m.a * tw;
+        ctx.fillStyle = m.col; ctx.shadowColor = m.col; ctx.shadowBlur = 6 * m.z;
+        const s = Math.max(1, Math.round(m.z * 1.7));
+        ctx.fillRect(Math.round(m.x), Math.round(m.y), s, s);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__nebulaDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

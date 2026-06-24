@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Witching Hour — Raid Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="raid">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <!-- celestial star-compass corner accents -->
+      <span class="corner corner--tl" aria-hidden="true"><svg viewBox="0 0 62 62" fill="none" stroke="#C9A24B" stroke-width="1.2" xmlns="http://www.w3.org/2000/svg"><path d="M6 6 L6 34 M6 6 L34 6" stroke="#E7C878"/><path d="M14 14 l4 -10 4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 z" fill="rgba(201,162,75,0.10)" stroke="#E7C878"/><circle cx="18" cy="18" r="1.6" fill="#E7C878" stroke="none"/></svg></span>
+      <span class="corner corner--tr" aria-hidden="true"><svg viewBox="0 0 62 62" fill="none" stroke="#C9A24B" stroke-width="1.2" xmlns="http://www.w3.org/2000/svg"><path d="M6 6 L6 34 M6 6 L34 6" stroke="#E7C878"/><path d="M14 14 l4 -10 4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 z" fill="rgba(201,162,75,0.10)" stroke="#E7C878"/><circle cx="18" cy="18" r="1.6" fill="#E7C878" stroke="none"/></svg></span>
+      <span class="corner corner--bl" aria-hidden="true"><svg viewBox="0 0 62 62" fill="none" stroke="#C9A24B" stroke-width="1.2" xmlns="http://www.w3.org/2000/svg"><path d="M6 6 L6 34 M6 6 L34 6" stroke="#E7C878"/><path d="M14 14 l4 -10 4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 z" fill="rgba(201,162,75,0.10)" stroke="#E7C878"/><circle cx="18" cy="18" r="1.6" fill="#E7C878" stroke="none"/></svg></span>
+      <span class="corner corner--br" aria-hidden="true"><svg viewBox="0 0 62 62" fill="none" stroke="#C9A24B" stroke-width="1.2" xmlns="http://www.w3.org/2000/svg"><path d="M6 6 L6 34 M6 6 L34 6" stroke="#E7C878"/><path d="M14 14 l4 -10 4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 z" fill="rgba(201,162,75,0.10)" stroke="#E7C878"/><circle cx="18" cy="18" r="1.6" fill="#E7C878" stroke="none"/></svg></span>
+
+      <span class="tagid" aria-hidden="true">SIGIL&nbsp;VII</span>
+      <span class="tagrule" aria-hidden="true"></span>
+
+      <div class="sigil" aria-hidden="true"><div class="glyph" id="glyph">⚔</div></div>
+
+      <div class="meta">
+        <p class="crest" aria-hidden="true"><span class="moon"></span><span class="r"></span></p>
+        <p class="kick"><span id="kick-label">RAID ARRIVING</span></p>
+        <h1 class="name" id="name">Wanderer</h1>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub"></p>
+      </div>
+    </aside>
+  </div>
+  <script src="../alerts.js"></script>
+</body>
+</html>

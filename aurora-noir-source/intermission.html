@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Aurora Noir — Short Break</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable text slots: ?tag=...&tag2=...&kicker=...&sub=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- iridescent aurora borealis sheen, painted on canvas, behind everything -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="haze" aria-hidden="true"></div>
+    <div class="sweep" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+         type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.)
+         These corner tags flank the TOP EDGE of the glass panel, in the clear margin. -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">9</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-no">10</span><span class="slot-txt">your text here</span></div>
+
+    <!-- the darkened, frosted BLACK-GLASS panel with a thin iridescent edge -->
+    <main class="glass">
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span><span class="dot"></span><span class="r r--r"></span>
+      </div>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">11</span><span class="slot-txt">your text here</span></p>
+      <h1 class="title">SHORT<span class="accent">BREAK</span></h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">12</span><span class="slot-txt">your text here</span></p>
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

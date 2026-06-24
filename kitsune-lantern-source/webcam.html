@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Kitsune Lantern — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one washi/vermilion ~16:9 webcam frame. Place your
+       camera BEHIND this overlay; the inside of the frame is fully transparent so
+       the camera shows through it. Two small hanging chochin lanterns flank the
+       top corners; a fox-mask crest sits top-center; a chochin-style nameplate
+       carries @handle at the bottom.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630
+                            ?cap=Text (?cap=- removes the corner caption slot) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* transparent everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint foxfire motes drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.5;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);pointer-events:none;
+      animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* glowing gold hairline border on a vermilion seat; INSIDE stays transparent. */
+    .frame{position:absolute;inset:0;background:transparent;border-radius:10px;
+      border:1px solid var(--gold);
+      box-shadow:
+        0 0 0 1px rgba(199,61,30,.55),
+        0 0 22px rgba(255,209,102,.32),
+        0 0 64px rgba(255,106,61,.20),
+        inset 0 0 30px rgba(255,106,61,.10);}
+    /* inner gold hairline double border (transparent inside) */
+    .frame::before{content:"";position:absolute;inset:11px;border:1px solid var(--hair-soft);
+      border-radius:6px;pointer-events:none;}
+    /* a soft warm halo glazes the very top edge of the cutout */
+    .frame::after{content:"";position:absolute;left:11px;right:11px;top:11px;height:120px;
+      border-radius:6px 6px 0 0;pointer-events:none;opacity:.6;
+      background:radial-gradient(80% 100% at 50% 0%, rgba(255,209,102,.16), transparent 70%);}
+
+    /* vermilion torii-bracket ornaments anchor each corner of the frame */
+    .br{position:absolute;width:74px;height:74px;pointer-events:none;opacity:.95;
+      filter:drop-shadow(0 0 10px var(--glow-warm));animation:brin 1.1s var(--ease) both .3s;}
+    .br svg{width:100%;height:100%;display:block;}
+    .br--tl{left:-2px;top:-2px;}
+    .br--tr{right:-2px;top:-2px;transform:scaleX(-1);}
+    .br--bl{left:-2px;bottom:-2px;transform:scaleY(-1);}
+    .br--br{right:-2px;bottom:-2px;transform:scale(-1,-1);}
+    @keyframes brin{from{opacity:0}to{opacity:.95}}
+
+    /* two small hanging chochin lanterns flank the top corners, swaying */
+    .lamp{position:absolute;top:-78px;width:34px;pointer-events:none;
+      transform-origin:50% -16px;animation:lampsway 5.6s ease-in-out infinite, lampdrop 1s var(--ease) both .25s;}
+    .lamp--l{left:54px;}
+    .lamp--r{right:54px;animation-delay:-2.4s,.4s;}
+    .lamp .cord{width:2px;height:34px;margin:0 auto;
+      background:linear-gradient(180deg, rgba(255,209,102,0), var(--hair));}
+    .lamp .cap{width:14px;height:5px;margin:-1px auto 0;border-radius:3px 3px 1px 1px;
+      background:linear-gradient(180deg,#3a2418,#1c1009);}
+    .lamp .glow{position:relative;width:34px;height:44px;margin:0 auto;border-radius:50%/56%;
+      background:radial-gradient(58% 52% at 50% 42%, var(--gold) 0%, var(--orange) 50%, var(--orange-deep) 88%, #7e2412 100%);
+      box-shadow:0 0 26px 4px var(--glow-warm), inset 0 0 14px rgba(255,237,190,.55);}
+    .lamp .glow::before{content:"";position:absolute;inset:0;border-radius:inherit;
+      background:repeating-linear-gradient(180deg, rgba(120,30,14,0) 0 5px, rgba(120,30,14,.36) 5px 6px);
+      -webkit-mask:radial-gradient(58% 52% at 50% 50%, #000 68%, transparent 100%);
+              mask:radial-gradient(58% 52% at 50% 50%, #000 68%, transparent 100%);}
+    .lamp .foot{width:10px;height:4px;margin:-1px auto 0;border-radius:1px 1px 3px 3px;
+      background:linear-gradient(180deg,#3a2418,#180c06);}
+    .lamp .tassel{width:2px;height:14px;margin:0 auto;
+      background:linear-gradient(180deg,var(--orange),rgba(255,106,61,0));}
+    @keyframes lampsway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+    @keyframes lampdrop{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+
+    /* fox-mask crest, top-center above the frame, with double rule */
+    .crest{position:absolute;left:50%;top:-58px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:18px;pointer-events:none;
+      animation:fade 1s var(--ease) both .35s;}
+    .crest .r{width:96px;height:1px;background:linear-gradient(90deg,transparent,var(--gold));}
+    .crest .r--r{background:linear-gradient(90deg,var(--gold),transparent);}
+    .crest .mask{width:46px;height:32px;display:block;filter:drop-shadow(0 0 12px var(--glow-warm));}
+
+    /* small editable caption slot — top-left above the frame (COPY STANDARD) */
+    .cap{position:absolute;left:6px;top:-44px;pointer-events:none;
+      font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC","Georgia",serif;
+      letter-spacing:.38em;font-size:16px;color:var(--dim);text-indent:.38em;
+      white-space:nowrap;text-shadow:0 0 12px rgba(255,209,102,.2);}
+
+    /* handle nameplate — a chochin-style washi pill clipped to bottom-center */
+    .tag{position:absolute;left:50%;bottom:-21px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:14px;white-space:nowrap;pointer-events:none;
+      background:linear-gradient(180deg, rgba(28,18,40,.88), rgba(14,8,18,.82));
+      border:1px solid var(--hair);padding:9px 28px;border-radius:18px;
+      box-shadow:0 12px 32px rgba(6,3,12,.5), 0 0 24px rgba(255,106,61,.12),
+        inset 0 0 18px rgba(255,106,61,.06);}
+    .tag::before{content:"";position:absolute;inset:4px;border:1px solid var(--hair-soft);
+      border-radius:14px;pointer-events:none;}
+    .tag .who{
+      font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC","Georgia",serif;
+      letter-spacing:.06em;font-size:24px;color:var(--cream);
+      text-shadow:0 2px 0 rgba(0,0,0,.34),0 0 18px rgba(255,106,61,.3);}
+    .tag .dia{width:9px;height:9px;border:1px solid var(--gold);transform:rotate(45deg);
+      background:var(--gold);box-shadow:0 0 10px var(--glow-gold);
+      animation:dpulse 2.4s ease-in-out infinite;}
+    @keyframes dpulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .cam,#stage.render .br,#stage.render .lamp,
+    #stage.render .crest,#stage.render .tag .dia{animation:none!important;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .br{opacity:.95;}
+    #stage.render .lamp,#stage.render .crest{opacity:1;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- vermilion torii-bracket ornaments in every corner -->
+      <span class="br br--tl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C73D1E" stroke-width="6" stroke-linecap="round">
+            <path d="M6 30 L94 30"/><path d="M14 44 L86 44"/>
+            <path d="M30 30 L30 96"/><path d="M62 44 L62 96"/>
+          </g>
+          <g fill="none" stroke="#FFD166" stroke-width="2">
+            <path d="M6 26 L94 26"/>
+          </g>
+        </svg>
+      </span>
+      <span class="br br--tr" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C73D1E" stroke-width="6" stroke-linecap="round">
+            <path d="M6 30 L94 30"/><path d="M14 44 L86 44"/>
+            <path d="M30 30 L30 96"/><path d="M62 44 L62 96"/>
+          </g>
+          <g fill="none" stroke="#FFD166" stroke-width="2">
+            <path d="M6 26 L94 26"/>
+          </g>
+        </svg>
+      </span>
+      <span class="br br--bl" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C73D1E" stroke-width="6" stroke-linecap="round">
+            <path d="M6 30 L94 30"/><path d="M14 44 L86 44"/>
+            <path d="M30 30 L30 96"/><path d="M62 44 L62 96"/>
+          </g>
+          <g fill="none" stroke="#FFD166" stroke-width="2">
+            <path d="M6 26 L94 26"/>
+          </g>
+        </svg>
+      </span>
+      <span class="br br--br" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#C73D1E" stroke-width="6" stroke-linecap="round">
+            <path d="M6 30 L94 30"/><path d="M14 44 L86 44"/>
+            <path d="M30 30 L30 96"/><path d="M62 44 L62 96"/>
+          </g>
+          <g fill="none" stroke="#FFD166" stroke-width="2">
+            <path d="M6 26 L94 26"/>
+          </g>
+        </svg>
+      </span>
+
+      <!-- two small hanging chochin lanterns flank the top corners -->
+      <span class="lamp lamp--l" aria-hidden="true">
+        <span class="cord"></span><span class="cap"></span>
+        <span class="glow"></span><span class="foot"></span><span class="tassel"></span>
+      </span>
+      <span class="lamp lamp--r" aria-hidden="true">
+        <span class="cord"></span><span class="cap"></span>
+        <span class="glow"></span><span class="foot"></span><span class="tassel"></span>
+      </span>
+
+      <!-- fox-mask crest, top-center -->
+      <span class="crest" aria-hidden="true">
+        <span class="r"></span>
+        <svg class="mask" viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#FFD166" stroke-width="3" stroke-linejoin="round">
+            <path d="M50 66 C24 60 8 42 6 18 L26 8 L50 16 L74 8 L94 18 C92 42 76 60 50 66 Z"
+                  fill="rgba(255,106,61,0.10)"/>
+            <path d="M26 8 L20 -2 M74 8 L80 -2" stroke-linecap="round"/>
+          </g>
+          <g fill="#C73D1E">
+            <path d="M34 30 q6 -7 12 0 q-6 4 -12 0 Z"/>
+            <path d="M54 30 q6 -7 12 0 q-6 4 -12 0 Z"/>
+          </g>
+          <path d="M44 44 q6 5 12 0" fill="none" stroke="#C73D1E" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <span class="r r--r"></span>
+      </span>
+
+      <!-- editable caption slot (COPY STANDARD) -->
+      <p class="cap is-slot" id="cap" data-slot="cap"><span class="slot-no">22</span><span class="slot-txt">your text here</span></p>
+
+      <!-- handle nameplate -->
+      <div class="tag"><span class="dia" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- editable text slots (cap): ?cap=Text fills, ?cap=- removes ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      node.textContent = v;
+      node.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: faint foxfire motes drifting around the frame ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv.getContext("2d");
+    const W = cv.width || 1920, H = cv.height || 1080;
+    const R = (a, b) => a + Math.random() * (b - a);
+    const wisps = Array.from({ length: Math.max(0, num("wisps", 20)) }, () => ({
+      x: R(0, W), y: R(0, H), r: R(5, 14),
+      drift: R(-5, 5) / 60, rise: R(4, 12) / 60, ph: R(0, 6.28),
+      sw: R(0.5, 1.3), sp: R(0.5, 1.2), a: R(0.18, 0.46), warm: Math.random() < 0.45,
+    }));
+    function drawWisp(w, t){
+      const breathe = 0.78 + 0.22 * Math.sin(t * w.sp * 2.4 + w.ph);
+      const r = w.r * breathe; if (r < 0.5) return;
+      const x = Math.round(w.x + Math.sin(t * 0.9 + w.ph) * w.sw * 7), y = Math.round(w.y);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6);
+      if (w.warm){
+        g.addColorStop(0, "rgba(255,229,170," + w.a.toFixed(3) + ")");
+        g.addColorStop(.35, "rgba(255,106,61," + (w.a * .6).toFixed(3) + ")");
+        g.addColorStop(1, "rgba(255,106,61,0)");
+      } else {
+        g.addColorStop(0, "rgba(206,196,255," + w.a.toFixed(3) + ")");
+        g.addColorStop(.35, "rgba(123,92,255," + (w.a * .6).toFixed(3) + ")");
+        g.addColorStop(1, "rgba(123,92,255,0)");
+      }
+      ctx.globalAlpha = 1; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = Math.min(1, w.a * 1.3) * breathe;
+      ctx.fillStyle = w.warm ? "#FFF1D6" : "#E8E2FF";
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1, r * 0.38), 0, 6.2832); ctx.fill();
+    }
+    let life = 0;
+    function drawBg(dt){
+      ctx.clearRect(0, 0, W, H); life += dt;
+      for (const w of wisps){
+        w.x += w.drift * dt * 60; w.y -= w.rise * dt * 60;
+        if (w.y < -30){ w.y = H + 30; w.x = R(0, W); }
+        if (w.x < -40) w.x = W + 40; if (w.x > W + 40) w.x = -40;
+        drawWisp(w, life);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__kitsuneDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; life = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

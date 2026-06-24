@@ -1,0 +1,261 @@
+/* ============================================================
+   AURORA NOIR — alert system ("Aurora behind Black Glass")
+   A frosted BLACK-GLASS calling-card anchored bottom-left: a darkened
+   translucent panel (blur + saturate) with a thin iridescent mint->violet
+   edge that catches the aurora, an iridescent hex GLYPH node, a fine
+   wide-tracked KICKER event label, a big light-weight NAME, an emphasized
+   iridescent AMOUNT for value events, and a delicate aurora rule + brand
+   tag. TRANSPARENT background so it composites over gameplay / the scene.
+   Cohesive with shared.css tokens: black-glass, iridescent edge, mint/
+   violet glow, light-weight wide-tracked sans, aurora gradient text.
+   Each event gets a DISTINCT entrance motion (see alerts.js + the
+   per-event animation classes near the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --black:#08090D; --black2:#14161D; --black3:#05060A;
+  --mint:#5BE0C0; --violet:#8A7BFF; --white:#EAF0F2; --dim:#9AA7B4;
+  /* derived */
+  --edge:rgba(234,240,242,.16);
+  --edge-mint:rgba(91,224,192,.55);
+  --edge-violet:rgba(138,123,255,.55);
+  --glow-mint:rgba(91,224,192,.45);
+  --glow-violet:rgba(138,123,255,.45);
+  --ease:cubic-bezier(.22,.8,.2,1);
+  --sans:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);background:transparent;
+  font-family:var(--sans);}
+
+/* one canvas for the aurora-mote burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:840px;padding:34px 46px 34px 40px;
+  border-radius:24px;
+  background:
+    linear-gradient(180deg, rgba(20,22,29,.52), rgba(8,9,13,.64));
+  -webkit-backdrop-filter:blur(16px) saturate(122%);
+          backdrop-filter:blur(16px) saturate(122%);
+  border:1px solid var(--edge);
+  box-shadow:
+    0 44px 130px rgba(0,0,0,.6),
+    inset 0 1px 0 rgba(234,240,242,.10),
+    inset 0 0 110px rgba(8,9,13,.42);
+  display:grid;grid-template-columns:148px 1fr;column-gap:34px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* a thin iridescent edge (mint->violet) that catches the aurora — same
+   mask-composite trick as the shared.css glass panel */
+.alert::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;
+  pointer-events:none;
+  background:linear-gradient(135deg,
+    var(--edge-mint) 0%, rgba(234,240,242,.10) 38%,
+    rgba(234,240,242,.04) 60%, var(--edge-violet) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:.9;}
+
+/* a soft iridescent inner top-light pool where the aurora hits the glass */
+.alert::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 0%, rgba(91,224,192,.07), transparent 60%);
+  -webkit-mask:linear-gradient(180deg,#000,transparent 60%);
+          mask:linear-gradient(180deg,#000,transparent 60%);}
+
+/* a slow iridescent light-sweep grazing the glass (frozen in render mode) */
+.alert .sweep{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  border-radius:inherit;overflow:hidden;opacity:.5;}
+.alert .sweep::before{content:"";position:absolute;inset:-40% -60%;
+  background:linear-gradient(112deg, transparent 42%, rgba(91,224,192,.12) 49%, rgba(138,123,255,.12) 53%, transparent 60%);
+  animation:alert-sweep 4.8s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-26%)}100%{transform:translateX(26%)}}
+
+/* ---- the iridescent hex GLYPH node ---- */
+.alert .node{width:148px;height:148px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* hexagonal clip — an aurora cell */
+  clip-path:polygon(25% 3%,75% 3%,98% 50%,75% 97%,25% 97%,2% 50%);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(91,224,192,.20), transparent 58%),
+    radial-gradient(120% 120% at 50% 100%, rgba(138,123,255,.18), transparent 58%),
+    linear-gradient(160deg, rgba(20,22,29,.72), rgba(8,9,13,.94));
+  box-shadow:inset 0 0 0 1px var(--edge), inset 0 0 30px rgba(91,224,192,.10);}
+.alert .node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  clip-path:polygon(25% 3%,75% 3%,98% 50%,75% 97%,25% 97%,2% 50%);
+  box-shadow:inset 0 0 0 1px rgba(138,123,255,.22);}
+.alert .node .glyph{font-family:var(--sans);font-size:62px;line-height:1;font-weight:300;
+  background:linear-gradient(150deg,var(--mint),var(--white) 52%,var(--violet));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 20px rgba(91,224,192,.5)) drop-shadow(0 0 30px rgba(138,123,255,.3));}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* the crest above the kicker: a tiny aurora dot between two short rules */
+.alert .crest{display:flex;align-items:center;gap:12px;margin:0 0 10px;}
+.alert .crest .r{width:34px;height:1px;background:linear-gradient(90deg,transparent,var(--mint));}
+.alert .crest .dot{width:8px;height:8px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 35% 35%, var(--white), var(--mint) 60%, var(--violet));
+  box-shadow:0 0 12px var(--glow-mint);
+  animation:alert-pulse 1.9s steps(1,end) infinite;}
+@keyframes alert-pulse{0%,62%{opacity:1}63%,100%{opacity:.3}}
+
+/* fine wide-tracked KICKER event label (hidden in noname mode where the
+   big headline already shows the event) */
+.alert .kick{font-family:var(--sans);font-size:21px;font-weight:400;letter-spacing:.44em;
+  text-transform:uppercase;color:var(--mint);text-indent:.44em;margin:0 0 4px;
+  text-shadow:0 0 16px rgba(91,224,192,.34);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* big light-weight EVENT / NAME headline — clamped to one line so a long
+   viewer handle never breaks or overflows the card */
+.alert .name{font-family:var(--sans);font-size:70px;line-height:.98;font-weight:200;
+  letter-spacing:.02em;color:var(--white);margin:0;
+  text-shadow:0 0 38px rgba(234,240,242,.22), 0 0 70px rgba(91,224,192,.14);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount readout (iridescent aurora gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--sans);font-size:42px;font-weight:300;letter-spacing:.01em;
+  margin:8px 0 0;display:none;line-height:1;
+  background:linear-gradient(100deg,var(--mint) 0%,var(--white) 46%,var(--violet) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 20px rgba(91,224,192,.4)) drop-shadow(0 0 34px rgba(138,123,255,.28));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet refined italic sub-line (ships empty per event) */
+.alert .sub{font-family:var(--sans);font-size:20px;font-style:italic;font-weight:300;
+  letter-spacing:.05em;color:var(--dim);margin:10px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin iridescent aurora rule across the bottom of the card */
+.alert .rule{position:absolute;left:40px;right:46px;bottom:18px;height:1px;opacity:.8;
+  background:linear-gradient(90deg,transparent,var(--mint) 22%,var(--white) 50%,var(--violet) 78%,transparent);
+  -webkit-mask:linear-gradient(90deg,#000,#000 70%,transparent);
+          mask:linear-gradient(90deg,#000,#000 70%,transparent);}
+
+/* brand tag readout, top-right of the card */
+.alert .tagid{position:absolute;top:18px;right:24px;font-family:var(--sans);
+  font-size:14px;font-weight:400;letter-spacing:.34em;color:var(--violet);opacity:.78;
+  text-indent:.34em;text-transform:uppercase;text-shadow:0 0 12px rgba(138,123,255,.3);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/drop-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .48s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-44px) scale(.985)}}
+
+/* 1 follower — calm rise up from below + gentle settle */
+.alert.ev-follower.show{animation:fx-follower .68s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(74px)}
+  70%{opacity:1;transform:translateY(-9px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — condense in: scale up from a point + unblur (aurora forms) */
+.alert.ev-subscriber.show{animation:fx-subscriber .74s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.6);filter:blur(9px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — slide in from the left with a firm stop */
+.alert.ev-member.show{animation:fx-member .62s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(15px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick pop + tiny upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .6s var(--ease) forwards;transform-origin:16% 82%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(42px) scale(.9)}
+  55%{opacity:1;transform:translateY(-11px) scale(1.045)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + gentle bounce (premium, amount event) */
+.alert.ev-donation.show{animation:fx-donation .78s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-96px)}
+  60%{opacity:1;transform:translateY(13px)}
+  82%{transform:translateY(-5px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal expand (curtain opens) via scaleX */
+.alert.ev-host.show{animation:fx-host .7s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.12)}
+  60%{opacity:1;transform:scaleX(1.02)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big arrival: overshoot rush in from the left + shake settle */
+.alert.ev-raid.show{animation:fx-raid .82s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.04)}
+  55%{opacity:1;transform:translateX(28px) scale(1.02)}
+  72%{transform:translateX(-13px)}
+  86%{transform:translateX(6px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .64s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.05)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe in from lower-left (forward motion) */
+.alert.ev-share.show{animation:fx-share .62s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-130px) skewX(-9deg)}
+  70%{opacity:1;transform:translateX(9px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + slight rotate settle (a star pinned in place) */
+.alert.ev-star.show{animation:fx-star .74s var(--ease) forwards;transform-origin:16% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-74px) rotate(-4deg)}
+  62%{opacity:1;transform:translateY(8px) rotate(1.5deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — zoom-in toward the viewer + settle (loud, amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .72s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.38)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + unblur (calm, recurring support) */
+.alert.ev-supporter.show{animation:fx-supporter .72s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(56px);filter:blur(6px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* glyph node pops in slightly after the card (shared by all events) */
+.alert.show .node .glyph{animation:fx-glyph .62s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .sweep::before{animation:none;display:none;}
+#stage.render .alert .crest .dot{animation:none;opacity:1;}
+#stage.render .alert .node .glyph{animation:none!important;opacity:1;transform:scale(1);}

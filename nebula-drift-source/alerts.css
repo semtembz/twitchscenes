@@ -1,0 +1,271 @@
+/* ============================================================
+   NEBULA DRIFT — alert system ("Warp Through The Veil")
+   A deep-space TRANSMISSION CARD: a translucent indigo/void panel
+   anchored bottom-left, with a hexagonal nebula GLYPH NODE haloed
+   in cyan, a thin tri-colour hair-rule, a clean wide cosmic EVENT
+   headline (cyan->white->pink accent), and an emphasized amount
+   readout for value events. A transparent canvas behind it spits a
+   WARP-STREAK + stardust burst from the node. TRANSPARENT background
+   so the card composites over gameplay / the scene.
+   Cohesive with shared.css: space-void palette, the cosmic display +
+   mono stacks, diamond nodes, tri-colour rule, comet glow.
+   Each event gets a DISTINCT entrance motion (see alerts.js +
+   the per-event animation classes near the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --space:#05060F; --space2:#020308;
+  --indigo:#6C5CE7; --cyan:#00D9FF; --pink:#FF7AB6; --white:#EAF2FF;
+  /* derived */
+  --hair:rgba(0,217,255,.40);
+  --hair-soft:rgba(108,92,231,.26);
+  --glow-cyan:rgba(0,217,255,.55);
+  --glow-indigo:rgba(108,92,231,.55);
+  --glow-pink:rgba(255,122,182,.50);
+  --dim:rgba(234,242,255,.55);
+  --dimmer:rgba(234,242,255,.34);
+  --panel:rgba(10,11,26,.62); --panel2:rgba(2,3,8,.58);
+  --display:"Bahnschrift","Eurostile","DIN Condensed","Oswald","Arial Narrow",system-ui,sans-serif;
+  --mono:"Consolas","SFMono-Regular",ui-monospace,"Liberation Mono",monospace;
+  --ease:cubic-bezier(.16,.84,.28,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);background:transparent;
+  font-family:var(--display);}
+
+/* one canvas for the warp-streak / stardust burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:840px;padding:32px 44px 32px 38px;
+  background:
+    radial-gradient(120% 130% at 6% 0%, rgba(108,92,231,.22), transparent 56%),
+    radial-gradient(90% 120% at 100% 100%, rgba(0,217,255,.10), transparent 60%),
+    linear-gradient(160deg, var(--panel), var(--panel2));
+  border:1px solid var(--hair);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,.6),
+    0 0 70px rgba(108,92,231,.12),
+    inset 0 1px 0 rgba(234,242,255,.08),
+    inset 0 0 80px rgba(2,3,8,.5);
+  /* clipped corners — a cut cosmic console plate */
+  clip-path:polygon(
+    0 22px, 22px 0,
+    100% 0, 100% calc(100% - 22px),
+    calc(100% - 22px) 100%, 0 100%);
+  display:grid;grid-template-columns:140px 1fr;column-gap:32px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* inner hairline indigo border echoing the clip */
+.alert::before{content:"";position:absolute;inset:8px;border:1px solid var(--hair-soft);
+  clip-path:polygon(0 16px,16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%);
+  pointer-events:none;}
+/* a slow diagonal warp light-sweep travelling across the card (frozen in render) */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.6;
+  background:linear-gradient(112deg, transparent 40%, rgba(0,217,255,.16) 49%, rgba(234,242,255,.07) 51%, transparent 60%);
+  animation:alert-sweep 4.6s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-32%)}100%{transform:translateX(32%)}}
+
+/* a bright cyan seam down the left edge — the warp accent */
+.alert .seam{position:absolute;left:8px;top:22px;bottom:22px;width:3px;
+  background:linear-gradient(180deg,var(--cyan),var(--indigo));
+  box-shadow:0 0 16px rgba(0,217,255,.75);}
+
+/* ---- the hexagonal nebula GLYPH NODE ---- */
+.alert .node{width:140px;height:140px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* hexagonal clip — a nebula cell */
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(0,217,255,.24), transparent 60%),
+    radial-gradient(120% 120% at 50% 120%, rgba(255,122,182,.16), transparent 60%),
+    linear-gradient(160deg, rgba(20,18,48,.78), rgba(5,6,15,.95));
+  box-shadow:inset 0 0 0 1px var(--hair), inset 0 0 30px rgba(108,92,231,.16);}
+.alert .node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.4;
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  box-shadow:inset 0 0 0 1px var(--hair-soft);}
+.alert .node .glyph{font-family:var(--display);font-size:66px;line-height:1;font-weight:700;color:var(--white);
+  text-shadow:0 0 22px rgba(0,217,255,.6), 0 0 12px rgba(255,122,182,.4), 0 2px 1px rgba(2,3,8,.5);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* clinical mono readout row (comet LED + node id) */
+.alert .read{font-family:var(--mono);font-size:14px;letter-spacing:.16em;color:var(--dim);
+  display:flex;align-items:center;gap:16px;margin:0 0 8px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
+.alert .read .led{display:inline-block;width:7px;height:7px;transform:rotate(45deg);
+  background:var(--cyan);box-shadow:0 0 10px var(--glow-cyan);flex:none;
+  animation:alert-blink 1.7s steps(1,end) infinite;}
+@keyframes alert-blink{0%,68%{opacity:1}69%,100%{opacity:.22}}
+.alert .read .ok{color:var(--cyan);}
+
+/* the kicker event label (hidden in noname mode where the headline shows the event) */
+.alert .kick{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--cyan);text-indent:.42em;margin:0 0 6px;
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  text-shadow:0 0 14px rgba(0,217,255,.35);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dia{width:9px;height:9px;transform:rotate(45deg);flex:none;text-indent:0;
+  background:var(--white);box-shadow:0 0 12px var(--glow-cyan),0 0 4px var(--white);}
+
+/* big clean wide cosmic EVENT / NAME headline — clamped to one line so a long
+   handle never breaks the card */
+.alert .name{font-family:var(--display);font-size:78px;line-height:.92;font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:var(--white);margin:0;
+  text-shadow:0 0 4px rgba(234,242,255,.45), 0 0 40px rgba(108,92,231,.4), 0 0 22px rgba(0,217,255,.26);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin tri-colour cosmic hair-rule with a diamond node, under the headline */
+.alert .rule{position:relative;height:1px;margin:14px 0 0;width:100%;max-width:560px;
+  background:linear-gradient(90deg,var(--indigo),var(--cyan) 45%,var(--pink) 90%,transparent);
+  opacity:.85;}
+.alert .rule::before{content:"";position:absolute;left:0;top:50%;width:8px;height:8px;
+  transform:translate(-1px,-50%) rotate(45deg);background:var(--white);
+  box-shadow:0 0 14px var(--glow-cyan);}
+
+/* amount readout (cyan->white->pink gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--display);font-size:44px;font-weight:700;letter-spacing:.02em;
+  margin:14px 0 0;display:none;line-height:1;
+  background:linear-gradient(96deg,var(--cyan) 0%,var(--white) 46%,var(--pink) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(0,217,255,.45)) drop-shadow(0 0 14px rgba(255,122,182,.3));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet mono sub readout (ships EMPTY per the brief; kept for spacing parity) */
+.alert .sub{font-family:var(--mono);font-size:18px;letter-spacing:.14em;color:var(--dim);
+  text-transform:uppercase;margin:10px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .sub:empty{display:none;}
+
+/* a thin segmented warp-telemetry strip across the bottom of the card */
+.alert .strip{position:absolute;left:38px;right:44px;bottom:14px;height:2px;opacity:.65;
+  background:repeating-linear-gradient(90deg, var(--cyan) 0 12px, transparent 12px 18px);
+  -webkit-mask:linear-gradient(90deg,#000,#000 58%,transparent);
+          mask:linear-gradient(90deg,#000,#000 58%,transparent);}
+
+/* node-id tag readout, top-right of the card */
+.alert .nid{position:absolute;top:16px;right:24px;font-family:var(--mono);
+  font-size:13px;letter-spacing:.32em;color:var(--cyan);opacity:.7;text-indent:.32em;
+  text-transform:uppercase;text-shadow:0 0 10px rgba(0,217,255,.3);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 DISTINCT choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/drift-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .48s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateX(-44px) scale(.985)}}
+
+/* 1 follower — calm warp-in from below + slight unblur (drifts into view) */
+.alert.ev-follower.show{animation:fx-follower .68s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(72px);filter:blur(5px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* 2 subscriber — crystallize: scale up from a point + unblur (a star ignites) */
+.alert.ev-subscriber.show{animation:fx-subscriber .74s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.58);filter:blur(9px)}
+  58%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — warp-slide in from the left with a firm stop */
+.alert.ev-member.show{animation:fx-member .62s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(16px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — quick pop + upward kick (energetic, amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .58s var(--ease) forwards;transform-origin:16% 84%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(44px) scale(.9)}
+  54%{opacity:1;transform:translateY(-12px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above (a falling star) + gentle settle bounce */
+.alert.ev-donation.show{animation:fx-donation .78s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-96px)}
+  60%{opacity:1;transform:translateY(13px)}
+  82%{transform:translateY(-5px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal warp-expand (doors open) via scaleX */
+.alert.ev-host.show{animation:fx-host .7s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.1)}
+  60%{opacity:1;transform:scaleX(1.02)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big arrival: overshoot warp-rush in from the left + shake settle */
+.alert.ev-raid.show{animation:fx-raid .82s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.05)}
+  54%{opacity:1;transform:translateX(28px) scale(1.02)}
+  72%{transform:translateX(-13px)}
+  86%{transform:translateX(7px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .62s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.84)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe in from lower-left (forward warp motion) */
+.alert.ev-share.show{animation:fx-share .6s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-130px) skewX(-10deg)}
+  70%{opacity:1;transform:translateX(9px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + slight rotate settle (a star pinned to the sky) */
+.alert.ev-star.show{animation:fx-star .72s var(--ease) forwards;transform-origin:16% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-74px) rotate(-5deg)}
+  62%{opacity:1;transform:translateY(9px) rotate(1.6deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — zoom-in toward the viewer + settle (loud, amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .72s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.38)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + unblur (calm, recurring support) */
+.alert.ev-supporter.show{animation:fx-supporter .72s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(56px);filter:blur(7px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* glyph node pops in slightly after the card (shared by all events) */
+.alert.show .node .glyph{animation:fx-glyph .6s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .read .led{animation:none;opacity:1;}
+#stage.render .alert .node .glyph{animation:none!important;opacity:1;transform:scale(1);}

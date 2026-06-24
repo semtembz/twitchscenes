@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Nebula Drift Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event in the dropdown, (optionally tweak name/amount), click Record —
+    the alert plays once on a canvas mirror while it records, then your browser
+    downloads `alert-<event>.webm`. Drop it on an OBS Media/Browser source as your
+    alert overlay (or feed it to your alert box).
+
+    Each event uses its OWN distinct entrance motion (mirrors alerts.css/alerts.js).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.0s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #05060F; color: #EAF2FF;
+      font-family: "Consolas", "SFMono-Regular", ui-monospace, monospace; }
+    h1 { font-size: 22px; color: #00D9FF; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase;
+      font-family: "Bahnschrift", "Eurostile", "DIN Condensed", system-ui, sans-serif;
+      text-shadow: 0 0 18px rgba(0,217,255,.45); }
+    p  { color: rgba(234,242,255,.6); line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #EAF2FF; background: #11142a; padding: 2px 6px; border-radius: 3px; }
+    label { color: #00D9FF; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 14px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #0A0B1A; color: #EAF2FF;
+      border: 1px solid #6C5CE7; border-radius: 4px; margin-right: 16px; }
+    input { width: 150px; }
+    button { font-size: 15px; padding: 13px 26px; background: linear-gradient(96deg,#00D9FF,#6C5CE7);
+      color: #05060F; border: 1px solid #00D9FF; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; font-family: "Bahnschrift", system-ui, sans-serif; }
+    button:hover:not(:disabled) { filter: brightness(1.12); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    #status { color: #00D9FF; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #1b1d3a; }
+    .checker {
+      background-color: #05060f;
+      background-image:
+        linear-gradient(45deg, #11142a 25%, transparent 25%),
+        linear-gradient(-45deg, #11142a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #11142a 75%),
+        linear-gradient(-45deg, transparent 75%, #11142a 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Nebula Drift Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set the name / amount,
+     then click Record. The clip plays once on the canvas mirror below with its own
+     distinct motion; when it finishes your browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label>
+      <select id="ev"></select></span>
+    <span><label for="nm">Name</label>
+      <input id="nm" value="Viewer" /></span>
+    <span><label for="am">Amount</label>
+      <input id="am" value="500" /></span>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const CYAN = '#00D9FF', INDIGO = '#6C5CE7', PINK = '#FF7AB6', WHITE = '#EAF2FF',
+          DIM = 'rgba(234,242,255,0.55)';
+    const COL = ['#00D9FF', '#6C5CE7', '#FF7AB6', '#EAF2FF'];
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    // `kicker` is the FUNCTIONAL event label (kept); the flavor `sub` ships "".
+    const EVENTS = {
+      follower:   { glyph:"✦", kicker:"NEW FOLLOWER",   sub:"", motes:14, amount:false, nid:"00D9-FF" },
+      subscriber: { glyph:"★", kicker:"NEW SUBSCRIBER", sub:"", motes:18, amount:false, nid:"6C5C-E7" },
+      member:     { glyph:"❖", kicker:"NEW MEMBER",     sub:"", motes:18, amount:false, nid:"FF7A-B6" },
+      cheer:      { glyph:"✧", kicker:"CHEER",          sub:"", motes:24, amount:true,  amtPre:"", amtSuf:" BITS", nid:"00D9-FF" },
+      donation:   { glyph:"❤", kicker:"DONATION",       sub:"", motes:26, amount:true,  amtPre:"$", nid:"FF7A-B6" },
+      host:       { glyph:"⤢", kicker:"NOW HOSTING",    sub:"", motes:32, amount:true,  amtPre:"", amtSuf:" VIEWERS", nid:"6C5C-E7" },
+      raid:       { glyph:"➤", kicker:"RAID INBOUND",   sub:"", motes:46, amount:true,  amtPre:"", amtSuf:" RAIDERS", nid:"00D9-FF" },
+      like:       { glyph:"♡", kicker:"NEW LIKE",       sub:"", motes:12, amount:false, nid:"FF7A-B6" },
+      share:      { glyph:"↗", kicker:"SHARED",         sub:"", motes:16, amount:false, nid:"00D9-FF" },
+      star:       { glyph:"✶", kicker:"NEW STAR",       sub:"", motes:22, amount:true,  amtPre:"", amtSuf:" STARS", nid:"6C5C-E7" },
+      superchat:  { glyph:"◆", kicker:"SUPER CHAT",     sub:"", motes:28, amount:true,  amtPre:"$", nid:"00D9-FF" },
+      supporter:  { glyph:"✪", kicker:"NEW SUPPORTER",  sub:"", motes:20, amount:false, nid:"6C5C-E7" },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+    const ENTER = { follower:680, subscriber:740, member:620, cheer:580, donation:780, host:700, raid:820, like:620, share:600, star:720, superchat:720, supporter:720 };
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== easing + keyframe interp (mirror of alerts.js) =====
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    function kf(ms, dur, stops) {
+      const t = clamp01(ms / dur);
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const a = stops[i - 1], b = stops[i];
+          const seg = (t - a[0]) / (b[0] - a[0] || 1);
+          return a[1] + (b[1] - a[1]) * easeOut(seg);
+        }
+      }
+      return stops[stops.length - 1][1];
+    }
+    // returns {dx,dy,sx,sy,sk,rot,op,blur,ox,oy} where ox/oy are origin fractions
+    const MOTIONS = {
+      follower(ms,d){ return {dy:kf(ms,d,[[0,72],[.6,0],[1,0]]), blur:kf(ms,d,[[0,5],[.6,0],[1,0]]), op:clamp01(ms/(d*.5))}; },
+      subscriber(ms,d){ const s=kf(ms,d,[[0,.58],[1,1]]); return {sx:s,sy:s, blur:kf(ms,d,[[0,9],[.58,0],[1,0]]), op:clamp01(ms/(d*.55)), ox:.16,oy:.5}; },
+      member(ms,d){ return {dx:kf(ms,d,[[0,-150],[.72,16],[1,0]]), op:clamp01(ms/(d*.45))}; },
+      cheer(ms,d){ const s=kf(ms,d,[[0,.9],[.54,1.05],[1,1]]); return {dy:kf(ms,d,[[0,44],[.54,-12],[1,0]]), sx:s,sy:s, op:clamp01(ms/(d*.45)), ox:.16,oy:.84}; },
+      donation(ms,d){ return {dy:kf(ms,d,[[0,-96],[.6,13],[.82,-5],[1,0]]), op:clamp01(ms/(d*.5))}; },
+      host(ms,d){ return {sx:kf(ms,d,[[0,.1],[.6,1.02],[1,1]]), op:clamp01(ms/(d*.4)), ox:0,oy:.5}; },
+      raid(ms,d){ const s=kf(ms,d,[[0,1.05],[.54,1.02],[1,1]]); return {dx:kf(ms,d,[[0,-280],[.54,28],[.72,-13],[.86,7],[1,0]]), sx:s,sy:s, op:clamp01(ms/(d*.4))}; },
+      like(ms,d){ const s=kf(ms,d,[[0,.84],[.6,1.06],[1,1]]); return {sx:s,sy:s, op:clamp01(ms/(d*.45)), ox:.16,oy:.5}; },
+      share(ms,d){ return {dx:kf(ms,d,[[0,-130],[.7,9],[1,0]]), sk:kf(ms,d,[[0,-10],[.7,2],[1,0]]), op:clamp01(ms/(d*.45))}; },
+      star(ms,d){ return {dy:kf(ms,d,[[0,-74],[.62,9],[1,0]]), rot:kf(ms,d,[[0,-5],[.62,1.6],[1,0]]), op:clamp01(ms/(d*.5)), ox:.16,oy:.3}; },
+      superchat(ms,d){ const s=kf(ms,d,[[0,1.38],[.6,.97],[1,1]]); return {sx:s,sy:s, op:clamp01(ms/(d*.5)), ox:.16,oy:.5}; },
+      supporter(ms,d){ return {dy:kf(ms,d,[[0,56],[1,0]]), blur:kf(ms,d,[[0,7],[.6,0],[1,0]]), op:clamp01(ms/(d*.5))}; },
+    };
+
+    // ===== clipped-corner console-plate path helper (mirrors the clip-path) =====
+    function plateRect(x, y, w, h, c) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + c);
+      ctx.lineTo(x + c, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h - c);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+    }
+    // hexagonal nebula node path
+    function hexNode(x, y, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.25, y + h * 0.04);
+      ctx.lineTo(x + w * 0.75, y + h * 0.04);
+      ctx.lineTo(x + w * 0.98, y + h * 0.50);
+      ctx.lineTo(x + w * 0.75, y + h * 0.96);
+      ctx.lineTo(x + w * 0.25, y + h * 0.96);
+      ctx.lineTo(x + w * 0.02, y + h * 0.50);
+      ctx.closePath();
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 140, 840 wide) =====
+    const CARD_W = 840, CARD_H = 224;
+    const CARD_X0 = 96;                  // resting left
+    const CARD_Y = H - 140 - CARD_H;     // bottom:140 -> top y
+
+    // ===== warp-streak / stardust burst =====
+    function makeBurst() {
+      const b = [];
+      function spawn(n) {
+        const ox = CARD_X0 + 82, oy = CARD_Y + CARD_H / 2;
+        for (let i = 0; i < n; i++) {
+          const ang = R(-Math.PI, Math.PI), sp = R(60, 320) / 60;
+          const streak = Math.random() < 0.5;
+          b.push({
+            x: ox + R(-24, 24), y: oy + R(-24, 24),
+            vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+            s: streak ? R(10, 30) : R(1.5, 3.4),
+            a: 1, life: R(1.1, 2.3), ph: R(0, 6.283), tw: R(2, 5),
+            streak, c: COL[(Math.random() * COL.length) | 0],
+          });
+        }
+      }
+      function step() {
+        for (let i = b.length - 1; i >= 0; i--) {
+          const p = b[i];
+          p.x += p.vx; p.y += p.vy; p.vx *= 0.972; p.vy *= 0.972;
+          p.ph += p.tw / 30; p.life -= 1 / 30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.x < -60 || p.x > W + 60 || p.y < -60 || p.y > H + 60) b.splice(i, 1);
+        }
+      }
+      function draw() {
+        for (const p of b) {
+          ctx.save();
+          if (p.streak) {
+            const mag = Math.hypot(p.vx, p.vy) || 1, ux = p.vx / mag, uy = p.vy / mag;
+            const grad = ctx.createLinearGradient(p.x - ux * p.s, p.y - uy * p.s, p.x, p.y);
+            grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, p.c);
+            ctx.globalAlpha = Math.max(0, p.a) * 0.9; ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.shadowColor = p.c; ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(p.x - ux * p.s, p.y - uy * p.s); ctx.lineTo(p.x, p.y); ctx.stroke();
+          } else {
+            const tw = 0.55 + Math.sin(p.ph) * 0.45;
+            ctx.globalAlpha = Math.max(0, p.a) * tw; ctx.fillStyle = p.c;
+            ctx.shadowColor = p.c; ctx.shadowBlur = 8;
+            ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+          }
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      }
+      return { spawn, step, draw };
+    }
+
+    // letter-space helper not needed; canvas spacing applied via letterSpacing where supported.
+    function clampText(str, maxW, font) {
+      ctx.save(); ctx.font = font;
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) { ctx.restore(); return s; }
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      ctx.restore(); return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    const T_HOLD = 4000, T_EXIT = 480;
+
+    function clipState(type, name, amountStr) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const enter = ENTER[type] || 680, holdEnd = enter + T_HOLD, DUR = holdEnd + T_EXIT;
+      const showAmount = !!(cfg.amount && amountStr);
+      const burst = makeBurst();
+      let spawned1 = false, spawned2 = false;
+
+      function render(ms) {
+        ctx.clearRect(0, 0, W, H);
+
+        // ----- card transform state -----
+        let m;
+        if (ms < holdEnd) m = (MOTIONS[type] || MOTIONS.follower)(ms, enter);
+        else {
+          const p = clamp01((ms - holdEnd) / T_EXIT);
+          m = { dx: -44 * easeOut(p), sx: 1 - 0.015 * easeOut(p), sy: 1 - 0.015 * easeOut(p), op: 1 - p };
+        }
+        const dx = m.dx || 0, dy = m.dy || 0, sx = (m.sx == null ? 1 : m.sx), sy = (m.sy == null ? 1 : m.sy),
+              sk = (m.sk || 0) * Math.PI / 180, rot = (m.rot || 0) * Math.PI / 180,
+              op = clamp01(m.op == null ? 1 : m.op), blur = m.blur || 0,
+              ox = m.ox == null ? 0.5 : m.ox, oy = m.oy == null ? 0.5 : m.oy;
+
+        // ----- burst (behind/around the card), staggered like live JS -----
+        if (!spawned1 && ms >= 200) { burst.spawn(cfg.motes); spawned1 = true; }
+        if (!spawned2 && cfg.motes >= 30 && ms >= 560) { burst.spawn(Math.round(cfg.motes * 0.6)); spawned2 = true; }
+        burst.step();
+        if (op > 0.01) burst.draw();
+
+        if (op <= 0.01) return;
+
+        ctx.save();
+        ctx.globalAlpha = op;
+        if (blur > 0.05 && ctx.filter !== undefined) ctx.filter = 'blur(' + blur.toFixed(2) + 'px)';
+
+        // apply transform around the origin point
+        const px = CARD_X0 + CARD_W * ox, py = CARD_Y + CARD_H * oy;
+        ctx.translate(px + dx, py + dy);
+        ctx.rotate(rot);
+        ctx.transform(1, 0, Math.tan(sk), 1, 0, 0); // skewX
+        ctx.scale(sx, sy);
+        ctx.translate(-px, -py);
+
+        drawCard(cfg, name, amountStr, showAmount);
+
+        ctx.restore();
+        if (ctx.filter !== undefined) ctx.filter = 'none';
+      }
+
+      return { render, DUR };
+    }
+
+    function drawCard(cfg, name, amountStr, showAmount) {
+      const x = CARD_X0, y = CARD_Y, w = CARD_W, h = CARD_H;
+
+      // body (translucent indigo/void + hairline cyan + soft glow)
+      ctx.shadowColor = 'rgba(108,92,231,0.18)'; ctx.shadowBlur = 60;
+      plateRect(x, y, w, h, 22);
+      const body = ctx.createLinearGradient(x, y, x + w, y + h);
+      body.addColorStop(0, 'rgba(10,11,26,0.72)'); body.addColorStop(1, 'rgba(2,3,8,0.66)');
+      ctx.fillStyle = body; ctx.fill();
+      ctx.shadowBlur = 0;
+      // corner glow wash
+      const wash = ctx.createRadialGradient(x + 60, y + 20, 0, x + 60, y + 20, 360);
+      wash.addColorStop(0, 'rgba(108,92,231,0.20)'); wash.addColorStop(1, 'rgba(108,92,231,0)');
+      plateRect(x, y, w, h, 22); ctx.save(); ctx.clip(); ctx.fillStyle = wash; ctx.fillRect(x, y, w, h); ctx.restore();
+      // outer hairline cyan border
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,217,255,0.40)';
+      plateRect(x + 0.5, y + 0.5, w - 1, h - 1, 22); ctx.stroke();
+      // inner hairline indigo border
+      ctx.strokeStyle = 'rgba(108,92,231,0.26)';
+      plateRect(x + 8, y + 8, w - 16, h - 16, 16); ctx.stroke();
+
+      // left cyan seam
+      const seam = ctx.createLinearGradient(0, y + 22, 0, y + h - 22);
+      seam.addColorStop(0, CYAN); seam.addColorStop(1, INDIGO);
+      ctx.fillStyle = seam; ctx.shadowColor = 'rgba(0,217,255,0.75)'; ctx.shadowBlur = 14;
+      ctx.fillRect(x + 8, y + 22, 3, h - 44); ctx.shadowBlur = 0;
+
+      // hexagonal nebula node
+      const ns = 140, nx = x + 38, ny = y + (h - ns) / 2;
+      hexNode(nx, ny, ns, ns);
+      const ng = ctx.createLinearGradient(nx, ny, nx, ny + ns);
+      ng.addColorStop(0, 'rgba(20,18,48,0.78)'); ng.addColorStop(1, 'rgba(5,6,15,0.95)');
+      ctx.fillStyle = ng; ctx.fill();
+      // node inner glow
+      ctx.save(); hexNode(nx, ny, ns, ns); ctx.clip();
+      const nGlow = ctx.createRadialGradient(nx + ns / 2, ny, 0, nx + ns / 2, ny, ns);
+      nGlow.addColorStop(0, 'rgba(0,217,255,0.24)'); nGlow.addColorStop(1, 'rgba(0,217,255,0)');
+      ctx.fillStyle = nGlow; ctx.fillRect(nx, ny, ns, ns); ctx.restore();
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,217,255,0.40)';
+      hexNode(nx, ny, ns, ns); ctx.stroke();
+      // glyph
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.6)'; ctx.shadowBlur = 22;
+      ctx.font = '700 66px "Bahnschrift", "Eurostile", "DIN Condensed", system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cfg.glyph, nx + ns / 2, ny + ns / 2 + 2);
+      ctx.shadowBlur = 0;
+
+      // meta column
+      const mx = nx + ns + 32;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+      // read row (mono dim) — comet LED diamond + label
+      ctx.save();
+      ctx.translate(mx + 4, y + 40); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,217,255,0.55)'; ctx.shadowBlur = 9;
+      ctx.fillRect(-3.5, -3.5, 7, 7); ctx.restore(); ctx.shadowBlur = 0;
+      ctx.fillStyle = DIM; ctx.font = '14px "Consolas", ui-monospace, monospace';
+      setLS('2px');
+      ctx.fillText('SIGNAL//LOCK · DEEP SPACE', mx + 18, y + 44);
+      setLS('0px');
+
+      // kicker (cyan mono caps) — small diamond node + label
+      ctx.save();
+      ctx.translate(mx + 5, y + 72); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.55)'; ctx.shadowBlur = 8;
+      ctx.fillRect(-4.5, -4.5, 9, 9); ctx.restore(); ctx.shadowBlur = 0;
+      ctx.fillStyle = CYAN; ctx.font = '600 18px "Consolas", ui-monospace, monospace';
+      ctx.shadowColor = 'rgba(0,217,255,0.35)'; ctx.shadowBlur = 12;
+      setLS('7px');
+      ctx.fillText(cfg.kicker, mx + 22, y + 78);
+      setLS('0px'); ctx.shadowBlur = 0;
+
+      // name (big clean wide cosmic headline)
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(108,92,231,0.4)'; ctx.shadowBlur = 36;
+      const nameFont = '700 76px "Bahnschrift", "Eurostile", "DIN Condensed", system-ui, sans-serif';
+      ctx.font = nameFont;
+      const maxNameW = w - (mx - x) - 44;
+      ctx.fillText(clampText((name || 'Viewer').toUpperCase(), maxNameW, nameFont), mx, y + 150);
+      ctx.shadowBlur = 0;
+
+      // tri-colour hair-rule under the headline + diamond node
+      const ruleY = y + 166, ruleW = Math.min(560, maxNameW);
+      const rg = ctx.createLinearGradient(mx, ruleY, mx + ruleW, ruleY);
+      rg.addColorStop(0, INDIGO); rg.addColorStop(0.45, CYAN); rg.addColorStop(0.9, PINK); rg.addColorStop(1, 'rgba(255,122,182,0)');
+      ctx.strokeStyle = rg; ctx.lineWidth = 1; ctx.beginPath();
+      ctx.moveTo(mx, ruleY); ctx.lineTo(mx + ruleW, ruleY); ctx.stroke();
+      ctx.save(); ctx.translate(mx, ruleY); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,217,255,0.55)'; ctx.shadowBlur = 10;
+      ctx.fillRect(-4, -4, 8, 8); ctx.restore(); ctx.shadowBlur = 0;
+
+      // amount (cyan->white->pink gradient) for value events
+      if (showAmount) {
+        const af = '700 44px "Bahnschrift", "Eurostile", "DIN Condensed", system-ui, sans-serif';
+        ctx.font = af;
+        const ag = ctx.createLinearGradient(mx, 0, mx + ctx.measureText(amountStr).width, 0);
+        ag.addColorStop(0, CYAN); ag.addColorStop(0.46, WHITE); ag.addColorStop(1, PINK);
+        ctx.fillStyle = ag; ctx.shadowColor = 'rgba(0,217,255,0.45)'; ctx.shadowBlur = 18;
+        ctx.fillText(amountStr, mx, y + 206); ctx.shadowBlur = 0;
+      }
+
+      // node-id tag (top-right)
+      const prevA = ctx.globalAlpha; ctx.fillStyle = CYAN; ctx.globalAlpha = prevA * 0.7;
+      ctx.font = '13px "Consolas", ui-monospace, monospace'; ctx.textAlign = 'right';
+      setLS('4px');
+      ctx.fillText('NODE ' + cfg.nid, x + w - 24, y + 34);
+      setLS('0px');
+      ctx.textAlign = 'left'; ctx.globalAlpha = prevA;
+
+      // bottom telemetry strip (segmented, masked fade)
+      ctx.save();
+      const stripGrad = ctx.createLinearGradient(x + 38, 0, x + w - 44, 0);
+      stripGrad.addColorStop(0, 'rgba(0,217,255,0.65)'); stripGrad.addColorStop(0.58, 'rgba(0,217,255,0.65)'); stripGrad.addColorStop(1, 'rgba(0,217,255,0)');
+      ctx.strokeStyle = stripGrad; ctx.lineWidth = 2;
+      for (let sxp = x + 38; sxp < x + w - 44; sxp += 18) {
+        ctx.beginPath(); ctx.moveTo(sxp, y + h - 16); ctx.lineTo(sxp + 12, y + h - 16); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // canvas letter-spacing (Chromium supports ctx.letterSpacing; guarded for older builds)
+    const LS_OK = (function () { try { return 'letterSpacing' in ctx; } catch (e) { return false; } })();
+    function setLS(v) { if (LS_OK) { try { ctx.letterSpacing = v; } catch (e) {} } }
+
+    // ===== preview a static frame so you see the look before recording =====
+    function preview() {
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const clip = clipState(type, document.getElementById('nm').value, amountStr);
+      ctx.clearRect(0, 0, W, H);
+      clip.render(1600); // mid-hold frame
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value;
+      const cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const clip = clipState(type, document.getElementById('nm').value, amountStr);
+      const DUR = clip.DUR;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        clip.render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

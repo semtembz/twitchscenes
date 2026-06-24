@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Witching Hour Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the candle-snuff smoke wipe to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.3s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0B0E12; color: #E8E0CC;
+      font-family: "Hoefler Text", "Palatino Linotype", "Book Antiqua", Georgia, serif; }
+    h1 { font-size: 22px; color: #E7C878; letter-spacing: 4px; margin: 0 0 10px;
+      text-transform: uppercase;
+      font-family: "Trajan Pro", "Cinzel", "Optima", Georgia, serif;
+      text-shadow: 0 0 16px rgba(231,200,120,.45); }
+    p  { color: #C9A24B; line-height: 1.55; margin: 0 0 14px; max-width: 820px; }
+    code { color: #E7C878; background: #14191f; padding: 2px 6px; border-radius: 4px;
+      font-family: "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #C9A24B; color: #0B0E12;
+      border: 2px solid #E7C878; border-radius: 10px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase;
+      font-family: "Trajan Pro", "Cinzel", "Optima", Georgia, serif; }
+    button:hover:not(:disabled) { background: #E7C878; color: #0B0E12; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #E7C878; font-family: "Courier New", monospace; }
+    .stage { background: #11161c; border: 1px solid rgba(201,162,75,.24); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #0B0E12;
+      background-image:
+        linear-gradient(45deg, #18222a 25%, transparent 25%),
+        linear-gradient(-45deg, #18222a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #18222a 75%),
+        linear-gradient(-45deg, transparent 75%, #18222a 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Witching Hour Transition → .webm</h1>
+  <p>Records the candle-snuff smoke wipe to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 650 ms</strong>
+     (half the default 1300 ms — that's the candle-snuff peak when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1300;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const NEAR_BLACK = [11, 14, 18], BLACKER = [6, 8, 11], TEAL = [20, 50, 58], PLUM = [91, 42, 78];
+    const GOLD = [201, 162, 75], GOLD_LT = [231, 200, 120], CREAM = [232, 224, 204];
+    const SMOKE = [70, 74, 70];
+    const MOTH_PALE = [216, 206, 180], MOTH_DUSK = [120, 92, 52];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a > 1 ? 1 : a).toFixed(3) + ')';
+
+    let seed = 0x5C0F >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const N_PLUME = 26;
+    const plumes = Array.from({ length: N_PLUME }, () => {
+      const side = rnd() < 0.5 ? -1 : 1;
+      return {
+        x0: CX + R(-90, 90),
+        y0: CY + R(-40, 90),
+        drift: side * R(120, 520),
+        rise: R(260, 760),
+        r0: R(60, 150), r1: R(180, 420),
+        curl: R(0.6, 2.0) * side,
+        curlf: R(1.0, 2.4),
+        lead: R(0, 0.30), span: R(0.5, 0.95),
+        a: R(0.18, 0.40),
+        warm: rnd() < 0.45,
+      };
+    });
+
+    const N_MOTH = 13;
+    const moths = Array.from({ length: N_MOTH }, () => ({
+      ang0: R(0, 6.2832),
+      turns: R(0.7, 1.5) * (rnd() < 0.5 ? -1 : 1),
+      rad0: R(W * 0.30, W * 0.62),
+      rad1: R(40, 150),
+      yoff: R(-60, 60),
+      size: R(13, 22),
+      flaps: R(16, 26),
+      flap0: R(0, 6.2832),
+      lead: R(0, 0.22), span: R(0.55, 0.92),
+      a: R(0.55, 0.9),
+      pale: rnd() < 0.4,
+    }));
+
+    const N_SPARK = 46;
+    const sparks = Array.from({ length: N_SPARK }, () => {
+      let x = R(0, W), y = R(0, H);
+      if (Math.abs(x - CX) < 360 && Math.abs(y - CY) < 240) { x = x < CX ? x * 0.5 : W - (W - x) * 0.5; }
+      return {
+        x, y, s: R(0.8, 2.6),
+        lead: R(0, 0.4), span: R(0.4, 0.85),
+        tw: R(1.2, 2.8), phase: R(0, 6.2832),
+        a: R(0.3, 0.8), drift: R(-26, 8),
+      };
+    });
+
+    const N_EMBER = 40;
+    const embers = Array.from({ length: N_EMBER }, () => {
+      const ang = R(-Math.PI * 0.85, -Math.PI * 0.15);
+      return {
+        ang, spd: R(120, 560), grav: R(120, 360),
+        s: R(1.4, 3.6), a: R(0.6, 1), tw: R(2, 5), phase: R(0, 6.2832),
+      };
+    });
+
+    function drawGround(t, cover) {
+      const baseA = smooth(cover);
+      const g = ctx.createRadialGradient(CX, CY, H * 0.05, CX, CY, Math.hypot(CX, CY));
+      g.addColorStop(0.00, rgba(NEAR_BLACK, baseA * 0.80));
+      g.addColorStop(0.45, rgba([14, 20, 26], baseA * 0.92));
+      g.addColorStop(0.78, rgba(NEAR_BLACK, baseA * 0.97));
+      g.addColorStop(1.00, rgba(BLACKER, baseA));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const tg = ctx.createRadialGradient(CX, CY * 1.5, 0, CX, CY * 1.5, H * 0.9);
+      tg.addColorStop(0, rgba(TEAL, 0.10 * baseA));
+      tg.addColorStop(1, rgba(PLUM, 0));
+      ctx.fillStyle = tg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      const swell = Math.sin(clamp01(t / 0.5) * Math.PI * 0.5);
+      const gut = t > 0.5 ? smooth((t - 0.5) / 0.22) : 0;
+      const glow = Math.max(0, swell * (1 - gut)) * cover;
+      if (glow > 0.01) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const flick = 0.86 + Math.sin(t * 47) * 0.08 + Math.sin(t * 113) * 0.06;
+        const gr = lerp(160, 520, swell) * (1 - gut * 0.5);
+        const pg = ctx.createRadialGradient(CX, CY, 0, CX, CY, gr);
+        pg.addColorStop(0.00, rgba(GOLD_LT, 0.55 * glow * flick));
+        pg.addColorStop(0.35, rgba(GOLD, 0.26 * glow * flick));
+        pg.addColorStop(1.00, rgba(GOLD, 0));
+        ctx.fillStyle = pg;
+        ctx.beginPath(); ctx.arc(CX, CY, gr, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawSmoke(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const p of plumes) {
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const e = smooth(lt);
+        const ends = Math.sin(lt * Math.PI);
+        const cx = p.x0 + p.drift * e + Math.sin(p.curlf * lt * 6.2832 + p.x0) * p.curl * 30;
+        const cy = p.y0 - p.rise * e;
+        const rad = lerp(p.r0, p.r1, e);
+        const a = p.a * ends * lerp(0.5, 1, cover);
+        if (a <= 0.02 || rad <= 1) continue;
+        const col = p.warm ? GOLD : SMOKE;
+        const sg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        sg.addColorStop(0.0, rgba(col, a * (p.warm ? 0.5 : 0.7)));
+        sg.addColorStop(0.6, rgba(col, a * 0.28));
+        sg.addColorStop(1.0, rgba(col, 0));
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawMoth(m, x, y, heading, flap, alpha) {
+      const s = m.size;
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.rotate(heading + Math.PI / 2);
+      ctx.globalAlpha = alpha;
+      const wingCol = m.pale ? 'rgba(232,224,204,0.85)' : 'rgba(201,162,75,0.82)';
+      const wingEdge = m.pale ? 'rgba(231,200,120,0.9)' : 'rgba(231,200,120,0.7)';
+      ctx.shadowColor = 'rgba(231,200,120,0.5)'; ctx.shadowBlur = 8;
+      for (const side of [-1, 1]) {
+        ctx.save();
+        ctx.scale(side * flap, 1);
+        ctx.fillStyle = wingCol; ctx.strokeStyle = wingEdge; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(s * 0.62, -s * 0.18, s * 0.62, s * 0.42, -0.5, 0, 6.2832);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(s * 0.5, s * 0.4, s * 0.46, s * 0.34, 0.4, 0, 6.2832);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = m.pale ? 'rgba(216,206,180,0.95)' : 'rgba(120,92,52,0.95)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.16, s * 0.55, 0, 0, 6.2832);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawMoths(t, cover) {
+      for (const m of moths) {
+        const lt = clamp01((t - m.lead) / m.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const e = smooth(lt);
+        const flee = t > 0.5 ? smooth((t - 0.5) / 0.32) : 0;
+        const rad = lerp(m.rad0, m.rad1, e) + flee * (m.rad0 * 0.7);
+        const ang = m.ang0 + m.turns * 6.2832 * e - flee * 2.0 * Math.sign(m.turns || 1);
+        const x = CX + Math.cos(ang) * rad;
+        const y = CY + m.yoff + Math.sin(ang) * rad * 0.82;
+        const heading = ang + Math.PI / 2 * (m.turns < 0 ? -1 : 1);
+        const flap = 0.32 + Math.abs(Math.sin(m.flap0 + lt * m.flaps * 6.2832)) * 0.95;
+        const ends = Math.sin(lt * Math.PI);
+        const a = m.a * ends * lerp(0.55, 1, cover) * (1 - flee * 0.4);
+        if (a <= 0.02) continue;
+        drawMoth(m, x, y, heading, flap, a);
+      }
+    }
+
+    function drawSparks(t, cover) {
+      ctx.save();
+      for (const sp of sparks) {
+        const lt = clamp01((t - sp.lead) / sp.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const ends = Math.sin(lt * Math.PI);
+        const tw = 0.5 + Math.sin(sp.phase + lt * sp.tw * 6.2832) * 0.5;
+        const a = sp.a * ends * tw * lerp(0.3, 1, cover);
+        if (a <= 0.02) continue;
+        const x = sp.x, y = sp.y + sp.drift * smooth(lt);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#E7C878';
+        ctx.shadowColor = '#E7C878'; ctx.shadowBlur = 8;
+        const s = sp.s;
+        ctx.beginPath();
+        ctx.moveTo(x, y - s * 2); ctx.lineTo(x + s * 0.5, y);
+        ctx.lineTo(x, y + s * 2); ctx.lineTo(x - s * 0.5, y); ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x - s * 2, y); ctx.lineTo(x, y + s * 0.5);
+        ctx.lineTo(x + s * 2, y); ctx.lineTo(x, y - s * 0.5); ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawSnuff(t) {
+      const burst = Math.exp(-Math.pow((t - 0.5) / 0.10, 2));
+      if (burst <= 0.02) return;
+      const age = clamp01((t - 0.46) / 0.30);
+      ctx.save();
+      for (const em of embers) {
+        const px = CX + Math.cos(em.ang) * em.spd * age;
+        const py = CY + Math.sin(em.ang) * em.spd * age + 0.5 * em.grav * age * age;
+        const tw = 0.6 + Math.sin(em.phase + age * em.tw * 6.2832) * 0.4;
+        const a = em.a * burst * (1 - age) * tw;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#FFF1C2';
+        ctx.shadowColor = '#E7C878'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), em.s, 0, 6.2832); ctx.fill();
+      }
+      ctx.globalAlpha = 0.5 * burst;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.strokeStyle = rgba([120, 120, 116], 0.5);
+      ctx.lineWidth = 6;
+      ctx.shadowColor = 'rgba(120,120,116,0.5)'; ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      for (let i = 1; i <= 10; i++) {
+        const f = i / 10;
+        const ry = CY - f * 280 * age;
+        const rx = CX + Math.sin(f * 6.0 + t * 8) * 30 * f;
+        ctx.lineTo(rx, ry);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);
+      drawGround(t, cover);
+      drawSmoke(t, cover);
+      drawMoths(t, cover);
+      drawSparks(t, cover);
+      drawSnuff(t);
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.5);
+        fg.addColorStop(0, rgba(CREAM, 0.42 * flash));
+        fg.addColorStop(0.4, rgba(GOLD_LT, 0.20 * flash));
+        fg.addColorStop(1, rgba(GOLD, 0));
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the snuff peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

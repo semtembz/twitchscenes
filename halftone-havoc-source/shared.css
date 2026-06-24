@@ -97,7 +97,7 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   -webkit-text-stroke:1.5px var(--ink);}
 #stage.done .kicker{color:var(--comic-red);-webkit-text-stroke:1.5px var(--ink);}
 /* inside the burst the slot wraps as: [N] on one row, the placeholder below it */
-.kicker.is-slot .slot-no{font-size:.7em;margin:0;line-height:1.2;}
+.kicker.is-slot .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;vertical-align:.06em;}
 .kicker.is-slot .slot-txt{flex:1 0 100%;text-align:center;}
 
 /* ---- the heavy comic TITLE — black ink, bold colour offset shadow + outline, tilted ---- */

@@ -92,6 +92,15 @@
     .now{font-size:15px;font-weight:600;color:var(--ink-soft);letter-spacing:.6px;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
+    /* editable text slots — bordered [N] badge box + muted placeholder text.
+       (matches the hero scenes' shared.css .slot-no styling so the number
+       always reads as a clear box, never jammed against the words.) */
+    .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .5em 0 0;
+      border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;
+      font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;
+      vertical-align:.06em;}
+    .slot-txt{opacity:.6;font-style:italic;}
+
     /* thin pink-milk seek bar (animated shimmer sliding along it) */
     .accent{position:relative;height:6px;border-radius:6px;margin-top:5px;
       background:rgba(255,179,198,.40);box-shadow:inset 0 0 0 2px var(--gloss);overflow:hidden;}

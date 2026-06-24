@@ -89,10 +89,10 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
    Constrained to the starburst's flat inner safe zone (~230px) and allowed to
    wrap so the editable slot + [N] badge never spill past the jagged spikes. */
 .kicker{position:relative;z-index:2;margin:0;
-  max-width:236px;
+  max-width:224px;
   display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 .12em;
   font-family:"Arial Black",Impact,Haettenschweiler,system-ui,sans-serif;
-  font-size:40px;font-weight:900;letter-spacing:.005em;line-height:.92;
+  font-size:33px;font-weight:900;letter-spacing:.005em;line-height:.9;
   text-transform:uppercase;color:var(--ink);transform:rotate(-4deg);
   -webkit-text-stroke:1.5px var(--ink);}
 #stage.done .kicker{color:var(--comic-red);-webkit-text-stroke:1.5px var(--ink);}

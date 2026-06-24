@@ -87,10 +87,12 @@
     W = cv.width || 1920; H = cv.height || 1080;
     const R = (a, b) => a + Math.random() * (b - a);
     // blocky drifting pixel clouds (each is a small rect cluster), slow horizontal drift
-    // clouds ride the UPPER sky band only — kept above the kicker/title so they
-    // never drift across the centered headline or the top editable text slot
+    // clouds ride a narrow sky band BELOW the HUD bar (96px) and ABOVE the
+    // kicker/top-slot (~190px) so they never sit on the HUD status text or the
+    // centered headline / top editable text slot. Size is capped so a cloud's
+    // bottom edge stays clear of the kicker badge.
     clouds = Array.from({ length: num("clouds", 6) }, () => ({
-      x: R(0, W), y: R(64, 150), s: (R(3, 5) | 0), v: R(6, 14) / 60,
+      x: R(0, W), y: R(112, 132), s: (R(3, 4) | 0), v: R(6, 14) / 60,
     }));
   }
 

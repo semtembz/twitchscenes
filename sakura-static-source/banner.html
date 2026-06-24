@@ -128,7 +128,9 @@
     }
 
     // ---- a centred branding block: dot + mono kicker, big bold title, mono sub ----
-    function block(cx, kickerLabel, titleText, titleSize, subText) {
+    //  maxW caps the title's drawn width so a long placeholder can NEVER bleed into the
+    //  centre player area or collide with the neighbouring block — the font shrinks to fit.
+    function block(cx, kickerLabel, titleText, titleSize, subText, maxW) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       // kicker with leading status dot
       ctx.font = '600 22px "Courier New", monospace';
@@ -137,13 +139,25 @@
       ctx.beginPath(); ctx.arc(cx - kw / 2 - 16, 120, 7, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
       ctx.fillStyle = PINK_SOFT;
       ctx.fillText(kickerLabel, cx, 120);
-      // title — bold sans, soft magenta glow
-      ctx.font = '800 ' + titleSize + 'px system-ui, "Segoe UI", sans-serif';
+      // title — bold sans, soft magenta glow; shrink-to-fit within maxW
+      let ts = titleSize;
+      ctx.font = '800 ' + ts + 'px system-ui, "Segoe UI", sans-serif';
+      if (maxW) {
+        while (ts > 22 && ctx.measureText(titleText).width > maxW) {
+          ts -= 2; ctx.font = '800 ' + ts + 'px system-ui, "Segoe UI", sans-serif';
+        }
+      }
       ctx.fillStyle = WASHI; ctx.shadowColor = 'rgba(255,94,156,0.45)'; ctx.shadowBlur = 30;
       ctx.fillText(titleText, cx, 235);
       ctx.shadowBlur = 0;
-      // subtitle — mono
-      ctx.font = '400 20px "Courier New", monospace';
+      // subtitle — mono; shrink-to-fit within maxW too
+      let ss = 20;
+      ctx.font = '400 ' + ss + 'px "Courier New", monospace';
+      if (maxW) {
+        while (ss > 12 && ctx.measureText(subText).width > maxW) {
+          ss -= 1; ctx.font = '400 ' + ss + 'px "Courier New", monospace';
+        }
+      }
       ctx.fillStyle = DIM;
       ctx.fillText(subText, cx, 330);
     }
@@ -192,11 +206,11 @@
       vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.62)');
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
-      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
-      block(400, 'STREAMER', '@YOURHANDLE', 76, 'twitch.tv/yourname');
+      // ---- LEFT BLOCK: identity (centre ~ x=400) — capped so it can't reach the centre ----
+      block(400, 'STREAMER', '@YOURHANDLE', 76, 'twitch.tv/yourname', 480);
 
-      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholder copy ----
-      block(1520, 'CH 03 · LO-FI', '[10] your text here', 76, '[11] your text here');
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholder copy, width-capped ----
+      block(1520, 'CH 03 · LO-FI', '[10] your text here', 76, '[11] your text here', 480);
 
       // small "LO-FI" kicker above the tagline, plus vertical accent dashes flanking centre
       ctx.fillStyle = 'rgba(255,209,230,0.40)';

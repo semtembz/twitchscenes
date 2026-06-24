@@ -187,13 +187,14 @@
     }
 
     function hud() {
-      // small pixel coin glyph in the HUD
-      coinHud(120, 56);
-      pixelText('WORLD  1-1', 64, 64, 36, WHITE, 'left');
-      pixelText('x08', 150, 64, 36, WHITE, 'left');
-      pixelText('LIVES  x03', 320, 64, 36, WHITE, 'left');
-      // pixel-heart row (one empty)
-      var hx = 560;
+      // chunky NES status row — each group is spaced so nothing overlaps the next
+      // (positions tuned for 36px Courier: ~21.6px/char, so leave wide gaps)
+      pixelText('WORLD 1-1', 64, 64, 36, WHITE, 'left');   // ~64 -> 256
+      coinHud(360, 56);                                    // coin glyph (own clear slot)
+      pixelText('x08', 392, 64, 36, WHITE, 'left');        // ~392 -> 470
+      pixelText('LIVES x03', 560, 64, 36, WHITE, 'left');  // ~560 -> 752
+      // pixel-heart row (one empty) — starts well clear of LIVES x03
+      var hx = 824;
       heart(hx, 30, 36, false); heart(hx + 50, 30, 36, false);
       heart(hx + 100, 30, 36, false); heart(hx + 150, 30, 36, true);
       // right-aligned TIME 888
@@ -224,18 +225,21 @@
       }
 
       // ---- ground tilemap row (mirrors shared.js drawBg layout) ----
-      var TILE = 96, groundY = H - TILE * 2, blockY = groundY - TILE * 3;
-      var pattern = ['b', 'q', 'b', 'b', 'q', 'b'];
-      var clusters = [W * 0.16, W * 0.66];
+      // Scenery sits LOW (block row + pipes hug the ground) so the centered
+      // OFFLINE / BACK SOON title + meter + handle get a clean clear band above.
+      var TILE = 96, groundY = H - TILE * 2, blockY = groundY - TILE * 1.5;
+      var pattern = ['b', 'q', 'b', 'b'];
+      // clusters pulled HARD to the edges so the centered title passes between
+      var clusters = [snap(W * 0.012), snap(W - W * 0.012 - pattern.length * TILE)];
       for (var k = 0; k < clusters.length; k++) {
         for (var j = 0; j < pattern.length; j++) {
           block(clusters[k] + j * TILE, blockY, TILE, pattern[j]);
         }
       }
 
-      // green pipes
-      pipe(snap(W * 0.40), groundY - 224, 224);
-      pipe(snap(W * 0.84), groundY - 160, 160);
+      // green pipes — kept to the far sides, lips low near the ground
+      pipe(snap(W * 0.055), groundY - 168, 168);
+      pipe(snap(W * 0.90), groundY - 128, 128);
 
       // dirt ground strip (2 tiles) + grass-edge + seams
       rect(0, groundY, W, TILE * 2, GROUND);
@@ -244,41 +248,44 @@
       for (var gx = 0; gx <= W; gx += TILE) ctx.fillRect(gx, groundY + PX * 2, PX, TILE * 2 - PX * 2);
       for (var gx2 = 0; gx2 <= W; gx2 += TILE) ctx.fillRect(gx2 + TILE / 2, groundY + TILE, PX, TILE);
 
-      // bobbing coin above the left cluster (static peak position on the still)
-      coin(W * 0.16 + TILE * 5.5, blockY - 60);
+      // bobbing coin hovering above the left cluster (static peak on the still)
+      coin(clusters[0] + TILE * 1.5, blockY - 64);
 
       // ---- HUD bar ----
       hud();
 
       // ============================================================
-      // CENTER MESSAGE: GAME OVER style title (this screen = OFFLINE)
+      // CENTER MESSAGE: status title (this screen = OFFLINE / BACK SOON).
+      // The whole stack sits in the clear sky band BETWEEN the HUD (96px) and
+      // the low scenery/ground, and BETWEEN the side block clusters, so no
+      // letter, the meter, or the handle ever sits on a block / pipe / ground.
       // ============================================================
       var cxc = W / 2;
       // editable kicker line (neutral placeholder — type your own)
-      pixelText('[13] your text here', cxc, 392, 56, COIN, 'center');
+      pixelText('[13] your text here', cxc, 300, 52, COIN, 'center');
 
       // giant blocky 2-line title with HARD layered offset shadow + NES double-print accent
       ctx.save();
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      var TS = 176;
+      var TS = 168;
       ctx.font = '700 ' + TS + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
       // line 1 "OFFLINE" (white) with hard shadow
       ctx.fillStyle = BLACK;
-      ctx.fillText('OFFLINE', cxc + 12, 580 + 12);
-      ctx.fillText('OFFLINE', cxc + 8, 580 + 8);
-      ctx.fillStyle = WHITE; ctx.fillText('OFFLINE', cxc, 580);
+      ctx.fillText('OFFLINE', cxc + 12, 470 + 12);
+      ctx.fillText('OFFLINE', cxc + 8, 470 + 8);
+      ctx.fillStyle = WHITE; ctx.fillText('OFFLINE', cxc, 470);
       // line 2 "BACK SOON" (NES red) with blue under-print + hard shadow
-      var TS2 = 132;
+      var TS2 = 124;
       ctx.font = '700 ' + TS2 + 'px "Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
       ctx.fillStyle = BLACK;
-      ctx.fillText('BACK SOON', cxc + 10, 716 + 10);
+      ctx.fillText('BACK SOON', cxc + 10, 600 + 10);
       ctx.fillStyle = BLUE;
-      ctx.fillText('BACK SOON', cxc - 5, 716 - 5);
-      ctx.fillStyle = RED; ctx.fillText('BACK SOON', cxc, 716);
+      ctx.fillText('BACK SOON', cxc - 5, 600 - 5);
+      ctx.fillStyle = RED; ctx.fillText('BACK SOON', cxc, 600);
       ctx.restore();
 
       // a discrete-block green power-meter style rule under the title (decorative)
-      var mx = cxc - 380, my = 770, mw = 760;
+      var mx = cxc - 380, my = 660, mw = 760;
       for (var b = 0; b < Math.floor(mw / 44); b++) {
         rect(mx + b * 44, my, 36, 28, PIPE);
         rect(mx + b * 44, my + 28, 36, PX, PIPE_DK);
@@ -288,12 +295,11 @@
       ctx.fillRect(mx - PX, my - PX, mw + 2 * PX, PX);
       ctx.fillRect(mx - PX, my + 36, mw + 2 * PX, PX);
 
-      // ---- HANDLE (centered, low) ----
+      // ---- HANDLE (centered, in the clear band above the low scenery) ----
       var handle = params.get('handle') || '@yourhandle';
       var handleAt = handle.charAt(0) === '@' ? handle : '@' + handle;
       var handleClean = handle.replace(/^@/, '');
-      pixelText(handleAt.toLowerCase(), cxc, 884, 44, COIN, 'center');
-      pixelText('twitch.tv/' + handleClean.toLowerCase(), cxc, 930, 26, WHITE, 'center');
+      pixelText(handleAt.toLowerCase(), cxc, 728, 44, COIN, 'center');
 
       // decorative corner tag (neutral placeholder — type your own)
       pixelText('[14] your text here', W - 56, H - 44, 28, WHITE, 'right');

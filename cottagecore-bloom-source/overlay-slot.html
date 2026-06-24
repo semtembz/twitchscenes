@@ -47,8 +47,11 @@
     .slot .twig .leaf{transform-box:fill-box;transform-origin:0% 50%;animation:sway 6s var(--ease-soft) infinite;}
     .slot .twig .leaf:nth-child(3n){animation-duration:7.4s;animation-delay:-1.6s;}
 
-    /* "ON AIR" tag — gentle humanist caps + a pulsing leaf dot */
-    .slot .tag{display:flex;align-items:center;gap:12px;
+    /* "ON AIR" tag — gentle humanist caps + a pulsing leaf dot.
+       NOTE: override the shared.css `.tag{position:absolute}` corner-tag rule —
+       here `.tag` is an in-flow flex child of the slot, so it must stay
+       position:static/relative or it pops out of flow and overlaps the handle. */
+    .slot .tag{position:relative;flex:none;animation:none;display:flex;align-items:center;gap:12px;
       font-family:"Optima","Gill Sans","Gill Sans MT","Segoe UI",Candara,"Avenir Next",system-ui,sans-serif;
       letter-spacing:.30em;font-size:18px;font-weight:600;text-transform:uppercase;
       color:var(--leaf-deep);text-indent:.30em;}
@@ -62,7 +65,7 @@
       background:var(--rose);transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(226,160,180,.22);}
 
     /* handle — graceful old-style serif in warm ink */
-    .slot .who{
+    .slot .who{flex:none;
       font-family:"Iowan Old Style","Hoefler Text","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
       font-weight:600;letter-spacing:.02em;font-size:30px;color:var(--ink);white-space:nowrap;
       text-shadow:0 1px 0 rgba(255,253,244,.7);}

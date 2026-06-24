@@ -23,6 +23,7 @@
     /* ---- forged-iron quest placard, lower-left ---- */
     .slot{position:absolute;left:62px;bottom:58px;height:66px;
       display:flex;align-items:center;gap:20px;padding:0 30px 0 26px;
+      white-space:nowrap;
       color:var(--parchment);
       /* dark hammered iron with a warm candle wash from above */
       background:
@@ -54,12 +55,12 @@
     .slot .rivet--l{left:-5px;} .slot .rivet--r{right:-5px;}
 
     /* tiny crossed-sword crest, left of the status */
-    .slot .crest{display:flex;align-items:center;margin:0;animation:none;}
+    .slot .crest{display:flex;align-items:center;margin:0;animation:none;flex:0 0 auto;}
     .slot .crest svg{width:40px;height:26px;display:block;
       filter:drop-shadow(0 0 8px rgba(201,150,47,.45));}
 
     /* "SUMMONING" status — engraved gold caps + a pulsing gold rune-diamond */
-    .slot .tag{display:flex;align-items:center;gap:12px;
+    .slot .tag{display:flex;align-items:center;gap:12px;flex:0 0 auto;white-space:nowrap;
       font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
       letter-spacing:.4em;font-size:18px;font-weight:600;text-transform:uppercase;
       color:var(--gold-lt);text-indent:.4em;
@@ -71,14 +72,14 @@
       50%{opacity:.42;box-shadow:0 0 5px var(--glow)}}
 
     /* forged divider with a diamond cap, between status and handle */
-    .slot .div{position:relative;width:2px;height:34px;
+    .slot .div{position:relative;width:2px;height:34px;flex:0 0 auto;
       background:linear-gradient(180deg,transparent,var(--gold-dk),var(--gold),var(--gold-dk),transparent);
       box-shadow:0 0 8px rgba(201,150,47,.4);}
     .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;
       background:var(--gold);transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 0 8px var(--glow);}
 
     /* handle — engraved forged gold serif */
-    .slot .who{
+    .slot .who{flex:0 0 auto;
       font-family:"Trajan Pro","Cinzel","Optima",Georgia,serif;
       letter-spacing:.06em;font-size:29px;color:var(--parchment);white-space:nowrap;
       text-shadow:0 1px 0 rgba(0,0,0,.6),0 -1px 0 rgba(58,30,8,.4),0 0 24px rgba(201,150,47,.28);}
@@ -106,7 +107,7 @@
     <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
 
     <!-- flavor label = editable slot (type your text, or delete the line) -->
-    <div class="mono-tr" aria-hidden="true"><span class="dia"></span><span class="is-slot" data-slot="brand"><span class="slot-no">19</span><span class="slot-txt">your text here</span></span></div>
+    <div class="mono-tr" aria-hidden="true"><span class="dia"></span><span class="is-slot" data-slot="brand"><span class="slot-no">24</span><span class="slot-txt">your text here</span></span></div>
 
     <div class="slot">
       <span class="rivet rivet--l" aria-hidden="true"></span>
@@ -128,7 +129,7 @@
         </svg>
       </span>
 
-      <span class="tag"><span class="dia"></span><span class="is-slot" data-slot="tag"><span class="slot-no">20</span><span class="slot-txt">your text here</span></span></span>
+      <span class="tag"><span class="dia"></span><span class="is-slot" data-slot="tag"><span class="slot-no">25</span><span class="slot-txt">your text here</span></span></span>
       <span class="div" aria-hidden="true"></span>
       <span class="who" id="handle">@yourhandle</span>
     </div>

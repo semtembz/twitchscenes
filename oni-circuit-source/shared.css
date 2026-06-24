@@ -186,8 +186,10 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
 .tag::before{content:"";display:inline-block;width:9px;height:9px;margin-right:14px;
   background:var(--oni);transform:translateY(1px) rotate(45deg);
   box-shadow:0 0 10px var(--glow-oni);}
-.tag--tl{left:300px;top:300px;}
-.tag--tr{right:300px;top:300px;text-indent:0;}
+/* tags ride a HIGH top HUD row so the right tag clears the oni mask's
+   left horn (mask anchored right of center; horn tips reach ~y224). */
+.tag--tl{left:300px;top:150px;}
+.tag--tr{right:300px;top:150px;text-indent:0;}
 
 /* handle — oni-red, lower right */
 .handle{position:absolute;right:72px;bottom:64px;font-family:var(--mono);

@@ -136,7 +136,10 @@
     }
 
     // ---- a centred branding block: kicker, big bold-display title, mono sub ----
-    function block(cx, kickerLabel, titleText, titleSize, subText, accent, glitch) {
+    // maxW = the side's clear-zone width (between the centre rail and the canvas
+    // edge); the title auto-shrinks to fit so a long handle / tagline never
+    // crosses the rail into the central offline-player zone.
+    function block(cx, kickerLabel, titleText, titleSize, subText, accent, glitch, maxW) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
       // kicker with flanking neon diamonds, spaced caps
@@ -152,8 +155,16 @@
       });
       ctx.shadowBlur = 0;
 
-      // title — heavy bold-display with smooth neon glow + optional RGB split
-      ctx.font = '900 ' + titleSize + 'px "Arial Black","Impact",Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+      // title — heavy bold-display with smooth neon glow + optional RGB split.
+      // Shrink the font until the rendered title (plus a small glow margin) fits
+      // inside maxW so it stays clear of the central rail / player area.
+      const titleFont = (sz) => '900 ' + sz + 'px "Arial Black","Impact",Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+      if (maxW) {
+        ctx.font = titleFont(titleSize);
+        let tw = ctx.measureText(titleText).width;
+        while (titleSize > 28 && tw > maxW) { titleSize -= 2; ctx.font = titleFont(titleSize); tw = ctx.measureText(titleText).width; }
+      }
+      ctx.font = titleFont(titleSize);
       const titleY = 222;
       if (glitch) {
         ctx.save();
@@ -237,13 +248,15 @@
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
       // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      // Clear zone = canvas edge .. centre rail (x=672); centred at 400 the rail
+      // side is the tighter limit, so cap the symmetric title width at ~500px.
       const handle = params.get('handle') || '@YOURHANDLE';
       const handleAt = handle.startsWith('@') ? handle : '@' + handle;
       const handleClean = handle.replace(/^@/, '');
-      block(400, 'LIVE STREAMER', handleAt.toUpperCase(), 72, 'TWITCH.TV/' + handleClean.toUpperCase(), ACID, true);
+      block(400, 'LIVE STREAMER', handleAt.toUpperCase(), 72, 'TWITCH.TV/' + handleClean.toUpperCase(), ACID, true, 460);
 
       // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
-      block(1520, '[20] your text here', '[ YOUR TEXT ]', 64, '[21] your text here', MAGENTA, true);
+      block(1520, '[20] your text here', '[ YOUR TEXT ]', 64, '[21] your text here', MAGENTA, true, 460);
 
       // ---- accent neon rails flanking the centre clear-zone ----
       ctx.save();

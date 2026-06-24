@@ -138,8 +138,15 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
   background:linear-gradient(180deg,#FFFFFF 0%, #FFF7C2 30%, var(--yellow) 50%, var(--orange) 78%, var(--pink) 100%);
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 
-.sub{margin-top:18px;font-family:"Courier New",monospace;font-size:27px;letter-spacing:4px;
+/* sub line sits on the open neon grid below the title — wrap it in a dark
+   inline plate so the bright magenta/teal grid rows never slice through the
+   text (or its [N] badge). Inline-block keeps the plate hugging the words. */
+.sub{margin-top:22px;font-family:"Courier New",monospace;font-size:27px;letter-spacing:4px;
   color:var(--ink);text-shadow:0 0 16px rgba(255,46,151,.45);
+  display:inline-block;padding:9px 24px;border-radius:6px;
+  background:rgba(7,0,22,.82);border:1px solid rgba(0,224,208,.45);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5), 0 0 22px rgba(255,46,151,.14);
+  backdrop-filter:blur(2px);
   animation:rise .8s var(--ease) both .45s;}
 
 /* editable text slots — every .is-slot ships a muted "[ your text here ]"
@@ -152,11 +159,14 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;}
 /* ---- NEON loading strip on the grid floor, well below the title (no numbers).
    Sits on a near grid row so it reads as part of the road, with a clear gap
    under the headline + sub slot so nothing crosses the hero text. ---- */
-.bar{position:absolute;left:50%;top:900px;transform:translateX(-50%);
-  width:920px;height:14px;z-index:3;
-  border-radius:8px;background:rgba(11,0,32,.6);
-  border:1px solid rgba(0,224,208,.35);overflow:hidden;
-  box-shadow:0 0 22px rgba(0,224,208,.25), inset 0 0 12px rgba(0,0,0,.5);
+.bar{position:absolute;left:50%;top:892px;transform:translateX(-50%);
+  width:920px;height:16px;z-index:4;
+  border-radius:9px;background:#0B0020;
+  border:1px solid rgba(0,224,208,.55);overflow:hidden;
+  /* a wide dark halo (spread-only shadow) clears a quiet band around the bar so
+     the bright neon grid rows never read as slicing through it */
+  box-shadow:0 0 0 6px rgba(11,0,32,.92), 0 0 26px 4px rgba(11,0,32,.85),
+    0 0 22px rgba(0,224,208,.3), inset 0 0 12px rgba(0,0,0,.6);
   animation:rise .8s var(--ease) both .5s;}
 .bar .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:8px;
   background:linear-gradient(90deg, var(--teal), #aafff7 40%, var(--yellow) 70%, var(--orange) 100%);

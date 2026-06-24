@@ -134,8 +134,12 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:no
   -webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 0 30px rgba(91,255,208,.35));
   animation:holoflick 5.5s ease-in-out infinite;}
-/* subtle chromatic RGB-split ghosts behind the accent line */
-.title .accent::before,.title .accent::after{content:attr(data-t);position:absolute;left:0;top:0;
+/* subtle chromatic RGB-split ghosts behind the accent line.
+   left:0;right:0 + inherited text-align:center makes the ghost copies
+   center exactly like the main accent text — so a short accent word
+   (e.g. "SOON") sitting in a wider title block doesn't split into two
+   offset copies anchored to the block's left edge. */
+.title .accent::before,.title .accent::after{content:attr(data-t);position:absolute;left:0;right:0;top:0;
   -webkit-background-clip:initial;background-clip:initial;background:none;
   z-index:-1;opacity:.5;pointer-events:none;}
 .title .accent::before{color:var(--cyan);transform:translate(-3px,0);}

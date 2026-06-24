@@ -67,8 +67,10 @@
     .chan__body .net{color:var(--blue);font-weight:800;text-shadow:0 0 10px rgba(22,184,255,.5);}
     .chan__body .sep{opacity:.45;}
 
-    /* the broadcast lower-strip (anchored via corner modifier) */
-    .slot{position:absolute;display:flex;align-items:stretch;height:78px;max-width:680px;
+    /* the broadcast lower-strip (anchored via corner modifier).
+       height fits all three stacked lines (kicker + handle + tag) so neither
+       the [N] kicker badge nor the tag is clipped by the plate's overflow. */
+    .slot{position:absolute;display:flex;align-items:stretch;height:150px;max-width:680px;
       filter:drop-shadow(0 16px 40px rgba(0,0,0,.55));
       animation:slotin .7s var(--ease) both .2s;}
     .slot.bl{left:60px;bottom:60px;}
@@ -87,7 +89,7 @@
 
     /* main glass + steel plate with the handle + tag */
     .slot__plate{position:relative;display:flex;flex-direction:column;justify-content:center;
-      padding:10px 34px 10px 36px;margin-left:-18px;min-width:0;
+      padding:14px 34px 14px 36px;margin-left:-18px;min-width:0;
       background:
         linear-gradient(180deg, rgba(255,255,255,.08), transparent 16%),
         linear-gradient(160deg, rgba(22,184,255,.10), transparent 40%),
@@ -110,13 +112,25 @@
       text-transform:uppercase;white-space:nowrap;}
     .slot__kick .pip{width:8px;height:8px;background:var(--blue);transform:rotate(45deg);
       box-shadow:0 0 9px rgba(22,184,255,.7);}
+    /* min-height guards a known Blink quirk where a single-line block with
+       overflow:hidden + fractional line-height collapses to 0px height
+       (which was hiding the @handle and the tag entirely). */
     .slot__hdl{font-weight:800;font-style:italic;font-size:34px;line-height:.95;letter-spacing:-.5px;
-      color:var(--white);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 22px rgba(22,184,255,.3);
+      min-height:1em;color:var(--white);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 22px rgba(22,184,255,.3);
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .slot__hdl b{color:var(--orange);font-style:italic;
       text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 22px rgba(255,90,31,.4);}
     .slot__tag{margin-top:2px;font-weight:600;letter-spacing:3px;font-size:14px;color:var(--dim);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      min-height:1.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    /* editable [N] slot badge — local copy of the shared.css rule because this
+       transparent overlay does not link shared.css. Renders the number in a
+       boxed badge so every editable slot shows its [N] tag. */
+    .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .5em 0 0;
+      border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;
+      font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;
+      vertical-align:.06em;}
+    .slot-txt{opacity:.6;}
 
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
     @keyframes slotin{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}

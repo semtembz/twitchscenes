@@ -190,9 +190,11 @@
       // ---- flat NES sky ----
       rect(0, 0, W, H, SKY);
 
-      // ---- seeded clouds across the strip ----
-      for (var i = 0; i < 7; i++) {
-        cloud(RR(rnd, 20, W - 200), RR(rnd, 40, 170), (RR(rnd, 3, 5) | 0));
+      // ---- seeded clouds — kept in the CENTRE decorative band only (between the
+      // flanking rails at x=660 / x=1248) so they never drift behind the left
+      // @HANDLE identity or the right tagline text ----
+      for (var i = 0; i < 5; i++) {
+        cloud(RR(rnd, 700, 1180), RR(rnd, 36, 150), (RR(rnd, 3, 5) | 0));
       }
 
       // ---- ground strip along the bottom (single tall row for the short banner) ----
@@ -209,8 +211,10 @@
       var cstart = W / 2 - (pat.length * TILE) / 2;
       for (var j = 0; j < pat.length; j++) block(cstart + j * TILE, cqy, TILE, pat[j]);
       coin(W / 2, cqy - 56);
-      pipe(snap(W / 2 + 220), groundY - 132, 132);
-      pipe(snap(W / 2 - 300), groundY - 96, 96);
+      // pipes kept WHOLLY inside the centre decorative zone (rails at 660 / 1248)
+      // so neither lip pokes into the left @HANDLE or the right tagline third
+      pipe(snap(W / 2 + 120), groundY - 132, 132);
+      pipe(snap(W / 2 - 180), groundY - 96, 96);
 
       // ---- LEFT BLOCK: identity (centre ~ x=400) ----
       var handle = params.get('handle') || '@YOURHANDLE';
@@ -219,8 +223,9 @@
       // a HUD-style kicker chip
       coin(150, 150); // small coin marker
       pixelText('WORLD 1-1', 196, 162, 30, COIN, 'left');
-      // big handle (shrink-to-fit within the left third)
-      var hx = 130, hMax = 560, hSize = 84;
+      // big handle (shrink-to-fit within the left third — capped so it never
+      // reaches the centre clear-zone rail / pipe at ~x=660)
+      var hx = 130, hMax = 500, hSize = 84;
       ctx.font = '700 ' + hSize + 'px "Courier New",ui-monospace,monospace';
       while (ctx.measureText(handleAt.toUpperCase()).width > hMax && hSize > 30) {
         hSize -= 2; ctx.font = '700 ' + hSize + 'px "Courier New",ui-monospace,monospace';

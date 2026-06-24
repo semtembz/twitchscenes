@@ -333,6 +333,19 @@
 
     // ---- a centred branding block: kicker tab, skew title, rule, sub ----
     function block(cx, kickerLabel, titleText, titleSize, subText) {
+      // soft dark CLEAR-ZONE behind the block so the surge lines / claw seams
+      // never slice through the identity text. A horizontal radial fade keeps
+      // it invisible against the toxic background while lifting legibility.
+      ctx.save();
+      const czW = 540, czH = 290, czY = 232;
+      const cz = ctx.createRadialGradient(cx, czY, 40, cx, czY, czW / 2);
+      cz.addColorStop(0, 'rgba(2,10,6,0.82)');
+      cz.addColorStop(0.62, 'rgba(2,10,6,0.62)');
+      cz.addColorStop(1, 'rgba(2,10,6,0)');
+      ctx.fillStyle = cz;
+      ctx.fillRect(cx - czW / 2, czY - czH / 2, czW, czH);
+      ctx.restore();
+
       kickerTab(kickerLabel, cx, 128);
 
       skewTitle(titleText, cx, 232, titleSize);

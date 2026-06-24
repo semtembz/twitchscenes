@@ -238,7 +238,9 @@
       ctx.font = '700 84px ' + DISPLAY;
       const hW = spacedWidth(handleAt, 2);
       const slabX = lx, slabY = 168, slabPadX = 34, slabPadR = 40;
-      const slabW = Math.min(hW + slabPadX + slabPadR, 720), slabH = 118;
+      // Cap so the slab's right edge stays in the LEFT third, clear of the
+      // centre offline-player area (ghost guide ~x568+) — no overlap.
+      const slabW = Math.min(hW + slabPadX + slabPadR, 460), slabH = 118;
       ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 18;
       const sg = ctx.createLinearGradient(slabX, slabY, slabX + slabW, slabY);
       sg.addColorStop(0, 'rgba(23,27,32,0.94)'); sg.addColorStop(1, 'rgba(16,20,26,0.86)');

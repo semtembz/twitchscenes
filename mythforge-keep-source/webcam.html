@@ -63,9 +63,10 @@
     .bracket--br{right:-16px;bottom:-16px;transform:scale(-1,-1);}
     @keyframes nailin{from{opacity:0}to{opacity:1}}
 
-    /* etched golden runes strung along the TOP inner border of the frame */
-    .runes{position:absolute;left:60px;right:60px;top:18px;display:flex;justify-content:center;gap:30px;
-      pointer-events:none;color:var(--gold);font-size:24px;line-height:1;
+    /* etched golden runes strung along the TOP inner border of the frame —
+       seated below the 10px iron band + inner hairline so they never touch it */
+    .runes{position:absolute;left:60px;right:60px;top:30px;display:flex;justify-content:center;gap:30px;
+      pointer-events:none;color:var(--gold);font-size:22px;line-height:1;
       font-family:"Trajan Pro","Cinzel",Georgia,serif;}
     .runes b{display:block;text-shadow:0 0 10px var(--glow);opacity:.78;
       animation:runepulse 3.4s ease-in-out infinite;}

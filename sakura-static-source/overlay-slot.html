@@ -85,8 +85,13 @@
     .hdl{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1;
       text-shadow:0 0 18px rgba(255,94,156,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .hdl b{color:var(--mag);}
-    .now{font-size:14px;color:var(--dim);letter-spacing:1px;
+    .now{font-size:14px;color:var(--dim);letter-spacing:1px;font-style:italic;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* editable-slot number badge — must render a visible [N] box, never bare digits */
+    .now .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;
+      border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;
+      font-size:.82em;line-height:1.18;letter-spacing:0;text-align:center;vertical-align:.06em;}
+    .now .slot-txt{opacity:.6;}
 
     /* thin magenta accent line (animated seek shimmer along it) */
     .accent{position:relative;height:3px;border-radius:3px;margin-top:4px;

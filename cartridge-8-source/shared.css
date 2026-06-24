@@ -65,8 +65,9 @@ canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;
   font-size:34px;letter-spacing:.10em;line-height:1;text-transform:uppercase;
   color:var(--white);
   text-shadow:4px 4px 0 var(--shadow);
-  /* faint solid scan band so HUD reads over sky — flat, no gradient */
-  background:rgba(0,0,0,.0);
+  /* solid flat scrim band so the white HUD text always reads over a drifting
+     pixel cloud (no gradient) — keeps WORLD / LIVES / TIME legible */
+  background:rgba(0,0,0,.42);
   z-index:6;pointer-events:none;
   animation:hudDrop .5s var(--step) both;}
 .hud .grp{display:flex;align-items:center;gap:14px;white-space:nowrap;}

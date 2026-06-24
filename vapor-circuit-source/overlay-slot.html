@@ -66,10 +66,15 @@
     @keyframes slotpulse{0%{left:-8px;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:calc(100% + 8px);opacity:0}}
 
     /* "ON AIR" status — CLEAN functional label, pulsing via LED + spaced mono caps */
-    .slot .tag{display:flex;align-items:center;gap:11px;
+    /* NOTE: shared.css defines a global ".tag{position:absolute}" for corner labels;
+       force this in-strip tag back into the flex flow so it can't overlap the handle. */
+    .slot .tag{position:relative;left:auto;right:auto;top:auto;bottom:auto;opacity:1;
+      display:flex;align-items:center;gap:11px;
       font-family:var(--mono);letter-spacing:.36em;font-size:16px;font-weight:600;
       text-transform:uppercase;color:var(--cyan);text-indent:.36em;
       text-shadow:0 0 12px rgba(38,214,255,.5);}
+    /* neutralise the global .tag::before node dot (the LED span is our marker) */
+    .slot .tag::before{content:none;display:none;}
     .slot .tag .led{width:9px;height:9px;border-radius:50%;background:var(--pink);
       box-shadow:0 0 12px var(--pink);animation:vialed 1.9s ease-in-out infinite;}
     @keyframes vialed{0%,100%{opacity:1;box-shadow:0 0 12px var(--pink)}50%{opacity:.4;box-shadow:0 0 5px var(--pink)}}

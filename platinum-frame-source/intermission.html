@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Platinum Frame — Short Break</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- a slow cool light-sweep grazing the whole canvas -->
+    <div class="sweep" aria-hidden="true"></div>
+
+    <!-- whisper-thin framing crop-brackets in the four screen corners -->
+    <span class="corner c--tl" aria-hidden="true"></span>
+    <span class="corner c--tr" aria-hidden="true"></span>
+    <span class="corner c--bl" aria-hidden="true"></span>
+    <span class="corner c--br" aria-hidden="true"></span>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+    <!-- corner brand tags on the void -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-no">9</span><span class="slot-txt">your text here</span></div>
+    <div class="tag tag--bl is-slot" data-slot="tag2"><span class="slot-no">10</span><span class="slot-txt">your text here</span></div>
+
+    <!-- the centred razor-thin platinum frame (the signature composition) -->
+    <main class="frame">
+      <!-- minimal L-shaped corner registration ticks on the frame corners -->
+      <span class="tick tick--tl" aria-hidden="true"></span>
+      <span class="tick tick--tr" aria-hidden="true"></span>
+      <span class="tick tick--bl" aria-hidden="true"></span>
+      <span class="tick tick--br" aria-hidden="true"></span>
+
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">11</span><span class="slot-txt">your text here</span></p>
+
+      <h1 class="title" data-text="SHORT BREAK">SHORT <span class="accent">BREAK</span></h1>
+      <div class="rule" aria-hidden="true"></div>
+
+      <p class="sub is-slot" data-slot="sub"><span class="slot-no">12</span><span class="slot-txt">your text here</span></p>
+
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="vign" aria-hidden="true"></div>
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

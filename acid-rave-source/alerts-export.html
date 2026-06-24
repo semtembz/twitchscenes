@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Acid Rave Alerts → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Opera, Brave).
+    Records ONE event alert at a time to a TRANSPARENT .webm at 1920x1080 60fps.
+    Pick an event (and toggle "no name" — the shipping mode), optionally tweak
+    name/amount, click Record — the alert plays once on a canvas mirror while it
+    records, then your browser downloads `alert-<event>.webm`. Drop it on an OBS
+    Media source as your alert overlay (or feed it to your alert box).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. Each clip takes ~5.2s.
+
+    Alpha only survives VP9/VP8 .webm — never .mp4.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #07030F; color: #FFFFFF;
+      font-family: "Bahnschrift", "Roboto Condensed", "DejaVu Sans Mono", Consolas, monospace; }
+    h1 { font-size: 20px; color: #C6FF00; letter-spacing: 3px; margin: 0 0 10px; text-transform: uppercase;
+      text-shadow: 0 0 14px rgba(198,255,0,.5); }
+    p  { color: rgba(207,200,224,.7); line-height: 1.55; margin: 0 0 14px; max-width: 880px; }
+    code { color: #00E5FF; background: #100820; padding: 2px 6px; border-radius: 3px; }
+    label { color: #C6FF00; letter-spacing: 2px; margin-right: 8px; text-transform: uppercase; font-size: 13px; }
+    select, input { font-size: 15px; padding: 9px 12px; background: #100820; color: #FFFFFF;
+      border: 1px solid #B26BFF; border-radius: 4px; margin-right: 16px; font-family: inherit; }
+    input[type="text"] { width: 150px; }
+    button { font-size: 14px; padding: 13px 26px; background: linear-gradient(180deg,#C6FF00,#9ED600);
+      color: #07030F; border: 1px solid #C6FF00; cursor: pointer; letter-spacing: 2px; font-weight: bold;
+      border-radius: 4px; text-transform: uppercase; font-family: inherit; }
+    button:hover:not(:disabled) { background: #C6FF00; box-shadow: 0 0 22px rgba(198,255,0,.6); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { margin: 14px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .chk { display: flex; align-items: center; gap: 7px; }
+    .chk input { width: auto; margin: 0; }
+    #status { color: #C6FF00; }
+    .stage { padding: 12px; display: inline-block; margin-top: 8px; border: 1px solid #1a0d2e; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #07030F;
+      background-image:
+        linear-gradient(45deg, #140828 25%, transparent 25%),
+        linear-gradient(-45deg, #140828 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #140828 75%),
+        linear-gradient(-45deg, transparent 75%, #140828 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Acid Rave Alerts → .webm</h1>
+  <p>Records one event alert to a <strong>transparent</strong> <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Pick an event, optionally set name / amount, then click Record.
+     Leave <strong>No name</strong> on to ship the event-headline mode (your alert platform overlays
+     the live viewer name). The clip plays once on the canvas mirror below; when it finishes your
+     browser downloads <code>alert-&lt;event&gt;.webm</code>.</p>
+
+  <div class="row">
+    <span><label for="ev">Event</label><select id="ev"></select></span>
+    <span><label for="nm">Name</label><input id="nm" type="text" value="Raver" /></span>
+    <span><label for="am">Amount</label><input id="am" type="text" value="500" /></span>
+    <label class="chk"><input id="noname" type="checkbox" checked /> No name (shipping)</label>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i alert-follower.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le alert-follower.mov</code></p>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    // palette (mirrors alerts.css)
+    const ACID = '#C6FF00', MAG = '#FF14C8', CYAN = '#00E5FF', PURP = '#B26BFF', WHITE = '#FFFFFF',
+          DIM = 'rgba(207,200,224,.62)', LINE = 'rgba(198,255,0,.42)', LINE_SOFT = 'rgba(178,107,255,.28)';
+    const NEON = ['#C6FF00', '#FF14C8', '#00E5FF', '#B26BFF', '#FFFFFF'];
+    const MONO = '"Bahnschrift","Roboto Condensed","DejaVu Sans Mono",Consolas,monospace';
+    const DISP = '"Arial Black","Impact",Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+    const R = (a, b) => a + Math.random() * (b - a);
+
+    // ===== per-event table (mirror of alerts.js EVENTS) =====
+    const EVENTS = {
+      follower:   { glyph:"+",  kicker:"NEW FOLLOWER",   sub:"", sparks:14, amount:false },
+      subscriber: { glyph:"✦",  kicker:"NEW SUBSCRIBER", sub:"", sparks:20, amount:false },
+      member:     { glyph:"◆",  kicker:"NEW MEMBER",     sub:"", sparks:20, amount:false },
+      cheer:      { glyph:"≈",  kicker:"CHEER",          sub:"", sparks:24, amount:true,  amtPre:"", amtSuf:" BITS" },
+      donation:   { glyph:"❤",  kicker:"DONATION",       sub:"", sparks:26, amount:true,  amtPre:"$" },
+      host:       { glyph:"»",  kicker:"NOW HOSTING",    sub:"", sparks:30, amount:true,  amtPre:"", amtSuf:" VIEWERS" },
+      raid:       { glyph:"⚡", kicker:"RAID INBOUND",   sub:"", sparks:46, amount:true,  amtPre:"", amtSuf:" RAIDERS" },
+      like:       { glyph:"♥",  kicker:"NEW LIKE",       sub:"", sparks:14, amount:false },
+      share:      { glyph:"➤",  kicker:"SHARED",         sub:"", sparks:18, amount:false },
+      star:       { glyph:"★",  kicker:"NEW STAR",       sub:"", sparks:22, amount:true,  amtPre:"", amtSuf:" STARS" },
+      superchat:  { glyph:"✸",  kicker:"SUPER CHAT",     sub:"", sparks:28, amount:true,  amtPre:"$" },
+      supporter:  { glyph:"✪",  kicker:"NEW SUPPORTER",  sub:"", sparks:22, amount:false },
+    };
+    const ORDER = ['follower','subscriber','member','cheer','donation','host','raid','like','share','star','superchat','supporter'];
+
+    // fill dropdown
+    const sel = document.getElementById('ev');
+    for (const k of ORDER) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(o);
+    }
+
+    function fmtAmount(cfg, amount) {
+      if (amount == null) return "";
+      const a = String(amount).trim();
+      if (a === "") return "";
+      if (/[$€£¥]/.test(a) || /[a-z]/i.test(a)) return a;
+      return (cfg.amtPre || "") + a + (cfg.amtSuf || "");
+    }
+
+    // ===== card geometry (matches alerts.css: left 96, bottom 140, 820 wide) =====
+    const CARD_W = 820, CARD_H = 188;
+    const CARD_X = 96;
+    const CARD_Y = H - 140 - CARD_H;
+
+    // ===== easing + keyframe interp (mirror alerts.js) =====
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    function kf(ms, dur, stops) {
+      const t = clamp01(ms / dur);
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const a = stops[i - 1], b = stops[i];
+          const seg = (t - a[0]) / (b[0] - a[0] || 1);
+          return a[1] + (b[1] - a[1]) * easeOut(seg);
+        }
+      }
+      return stops[stops.length - 1][1];
+    }
+
+    // per-event transform -> {dx,dy,sx,sy,rot(rad),skew(rad),blur,ox,oy,op}
+    // ox/oy are the transform-origin (0..1) within the card box.
+    function motion(type, ms, enter) {
+      const d = enter;
+      let dx=0, dy=0, sx=1, sy=1, rot=0, skew=0, blur=0, ox=0.5, oy=0.5, op=1;
+      switch (type) {
+        case 'follower':  dy = kf(ms,d,[[0,64],[.72,-8],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'subscriber': sx = sy = kf(ms,d,[[0,.62],[1,1]]); blur = kf(ms,d,[[0,9],[.6,0],[1,0]]); op = clamp01(ms/(d*.55)); ox=0.16; break;
+        case 'member':    dx = kf(ms,d,[[0,-150],[.72,16],[1,0]]); op = clamp01(ms/(d*.45)); break;
+        case 'cheer':     dy = kf(ms,d,[[0,44],[.54,-12],[1,0]]); sx=sy=kf(ms,d,[[0,.88],[.54,1.05],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; oy=0.84; break;
+        case 'donation':  dy = kf(ms,d,[[0,-96],[.6,13],[.82,-6],[1,0]]); op = clamp01(ms/(d*.5)); break;
+        case 'host':      sx = kf(ms,d,[[0,.1],[.6,1.02],[1,1]]); op = clamp01(ms/(d*.4)); ox=0; break;
+        case 'raid':      dx = kf(ms,d,[[0,-280],[.55,28],[.72,-13],[.86,7],[1,0]]); sx=sy=kf(ms,d,[[0,1.05],[.55,1.02],[1,1]]); op=clamp01(ms/(d*.4)); break;
+        case 'like':      sx=sy = kf(ms,d,[[0,.82],[.6,1.06],[1,1]]); op=clamp01(ms/(d*.45)); ox=0.16; break;
+        case 'share':     dx = kf(ms,d,[[0,-130],[.7,9],[1,0]]); skew = kf(ms,d,[[0,-10],[.7,2],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.45)); break;
+        case 'star':      dy = kf(ms,d,[[0,-74],[.62,9],[1,0]]); rot = kf(ms,d,[[0,-5],[.62,1.6],[1,0]])*Math.PI/180; op=clamp01(ms/(d*.5)); ox=0.16; oy=0.3; break;
+        case 'superchat': sx=sy = kf(ms,d,[[0,1.38],[.6,.97],[1,1]]); op=clamp01(ms/(d*.5)); ox=0.16; break;
+        case 'supporter': dy = kf(ms,d,[[0,56],[1,0]]); blur = kf(ms,d,[[0,7],[.6,0],[1,0]]); op=clamp01(ms/(d*.5)); break;
+        default:          dy = kf(ms,d,[[0,64],[.72,-8],[1,0]]); op = clamp01(ms/(d*.5));
+      }
+      return {dx,dy,sx,sy,rot,skew,blur,ox,oy,op};
+    }
+    const ENTER = { follower:660, subscriber:720, member:600, cheer:580, donation:760, host:680, raid:800, like:620, share:600, star:720, superchat:700, supporter:700 };
+
+    // ===== clipped-notch card path (mirror clip-path: notch top-left + bottom-right) =====
+    function cardPath(x, y, w, h, n) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + n);
+      ctx.lineTo(x + n, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h - n);
+      ctx.lineTo(x + w - n, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+    }
+    // ===== hexagonal neon node path =====
+    function hexPath(cx, cy, w, h) {
+      const pts = [[.25,.04],[.75,.04],[.98,.5],[.75,.96],[.25,.96],[.02,.5]];
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = cx + p[0]*w, y = cy + p[1]*h;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.closePath();
+    }
+
+    // ===== neon-spark burst (mirror of alerts.js) =====
+    function drawMote(p) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.fillStyle = p.c; ctx.strokeStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 12;
+      if (p.streak) {
+        const len = Math.min(26, 6 + Math.hypot(p.vx, p.vy) * 5);
+        const m = Math.hypot(p.vx, p.vy) || 1, ux = p.vx/m, uy = p.vy/m;
+        ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(p.x - ux*len, p.y - uy*len); ctx.lineTo(p.x, p.y); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s*0.5, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // clamp a string to a pixel width in the current font
+    function clampText(str, maxW) {
+      let s = String(str);
+      if (ctx.measureText(s).width <= maxW) return s;
+      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      return s + '…';
+    }
+
+    // ===== one full alert clip as a function of time =====
+    function clipState(type, name, amountStr, noname) {
+      const cfg = EVENTS[type] || EVENTS.follower;
+      const enter = ENTER[type] || 660, HOLD = 4000, EXIT = 480, holdEnd = enter + HOLD;
+      const DUR = holdEnd + EXIT;
+      const burst = [];
+      let sp1 = false, sp2 = false;
+      const showAmount = !!(cfg.amount && amountStr);
+
+      function spawn(n) {
+        const ox = CARD_X + 72, oy = CARD_Y + CARD_H - 64;
+        for (let i = 0; i < n; i++) {
+          const ang = R(-Math.PI, Math.PI), sp = R(60, 320)/60;
+          burst.push({
+            x: ox + R(-28,28), y: oy + R(-28,28),
+            vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp - R(0.6,1.8),
+            g: R(60,150)/3600, s: R(3,9), rot: R(0,6.28), vr: R(-4,4)/60,
+            a: 1, life: R(1.0,2.0), streak: Math.random() < 0.4,
+            c: NEON[(Math.random()*NEON.length)|0],
+          });
+        }
+      }
+      function stepBurst() {
+        for (let i = burst.length - 1; i >= 0; i--) {
+          const p = burst[i];
+          p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+          p.vx *= 0.98; p.vy *= 0.98;
+          p.life -= 1/30; p.a = Math.min(1, Math.max(0, p.life));
+          if (p.life <= 0 || p.y > H + 60) burst.splice(i, 1);
+        }
+      }
+
+      function drawCard(m) {
+        const ox = CARD_X + m.ox * CARD_W, oy = CARD_Y + m.oy * CARD_H;
+        ctx.save();
+        ctx.globalAlpha = m.op;
+        ctx.translate(ox + m.dx, oy + m.dy);
+        ctx.scale(m.sx, m.sy);
+        ctx.rotate(m.rot);
+        ctx.transform(1, 0, Math.tan(m.skew), 1, 0, 0); // skewX
+        ctx.translate(-ox, -oy);
+
+        const x = CARD_X, y = CARD_Y, NOTCH = 22;
+
+        // ---- card body (UV slab + soft glow) ----
+        ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 24;
+        cardPath(x, y, CARD_W, CARD_H, NOTCH);
+        const body = ctx.createLinearGradient(x, y, x + CARD_W, y + CARD_H);
+        body.addColorStop(0, 'rgba(9,4,18,0.86)'); body.addColorStop(1, 'rgba(4,2,10,0.80)');
+        ctx.fillStyle = body; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        // corner UV glow tint top-left
+        cardPath(x, y, CARD_W, CARD_H, NOTCH); ctx.save(); ctx.clip();
+        const tint = ctx.createRadialGradient(x, y, 0, x, y, CARD_W*0.7);
+        tint.addColorStop(0, 'rgba(178,107,255,0.16)'); tint.addColorStop(1, 'rgba(178,107,255,0)');
+        ctx.fillStyle = tint; ctx.fillRect(x, y, CARD_W, CARD_H);
+        ctx.restore();
+        // hairline border
+        ctx.lineWidth = 1; ctx.strokeStyle = LINE_SOFT;
+        cardPath(x + 0.5, y + 0.5, CARD_W - 1, CARD_H - 1, NOTCH); ctx.stroke();
+
+        // ---- bright acid->magenta left seam ----
+        const seam = ctx.createLinearGradient(0, y + NOTCH, 0, y + CARD_H);
+        seam.addColorStop(0, CYAN); seam.addColorStop(0.5, ACID); seam.addColorStop(1, MAG);
+        ctx.fillStyle = seam; ctx.shadowColor = 'rgba(198,255,0,0.65)'; ctx.shadowBlur = 16;
+        ctx.fillRect(x, y + NOTCH, 5, CARD_H - NOTCH); ctx.shadowBlur = 0;
+
+        // ---- hexagonal neon glyph node ----
+        const nx = x + 40, ny = y + (CARD_H - 128)/2, ns = 128;
+        const ng = ctx.createLinearGradient(nx, ny, nx, ny + ns);
+        ng.addColorStop(0, 'rgba(20,8,32,0.9)'); ng.addColorStop(1, 'rgba(7,3,15,0.96)');
+        hexPath(nx, ny, ns, ns); ctx.fillStyle = ng; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = LINE; hexPath(nx, ny, ns, ns); ctx.stroke();
+        // glyph (acid neon)
+        ctx.fillStyle = ACID; ctx.shadowColor = 'rgba(198,255,0,0.7)'; ctx.shadowBlur = 26;
+        ctx.font = '900 62px ' + DISP; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.glyph, nx + ns/2, ny + ns/2 + 1);
+        ctx.shadowBlur = 0;
+
+        // ---- meta column ----
+        const mx = x + 40 + ns + 30;
+        const maxW = CARD_W - (40 + ns + 30) - 40;
+        ctx.textAlign = 'left';
+
+        // header zone: kicker pill (unless noname)
+        let headBaseY;
+        if (!noname) {
+          ctx.font = '700 18px ' + MONO; ctx.textBaseline = 'middle';
+          const kl = cfg.kicker, kw = ctx.measureText(kl).width, padX = 18, ph = 30, py = y + 40;
+          // acid pill
+          const pillW = Math.min(maxW, kw + padX*2 + 8);
+          const gpill = ctx.createLinearGradient(mx, py - ph/2, mx, py + ph/2);
+          gpill.addColorStop(0, ACID); gpill.addColorStop(1, '#9ED600');
+          ctx.fillStyle = gpill; ctx.shadowColor = 'rgba(198,255,0,0.55)'; ctx.shadowBlur = 22;
+          roundRect(mx, py - ph/2, pillW, ph, ph/2); ctx.fill(); ctx.shadowBlur = 0;
+          ctx.fillStyle = '#07030F'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          // letter-spaced kicker
+          drawSpaced(kl, mx + padX, py, 18, MONO, '700', 3.5);
+          headBaseY = y + 122;
+        } else {
+          headBaseY = y + 104;
+        }
+
+        // big headline (heavy display) — event label (noname) or viewer name
+        const head = (noname ? cfg.kicker : (name || 'Raver')).toUpperCase();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.font = '900 76px ' + DISP;
+        const headTxt = clampText(head, maxW);
+        // RGB-split ghost clones (cyan -3px, magenta +3px) behind, screen-ish
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = CYAN; ctx.globalAlpha = m.op * 0.55; ctx.fillText(headTxt, mx - 3, headBaseY);
+        ctx.fillStyle = MAG;  ctx.globalAlpha = m.op * 0.5;  ctx.fillText(headTxt, mx + 3, headBaseY);
+        ctx.restore();
+        // main white headline w/ acid glow
+        ctx.fillStyle = WHITE; ctx.globalAlpha = m.op;
+        ctx.shadowColor = 'rgba(198,255,0,0.45)'; ctx.shadowBlur = 30;
+        ctx.fillText(headTxt, mx, headBaseY);
+        ctx.shadowBlur = 0;
+
+        // amount (neon cyan->acid) OR sub
+        let subY = headBaseY + 38;
+        if (showAmount) {
+          ctx.font = '900 44px ' + DISP;
+          const grad = ctx.createLinearGradient(mx, headBaseY + 12, mx, headBaseY + 56);
+          grad.addColorStop(0, WHITE); grad.addColorStop(0.42, CYAN); grad.addColorStop(1, ACID);
+          ctx.fillStyle = grad; ctx.shadowColor = 'rgba(0,229,255,0.5)'; ctx.shadowBlur = 18;
+          ctx.fillText(clampText(amountStr, maxW), mx, headBaseY + 46); ctx.shadowBlur = 0;
+          subY = headBaseY + 82;
+        }
+        // sub (mono dim) — ships empty, drawn only if non-empty
+        if (cfg.sub) {
+          ctx.font = '18px ' + MONO; ctx.fillStyle = DIM;
+          ctx.fillText(clampText(cfg.sub, maxW), mx, subY);
+        }
+
+        // nid (top-right purple mono)
+        ctx.fillStyle = PURP; ctx.globalAlpha = m.op * 0.85; ctx.textAlign = 'right';
+        ctx.font = '14px ' + MONO; ctx.shadowColor = 'rgba(178,107,255,0.5)'; ctx.shadowBlur = 12;
+        ctx.fillText('CH 01 // UV', x + CARD_W - 24, y + 26); ctx.shadowBlur = 0;
+        ctx.globalAlpha = m.op; ctx.textAlign = 'left';
+
+        // bottom tri-color laser rule
+        const ry = y + CARD_H - 17, rx0 = x + 40, rx1 = x + CARD_W - 40;
+        const rg = ctx.createLinearGradient(rx0, 0, rx1, 0);
+        rg.addColorStop(0, 'rgba(0,229,255,0)'); rg.addColorStop(0.16, CYAN);
+        rg.addColorStop(0.5, WHITE); rg.addColorStop(0.84, MAG); rg.addColorStop(1, 'rgba(255,20,200,0)');
+        ctx.fillStyle = rg; ctx.shadowColor = 'rgba(0,229,255,0.5)'; ctx.shadowBlur = 12;
+        ctx.fillRect(rx0, ry, rx1 - rx0, 3); ctx.shadowBlur = 0;
+
+        ctx.restore();
+      }
+
+      const render = function (ms) {
+        ctx.clearRect(0, 0, W, H);
+        let m;
+        if (ms < holdEnd) {
+          m = motion(type, ms, enter);
+        } else {
+          const p = clamp01((ms - holdEnd) / EXIT);
+          m = { dx:0, dy: 18*easeOut(p), sx: 1-0.015*easeOut(p), sy: 1-0.015*easeOut(p), rot:0, skew:0, blur:0, ox:0.5, oy:0.5, op: 1-p };
+        }
+        // bursts
+        if (!sp1 && ms >= 200) { spawn(cfg.sparks); sp1 = true; }
+        if (!sp2 && cfg.sparks >= 28 && ms >= 560) { spawn(Math.round(cfg.sparks*0.6)); sp2 = true; }
+        stepBurst();
+        if (m.op > 0.01) for (const p of burst) drawMote(p);
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+        if (m.op > 0.01) drawCard(m);
+      };
+      render.DUR = DUR;
+      return render;
+    }
+
+    // rounded-rect helper (for the kicker pill)
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    // draw a letter-spaced string (canvas has no letter-spacing)
+    function drawSpaced(str, x, y, size, font, weight, gap) {
+      ctx.save();
+      ctx.font = weight + ' ' + size + 'px ' + font;
+      let cx = x;
+      for (const ch of String(str)) {
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + gap;
+      }
+      ctx.restore();
+    }
+
+    // ===== preview a static mid-hold frame =====
+    function preview() {
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const r = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      r(ENTER[type] + 1200);
+    }
+    sel.addEventListener('change', preview);
+    document.getElementById('nm').addEventListener('input', preview);
+    document.getElementById('am').addEventListener('input', preview);
+    document.getElementById('noname').addEventListener('change', preview);
+    preview();
+
+    // ===== recording =====
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const c = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+      return c.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported. Try Chrome / Edge.'; return; }
+      btn.disabled = true; sel.disabled = true;
+
+      const type = sel.value, cfg = EVENTS[type];
+      const amountStr = fmtAmount(cfg, document.getElementById('am').value);
+      const render = clipState(type, document.getElementById('nm').value, amountStr, document.getElementById('noname').checked);
+      const DUR = render.DUR;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'alert-' + type + '.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — alert-' + type + '.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false; sel.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording ' + type + '… (' + mime + ')';
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const ms = now - t0;
+        if (ms >= DUR) {
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        render(Math.max(0, ms));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

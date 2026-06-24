@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Starlit Dreamcore — Thanks for Watching</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you  ?render=1
+       Editable slots: ?kicker=...  ?sub=...  ?tag=...  ?tag2=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* ending: no loading bar — the @handle is the hero, glowing star-white under
+       the title. Trim the title a touch so the whole block (kicker -> title ->
+       sub -> hero handle) breathes inside the frameless dream halo. */
+    .ending .title{font-size:128px;margin:18px 0 6px;}
+    .ending .sub{margin-top:20px;}
+    .ending .handle-hero{margin-top:34px;font-family:var(--display);font-weight:600;
+      font-size:46px;letter-spacing:.28em;text-indent:.28em;color:var(--white);
+      text-shadow:0 0 26px rgba(184,164,255,.5),0 0 60px rgba(242,198,255,.35);
+      animation:fadeup 1.1s var(--ease) both .8s;}
+    .ending .handle-tag{margin-top:14px;font-family:var(--display);font-weight:600;
+      letter-spacing:.42em;font-size:17px;text-indent:.42em;color:var(--lavender);
+      opacity:.78;text-transform:uppercase;
+      animation:fadeup 1.2s var(--ease) both .95s;}
+    #stage.render .ending .handle-hero,
+    #stage.render .ending .handle-tag{animation:none!important;opacity:1;transform:none;}
+    #stage.render .ending .handle-tag{opacity:.78;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <!-- the hazy dreamcore night sky -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- drifting nebula blooms hugging the margins (clear of the centre) -->
+    <div class="neb neb--1" aria-hidden="true"></div>
+    <div class="neb neb--2" aria-hidden="true"></div>
+    <div class="neb neb--3" aria-hidden="true"></div>
+    <div class="neb neb--4" aria-hidden="true"></div>
+
+    <!-- soft glowing moon, low in the left margin -->
+    <div class="moon" aria-hidden="true"></div>
+
+    <!-- dreamy soft bloom + gentle vignette -->
+    <div class="haze" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.)
+         These corner brand tags sit in the screen margins, clear of the title. -->
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-txt"><span class="slot-no">13</span><span class="slot-txt">your text here</span></span></div>
+    <div class="tag tag--bl is-slot" data-slot="tag"><span class="slot-txt"><span class="slot-no">14</span><span class="slot-txt">your text here</span></span></div>
+
+    <!-- the centred dream panel — a frameless halo of soft light -->
+    <main class="dream ending">
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span><span class="star"></span><span class="r r--r"></span>
+      </div>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-txt"><span class="slot-no">15</span><span class="slot-txt">your text here</span></span></p>
+      <h1 class="title"><span class="line">THANKS FOR</span><span class="accent">WATCHING</span></h1>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-txt"><span class="slot-no">16</span><span class="slot-txt">your text here</span></span></p>
+      <div class="handle-hero" id="handle">@yourhandle</div>
+      <p class="handle-tag is-slot" data-slot="tag3"><span class="slot-txt"><span class="slot-no">17</span><span class="slot-txt">your text here</span></span></p>
+    </main>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

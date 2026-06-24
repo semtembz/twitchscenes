@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Acid Rave (PNG generator)</title>
+  <!--
+    ACID RAVE · "UV Blacklight" PROFILE BANNER generator (1920 x 480, 4:1).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE identity;
+    right = an editable tagline. The centre is decorative only — a neon equalizer
+    arch + UV bokeh — so the player can sit over it without hiding anything.
+
+    Everything random is drawn from a SEEDED RNG (mulberry32), so the glow / EQ
+    layout is identical on every render (Math.random is never used).
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only;
+    it is NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --uv-black:#07030F; --uv-black2:#04020A;
+      --acid:#C6FF00; --magenta:#FF14C8; --cyan:#00E5FF; --purple:#B26BFF; --white:#FFFFFF;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Bahnschrift","Roboto Condensed",Consolas,monospace;
+      background:var(--uv-black2);color:var(--white);padding:32px;}
+    h1{font-family:"Arial Black","Impact",Haettenschweiler,system-ui,sans-serif;font-weight:900;
+      font-size:28px;color:var(--white);letter-spacing:0;margin:0 0 6px;text-transform:uppercase;
+      text-shadow:0 0 22px rgba(255,20,200,.5),0 0 50px rgba(0,229,255,.3);}
+    p.lead{color:#B9A8D6;margin:0 0 22px;max-width:860px;line-height:1.6;font-size:15px;}
+    .kicker{font-family:"Bahnschrift","Roboto Condensed",Consolas,monospace;letter-spacing:7px;
+      font-size:13px;color:var(--acid);margin:0 0 14px;text-transform:uppercase;text-indent:6px;
+      text-shadow:0 0 16px rgba(198,255,0,.6);}
+    button{font-family:"Bahnschrift","Roboto Condensed",Consolas,monospace;font-weight:700;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--uv-black);
+      background:linear-gradient(180deg,var(--acid),#9ED600);border:1px solid rgba(198,255,0,.6);
+      border-radius:999px;cursor:pointer;box-shadow:0 0 30px rgba(198,255,0,.4);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#0a0514;padding:14px;border:1px solid #2a1640;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(198,255,0,0.40);
+      background:rgba(10,6,20,0.40);pointer-events:none;border-radius:6px;
+      color:rgba(255,255,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Bahnschrift","Roboto Condensed",Consolas,monospace;font-size:12px;letter-spacing:2px;}
+    code{font-family:"DejaVu Sans Mono","Courier New",monospace;color:var(--acid);background:#140a22;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">ACID RAVE · PROFILE BANNER</p>
+  <h1>Profile Banner Generator</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the UV-blacklight rave style — seeded so the
+    glow and equalizer are reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette ----
+    const UV_BLACK = '#07030F', UV_BLACK2 = '#04020A';
+    const ACID = '#C6FF00', MAGENTA = '#FF14C8', CYAN = '#00E5FF', PURPLE = '#B26BFF', WHITE = '#FFFFFF';
+    const PAL = [ACID, MAGENTA, CYAN, PURPLE];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const Rr = (rnd, a, b) => a + rnd() * (b - a);
+    function hexRgb(hex) { return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]; }
+    function rgba(hex, a) { const c = hexRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+    function bloom(x, y, r, hex, alpha) {
+      const c = hexRgb(hex);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')');
+      g.addColorStop(0.5, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (alpha * 0.4).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    // ---- decorative neon EQUALIZER arch in the centre (behind the player) ----
+    function centreEq(rnd, cx, baseY) {
+      const span = 360, n = 30, gap = 4, bw = (span / n) - gap;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < n; i++) {
+        // arch envelope: tall in the middle, short at the edges
+        const t = i / (n - 1);
+        const env = Math.sin(t * Math.PI);
+        const v = (0.4 + 0.6 * Math.abs(Math.sin(i * 1.3 + 0.7)));
+        const hgt = 10 + env * v * 150;
+        const col = PAL[(rnd() * PAL.length) | 0];
+        const cc = hexRgb(col);
+        const x = Math.round(cx - span / 2 + i * (bw + gap));
+        const g = ctx.createLinearGradient(0, baseY, 0, baseY - hgt);
+        g.addColorStop(0, 'rgba(' + cc[0] + ',' + cc[1] + ',' + cc[2] + ',0)');
+        g.addColorStop(1, 'rgba(' + cc[0] + ',' + cc[1] + ',' + cc[2] + ',0.55)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x, Math.round(baseY - hgt), Math.max(2, Math.round(bw)), Math.ceil(hgt));
+        ctx.fillStyle = 'rgba(' + cc[0] + ',' + cc[1] + ',' + cc[2] + ',0.7)';
+        ctx.fillRect(x, Math.round(baseY - hgt), Math.max(2, Math.round(bw)), 2);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // ---- a centred branding block: kicker, big bold-display title, mono sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText, accent, glitch) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // kicker with flanking neon diamonds, spaced caps
+      ctx.font = '700 22px "Bahnschrift","Roboto Condensed",Consolas,monospace';
+      ctx.fillStyle = accent;
+      ctx.shadowColor = rgba(accent, 0.5); ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 116, 9);
+      const kw = spacedWidth(kickerLabel, 9);
+      ctx.shadowBlur = 8;
+      [cx - kw / 2 - 22, cx + kw / 2 + 22].forEach(dx => {
+        ctx.save(); ctx.translate(dx, 116); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = WHITE; ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+
+      // title — heavy bold-display with smooth neon glow + optional RGB split
+      ctx.font = '900 ' + titleSize + 'px "Arial Black","Impact",Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif';
+      const titleY = 222;
+      if (glitch) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = rgba(CYAN, 0.45); ctx.fillText(titleText, cx - 5, titleY - 2);
+        ctx.fillStyle = rgba(MAGENTA, 0.45); ctx.fillText(titleText, cx + 5, titleY + 2);
+        ctx.restore();
+      }
+      ctx.fillStyle = accent;
+      ctx.shadowColor = rgba(accent, 0.6); ctx.shadowBlur = 38;
+      ctx.fillText(titleText, cx, titleY);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.94)';
+      ctx.fillText(titleText, cx, titleY);
+      ctx.lineWidth = 1.6; ctx.strokeStyle = rgba(accent, 0.85);
+      ctx.strokeText(titleText, cx, titleY);
+
+      // tri-color laser rule under the title
+      const ruW = Math.min(380, titleSize * 4.2);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(0,229,255,0)'); ug.addColorStop(0.18, CYAN);
+      ug.addColorStop(0.5, WHITE); ug.addColorStop(0.82, MAGENTA); ug.addColorStop(1, 'rgba(255,20,200,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 2.4;
+      ctx.shadowColor = 'rgba(0,229,255,0.5)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 296); ctx.lineTo(cx + ruW / 2, 296); ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // subtitle — cyan condensed
+      ctx.font = '600 24px "Bahnschrift","Roboto Condensed",Consolas,monospace';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(0,229,255,0.4)'; ctx.shadowBlur = 10;
+      drawSpacedCentered(subText, cx, 344, 3);
+      ctx.shadowBlur = 0;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x5A2CFF3E);
+
+      // ---- BACKGROUND: UV void gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0B0518'); grad.addColorStop(0.6, UV_BLACK); grad.addColorStop(1, UV_BLACK2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // edge-biased UV glows (flank L/R, soft centre)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      bloom(W * 0.16, H * 0.40, 360, ACID, 0.12);
+      bloom(W * 0.84, H * 0.40, 360, MAGENTA, 0.12);
+      bloom(W * 0.50, H * 0.55, 520, CYAN, 0.07);
+      bloom(W * 0.30, H * 0.18, 280, PURPLE, 0.07);
+      bloom(W * 0.70, H * 0.20, 280, CYAN, 0.06);
+      // ---- seeded extra glow blobs (kept in L/R thirds) ----
+      for (let i = 0; i < 8; i++) {
+        const onLeft = i % 2 === 0;
+        const x = onLeft ? Rr(rnd, 60, 600) : Rr(rnd, W - 600, W - 60);
+        const y = Rr(rnd, 40, H - 40), r = Rr(rnd, 120, 240);
+        const c = PAL[(rnd() * PAL.length) | 0], a = Rr(rnd, 0.05, 0.11);
+        bloom(x, y, r, c, a);
+      }
+      ctx.restore();
+
+      // ---- UV grid floor ----
+      ctx.save();
+      ctx.strokeStyle = 'rgba(178,107,255,0.10)'; ctx.lineWidth = 1;
+      for (let y = H * 0.6; y < H; y += 26) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.restore();
+
+      // ---- decorative neon EQ arch (centre, behind the player) ----
+      centreEq(rnd, W / 2, H * 0.78);
+
+      // ---- scanline sheen ----
+      ctx.save();
+      ctx.globalAlpha = 0.28; ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,1,6,0.78)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'LIVE STREAMER', handleAt.toUpperCase(), 72, 'TWITCH.TV/' + handleClean.toUpperCase(), ACID, true);
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — editable placeholders ----
+      block(1520, '[20] your text here', '[ YOUR TEXT ]', 64, '[21] your text here', MAGENTA, true);
+
+      // ---- accent neon rails flanking the centre clear-zone ----
+      ctx.save();
+      ctx.shadowColor = 'rgba(178,107,255,0.5)'; ctx.shadowBlur = 8;
+      ctx.fillStyle = 'rgba(178,107,255,0.5)';
+      for (let yy = 90; yy < H - 60; yy += 16) { ctx.fillRect(672, yy, 3, 7); ctx.fillRect(1245, yy, 3, 7); }
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(0,229,255,0.6)';
+      [[673, 74], [1246, 74], [673, H - 56], [1246, H - 56]].forEach(([x, y]) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+      });
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // ---- manual letter-spacing helpers ----
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

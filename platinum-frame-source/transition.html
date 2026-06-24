@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Platinum Frame Razor-Line Sweep</title>
+  <!--
+    PLATINUM FRAME stinger ("Razor Sweep"). A single ultra-thin platinum
+    light-line races across the void from the left; behind its leading edge a
+    flat charcoal panel wipes in, dragging a fine trail of cold steel/platinum
+    specks. As the wipe nears full cover a centred razor-thin platinum FRAME
+    (the brand's signature double hairline) draws itself in — four L-shaped
+    corner registration ticks snap on and a tiny diamond node flickers at the
+    core with a cool light-flash. Then the panel wipes off to the right behind a
+    second razor-line and the screen clears. Cold, expensive, airy — NO velvet,
+    NO frost, NO glitch.
+
+    Transparent before & after, deterministic (seeded RNG, no Math.random in the
+    frame fn), sine-driven, ~1200ms. cover = sin(t*PI) (0 -> 1 -> 0).
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1200  total duration in ms (default 1200)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add
+    it as a Stinger transition with the Transition Point at ~50% (full cover).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1200;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (platinum frame) ---- */
+    const BG_DEEP = [14, 16, 19], BG_LIFT = [26, 30, 36], BG_DARK = [9, 10, 13];
+    const STEEL = [154, 167, 178], PLATINUM = [215, 222, 230], WHITE = [244, 247, 250];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a.toFixed(3) + ')';
+
+    /* ---- seeded RNG, used ONCE up-front to lay out the speck trail; the frame
+       fn is a pure deterministic function of t (no Math.random in frame). ---- */
+    let seed = 0xD7DE >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* a fine trail of cold specks that the leading razor-line drags along with
+       the wipe — each sits at a fixed Y and a fixed offset BEHIND the front, so
+       they ride the sweep across deterministically and twinkle faintly. */
+    const N_SPECK = 70;
+    const specks = Array.from({ length: N_SPECK }, () => ({
+      y: R(40, H - 40),
+      back: R(8, 230),                 // px lag behind the leading edge
+      drift: R(-26, 26),               // small vertical drift over the sweep
+      s: R(1.0, 3.0),
+      a: R(0.22, 0.7),
+      tw: R(1.1, 2.6), phase: R(0, 6.2832),
+      ice: rnd() < 0.42,               // platinum-light vs steel
+    }));
+
+    /* the centred razor-thin FRAME geometry (mirrors the overlay's signature:
+       an outer hairline + an inner hairline inset & nudged toward lower-right so
+       the corners read as a precise stepped/offset double registration). */
+    const FRM_W = 1180, FRM_H = 560;
+    const FX = CX - FRM_W / 2, FY = CY - FRM_H / 2;     // outer top-left
+    const IN_L = 12, IN_T = 12, IN_R = 6, IN_B = 6;     // inner inset (stepped/offset)
+
+    /* draw an axis-aligned rectangle as four separately-stroked edges so the
+       hairline can "draw on" (each edge reveals from its start by fraction g). */
+    function strokeRectProgress(x, y, w, h, g) {
+      g = clamp01(g);
+      // perimeter drawn clockwise from top-left: top, right, bottom, left.
+      // total length split so the line sweeps around the frame.
+      const top = w, right = h, bottom = w, left = h;
+      const per = top + right + bottom + left;
+      let rem = g * per;
+      ctx.beginPath();
+      // top edge L->R
+      let seg = Math.min(rem, top); if (seg > 0) { ctx.moveTo(x, y); ctx.lineTo(x + seg, y); } rem -= top;
+      // right edge T->B
+      if (rem > 0) { seg = Math.min(rem, right); ctx.moveTo(x + w, y); ctx.lineTo(x + w, y + seg); rem -= right; }
+      // bottom edge R->L
+      if (rem > 0) { seg = Math.min(rem, bottom); ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - seg, y + h); rem -= bottom; }
+      // left edge B->T
+      if (rem > 0) { seg = Math.min(rem, left); ctx.moveTo(x, y + h); ctx.lineTo(x, y + h - seg); rem -= left; }
+      ctx.stroke();
+    }
+
+    /* the brand's centred razor-thin double-hairline FRAME, drawing itself in.
+       fIn = 0..1 reveal of the perimeter; tickA = corner-tick alpha. */
+    function drawFrame(fIn, tickA, glowA) {
+      if (fIn <= 0.001) return;
+      ctx.save();
+      // outer hairline
+      ctx.globalAlpha = 0.92;
+      ctx.strokeStyle = rgba(PLATINUM, 0.74);
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = rgba(PLATINUM, 0.5);
+      ctx.shadowBlur = 8 * glowA;
+      strokeRectProgress(Math.round(FX), Math.round(FY), FRM_W, FRM_H, fIn);
+      // inner offset hairline (inset & nudged lower-right -> stepped corners)
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = rgba(PLATINUM, 0.30);
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+      strokeRectProgress(
+        Math.round(FX + IN_L), Math.round(FY + IN_T),
+        FRM_W - IN_L - IN_R, FRM_H - IN_T - IN_B, fIn);
+
+      // centre-top + centre-bottom reference ticks (echo .frame::after)
+      if (fIn > 0.6) {
+        const ra = (fIn - 0.6) / 0.4;
+        ctx.globalAlpha = 0.7 * ra;
+        ctx.strokeStyle = rgba(PLATINUM, 0.7);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(CX, FY - 1); ctx.lineTo(CX, FY + 17);
+        ctx.moveTo(CX, FY + FRM_H + 1); ctx.lineTo(CX, FY + FRM_H - 17);
+        ctx.stroke();
+      }
+
+      // L-shaped corner registration ticks snap on near the end of the draw
+      if (tickA > 0.01) {
+        ctx.globalAlpha = clamp01(tickA);
+        ctx.strokeStyle = rgba(WHITE, 0.9);
+        ctx.lineWidth = 1.4;
+        ctx.shadowColor = rgba(PLATINUM, 0.6);
+        ctx.shadowBlur = 7 * glowA;
+        const arm = 26;
+        const corners = [
+          [FX, FY, 1, 1], [FX + FRM_W, FY, -1, 1],
+          [FX, FY + FRM_H, 1, -1], [FX + FRM_W, FY + FRM_H, -1, -1],
+        ];
+        for (const [x, y, sx, sy] of corners) {
+          ctx.beginPath();
+          ctx.moveTo(x, y); ctx.lineTo(x + sx * arm, y);
+          ctx.moveTo(x, y); ctx.lineTo(x, y + sy * arm);
+          ctx.stroke();
+        }
+        // tiny diamond node at the exact centre
+        const ms = 6;
+        ctx.shadowBlur = 12 * glowA;
+        ctx.fillStyle = rgba(WHITE, 0.92);
+        ctx.beginPath();
+        ctx.moveTo(CX, CY - ms); ctx.lineTo(CX + ms, CY);
+        ctx.lineTo(CX, CY + ms); ctx.lineTo(CX - ms, CY); ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* draw the charcoal cover PANEL with its leading razor-line. dir +1 wipes a
+       left-anchored panel rightward (cover-in); dir -1 reveals from the left
+       (uncover). edgeX is the front position. */
+    function drawPanel(edgeX, lineA) {
+      if (edgeX <= 0.5) return;
+      // flat charcoal void panel from x=0 to the front, with a faint vertical
+      // gradient so it reads as the deep void rather than a flat slab.
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0.00, rgba(BG_LIFT, 0.97));
+      g.addColorStop(0.45, rgba(BG_DEEP, 0.99));
+      g.addColorStop(1.00, rgba(BG_DARK, 1.0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, Math.ceil(edgeX), H);
+
+      // a soft platinum wash just inside the front (the panel's inner sheen)
+      if (edgeX > 6 && edgeX < W) {
+        const ww = 140;
+        const sg = ctx.createLinearGradient(edgeX - ww, 0, edgeX, 0);
+        sg.addColorStop(0, rgba(PLATINUM, 0));
+        sg.addColorStop(1, rgba(PLATINUM, 0.06));
+        ctx.fillStyle = sg;
+        ctx.fillRect(Math.max(0, edgeX - ww), 0, Math.min(ww, edgeX), H);
+      }
+
+      // the leading RAZOR-LINE itself: a 1px ultra-bright platinum line with a
+      // soft glow, plus hairline end-ticks top & bottom (registration motif).
+      if (lineA > 0.01 && edgeX > 1 && edgeX < W - 1) {
+        ctx.save();
+        // wide soft glow behind the line
+        ctx.globalAlpha = 0.28 * lineA;
+        ctx.strokeStyle = rgba(PLATINUM, 0.9);
+        ctx.lineWidth = 10;
+        ctx.shadowColor = rgba(WHITE, 0.8);
+        ctx.shadowBlur = 34;
+        ctx.beginPath(); ctx.moveTo(edgeX, 0); ctx.lineTo(edgeX, H); ctx.stroke();
+        // the crisp 1px line
+        ctx.globalAlpha = lineA;
+        ctx.strokeStyle = rgba(WHITE, 0.95);
+        ctx.lineWidth = 1.4;
+        ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(edgeX, 0); ctx.lineTo(edgeX, H); ctx.stroke();
+        // top & bottom hairline end-ticks
+        ctx.globalAlpha = 0.85 * lineA;
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.moveTo(edgeX - 9, 1); ctx.lineTo(edgeX + 9, 1);
+        ctx.moveTo(edgeX - 9, H - 1); ctx.lineTo(edgeX + 9, H - 1);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    /* the speck trail riding behind the leading edge. frontX = current front. */
+    function drawSpecks(frontX, cover, t) {
+      ctx.save();
+      for (const p of specks) {
+        const px = frontX - p.back;
+        if (px < 2 || px > W) continue;
+        const py = p.y + p.drift * smooth(cover);
+        const twk = 0.55 + Math.sin(p.phase + t * p.tw * 6.2832) * 0.45;
+        const a = p.a * twk * cover;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.ice ? rgba(PLATINUM, 1) : rgba(STEEL, 1);
+        ctx.shadowColor = p.ice ? rgba(WHITE, 0.9) : rgba(STEEL, 0.8);
+        ctx.shadowBlur = 6;
+        const s = p.s;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(px), Math.round(py - s));
+        ctx.lineTo(Math.round(px + s), Math.round(py));
+        ctx.lineTo(Math.round(px), Math.round(py + s));
+        ctx.lineTo(Math.round(px - s), Math.round(py));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);                 // 0 -> 1 -> 0, full at t=0.5
+
+      // Two-phase razor sweep:
+      //  t in [0,0.5): a left-anchored panel WIPES IN to the right (front 0->W)
+      //  t in [0.5,1]: the panel WIPES OFF to the right (left edge 0->W reveals)
+      // The leading bright razor-line sits at the moving front in both phases.
+      let frontX;        // right edge of the visible charcoal panel
+      let leftX = 0;     // left edge of the visible charcoal panel (uncover phase)
+      let lineX;         // where the bright razor-line lives
+      if (t < 0.5) {
+        const p = smooth(t / 0.5);
+        frontX = p * W;
+        lineX = frontX;
+        // panel fills 0..frontX
+        drawPanel(frontX, 1);
+      } else {
+        const p = smooth((t - 0.5) / 0.5);
+        leftX = p * W;
+        frontX = W;
+        lineX = leftX;
+        // panel fills leftX..W ; draw full panel then we redraw only the right
+        // portion by clipping.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(Math.floor(leftX), 0, W - Math.floor(leftX) + 1, H);
+        ctx.clip();
+        drawPanel(W, 0);              // panel body only (no front line here)
+        ctx.restore();
+        // bright razor-line at the receding left edge
+        drawPanel(0, 0);              // no-op guard
+        // draw the line at leftX manually (reuse panel's line styling)
+        if (leftX > 1 && leftX < W - 1) {
+          ctx.save();
+          ctx.globalAlpha = 0.28;
+          ctx.strokeStyle = rgba(PLATINUM, 0.9);
+          ctx.lineWidth = 10;
+          ctx.shadowColor = rgba(WHITE, 0.8);
+          ctx.shadowBlur = 34;
+          ctx.beginPath(); ctx.moveTo(leftX, 0); ctx.lineTo(leftX, H); ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = rgba(WHITE, 0.95);
+          ctx.lineWidth = 1.4;
+          ctx.shadowBlur = 12;
+          ctx.beginPath(); ctx.moveTo(leftX, 0); ctx.lineTo(leftX, H); ctx.stroke();
+          ctx.globalAlpha = 0.85;
+          ctx.lineWidth = 1; ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.moveTo(leftX - 9, 1); ctx.lineTo(leftX + 9, 1);
+          ctx.moveTo(leftX - 9, H - 1); ctx.lineTo(leftX + 9, H - 1);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // speck trail rides just behind whichever front is moving
+      drawSpecks(lineX, cover, t);
+
+      // centred FRAME draws itself in around full cover and holds, then fades
+      // as the panel wipes off. Keyed to a window centred on t=0.5.
+      let fIn = 0, tickA = 0, glowA = 0;
+      if (t >= 0.30 && t <= 0.78) {
+        const fp = clamp01((t - 0.30) / 0.20);             // 0.30 -> 0.50 draw-on
+        const fade = clamp01((t - 0.62) / 0.16);           // 0.62 -> 0.78 fade-out
+        fIn = smooth(fp);
+        tickA = clamp01((fIn - 0.78) / 0.22) * (1 - fade);
+        glowA = (1 - fade);
+        // overall frame opacity fade-out as the panel leaves
+        ctx.save();
+        ctx.globalAlpha = 1 - smooth(fade);
+        drawFrame(fIn, tickA, glowA);
+        ctx.restore();
+      }
+
+      // cool light-flash at the very peak (full cover) — a clean platinum bloom
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.55);
+        fg.addColorStop(0, rgba(WHITE, 0.34 * flash));
+        fg.addColorStop(0.45, rgba(PLATINUM, 0.14 * flash));
+        fg.addColorStop(1, rgba(STEEL, 0));
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }             // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }        // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

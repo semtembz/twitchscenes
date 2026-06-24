@@ -1,0 +1,224 @@
+/* ============================================================
+   STARLIT DREAMCORE — shared design system ("Sleeping Sky")
+   A hazy, ethereal dreamcore night. A deep dusk->indigo gradient
+   sky fills the screen; a soft glowing MOON sits low in the LEFT
+   margin, drifting low-alpha NEBULA blooms (lavender/pink) hug the
+   margins, a canvas field of TWINKLING stars fades in/out with the
+   occasional slow SHOOTING STAR, gentle floating sparkles, and a
+   soft dreamy bloom glazes everything. The message floats in a
+   soft-glowing lavender/white title inside a frameless halo of
+   light (NO hard frame — dreamcore is soft-focus), with a thin
+   gentle star-trail loading line below. Calm, sleepy, low-contrast.
+   Bespoke to THIS theme — shares only engine conventions w/ others.
+   NOT kawaii, NOT a rainy window, NOT bubbles: a sleepy night sky.
+   ============================================================ */
+:root{
+  /* palette (token NAMES are stable across the source) */
+  --dusk:#2B2347;        /* deep dusk (base sky) */
+  --indigo:#6C5CE0;      /* indigo (mid sky / accent) */
+  --lavender:#B8A4FF;    /* lavender (light accent / text) */
+  --pink:#F2C6FF;        /* pink starlight (highlight) */
+  --white:#FFFFFF;       /* pure star white */
+  /* derived */
+  --dusk-deep:#1C1733;   /* darkest sky for the gradient floor */
+  --dusk-lift:#352B57;   /* lifted dusk near the horizon glow */
+  --text:#E8E0FF;        /* soft lavender body text */
+  --dim:rgba(184,164,255,.62);
+  --halo:rgba(184,164,255,.45);       /* lavender title halo */
+  --halo-pink:rgba(242,198,255,.40);  /* pink starlight halo */
+  --hair:rgba(184,164,255,.30);       /* soft hairline */
+  --hair-soft:rgba(184,164,255,.14);
+  --display:"Quicksand","Comfortaa","Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Georgia,"Times New Roman",serif;
+  --ease:cubic-bezier(.22,.78,.28,1);   /* gentle, sleepy ease */
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--dusk-deep);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);
+  font-family:var(--display);
+  /* deep dusk -> indigo dreamcore sky: dark floor, indigo body, a soft
+     lavender/pink horizon glow low-left where the moon sits */
+  background:
+    radial-gradient(120% 90% at 16% 80%, rgba(184,164,255,.16), transparent 52%),
+    radial-gradient(90% 80% at 84% 14%, rgba(242,198,255,.10), transparent 55%),
+    radial-gradient(140% 120% at 50% 8%, rgba(108,92,224,.34), transparent 60%),
+    linear-gradient(178deg, #34285C 0%, var(--dusk) 40%, #241D3D 74%, var(--dusk-deep) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- soft glowing MOON, low in the LEFT margin (kept clear of the
+   centred title + bar). A pale lavender-white disc with a wide diffuse
+   halo and a faint inner crater wash; breathes very slowly. ---- */
+.moon{position:absolute;left:188px;top:300px;width:300px;height:300px;pointer-events:none;
+  border-radius:50%;
+  background:
+    radial-gradient(38% 38% at 40% 36%, rgba(255,255,255,.95), rgba(242,198,255,.55) 40%, rgba(184,164,255,.18) 66%, transparent 72%);
+  filter:drop-shadow(0 0 90px rgba(242,198,255,.45)) drop-shadow(0 0 160px rgba(184,164,255,.30));
+  animation:moonbreathe 14s ease-in-out infinite, moonin 2.2s var(--ease) both .2s;}
+/* faint crater shading inside the disc */
+.moon::after{content:"";position:absolute;inset:18%;border-radius:50%;opacity:.5;pointer-events:none;
+  background:
+    radial-gradient(20% 20% at 64% 30%, rgba(184,164,255,.22), transparent 60%),
+    radial-gradient(16% 16% at 38% 62%, rgba(184,164,255,.18), transparent 60%),
+    radial-gradient(12% 12% at 70% 70%, rgba(184,164,255,.14), transparent 60%);}
+@keyframes moonbreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes moonin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+/* ---- drifting hazy NEBULA blooms hugging the margins (soft low-alpha
+   radial blooms in lavender/pink). Kept to the edges so the centre stays
+   clear; each drifts on a long slow loop. ---- */
+.neb{position:absolute;border-radius:50%;pointer-events:none;mix-blend-mode:screen;
+  filter:blur(8px);}
+.neb--1{left:-160px;top:-120px;width:760px;height:620px;
+  background:radial-gradient(50% 50% at 50% 50%, rgba(108,92,224,.34), transparent 66%);
+  animation:nebdrift1 26s ease-in-out infinite;}
+.neb--2{right:-180px;top:120px;width:820px;height:700px;
+  background:radial-gradient(50% 50% at 50% 50%, rgba(242,198,255,.20), transparent 64%);
+  animation:nebdrift2 32s ease-in-out infinite;}
+.neb--3{right:-120px;bottom:-200px;width:900px;height:680px;
+  background:radial-gradient(50% 50% at 50% 50%, rgba(184,164,255,.22), transparent 66%);
+  animation:nebdrift3 30s ease-in-out infinite;}
+.neb--4{left:-200px;bottom:-160px;width:700px;height:560px;
+  background:radial-gradient(50% 50% at 50% 50%, rgba(108,92,224,.22), transparent 64%);
+  animation:nebdrift1 34s ease-in-out infinite reverse;}
+@keyframes nebdrift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(34px,26px) scale(1.06)}}
+@keyframes nebdrift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,30px) scale(1.05)}}
+@keyframes nebdrift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-26px,-24px) scale(1.07)}}
+
+/* dreamy soft bloom / haze glaze over everything (soft-focus dreamcore) */
+.haze{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+  background:
+    radial-gradient(60% 46% at 50% 46%, rgba(184,164,255,.10), transparent 70%),
+    radial-gradient(120% 90% at 50% 120%, rgba(108,92,224,.12), transparent 60%);}
+/* gentle vignette to seat the sky's edges */
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 360px rgba(20,16,38,.7), inset 0 0 140px rgba(20,16,38,.4);}
+
+/* ---- the centred DREAM PANEL (the signature composition): a frameless
+   halo of soft light, NOT a hard frame. A wide soft radial glow seats
+   behind the title so the lavender/white type reads on the busy sky.
+   Decoration stays in the margins; this is the clear zone. ---- */
+.dream{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1280px;max-width:1280px;padding:70px 110px 80px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  /* a soft luminous bloom — no border, just diffuse light behind the words */
+  background:
+    radial-gradient(58% 70% at 50% 48%, rgba(43,35,71,.46), rgba(43,35,71,.18) 56%, transparent 78%);
+  animation:dreamin 1.2s var(--ease) both .15s;}
+
+@keyframes dreamin{from{opacity:0;transform:translate(-50%,-50%) translateY(14px) scale(.985)}
+  to{opacity:1;transform:translate(-50%,-50%) translateY(0) scale(1)}}
+
+/* a small constellation crest above the kicker: a thin glowing rule with
+   a soft star diamond at the centre (lavender halo) */
+.crest{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:10px;
+  animation:fadeup 1.1s var(--ease) both .4s;}
+.crest .r{width:120px;height:1px;background:linear-gradient(90deg,transparent,var(--lavender));}
+.crest .r--r{background:linear-gradient(90deg,var(--lavender),transparent);}
+.crest .star{width:13px;height:13px;background:var(--white);
+  clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+  filter:drop-shadow(0 0 10px var(--halo-pink)) drop-shadow(0 0 16px var(--halo));}
+
+/* kicker — soft spaced caps, lavender, gently glowing */
+.kicker{font-family:var(--display);font-weight:600;font-size:25px;letter-spacing:.5em;
+  text-transform:uppercase;color:var(--lavender);text-indent:.5em;margin:0;
+  text-shadow:0 0 18px rgba(184,164,255,.5);
+  animation:fadeup 1.1s var(--ease) both .5s;}
+
+/* the soft glowing TITLE — lavender/white with a dreamy halo. A gentle
+   light humanist sans, low-contrast, airy. The accent line glows pink. */
+.title{margin:20px 0 8px;font-family:var(--display);font-weight:600;font-size:148px;
+  line-height:.92;letter-spacing:.012em;text-transform:uppercase;color:var(--white);
+  text-shadow:0 0 30px rgba(255,255,255,.35),0 0 70px rgba(184,164,255,.45),0 0 120px rgba(108,92,224,.35);
+  animation:titlein 1.3s var(--ease) both .55s;}
+.title .line{display:block;}
+.title .accent{display:block;font-weight:600;
+  background:linear-gradient(180deg,var(--white) 0%,var(--pink) 46%,var(--lavender) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 28px rgba(242,198,255,.5)) drop-shadow(0 0 60px rgba(184,164,255,.4));}
+@keyframes titlein{from{opacity:0;transform:translateY(18px);filter:blur(8px)}
+  to{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* subtitle — soft light italic, generous spacing, dim lavender */
+.sub{margin:22px 0 0;font-family:var(--serif);font-style:italic;font-size:30px;
+  letter-spacing:.05em;color:var(--dim);
+  animation:fadeup 1.1s var(--ease) both .7s;}
+
+/* editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes the line to remove it). At
+   render time ?slotname=Text fills it; ?slotname=- removes it. */
+.is-slot{font-style:italic;}
+/* numbered badge: a tidy boxed [N]. Reset the inherited spaced-caps
+   letter-spacing/indent so multi-digit numbers (11..17) read as one clean
+   token inside the box instead of splitting ("1 5") or overflowing. */
+.is-slot .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;vertical-align:.06em;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* loading = a gentle glowing STAR-TRAIL line (no numbers). A faint dotted
+   trail track; the fill is a soft lavender->pink glow with a bright star
+   travelling at its head, trailing a comet tail. */
+.bar{margin-top:50px;width:560px;height:3px;position:relative;
+  background:
+    repeating-linear-gradient(90deg, rgba(184,164,255,.20) 0 2px, transparent 2px 9px);
+  animation:fadeup 1.1s var(--ease) both .85s;}
+.bar .fill{position:absolute;left:0;top:50%;height:3px;width:0;transform:translateY(-50%);
+  border-radius:3px;
+  background:linear-gradient(90deg, rgba(108,92,224,0), rgba(184,164,255,.9) 60%, var(--pink));
+  box-shadow:0 0 16px rgba(184,164,255,.7),0 0 30px rgba(242,198,255,.4);}
+/* the travelling star at the head of the trail */
+.bar .fill::after{content:"";position:absolute;right:-7px;top:50%;width:14px;height:14px;
+  transform:translateY(-50%);background:var(--white);
+  clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+  filter:drop-shadow(0 0 8px var(--pink)) drop-shadow(0 0 16px var(--halo));}
+/* faint end-anchor stars on the track */
+.bar::before,.bar::after{content:"";position:absolute;top:50%;width:5px;height:5px;
+  transform:translateY(-50%);border-radius:50%;background:rgba(184,164,255,.4);}
+.bar::before{left:-2px;} .bar::after{right:-2px;}
+
+/* ---- corner brand tags — soft lavender caps anchored to the margins,
+   well clear of the centred composition (kept near screen edges). ---- */
+.tag{position:absolute;font-family:var(--display);font-weight:600;font-size:19px;
+  letter-spacing:.42em;color:var(--lavender);text-indent:.42em;opacity:.72;
+  text-transform:uppercase;white-space:nowrap;text-shadow:0 0 14px rgba(184,164,255,.4);
+  animation:fadeup 1.2s var(--ease) both .9s;}
+.tag--tr{right:72px;top:64px;text-indent:0;}
+.tag--bl{left:72px;bottom:84px;}
+
+/* handle — soft pink-lavender, lower-right on the sky */
+.handle{position:absolute;right:72px;bottom:80px;font-family:var(--display);font-weight:600;
+  letter-spacing:.3em;font-size:25px;color:var(--pink);text-indent:.3em;
+  text-shadow:0 0 16px rgba(242,198,255,.45);
+  animation:fadeup 1.2s var(--ease) both 1s;}
+
+@keyframes fadeup{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm. CSS-driven
+   ambient loops (moon breathe, nebula drift) are stilled too so each
+   frame is reproducible; the canvas star/shooting-star motion is
+   driven deterministically by __renderAdvance.
+   ============================================================ */
+#stage.render .dream,
+#stage.render .crest,
+#stage.render .kicker,
+#stage.render .title,
+#stage.render .sub,
+#stage.render .bar,
+#stage.render .tag,
+#stage.render .handle,
+#stage.render .moon{animation:none!important;}
+#stage.render .neb{animation:none!important;}
+#stage.render .dream{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#stage.render .title{opacity:1;transform:none;filter:none;}
+#stage.render .kicker,
+#stage.render .sub,
+#stage.render .crest,
+#stage.render .bar,
+#stage.render .tag,
+#stage.render .handle{opacity:1;transform:none;}
+#stage.render .moon{opacity:1;transform:scale(1);}

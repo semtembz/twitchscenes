@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Platinum Frame — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "Cold Minimal Luxury" language: whisper-thin
+       platinum crop-brackets in the four screen corners, a slim razor-thin platinum
+       registration strip lower-left carrying a clean "LIVE" status + @handle, and one
+       tiny editable corner brand tag top-right. Almost everything stays transparent so
+       the gameplay shows through; only a sparse drift of cold steel specks lives near
+       the strip. All decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=...  ?render=1  (?tag=- removes the tag) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no charcoal void, no full-bleed sweep/vignette */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse, very low-alpha drift of cold steel specks, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.55;}
+
+    /* ---- whisper-thin platinum registration crop-brackets in the void corners ---- */
+    .pf{position:absolute;width:50px;height:50px;pointer-events:none;opacity:.6;
+      animation:pfin 1s var(--ease) both .2s;}
+    .pf::before,.pf::after{content:"";position:absolute;background:var(--hair);
+      box-shadow:0 0 6px rgba(215,222,230,.28);}
+    .pf::before{width:50px;height:1px;} .pf::after{width:1px;height:50px;}
+    .pf--tl{left:46px;top:46px;}    .pf--tl::before{left:0;top:0;}    .pf--tl::after{left:0;top:0;}
+    .pf--tr{right:46px;top:46px;}   .pf--tr::before{right:0;top:0;}   .pf--tr::after{right:0;top:0;}
+    .pf--bl{left:46px;bottom:46px;} .pf--bl::before{left:0;bottom:0;} .pf--bl::after{left:0;bottom:0;}
+    .pf--br{right:46px;bottom:46px;}.pf--br::before{right:0;bottom:0;}.pf--br::after{right:0;bottom:0;}
+    @keyframes pfin{from{opacity:0}to{opacity:.6}}
+
+    /* ---- slim razor-thin platinum HUD strip, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:56px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 24px;
+      background:linear-gradient(180deg, rgba(26,30,36,.50), rgba(14,16,19,.34));
+      border:1px solid var(--hair);
+      box-shadow:0 22px 60px rgba(0,0,0,.5), inset 0 0 40px rgba(26,30,36,.5),
+        inset 0 0 1px rgba(244,247,250,.18);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* OFFSET inner hairline nudged down/right — the stepped double-hairline motif */
+    .slot::before{content:"";position:absolute;left:6px;top:6px;right:3px;bottom:3px;
+      border:1px solid var(--hair-soft);pointer-events:none;}
+    /* slow cool light-sweep travels along the strip (frozen/hidden in render) */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:110px;left:-110px;pointer-events:none;
+      mix-blend-mode:screen;
+      background:linear-gradient(105deg, transparent, rgba(244,247,250,.14), transparent);
+      animation:slotsweep 6.5s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-110px}100%{left:100%}}
+
+    /* bright L-shaped corner registration ticks on the strip (the signature motif) */
+    .slot .tk{position:absolute;width:16px;height:16px;pointer-events:none;}
+    .slot .tk::before,.slot .tk::after{content:"";position:absolute;background:var(--tick);
+      box-shadow:0 0 6px rgba(215,222,230,.5);}
+    .slot .tk::before{width:16px;height:1px;} .slot .tk::after{width:1px;height:16px;}
+    .slot .tk.a{left:-1px;top:-1px;}    .slot .tk.a::before{left:0;top:0;}     .slot .tk.a::after{left:0;top:0;}
+    .slot .tk.b{right:-1px;top:-1px;}   .slot .tk.b::before{right:0;top:0;}    .slot .tk.b::after{right:0;top:0;}
+    .slot .tk.c{left:-1px;bottom:-1px;} .slot .tk.c::before{left:0;bottom:0;}  .slot .tk.c::after{left:0;bottom:0;}
+    .slot .tk.d{right:-1px;bottom:-1px;}.slot .tk.d::before{right:0;bottom:0;} .slot .tk.d::after{right:0;bottom:0;}
+
+    /* "LIVE" status — a small platinum diamond node + thin wide-tracked steel caps.
+       This is a clean functional label (kept literal), NOT an editable slot. */
+    .slot .tag{display:flex;align-items:center;gap:12px;
+      font-family:var(--sans);font-weight:300;letter-spacing:.40em;font-size:16px;
+      text-transform:uppercase;color:var(--platinum);text-indent:.40em;white-space:nowrap;
+      text-shadow:0 0 12px rgba(215,222,230,.3);}
+    .slot .tag .dia{width:8px;height:8px;transform:rotate(45deg);background:var(--white);
+      box-shadow:0 0 10px var(--glow);animation:pfpulse 2.4s ease-in-out infinite;}
+    @keyframes pfpulse{0%,100%{opacity:1;box-shadow:0 0 10px var(--glow)}50%{opacity:.4;box-shadow:0 0 5px var(--glow)}}
+
+    /* thin platinum divider rule with a tiny diamond, between tag and handle */
+    .slot .div{position:relative;width:1px;height:30px;
+      background:linear-gradient(180deg,transparent,var(--hair),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
+      transform:translate(-50%,-50%) rotate(45deg);background:var(--platinum);
+      box-shadow:0 0 8px var(--glow);}
+
+    /* handle — platinum thin wide-tracked sans */
+    .slot .who{font-family:var(--sans);font-weight:300;letter-spacing:.24em;font-size:23px;
+      color:var(--platinum);text-indent:.24em;white-space:nowrap;
+      text-shadow:0 0 14px rgba(215,222,230,.3);}
+
+    /* one tiny editable corner brand tag, top-right (in the margin, clear of gameplay HUD) */
+    .tag-tr{position:absolute;top:48px;right:118px;display:flex;align-items:center;gap:13px;
+      font-family:var(--sans);font-weight:300;letter-spacing:.42em;font-size:15px;
+      text-transform:uppercase;color:var(--steel);text-indent:.42em;opacity:.78;white-space:nowrap;
+      animation:pfin 1s var(--ease) both .3s;}
+    .tag-tr .pt{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--steel);
+      box-shadow:0 0 8px rgba(215,222,230,.25);flex:none;}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .pf,#stage.render .tag-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .tag .dia{animation:none;opacity:1;}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .pf{opacity:.6;}
+    #stage.render .tag-tr{opacity:.78;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- whisper-thin platinum registration crop-brackets in all four corners -->
+    <span class="pf pf--tl" aria-hidden="true"></span>
+    <span class="pf pf--tr" aria-hidden="true"></span>
+    <span class="pf pf--bl" aria-hidden="true"></span>
+    <span class="pf pf--br" aria-hidden="true"></span>
+
+    <!-- one editable corner brand tag, top-right -->
+    <div class="tag-tr is-slot" data-slot="tag"><span class="pt" aria-hidden="true"></span><span class="slot-no">22</span><span class="slot-txt">your text here</span></div>
+
+    <!-- slim razor-thin platinum registration strip, lower-left -->
+    <div class="slot">
+      <span class="tk a" aria-hidden="true"></span><span class="tk b" aria-hidden="true"></span>
+      <span class="tk c" aria-hidden="true"></span><span class="tk d" aria-hidden="true"></span>
+      <span class="tag"><span class="dia" aria-hidden="true"></span>LIVE</span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    /* ---- editable text slots: ?slotname=Text sets it; ?slotname=- removes it ---- */
+    document.querySelectorAll("[data-slot]").forEach((el) => {
+      const v = params.get(el.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { el.remove(); return; }
+      el.textContent = v;
+      el.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: a sparse drift of cold steel specks (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x9A07 >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const specks = Array.from({ length: Math.max(0, num("specks", 34)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.5, 1.6), vx: R(-3, 3)/60, vy: R(-2.4, 2.4)/60,
+      ph: R(0, 6.28), tw: R(0.5, 1.3), a: R(0.14, 0.5), ice: srnd() < 0.4,
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of specks){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.03 * p.tw * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.55 + Math.sin(p.ph) * 0.45;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.ice ? "#D7DEE6" : "#9AA7B2";
+        ctx.shadowColor = p.ice ? "#F4F7FA" : "#9AA7B2";
+        ctx.shadowBlur = 6 * p.z;
+        const sz = Math.max(1, Math.round(p.z * 1.5));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__platinumDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

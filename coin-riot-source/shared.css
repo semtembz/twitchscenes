@@ -1,0 +1,232 @@
+/* ============================================================
+   COIN RIOT — shared design system ("Insert Coin")
+   Loud retro ARCADE MARQUEE. A dark coin-op marquee SIGN sits
+   centred, framed by a RING of round marquee BULBS that CHASE /
+   blink in sequence around the whole edge. A chunky-mono arcade
+   HUD (CREDITS / 1UP / HI-SCORE / INSERT COIN) caps the top, the
+   message burns in bold neon MARQUEE letters with a red/gold/cyan
+   glow, coin-sparkle confetti bursts off a <canvas>, and a faint
+   CRT scanline sheen lies over everything. The loading "meter" is
+   a row of marquee bulbs lighting up left->right (a CREDITS bar).
+   Bespoke to THIS theme — shares only engine conventions w/ others.
+   NOT 8-bit NES, NOT JRPG, NOT VHS, NOT synthwave — coin-op carnival.
+   ============================================================ */
+:root{
+  /* palette */
+  --black:#0A0A14; --black2:#06060D; --panel:#11111F; --panel2:#0B0B17;
+  --red:#FF3B3B; --gold:#FFD400; --cyan:#16E0FF; --purple:#7D00FF;
+  --white:#FFFFFF; --dim:#9aa0c0;
+  /* derived */
+  --bulb-off:#2a2236;
+  --ease:cubic-bezier(.2,.85,.25,1);
+  --pop:cubic-bezier(.2,1.5,.4,1);
+  /* fonts: bold blocky display marquee + chunky mono accent (all web-safe) */
+  --marquee:"Arial Black","Arial Bold",Impact,Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif;
+  --mono:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--black2);}
+
+/* fixed design stage, scaled to fit viewport == OBS */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);font-family:var(--marquee);
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(125,0,255,.20), transparent 58%),
+    radial-gradient(90% 70% at 14% 92%, rgba(255,59,59,.13), transparent 60%),
+    radial-gradient(90% 70% at 86% 88%, rgba(22,224,255,.12), transparent 60%),
+    linear-gradient(170deg, #100A1E 0%, var(--black) 52%, var(--black2) 100%);
+}
+canvas.bg{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* CRT scanline sheen + curved vignette over the whole frame */
+.scan{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 4px);}
+.vign{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 320px rgba(2,2,8,.9), inset 0 0 90px rgba(2,2,8,.6);
+  background:radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(2,2,8,.5) 100%);}
+
+/* ============================================================
+   THE MARQUEE SIGN — the signature composition. A dark coin-op
+   cabinet sign, double-bordered, centred. The chasing BULB RING
+   is rendered as four flex rows of .bulb dots hugging the edges.
+   ============================================================ */
+.marquee{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1340px;height:760px;
+  background:
+    radial-gradient(130% 100% at 50% 0%, rgba(125,0,255,.14), transparent 62%),
+    linear-gradient(180deg, #14122a 0%, #0c0a1c 60%, #08071400 100%),
+    linear-gradient(180deg, var(--panel), var(--panel2));
+  border:4px solid #2c2746;border-radius:26px;
+  box-shadow:
+    0 40px 120px rgba(0,0,0,.7),
+    inset 0 0 0 2px rgba(255,255,255,.04),
+    inset 0 0 80px rgba(125,0,255,.12);
+  animation:signin 1s var(--ease) both .05s;}
+/* inner neon track border just inside the bulb ring */
+.marquee::before{content:"";position:absolute;inset:54px;border:2px solid rgba(22,224,255,.22);
+  border-radius:14px;pointer-events:none;
+  box-shadow:inset 0 0 26px rgba(22,224,255,.10),0 0 18px rgba(22,224,255,.10);}
+@keyframes signin{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* the BULB RING — rows of round marquee bulbs hugging each edge.
+   Each .bulb chases via a per-bulb animation-delay set inline. */
+.ring{position:absolute;inset:0;pointer-events:none;}
+.ring .row{position:absolute;display:flex;justify-content:space-between;align-items:center;}
+.ring .row--t{top:20px;left:30px;right:30px;}
+.ring .row--b{bottom:20px;left:30px;right:30px;}
+.ring .row--l{left:20px;top:64px;bottom:64px;flex-direction:column;}
+.ring .row--r{right:20px;top:64px;bottom:64px;flex-direction:column;}
+.bulb{width:18px;height:18px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);
+  box-shadow:inset 0 0 3px rgba(0,0,0,.6);
+  animation:chase 1.2s steps(1,end) infinite;}
+/* the lit state cycles colour by row via nth groupings on the keyframe */
+@keyframes chase{
+  0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--gold) 60%, #9a7e00 100%);
+    box-shadow:0 0 10px var(--gold),0 0 22px rgba(255,212,0,.7),inset 0 0 3px rgba(255,255,255,.8);}
+  18%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);
+    box-shadow:inset 0 0 3px rgba(0,0,0,.6);}
+}
+/* alternate bulbs glow cyan / red for a multi-colour carnival chase */
+.bulb.c-cyan{}
+.bulb.c-cyan{--blbcol:var(--cyan);}
+.bulb.c-red{--blbcol:var(--red);}
+.bulb.c-cyan{animation-name:chaseC;}
+.bulb.c-red{animation-name:chaseR;}
+@keyframes chaseC{
+  0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--cyan) 60%, #0a6b80 100%);
+    box-shadow:0 0 10px var(--cyan),0 0 22px rgba(22,224,255,.7),inset 0 0 3px rgba(255,255,255,.8);}
+  18%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);box-shadow:inset 0 0 3px rgba(0,0,0,.6);}
+}
+@keyframes chaseR{
+  0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--red) 60%, #7a1414 100%);
+    box-shadow:0 0 10px var(--red),0 0 22px rgba(255,59,59,.7),inset 0 0 3px rgba(255,255,255,.8);}
+  18%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);box-shadow:inset 0 0 3px rgba(0,0,0,.6);}
+}
+
+/* ---- the SIGN CONTENT zone (inside the bulb ring + neon track) ---- */
+.face{position:absolute;inset:72px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;}
+
+/* arcade HUD strip across the top of the sign face (chunky mono) */
+.hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  align-items:center;font-family:var(--mono);font-weight:700;font-size:24px;
+  letter-spacing:.14em;text-transform:uppercase;
+  animation:hudin .7s var(--ease) both .5s;}
+.hud .h{white-space:nowrap;text-shadow:0 0 10px currentColor;}
+.hud .h--credit{color:var(--gold);}
+.hud .h--up{color:var(--red);}
+.hud .h--hi{color:var(--cyan);}
+.hud .h--coin{color:var(--white);opacity:.92;animation:coinblink 1.05s steps(1,end) infinite;}
+@keyframes coinblink{0%,55%{opacity:.95}56%,100%{opacity:.18}}
+@keyframes hudin{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+
+/* kicker — neon pill of chunky mono caps above the title */
+.kicker{font-family:var(--mono);font-weight:700;font-size:26px;letter-spacing:.42em;
+  text-transform:uppercase;text-indent:.42em;color:var(--cyan);
+  padding:9px 26px;border:2px solid rgba(22,224,255,.55);border-radius:999px;
+  background:rgba(22,224,255,.06);
+  text-shadow:0 0 12px rgba(22,224,255,.8);box-shadow:0 0 22px rgba(22,224,255,.22);
+  max-width:920px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  animation:kin .7s var(--ease) both .62s;}
+@keyframes kin{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+
+/* the bold neon MARQUEE TITLE — multi-colour stacked glow lines */
+.title{margin:24px 0 8px;font-family:var(--marquee);font-weight:900;
+  font-size:150px;line-height:.86;letter-spacing:.012em;text-transform:uppercase;
+  -webkit-text-stroke:2px rgba(0,0,0,.35);}
+.title .ln{display:block;}
+/* line 1 — gold->red hot marquee fill */
+.title .ln--1{
+  background:linear-gradient(180deg,#FFF3B0 0%,var(--gold) 42%,var(--red) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(255,212,0,.55)) drop-shadow(0 0 54px rgba(255,59,59,.4));
+  animation:tin1 .7s var(--pop) both .78s;}
+/* line 2 — cyan electric fill */
+.title .ln--2{
+  background:linear-gradient(180deg,#CFFBFF 0%,var(--cyan) 52%,#0aa6c4 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(22,224,255,.6)) drop-shadow(0 0 50px rgba(125,0,255,.4));
+  animation:tin2 .7s var(--pop) both .9s;}
+/* single-line title variant (centred, gold->red) for shorter words */
+.title.solo .ln{background:linear-gradient(180deg,#FFF3B0 0%,var(--gold) 40%,var(--red) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(255,212,0,.55)) drop-shadow(0 0 54px rgba(255,59,59,.4));}
+@keyframes tin1{from{opacity:0;transform:translateY(20px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes tin2{from{opacity:0;transform:translateY(20px) scale(.9)}to{opacity:1;transform:none}}
+
+/* a thin neon underline rule below the title */
+.rule{width:380px;height:3px;margin:4px auto 0;border-radius:3px;position:relative;
+  background:linear-gradient(90deg,transparent,var(--red) 18%,var(--gold) 50%,var(--cyan) 82%,transparent);
+  box-shadow:0 0 16px rgba(255,212,0,.5);
+  animation:rin .6s var(--ease) both 1s;}
+@keyframes rin{from{opacity:0;transform:scaleX(.2)}to{opacity:1;transform:scaleX(1)}}
+
+/* subtitle — chunky mono caps, gold */
+.sub{margin-top:22px;font-family:var(--mono);font-weight:700;font-size:26px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--gold);
+  text-shadow:0 0 12px rgba(255,212,0,.45);max-width:1000px;
+  animation:sin .7s var(--ease) both 1.05s;}
+@keyframes sin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---- editable text slots — every .is-slot ships a muted "[ your text here ]"
+   placeholder the buyer types over (or deletes to remove). ?slotname=Text fills
+   it at render time; ?slotname=- removes it. (number badges added in a later pass) ---- */
+.is-slot{font-style:italic;}
+.is-slot .slot-no{display:inline-block;min-width:1.7em;padding:.05em .3em;margin:0 .55em 0 0;border:2px solid currentColor;border-radius:.32em;font-weight:800;font-style:normal;font-size:.82em;line-height:1.18;letter-spacing:0;text-indent:0;text-align:center;vertical-align:.06em;}
+.is-slot .slot-txt{opacity:.5;}
+
+/* ============================================================
+   LOADING METER — a row of round marquee bulbs lighting up
+   left->right (a "POWER / CREDITS" meter). JS sets --p (0..1) and
+   each lamp lights when its threshold passes (no numbers shown).
+   ============================================================ */
+.meter{margin-top:46px;display:flex;flex-direction:column;align-items:center;gap:12px;
+  animation:metin .7s var(--ease) both 1.15s;}
+.meter .lamps{display:flex;gap:12px;}
+.meter .lamp{width:30px;height:30px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 38% 34%, #3a3350, var(--bulb-off) 72%);
+  box-shadow:inset 0 0 4px rgba(0,0,0,.7);
+  transition:background .18s linear, box-shadow .18s linear;}
+.meter .lamp.on{
+  background:radial-gradient(circle at 38% 34%, #fff, var(--gold) 55%, #c79e00 100%);
+  box-shadow:0 0 12px var(--gold),0 0 28px rgba(255,212,0,.65),inset 0 0 4px rgba(255,255,255,.8);}
+/* keep a labelled track frame so the lamp row reads as a deliberate meter */
+.meter .label{font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:.34em;
+  text-indent:.34em;text-transform:uppercase;color:var(--dim);text-shadow:0 0 8px rgba(125,0,255,.4);}
+/* legacy linear #fill kept hidden so the engine's setBar never errors out */
+#fill{position:absolute;width:0;height:0;opacity:0;pointer-events:none;}
+@keyframes metin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* corner COIN tokens — flank the sign's top edge as deliberate arcade tokens */
+.coin-tok{position:absolute;width:64px;height:64px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 38% 32%, #FFF3B0, var(--gold) 52%, #b88f00 100%);
+  box-shadow:0 0 22px rgba(255,212,0,.6),inset 0 -6px 10px rgba(120,90,0,.6),inset 0 4px 8px rgba(255,255,255,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--marquee);font-weight:900;font-size:30px;color:#7a5a00;
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+  animation:tokspin 6s linear infinite;}
+.coin-tok::after{content:"$";}
+.coin-tok--l{left:300px;top:128px;}
+.coin-tok--r{right:300px;top:128px;animation-delay:-3s;}
+@keyframes tokspin{0%{transform:scaleX(1)}50%{transform:scaleX(.2)}100%{transform:scaleX(1)}}
+
+/* @handle — chunky mono, lower-right, on a coin-slot plate */
+.handle{position:absolute;right:60px;bottom:46px;font-family:var(--mono);font-weight:700;
+  font-size:26px;letter-spacing:.26em;text-indent:.26em;color:var(--cyan);
+  padding:8px 18px;border:2px solid rgba(22,224,255,.4);border-radius:8px;
+  background:rgba(8,8,20,.5);text-shadow:0 0 12px rgba(22,224,255,.7);
+  box-shadow:0 0 18px rgba(22,224,255,.18);}
+
+/* ============================================================
+   RENDER MODE: freeze all entrances to their final state so the
+   headless pipeline captures a clean deterministic webm. Chasing
+   bulbs + spin keep looping (they are steady-state ambience, not
+   entrances) so a frozen still still reads as a lit marquee.
+   ============================================================ */
+#stage.render .marquee,#stage.render .hud,#stage.render .kicker,
+#stage.render .title .ln,#stage.render .rule,#stage.render .sub,
+#stage.render .meter{animation:none!important;opacity:1!important;transform:none!important;}
+#stage.render .marquee{transform:translate(-50%,-50%)!important;}
+#stage.render .coin-tok{animation:none!important;}

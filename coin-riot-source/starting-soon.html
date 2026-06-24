@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Coin Riot — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable text slots: ?kicker=...  ?sub=...  ?tag=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- the centred coin-op MARQUEE SIGN -->
+    <main class="marquee">
+      <!-- the chasing BULB RING hugging the four edges (filled by script below) -->
+      <div class="ring" aria-hidden="true">
+        <div class="row row--t"></div>
+        <div class="row row--b"></div>
+        <div class="row row--l"></div>
+        <div class="row row--r"></div>
+      </div>
+
+      <!-- spinning coin tokens flanking the sign's top edge -->
+      <span class="coin-tok coin-tok--l" aria-hidden="true"></span>
+      <span class="coin-tok coin-tok--r" aria-hidden="true"></span>
+
+      <div class="face">
+        <!-- arcade HUD strip (chunky mono) -->
+        <div class="hud" aria-hidden="true">
+          <span class="h h--credit">CREDITS&nbsp;00</span>
+          <span class="h h--up">1UP</span>
+          <span class="h h--hi">HI-SCORE</span>
+          <span class="h h--coin">INSERT COIN</span>
+        </div>
+
+        <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+             type your own text in, or delete the whole line to remove it.
+             (Or set ?kicker=...&sub=...&tag=... at render time; use =- to remove one.) -->
+        <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">1</span><span class="slot-txt">your text here</span></p>
+
+        <h1 class="title">
+          <span class="ln ln--1">STARTING</span>
+          <span class="ln ln--2">SOON</span>
+        </h1>
+        <div class="rule" aria-hidden="true"></div>
+
+        <p class="sub is-slot" data-slot="sub"><span class="slot-no">2</span><span class="slot-txt">your text here</span></p>
+
+        <!-- loading METER: a row of marquee lamps lighting up left->right (no numbers) -->
+        <div class="meter" aria-hidden="true">
+          <div class="lamps">
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+            <span class="lamp"></span><span class="lamp"></span>
+          </div>
+          <span class="label">CREDITS</span>
+          <span class="fill" id="fill"></span>
+        </div>
+      </div>
+    </main>
+
+    <!-- a footer brand tag = editable slot, lower-left so it never crosses the handle -->
+    <p class="sub is-slot" data-slot="tag"
+       style="position:absolute;left:60px;bottom:46px;margin:0;font-size:22px;color:var(--purple);text-shadow:0 0 12px rgba(125,0,255,.6);"><span class="slot-no">3</span><span class="slot-txt">your text here</span></p>
+
+    <div class="handle" id="handle">@yourhandle</div>
+
+    <!-- CRT sheen + vignette ride above everything -->
+    <div class="scan" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+  </div>
+
+  <script>
+  /* build the chasing bulb ring: round bulbs hugging each edge, each with a
+     staggered animation-delay so the light "runs" clockwise around the frame,
+     and alternating gold/cyan/red colour classes for a carnival chase. */
+  (() => {
+    const ring = document.querySelector(".ring");
+    if (!ring) return;
+    const rows = {
+      t: ring.querySelector(".row--t"),
+      r: ring.querySelector(".row--r"),
+      b: ring.querySelector(".row--b"),
+      l: ring.querySelector(".row--l"),
+    };
+    const counts = { t: 16, r: 8, b: 16, l: 8 };   // bulbs per edge
+    const CYC = 1.2;                                 // matches CSS chase duration (s)
+    const cols = ["", "c-cyan", "c-red"];            // gold (default) / cyan / red
+    let idx = 0;
+    const total = counts.t + counts.r + counts.b + counts.l;
+    // clockwise order: top L->R, right T->B, bottom R->L (DOM L->R + row reversed
+    // visually is fine — the chase reads as a continuous run either way), left B->T
+    function add(rowEl, n) {
+      if (!rowEl) { idx += n; return; }
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement("span");
+        b.className = "bulb" + (cols[idx % 3] ? " " + cols[idx % 3] : "");
+        // negative delay so the chase is already running on load (no dark start)
+        b.style.animationDelay = (-(idx / total) * CYC).toFixed(3) + "s";
+        rowEl.appendChild(b);
+        idx++;
+      }
+    }
+    add(rows.t, counts.t);
+    add(rows.r, counts.r);
+    add(rows.b, counts.b);
+    add(rows.l, counts.l);
+  })();
+  </script>
+  <script src="shared.js"></script>
+</body>
+</html>

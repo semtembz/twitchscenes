@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Starlit Dreamcore Nebula Bloom Dissolve</title>
+  <!--
+    STARLIT DREAMCORE stinger ("Dream Dissolve"). NOT a curtain/wipe/iris — a
+    soft-focus night sky bloom. From a single bright dream-spark at centre a
+    LAVENDER/PINK NEBULA blooms outward and swells to flood the frame; a swirling
+    GALAXY of ~220 stars spins up out of the bloom, twinkling and dusting the sky;
+    a few slow SHOOTING STARS streak through at the peak; a soft white dream-flash
+    crests at full cover; then the nebula breathes back inward and the whole sky of
+    stars dissolves away upward, clearing to transparent. Hazy, sleepy, ethereal.
+
+    Fully self-contained. Transparent before & after, deterministic (seeded RNG,
+    no Math.random in the frame fn), sine-driven cover = sin(t*PI), ~1300ms.
+    Bespoke to Starlit Dreamcore — shares only the invisible engine plumbing.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1300  total duration in ms (default 1300)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover bloom).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1300;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (starlit dreamcore) ---- */
+    const INDIGO = '#6C5CE0', LAVENDER = '#B8A4FF', PINK = '#F2C6FF', WHITE = '#FFFFFF';
+    const TINTS = [WHITE, PINK, LAVENDER, WHITE, '#D9CCFF'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    /* ---- deterministic seeded RNG (mulberry32-style, matches the source engine).
+       Seeded once at build so the starfield is identical every frame / in export. ---- */
+    let _s = 0x5747 >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    /* ---- the GALAXY: stars laid out on loose spiral arms around centre. Each
+       has a target (rest) position it spirals OUT to as the bloom opens, plus a
+       per-star twinkle. They sweep in from the core then drift/dissolve upward as
+       the bloom recedes. Positions are a pure function of t -> stable & seedable. ---- */
+    const N_STAR = 220;
+    const stars = Array.from({ length: N_STAR }, () => {
+      const arm = (srnd() * 3) | 0;                 // 3 spiral arms
+      const along = Math.pow(srnd(), 0.62);         // 0..1 distance along arm (bias outward)
+      const armAng = arm * (6.2832 / 3);
+      const swirl = along * 5.4;                     // arm winding
+      const jitter = R(-0.42, 0.42);
+      const ang = armAng + swirl + jitter;
+      const rad = along * (W * 0.62) + R(0, 60);     // final radius from centre
+      return {
+        ang, rad,
+        spin: R(0.6, 1.5),                           // how much it rotates while spiralling in
+        r: R(0.7, 2.7),                              // size
+        base: R(0.25, 0.7), amp: R(0.3, 0.85), sp: R(2.2, 6.5), ph: R(0, 6.2832),
+        c: TINTS[(srnd() * TINTS.length) | 0],
+        big: srnd() < 0.13,                          // a few cross-glints
+        lead: srnd() * 0.22,                         // staggered emergence from the core
+        rise: R(30, 150),                            // upward dissolve drift
+      };
+    });
+
+    /* ---- slow SHOOTING STARS streaking through at the peak (deterministic). ---- */
+    const N_SHOOT = 3;
+    const shoots = Array.from({ length: N_SHOOT }, (_, i) => ({
+      x0: R(W * 0.28, W * 0.84), y0: R(H * 0.10, H * 0.40),
+      ang: R(2.45, 2.95), len: R(220, 380), sp: R(900, 1300),
+      lead: 0.30 + i * 0.13 + R(0, 0.05), span: R(0.22, 0.34),
+    }));
+
+    /* ---- soft floating dream-sparkles that lift on the bloom. ---- */
+    const N_SPARK = 54;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      a0: R(0, 6.2832), r0: R(40, W * 0.5),
+      rise: R(90, 300), sway: R(20, 80), swf: R(0.8, 2.2), ph: R(0, 6.2832),
+      s: R(1.2, 3.4), c: srnd() < 0.5 ? PINK : LAVENDER,
+      lead: R(0.05, 0.42), span: R(0.45, 0.8), a: R(0.4, 0.95), tw: R(1.4, 2.6),
+    }));
+
+    /* ---- the NEBULA BLOOM: a soft radial cloud that swells from a point to flood
+       the frame and breathes back. Layered lavender/pink/indigo screen-blend. ---- */
+    function drawNebula(cover, t) {
+      const grow = smooth(cover);
+      const radius = lerp(40, W * 0.92, grow);
+      // a touch of asymmetric drift so the cloud feels alive, not a clean disc
+      const ox = Math.sin(t * 6.2832 * 0.6) * 26 * cover;
+      const oy = Math.cos(t * 6.2832 * 0.5) * 20 * cover;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      // outer indigo haze
+      let g = ctx.createRadialGradient(CX + ox, CY + oy, 0, CX + ox, CY + oy, radius);
+      g.addColorStop(0.00, 'rgba(184,164,255,' + (0.55 * cover).toFixed(3) + ')');
+      g.addColorStop(0.32, 'rgba(108,92,224,' + (0.34 * cover).toFixed(3) + ')');
+      g.addColorStop(0.66, 'rgba(108,92,224,' + (0.14 * cover).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(43,35,71,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // inner pink/white core glow (brighter, smaller)
+      const cr = lerp(20, W * 0.40, grow);
+      g = ctx.createRadialGradient(CX - ox * 0.6, CY - oy * 0.6, 0, CX - ox * 0.6, CY - oy * 0.6, cr);
+      g.addColorStop(0.00, 'rgba(255,255,255,' + (0.62 * cover).toFixed(3) + ')');
+      g.addColorStop(0.30, 'rgba(242,198,255,' + (0.40 * cover).toFixed(3) + ')');
+      g.addColorStop(0.70, 'rgba(184,164,255,' + (0.16 * cover).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(184,164,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.restore();
+    }
+
+    /* ---- the galaxy of stars spiralling out of the bloom and dissolving away. ---- */
+    function drawStars(cover, t) {
+      const open = smooth(cover);                    // 0..1..0 outward extent
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const s of stars) {
+        // per-star emergence window: appears after its lead, fades on the recede
+        const present = clamp01((cover - s.lead * (1 - cover)) * 1.4);
+        if (present <= 0.01) continue;
+        const sweep = s.ang + (1 - open) * s.spin;   // rotates as it spirals in/out
+        const rad = s.rad * open;
+        const drift = (1 - cover) * s.rise * t;      // dissolve upward as it recedes
+        const px = CX + Math.cos(sweep) * rad;
+        const py = CY + Math.sin(sweep) * rad - drift;
+        if (px < -20 || px > W + 20 || py < -20 || py > H + 20) continue;
+        const tw = s.base + s.amp * (0.5 + 0.5 * Math.sin(t * 6.2832 * s.sp + s.ph));
+        const a = clamp01(tw) * present;
+        if (a <= 0.02) continue;
+        const x = Math.round(px), y = Math.round(py);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = s.c;
+        ctx.shadowColor = s.c;
+        ctx.shadowBlur = s.r * 4;
+        ctx.beginPath();
+        ctx.arc(x, y, s.r, 0, 6.2832);
+        ctx.fill();
+        if (s.big && a > 0.5) {
+          ctx.globalAlpha = a * 0.55;
+          ctx.strokeStyle = s.c;
+          ctx.lineWidth = 1;
+          const g = s.r * 5;
+          ctx.beginPath();
+          ctx.moveTo(x - g, y); ctx.lineTo(x + g, y);
+          ctx.moveTo(x, y - g); ctx.lineTo(x, y + g);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- gentle dream-sparkles lifting outward/up on the bloom. ---- */
+    function drawSparks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const p of sparks) {
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const r = p.r0 * smooth(cover);
+        const px = CX + Math.cos(p.a0) * r + Math.sin(p.ph + lt * p.swf * 6.2832) * p.sway;
+        const py = CY + Math.sin(p.a0) * r - p.rise * lt;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.55 + Math.sin(p.ph + lt * p.tw * 6.2832) * 0.45;
+        const a = p.a * ends * twk * lerp(0.4, 1, cover);
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.c;
+        ctx.shadowColor = p.c;
+        ctx.shadowBlur = 8;
+        const s = p.s;
+        // a tiny soft diamond sparkle
+        const xx = Math.round(px), yy = Math.round(py);
+        ctx.beginPath();
+        ctx.moveTo(xx, yy - s); ctx.lineTo(xx + s, yy);
+        ctx.lineTo(xx, yy + s); ctx.lineTo(xx - s, yy);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    /* ---- slow shooting stars streaking through near the peak. ---- */
+    function drawShoots(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const sh of shoots) {
+        const k = clamp01((t - sh.lead) / sh.span);
+        if (k <= 0 || k >= 1) continue;
+        const dx = Math.cos(sh.ang), dy = Math.sin(sh.ang);
+        const travel = sh.sp * sh.span;
+        const hx = sh.x0 + dx * travel * k;
+        const hy = sh.y0 + dy * travel * k;
+        const tx = hx - dx * sh.len;
+        const ty = hy - dy * sh.len;
+        const fade = Math.sin(k * Math.PI) * cover;
+        if (fade <= 0.02) continue;
+        const grad = ctx.createLinearGradient(tx, ty, hx, hy);
+        grad.addColorStop(0, 'rgba(242,198,255,0)');
+        grad.addColorStop(1, 'rgba(255,255,255,' + (0.9 * fade).toFixed(3) + ')');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = PINK;
+        ctx.shadowBlur = 16 * fade;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(tx), Math.round(ty));
+        ctx.lineTo(Math.round(hx), Math.round(hy));
+        ctx.stroke();
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = WHITE;
+        ctx.shadowBlur = 10 * fade;
+        ctx.beginPath();
+        ctx.arc(Math.round(hx), Math.round(hy), 2.6, 0, 6.2832);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);   // 0 -> 1 -> 0, full bloom at t=0.5
+
+      drawNebula(cover, t);
+      drawStars(cover, t);
+      drawSparks(t, cover);
+      drawShoots(t, cover);
+
+      // soft white dream-flash cresting at the very peak (full cover)
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(255,255,255,' + (0.5 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.4, 'rgba(242,198,255,' + (0.22 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(184,164,255,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 700; t = 0; }        // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }   // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

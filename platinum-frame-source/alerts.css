@@ -1,0 +1,268 @@
+/* ============================================================
+   PLATINUM FRAME — alert system ("Cold Minimal Luxury")
+   A razor-thin PLATINUM registration card on a transparent void:
+   a centred glyph plate framed by a precise stepped/offset double
+   hairline, bright L-shaped corner registration TICKS, a thin
+   wide-tracked steel KICKER, a thin-weight platinum NAME line, an
+   emphasized platinum AMOUNT for value events, and a leading
+   diamond node + hairline strip. Slides in from the LEFT, holds,
+   slides out. TRANSPARENT background so it composites over the
+   scene. Cohesive with shared.css tokens: razor hairlines, cold
+   steel/platinum, registration ticks, slow cool light-sweep.
+   Each event gets a DISTINCT entrance motion (see the per-event
+   classes at the bottom + alerts.js).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --bg-deep:#0E1013; --bg-lift:#1A1E24; --steel:#9AA7B2;
+  --platinum:#D7DEE6; --white:#F4F7FA;
+  /* derived */
+  --hair:rgba(215,222,230,.46);
+  --hair-soft:rgba(215,222,230,.16);
+  --hair-faint:rgba(154,167,178,.10);
+  --tick:rgba(244,247,250,.85);
+  --dim:rgba(154,167,178,.62);
+  --glow:rgba(215,222,230,.30);
+  --sans:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);background:transparent;
+  font-family:var(--sans);}
+
+/* one canvas for the cold-speck shimmer burst, behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:820px;padding:32px 44px 32px 40px;
+  background:
+    linear-gradient(180deg, rgba(26,30,36,.50), rgba(14,16,19,.34));
+  border:1px solid var(--hair);
+  box-shadow:
+    0 36px 110px rgba(0,0,0,.55),
+    inset 0 0 60px rgba(26,30,36,.5),
+    inset 0 0 1px rgba(244,247,250,.18);
+  display:grid;grid-template-columns:128px 1fr;column-gap:32px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* OFFSET inner hairline nudged down/right — the stepped double-hairline motif */
+.alert::before{content:"";position:absolute;left:7px;top:7px;right:3px;bottom:3px;
+  border:1px solid var(--hair-soft);pointer-events:none;}
+
+/* a slow cool light-sweep travels across the card (frozen in render mode) */
+.alert .sweep{position:absolute;top:0;bottom:0;width:140px;left:-140px;pointer-events:none;
+  mix-blend-mode:screen;
+  background:linear-gradient(105deg, transparent, rgba(244,247,250,.14), transparent);
+  animation:alert-sweep 5.5s linear infinite;}
+@keyframes alert-sweep{0%{left:-140px}100%{left:100%}}
+
+/* bright L-shaped corner REGISTRATION ticks (the signature motif) */
+.alert .tick{position:absolute;width:22px;height:22px;pointer-events:none;}
+.alert .tick::before,.alert .tick::after{content:"";position:absolute;background:var(--tick);
+  box-shadow:0 0 7px rgba(215,222,230,.5);}
+.alert .tick::before{width:22px;height:1px;} .alert .tick::after{width:1px;height:22px;}
+.alert .tick--tl{left:-1px;top:-1px;}  .alert .tick--tl::before{left:0;top:0;}  .alert .tick--tl::after{left:0;top:0;}
+.alert .tick--tr{right:-1px;top:-1px;} .alert .tick--tr::before{right:0;top:0;} .alert .tick--tr::after{right:0;top:0;}
+.alert .tick--bl{left:-1px;bottom:-1px;} .alert .tick--bl::before{left:0;bottom:0;} .alert .tick--bl::after{left:0;bottom:0;}
+.alert .tick--br{right:-1px;bottom:-1px;} .alert .tick--br::before{right:0;bottom:0;} .alert .tick--br::after{right:0;bottom:0;}
+
+/* ---- the glyph PLATE — a razor-thin platinum square w/ stepped inner hairline ---- */
+.alert .plate{width:128px;height:128px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(215,222,230,.10), transparent 60%),
+    linear-gradient(160deg, rgba(26,30,36,.7), rgba(14,16,19,.92));
+  border:1px solid var(--hair);
+  box-shadow:inset 0 0 0 1px rgba(244,247,250,.06), inset 0 0 26px rgba(215,222,230,.08);}
+/* offset inner hairline echoing the card */
+.alert .plate::after{content:"";position:absolute;left:6px;top:6px;right:3px;bottom:3px;
+  border:1px solid var(--hair-soft);pointer-events:none;}
+.alert .plate .glyph{font-family:var(--sans);font-weight:200;font-size:60px;line-height:1;
+  color:var(--platinum);
+  text-shadow:0 0 20px rgba(215,222,230,.45), 0 2px 1px rgba(5,6,8,.5);}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* thin wide-tracked steel KICKER (event label), flanked by a leading diamond */
+.alert .kick{font-family:var(--sans);font-size:19px;font-weight:300;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--steel);text-indent:.42em;margin:0 0 10px;
+  display:flex;align-items:center;gap:14px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 0 12px rgba(215,222,230,.25);}
+.alert .kick .dia{width:9px;height:9px;border:1px solid var(--platinum);transform:rotate(45deg);
+  box-shadow:0 0 10px var(--glow);flex:none;text-indent:0;
+  animation:diapulse 2.2s steps(1,end) infinite;}
+@keyframes diapulse{0%,62%{opacity:1}63%,100%{opacity:.22}}
+
+/* big thin-weight wide-tracked NAME — platinum->steel, clamped to one line */
+.alert .name{font-family:var(--sans);font-size:66px;line-height:.98;font-weight:200;
+  letter-spacing:.06em;text-transform:uppercase;margin:0;
+  background:linear-gradient(180deg,var(--white) 0%,var(--platinum) 54%,var(--steel) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 18px rgba(0,0,0,.45));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (platinum gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--sans);font-size:38px;font-weight:300;letter-spacing:.04em;
+  margin:8px 0 0;display:none;line-height:1;
+  background:linear-gradient(180deg,var(--white) 0%,var(--platinum) 46%,var(--steel) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 16px rgba(215,222,230,.4));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet thin steel sub-line (ships empty — no flavor text) */
+.alert .sub{font-family:var(--sans);font-size:18px;font-weight:300;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--dim);margin:8px 0 0;text-indent:.18em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin platinum registration strip across the bottom of the card */
+.alert .strip{position:absolute;left:40px;right:44px;bottom:14px;height:1px;opacity:.7;
+  background:var(--hair-soft);
+  -webkit-mask:linear-gradient(90deg,#000,#000 60%,transparent);
+          mask:linear-gradient(90deg,#000,#000 60%,transparent);}
+.alert .strip::after{content:"";position:absolute;left:0;top:50%;width:4px;height:4px;
+  transform:translateY(-50%) rotate(45deg);background:var(--platinum);
+  box-shadow:0 0 8px var(--glow);}
+
+/* node-id tag readout, top-right of the card */
+.alert .nid{position:absolute;top:16px;right:24px;font-family:var(--sans);
+  font-size:13px;letter-spacing:.34em;color:var(--steel);opacity:.7;text-indent:.34em;
+  font-weight:300;text-transform:uppercase;}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 DISTINCT choreographies, bespoke to
+   PLATINUM FRAME: cold precision-instrument moves. No bounce, no loud
+   pops — the card behaves like a machined part LOCKING into a precise
+   registration. Calibrated locks, hairline draws, light-rail glides,
+   measured settles. JS adds .show + .ev-<type>; the keyframe runs.
+   .hide always uses a clean fade/contract so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .46s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1;letter-spacing:0}to{opacity:0;transform:translateX(-30px) scale(.992)}}
+
+/* 1 follower — REGISTER: a hairline-thin card resolves out of a fine
+   horizontal compression (scaleX) into full width — a part snapping onto
+   its registration line. Restrained, exact, no overshoot. */
+.alert.ev-follower.show{animation:fx-follower .7s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:scaleX(.86) translateX(-22px)}
+  60%{opacity:1;transform:scaleX(1.004) translateX(2px)}
+  100%{opacity:1;transform:scaleX(1) translateX(0)}}
+
+/* 2 subscriber — FOCUS PULL: resolves from a soft de-focused over-scale
+   down to exact 1.0 as the blur clears (a lens settling on sharp). */
+.alert.ev-subscriber.show{animation:fx-subscriber .78s var(--ease) forwards;transform-origin:14% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(1.06);filter:blur(7px)}
+  55%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* 3 member — RAIL GLIDE: slides in along a light-rail from the left and
+   stops dead on its mark — clean, no rebound (a drawer easing shut). */
+.alert.ev-member.show{animation:fx-member .66s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-120px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — COUNT-UP TICK: a measured rise from just below with a faint
+   forward lean (skewX easing to flat) — value arriving on a track.
+   Crisp + minimal, amount event. */
+.alert.ev-cheer.show{animation:fx-cheer .62s var(--ease) forwards;transform-origin:14% 100%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(26px) skewX(-3deg)}
+  60%{opacity:1;transform:translateY(-3px) skewX(.6deg)}
+  100%{opacity:1;transform:translateY(0) skewX(0)}}
+
+/* 5 donation — CALIBRATED DESCEND: lowers from above and settles onto its
+   line with a single tiny damped correction (a precision scale coming to
+   rest). Premium, amount event. */
+.alert.ev-donation.show{animation:fx-donation .82s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-64px)}
+  62%{opacity:1;transform:translateY(6px)}
+  84%{transform:translateY(-2px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — APERTURE OPEN: the frame irises open from a thin centred slit
+   (scaleX from the centre) — two halves parting on a hairline. */
+.alert.ev-host.show{animation:fx-host .74s var(--ease) forwards;transform-origin:50% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.04)}
+  55%{opacity:1;transform:scaleX(1.01)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — INBOUND LOCK: the heavy arrival. Glides in fast from the left,
+   slightly over-wide, then COMPRESSES to exact width as it locks (a big
+   part seating into its frame). One firm settle, no shake. */
+.alert.ev-raid.show{animation:fx-raid .86s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-220px) scaleX(1.05)}
+  56%{opacity:1;transform:translateX(14px) scaleX(1.02)}
+  78%{transform:translateX(-4px) scaleX(.998)}
+  100%{opacity:1;transform:translateX(0) scaleX(1)}}
+
+/* 8 like — SOFT SEAT: an understated settle — eases up a few px and
+   contracts a hair into place (a gentle press). Quiet, no pulse. */
+.alert.ev-like.show{animation:fx-like .64s var(--ease) forwards;transform-origin:14% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:translateY(18px) scale(1.018)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 9 share — TRACK ADVANCE: glides forward from lower-left on a slight
+   diagonal (translate X+Y) and squares up — forward, directional, clean. */
+.alert.ev-share.show{animation:fx-share .66s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translate(-96px,16px)}
+  100%{opacity:1;transform:translate(0,0)}}
+
+/* 10 star — PIN DROP: descends onto its mark and rotates a hair to true
+   (a star pinned, then squared) — a single fine angular correction. */
+.alert.ev-star.show{animation:fx-star .76s var(--ease) forwards;transform-origin:14% 24%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-48px) rotate(-2.2deg)}
+  66%{opacity:1;transform:translateY(4px) rotate(.8deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — PRESSURE SEAT: arrives a touch oversized and presses
+   down to exact 1.0 (firm, weighty, controlled — never a loud zoom).
+   The loudest event, kept cold. Amount event. */
+.alert.ev-superchat.show{animation:fx-superchat .76s var(--ease) forwards;transform-origin:14% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.14)}
+  58%{opacity:1;transform:scale(.992)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — RISE & RESOLVE: lifts from below and resolves out of a
+   faint blur (calm, recurring support) — distinct from subscriber's pull
+   by direction (rises) + scale (none). */
+.alert.ev-supporter.show{animation:fx-supporter .74s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(40px);filter:blur(5px)}
+  58%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* glyph plate pops in slightly after the card (shared by all events) */
+.alert.show .plate .glyph{animation:fx-glyph .6s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert .sweep{animation:none;display:none;}
+#stage.render .alert .kick .dia{animation:none;opacity:1;}
+#stage.render .alert .plate .glyph{animation:none!important;opacity:1;transform:scale(1);}

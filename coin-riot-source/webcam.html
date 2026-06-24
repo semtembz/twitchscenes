@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Coin Riot — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one "Insert Coin" arcade webcam frame: a dark
+       cabinet bezel with a ring of chasing marquee BULBS hugging all four edges,
+       a spinning $-coin token in the top corners, a blinking "ON AIR" mono cap,
+       and a coin-op nameplate carrying #handle. Place your camera BEHIND this
+       overlay; the inside of the frame is fully transparent so the cam shows
+       through. Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* faint neon coin specks drift around the frame */
+    canvas.bg{pointer-events:none;opacity:.5;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);animation:camin .9s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* dark cabinet bezel; INSIDE stays transparent (border-only frame) */
+    .frame{position:absolute;inset:0;pointer-events:none;
+      border:14px solid #14122a;border-radius:20px;
+      box-shadow:
+        0 0 0 3px #2c2746,
+        0 0 30px rgba(125,0,255,.3),
+        0 0 70px rgba(22,224,255,.12),
+        inset 0 0 0 2px rgba(22,224,255,.22),
+        inset 0 0 26px rgba(22,224,255,.10);}
+
+    /* the chasing BULB RING hugging the four edges */
+    .ring{position:absolute;inset:-4px;pointer-events:none;}
+    .ring .row{position:absolute;display:flex;justify-content:space-between;align-items:center;}
+    .ring .row--t{top:-9px;left:14px;right:14px;}
+    .ring .row--b{bottom:-9px;left:14px;right:14px;}
+    .ring .row--l{left:-9px;top:24px;bottom:24px;flex-direction:column;}
+    .ring .row--r{right:-9px;top:24px;bottom:24px;flex-direction:column;}
+    .blb{width:13px;height:13px;border-radius:50%;flex:none;
+      background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);
+      animation:w-chase 1.15s steps(1,end) infinite;}
+    .blb.c-cyan{animation-name:w-chaseC;}
+    .blb.c-red{animation-name:w-chaseR;}
+    @keyframes w-chase{0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--gold) 60%, #9a7e00 100%);box-shadow:0 0 8px var(--gold),0 0 16px rgba(255,212,0,.6);}20%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);box-shadow:none;}}
+    @keyframes w-chaseC{0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--cyan) 60%, #0a6b80 100%);box-shadow:0 0 8px var(--cyan),0 0 16px rgba(22,224,255,.6);}20%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);box-shadow:none;}}
+    @keyframes w-chaseR{0%,100%{background:radial-gradient(circle at 38% 34%, #fff, var(--red) 60%, #7a1414 100%);box-shadow:0 0 8px var(--red),0 0 16px rgba(255,59,59,.6);}20%{background:radial-gradient(circle at 38% 34%, #4a4060, var(--bulb-off) 72%);box-shadow:none;}}
+
+    /* spinning $-coin tokens in the top corners of the bezel */
+    .coin-tok{position:absolute;width:52px;height:52px;border-radius:50%;pointer-events:none;z-index:2;
+      background:radial-gradient(circle at 38% 32%, #FFF3B0, var(--gold) 52%, #b88f00 100%);
+      box-shadow:0 0 18px rgba(255,212,0,.6),inset 0 -5px 8px rgba(120,90,0,.6),inset 0 4px 7px rgba(255,255,255,.5);
+      display:flex;align-items:center;justify-content:center;
+      font-family:var(--marquee);font-weight:900;font-size:24px;color:#7a5a00;
+      text-shadow:0 1px 0 rgba(255,255,255,.4);animation:w-tokspin 5s linear infinite;}
+    .coin-tok::after{content:"$";}
+    .coin-tok--l{left:-24px;top:-24px;}
+    .coin-tok--r{right:-24px;top:-24px;animation-delay:-2.5s;}
+    @keyframes w-tokspin{0%{transform:scaleX(1)}50%{transform:scaleX(.18)}100%{transform:scaleX(1)}}
+
+    /* small "ON AIR" cap + blinking credit dot, top-left above the frame */
+    .cap{position:absolute;left:6px;top:-50px;display:flex;align-items:center;gap:11px;
+      font-family:var(--mono);font-weight:700;letter-spacing:.34em;font-size:16px;color:var(--red);
+      text-indent:.34em;text-shadow:0 0 12px rgba(255,59,59,.5);
+      animation:camin 1.1s var(--ease) both .45s;}
+    .cap .credit{width:9px;height:9px;border-radius:50%;background:var(--red);
+      box-shadow:0 0 12px var(--red);animation:w-blink 1.05s steps(1,end) infinite;}
+    @keyframes w-blink{0%,55%{opacity:1}56%,100%{opacity:.18}}
+
+    /* HI-SCORE mono mark — top-right above the frame */
+    .mark-tr{position:absolute;right:6px;top:-50px;font-family:var(--mono);font-weight:700;
+      letter-spacing:.3em;font-size:15px;color:var(--cyan);text-indent:.3em;opacity:.85;
+      text-shadow:0 0 12px rgba(22,224,255,.45);animation:camin 1.1s var(--ease) both .45s;}
+
+    /* coin-op nameplate pill, clipped to bottom-center of the frame */
+    .tag{position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);z-index:2;
+      display:flex;align-items:center;gap:13px;white-space:nowrap;
+      background:linear-gradient(180deg, #14122a, #0c0a1c);
+      border:2px solid #2c2746;border-radius:10px;padding:9px 28px;
+      box-shadow:0 14px 34px rgba(0,0,0,.6), inset 0 0 0 2px rgba(22,224,255,.18),
+        0 0 22px rgba(125,0,255,.18);}
+    .tag .who{font-family:var(--mono);font-weight:700;letter-spacing:.26em;font-size:22px;color:var(--cyan);
+      text-indent:.26em;text-shadow:0 0 14px rgba(22,224,255,.4);}
+    .tag .credit{width:9px;height:9px;border-radius:50%;background:var(--gold);
+      box-shadow:0 0 10px var(--gold);animation:w-blink 1.05s steps(1,end) infinite;}
+
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrances; bulbs + coin spin keep looping (ambience) */
+    #stage.render .cam,#stage.render .cap,#stage.render .mark-tr{animation:none!important;}
+    #stage.render .cap .credit,#stage.render .tag .credit{animation:none;opacity:1;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .cap,#stage.render .mark-tr{opacity:.85;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- the chasing bulb ring (filled by script) -->
+      <div class="ring" aria-hidden="true">
+        <div class="row row--t"></div>
+        <div class="row row--b"></div>
+        <div class="row row--l"></div>
+        <div class="row row--r"></div>
+      </div>
+
+      <!-- spinning coin tokens in the top corners -->
+      <span class="coin-tok coin-tok--l" aria-hidden="true"></span>
+      <span class="coin-tok coin-tok--r" aria-hidden="true"></span>
+
+      <span class="cap" aria-hidden="true"><span class="credit"></span>ON AIR</span>
+      <span class="mark-tr" aria-hidden="true">HI-SCORE</span>
+      <div class="tag"><span class="credit" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- build the chasing bulb ring (clockwise carnival chase) ---- */
+    (() => {
+      const ring = document.querySelector(".ring");
+      if (!ring) return;
+      const rows = {
+        t: ring.querySelector(".row--t"), r: ring.querySelector(".row--r"),
+        b: ring.querySelector(".row--b"), l: ring.querySelector(".row--l"),
+      };
+      const counts = { t: 14, r: 7, b: 14, l: 7 };
+      const CYC = 1.15, cols = ["", "c-cyan", "c-red"];
+      let idx = 0; const total = counts.t + counts.r + counts.b + counts.l;
+      function add(rowEl, n){
+        if (!rowEl){ idx += n; return; }
+        for (let i = 0; i < n; i++){
+          const b = document.createElement("span");
+          b.className = "blb" + (cols[idx % 3] ? " " + cols[idx % 3] : "");
+          b.style.animationDelay = (-(idx / total) * CYC).toFixed(3) + "s";
+          rowEl.appendChild(b); idx++;
+        }
+      }
+      add(rows.t, counts.t); add(rows.r, counts.r); add(rows.b, counts.b); add(rows.l, counts.l);
+    })();
+
+    /* ---- canvas: faint neon coin specks drifting around the frame, deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    const COINS = ["#FFD400", "#FF3B3B", "#16E0FF", "#7D00FF", "#FFFFFF"];
+    let _s = 0x7A1d >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const specks = Array.from({ length: Math.max(0, num("specks", 60)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vx: R(-3, 3)/60, vy: R(-4, 3)/60,
+      ph: R(0, 6.28), tw: R(0.5, 1.5), a: R(0.14, 0.46),
+      c: COINS[(srnd()*COINS.length)|0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of specks){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.05 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.5 + Math.sin(p.ph * p.tw) * 0.5;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 5 * p.z;
+        const sz = Math.max(1, Math.round(p.z * 2));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__coinDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

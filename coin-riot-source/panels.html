@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coin Riot — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the COIN RIOT
+    "Insert Coin" arcade language:
+        - a dark coin-op cabinet plate, double-bordered with a neon inner track
+        - a row of small chasing marquee BULBS along the top edge
+        - a spinning $-coin token plate carrying a thin arcade icon
+        - the label etched in bold neon MARQUEE caps (gold->red)
+        - a segmented "CREDITS" lamp meter under the label
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    :root{
+      --black:#0A0A14; --panel:#11111F; --red:#FF3B3B; --gold:#FFD400; --cyan:#16E0FF;
+      --purple:#7D00FF; --white:#FFFFFF; --dim:#9aa0c0;
+      --marquee:"Arial Black","Arial Bold",Impact,Haettenschweiler,system-ui,sans-serif;
+      --mono:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);color:var(--white);padding:36px 32px 60px;
+      background:
+        radial-gradient(120% 90% at 70% -10%, rgba(125,0,255,.20), transparent 55%),
+        radial-gradient(90% 70% at 12% 110%, rgba(22,224,255,.10), transparent 60%),
+        linear-gradient(160deg, #100A1E 0%, var(--black) 52%, #06060D 100%);
+      min-height:100vh;}
+    .kicker{font-family:var(--mono);font-weight:700;letter-spacing:.42em;font-size:12px;
+      color:var(--cyan);text-transform:uppercase;margin:0 0 8px;text-shadow:0 0 12px rgba(22,224,255,.5);}
+    h1{font-family:var(--marquee);font-weight:900;font-size:34px;letter-spacing:.01em;
+      text-transform:uppercase;margin:0 0 6px;color:var(--gold);text-shadow:0 0 22px rgba(255,212,0,.4);}
+    p.lead{color:var(--dim);margin:0 0 24px;max-width:740px;line-height:1.6;font-size:14px;letter-spacing:.04em;}
+    code{font-family:var(--mono);color:var(--cyan);background:rgba(22,224,255,.08);padding:2px 7px;border-radius:3px;}
+    .toolbar{margin:0 0 30px;display:flex;gap:14px;flex-wrap:wrap;}
+    button{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:3px;text-transform:uppercase;
+      padding:12px 24px;cursor:pointer;color:var(--black);
+      background:linear-gradient(180deg, #FFF3B0, var(--gold));
+      border:1px solid #FFF3B0;border-radius:3px;box-shadow:0 6px 24px rgba(255,212,0,.25);}
+    button:hover{filter:brightness(1.06);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(348px, 1fr));gap:26px;}
+    .card{background:rgba(17,17,31,0.6);padding:16px;border-radius:6px;border:1px solid rgba(125,0,255,0.3);}
+    .frame{border-radius:3px;overflow:hidden;display:block;
+      background-color:#0a0a14;
+      background-image:
+        linear-gradient(45deg, #15132a 25%, transparent 25%),
+        linear-gradient(-45deg, #15132a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #15132a 75%),
+        linear-gradient(-45deg, transparent 75%, #15132a 75%);
+      background-size:16px 16px;background-position:0 0, 0 8px, 8px -8px, -8px 0;}
+    canvas{display:block;width:320px;height:100px;}
+    .card-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;}
+    .card-row .name{font-family:var(--mono);letter-spacing:2px;color:var(--dim);text-transform:uppercase;}
+    .card-row a{font-family:var(--mono);letter-spacing:1px;color:var(--gold);text-decoration:none;
+      border:1px solid rgba(255,212,0,0.34);border-radius:3px;padding:5px 12px;}
+    .card-row a:hover{background:rgba(255,212,0,0.12);}
+  </style>
+</head>
+<body>
+  <p class="kicker">COIN RIOT · PANELS</p>
+  <h1>Coin Riot — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the coin-op arcade style:
+    a dark cabinet plate, a neon inner track, a row of chasing marquee bulbs, a
+    spinning $-coin token icon, and the label in bold neon marquee caps.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar"><button id="dlAll">Download all</button></div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+    var W = 320, H = 100;
+    var RED = '#FF3B3B', GOLD = '#FFD400', CYAN = '#16E0FF', PURPLE = '#7D00FF', WHITE = '#FFFFFF';
+    var BULB_OFF = '#2a2236';
+    var BULB_COLS = [GOLD, CYAN, RED];
+    var MARQUEE = '"Arial Black","Arial Bold",Impact,Haettenschweiler,system-ui,sans-serif';
+    var MONO = '"Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+
+    var PANELS = [
+      { id:'about',     title:'ABOUT',     icon:'about' },
+      { id:'schedule',  title:'SCHEDULE',  icon:'schedule' },
+      { id:'rules',     title:'RULES',     icon:'rules' },
+      { id:'donations', title:'DONATE',    icon:'coin' },
+      { id:'discord',   title:'DISCORD',   icon:'discord' },
+      { id:'twitter',   title:'TWITTER',   icon:'x' },
+      { id:'youtube',   title:'YOUTUBE',   icon:'play' },
+      { id:'instagram', title:'INSTAGRAM', icon:'camera' },
+      { id:'merch',     title:'MERCH',     icon:'tag' },
+      { id:'sponsors',  title:'SPONSORS',  icon:'shield' },
+      { id:'subscribe', title:'SUBSCRIBE', icon:'star' },
+      { id:'community', title:'COMMUNITY', icon:'community' }
+    ];
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // a lit round marquee bulb
+    function bulb(ctx, x, y, r, col) {
+      x = Math.round(x); y = Math.round(y);
+      ctx.save();
+      var g = ctx.createRadialGradient(x - r*0.3, y - r*0.3, 0, x, y, r);
+      g.addColorStop(0, WHITE); g.addColorStop(0.55, col); g.addColorStop(1, 'rgba(0,0,0,0.2)');
+      ctx.shadowColor = col; ctx.shadowBlur = 6; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) { ctx.fillText(str[i], cx, y); cx += ctx.measureText(str[i]).width + sp; }
+    }
+    function measureSpaced(ctx, str, sp) {
+      var total = 0;
+      for (var i = 0; i < str.length; i++) total += ctx.measureText(str[i]).width + sp;
+      return total - sp;
+    }
+
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+      var pad = 3, x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // cabinet plate body
+      ctx.save();
+      roundRect(ctx, x, y, w, h, 8); ctx.clip();
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#14122a'); bg.addColorStop(0.62, '#0c0a1c'); bg.addColorStop(1, '#08071a');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      // purple corner wash
+      var wash = ctx.createRadialGradient(W * 0.5, 0, 0, W * 0.5, 0, W * 0.7);
+      wash.addColorStop(0, 'rgba(125,0,255,0.20)'); wash.addColorStop(1, 'rgba(125,0,255,0)');
+      ctx.fillStyle = wash; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // outer border
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#2c2746';
+      roundRect(ctx, x + 1.25, y + 1.25, w - 2.5, h - 2.5, 7); ctx.stroke();
+      // inner neon track
+      ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(22,224,255,0.30)';
+      ctx.shadowColor = 'rgba(22,224,255,0.4)'; ctx.shadowBlur = 7;
+      roundRect(ctx, x + 9, y + 9, w - 18, h - 18, 4); ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // chasing marquee bulbs along the top edge (static lit snapshot, colour-cycled)
+      var PER = 12;
+      for (var i = 0; i < PER; i++) {
+        var bx = x + 18 + (i / (PER - 1)) * (w - 36);
+        bulb(ctx, bx, y + 8, 3.4, BULB_COLS[i % 3]);
+      }
+
+      // spinning $-coin token plate (squashed snapshot) with the icon
+      var cxp = x + 16 + 30, cyp = H / 2 + 4, cr = 30;
+      ctx.save();
+      ctx.translate(cxp, cyp); ctx.scale(0.86, 1);
+      var disc = ctx.createRadialGradient(-cr*0.3, -cr*0.3, 3, 0, 0, cr);
+      disc.addColorStop(0, '#FFF3B0'); disc.addColorStop(0.52, GOLD); disc.addColorStop(1, '#b88f00');
+      ctx.shadowColor = 'rgba(255,212,0,0.6)'; ctx.shadowBlur = 14; ctx.fillStyle = disc;
+      ctx.beginPath(); ctx.arc(0, 0, cr, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      // icon on the token
+      drawIcon(ctx, p.icon, cxp, cyp, 26);
+
+      // label in neon marquee caps (gold->red), shrink-to-fit
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title, size = 28, maxW = W - 86 - 16;
+      ctx.font = '900 ' + size + 'px ' + MARQUEE;
+      while (measureSpaced(ctx, label, 1.5) > maxW && size > 12) {
+        size -= 1; ctx.font = '900 ' + size + 'px ' + MARQUEE;
+      }
+      var ty = 56;
+      var lg = ctx.createLinearGradient(0, ty - size, 0, ty + 4);
+      lg.addColorStop(0, '#FFF3B0'); lg.addColorStop(0.44, GOLD); lg.addColorStop(1, RED);
+      ctx.fillStyle = lg; ctx.shadowColor = 'rgba(255,212,0,0.4)'; ctx.shadowBlur = 12;
+      drawSpaced(ctx, label, 86, ty, 1.5);
+      ctx.restore();
+
+      // segmented CREDITS lamp meter under the label (~64%)
+      ctx.save();
+      var barX = 86, barY = 72, barW = W - 86 - 16, lampN = 12, gap = 4;
+      var lampW = (barW - gap * (lampN - 1)) / lampN;
+      var lit = Math.round(lampN * 0.64);
+      for (var li = 0; li < lampN; li++) {
+        var lx = barX + li * (lampW + gap);
+        if (li < lit) {
+          ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(255,212,0,0.6)'; ctx.shadowBlur = 6;
+        } else {
+          ctx.fillStyle = 'rgba(125,0,255,0.18)'; ctx.shadowBlur = 0;
+        }
+        roundRect(ctx, lx, barY, lampW, 6, 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      // CREDITS label
+      ctx.font = '700 8px ' + MONO; ctx.fillStyle = 'rgba(154,160,192,0.9)';
+      ctx.fillText('CREDITS', barX, barY + 18);
+      ctx.restore();
+    }
+
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = '#7a5a00'; ctx.fillStyle = '#7a5a00';
+      ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      switch (kind) {
+        case 'about':
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.9, 0, 6.2832); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -h * 0.4, 1.4, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(0, -h * 0.1); ctx.lineTo(0, h * 0.5); ctx.stroke(); break;
+        case 'schedule':
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath(); ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.5, -h); ctx.lineTo(-h * 0.5, -h * 0.5);
+          ctx.moveTo(h * 0.5, -h); ctx.lineTo(h * 0.5, -h * 0.5); ctx.stroke(); break;
+        case 'rules':
+          for (var i = 0; i < 3; i++) { var ly = -h * 0.6 + i * h * 0.6;
+            ctx.beginPath(); ctx.moveTo(-h * 0.85, ly); ctx.lineTo(h * 0.85, ly); ctx.stroke(); } break;
+        case 'coin':
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.9, 0, 6.2832); ctx.stroke();
+          ctx.font = '900 ' + Math.round(s * 0.7) + 'px ' + MARQUEE;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 1); break;
+        case 'discord':
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.4); ctx.quadraticCurveTo(0, -h * 0.8, h * 0.85, -h * 0.4);
+          ctx.lineTo(h * 0.65, h * 0.6); ctx.quadraticCurveTo(0, h * 0.85, -h * 0.65, h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.3, 0, 1.6, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.3, 0, 1.6, 0, 6.2832); ctx.fill(); break;
+        case 'x':
+          ctx.beginPath(); ctx.moveTo(-h * 0.8, -h * 0.8); ctx.lineTo(h * 0.8, h * 0.8);
+          ctx.moveTo(h * 0.8, -h * 0.8); ctx.lineTo(-h * 0.8, h * 0.8); ctx.stroke(); break;
+        case 'play':
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 3); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-h * 0.2, -h * 0.32); ctx.lineTo(-h * 0.2, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02); ctx.closePath(); ctx.fill(); break;
+        case 'camera':
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.9, 3); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.38, 0, 6.2832); ctx.stroke(); break;
+        case 'tag':
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85); ctx.lineTo(h * 0.85, -h * 0.85); ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85); ctx.lineTo(-h * 0.85, h * 0.15); ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 1.6, 0, 6.2832); ctx.stroke(); break;
+        case 'shield':
+          ctx.beginPath();
+          ctx.moveTo(0, -h * 0.9); ctx.lineTo(h * 0.78, -h * 0.5); ctx.lineTo(h * 0.78, h * 0.15);
+          ctx.quadraticCurveTo(h * 0.78, h * 0.8, 0, h * 0.92);
+          ctx.quadraticCurveTo(-h * 0.78, h * 0.8, -h * 0.78, h * 0.15);
+          ctx.lineTo(-h * 0.78, -h * 0.5); ctx.closePath(); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-h * 0.3, 0); ctx.lineTo(-h * 0.05, h * 0.3); ctx.lineTo(h * 0.4, -h * 0.3); ctx.stroke(); break;
+        case 'star':
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) { var rad = (sp % 2 === 0) ? h * 0.92 : h * 0.4;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5; var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+          ctx.closePath(); ctx.stroke(); break;
+        case 'community':
+          var pts = [[-h * 0.55, -h * 0.35], [h * 0.55, -h * 0.35], [0, h * 0.6]];
+          ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]);
+          ctx.lineTo(pts[2][0], pts[2][1]); ctx.closePath(); ctx.stroke();
+          pts.forEach(function (pt) { ctx.beginPath(); ctx.arc(pt[0], pt[1], h * 0.2, 0, 6.2832); ctx.stroke(); }); break;
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, 6.2832); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        drawPanel(cv.getContext('2d'), p);
+        frame.appendChild(cv);
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) { dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); }); })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() { if (i >= made.length) return; save(made[i].canvas, made[i].id); i++; setTimeout(next, 200); })();
+    });
+
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(build); else build();
+  })();
+  </script>
+</body>
+</html>

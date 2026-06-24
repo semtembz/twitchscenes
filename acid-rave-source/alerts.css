@@ -1,0 +1,276 @@
+/* ============================================================
+   ACID RAVE — alert system ("UV Blacklight")
+   A neon RAVE STROBE CARD: a pitch-black UV slab anchored
+   bottom-left with an acid-green edge seam, a hexagonal neon
+   glyph node strobing with blacklight glow, a glowing acid
+   KICKER tag, a heavy bold-display EVENT/NAME headline with a
+   cyan/magenta RGB glitch-split, an emphasized neon AMOUNT for
+   value events, and a thin tri-color laser rule. TRANSPARENT
+   background so it composites over gameplay / the scene.
+   Cohesive with shared.css: UV-void palette, heavy display +
+   condensed-mono stacks, acid/magenta/cyan neon glow, RGB split.
+   Each event gets a DISTINCT entrance motion (see the per-event
+   animation classes at the bottom of this file).
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --uv-black:#07030F; --uv-black2:#04020A;
+  --acid:#C6FF00; --magenta:#FF14C8; --cyan:#00E5FF; --purple:#B26BFF; --white:#FFFFFF;
+  /* derived glows */
+  --acid-glow:rgba(198,255,0,.65);
+  --mag-glow:rgba(255,20,200,.6);
+  --cyan-glow:rgba(0,229,255,.55);
+  --purp-glow:rgba(178,107,255,.5);
+  --line:rgba(198,255,0,.42);
+  --line-soft:rgba(178,107,255,.28);
+  --card:rgba(9,4,18,.80); --card2:rgba(4,2,10,.74);
+  --dim:rgba(207,200,224,.62);
+  --disp:"Arial Black","Impact",Haettenschweiler,"Franklin Gothic Heavy",system-ui,sans-serif;
+  --mono:"Bahnschrift","Roboto Condensed","DejaVu Sans Mono",Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--white);background:transparent;
+  font-family:var(--mono);}
+
+/* one canvas for the neon-spark burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left ---- */
+.alert{position:absolute;left:96px;bottom:140px;width:820px;padding:30px 40px 30px 40px;
+  background:
+    radial-gradient(120% 130% at 0% 0%, rgba(178,107,255,.16), transparent 60%),
+    radial-gradient(80% 120% at 100% 120%, rgba(255,20,200,.10), transparent 60%),
+    linear-gradient(150deg, var(--card), var(--card2));
+  border:1px solid var(--line-soft);
+  box-shadow:
+    0 36px 110px rgba(0,0,0,.6),
+    0 0 50px rgba(198,255,0,.10),
+    inset 0 0 80px rgba(4,2,10,.5);
+  /* a sharp clipped notch at top-left + bottom-right — a rave-flyer cut */
+  clip-path:polygon(0 22px,22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%);
+  display:grid;grid-template-columns:128px 1fr;column-gap:30px;align-items:center;
+  /* base hidden state; per-event classes drive the entrance */
+  opacity:0;
+  will-change:transform,opacity;}
+
+/* faint UV scanline / haze sheet inside the card */
+.alert::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.4;
+  clip-path:inherit;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 4px);}
+
+/* a slow diagonal neon light-sweep travelling across the card (frozen in render mode) */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  clip-path:inherit;opacity:.6;
+  background:linear-gradient(115deg, transparent 42%, rgba(0,229,255,.12) 49%, rgba(198,255,0,.10) 51%, transparent 60%);
+  animation:alert-sweep 3.8s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-26%)}100%{transform:translateX(26%)}}
+
+/* a bright acid-green seam down the left edge — the signature rave accent */
+.alert .seam{position:absolute;left:0;top:22px;bottom:0;width:5px;
+  background:linear-gradient(180deg,var(--cyan),var(--acid) 50%,var(--magenta));
+  box-shadow:0 0 16px var(--acid-glow),0 0 26px var(--mag-glow);}
+
+/* ---- the hexagonal neon glyph NODE ---- */
+.alert .node{width:128px;height:128px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  /* hexagonal clip — a UV cell */
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(198,255,0,.20), transparent 60%),
+    linear-gradient(160deg, rgba(20,8,32,.9), rgba(7,3,15,.96));
+  box-shadow:inset 0 0 0 1px var(--line), inset 0 0 28px rgba(198,255,0,.14);}
+.alert .node::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.4;
+  clip-path:polygon(25% 4%,75% 4%,98% 50%,75% 96%,25% 96%,2% 50%);
+  box-shadow:inset 0 0 0 1px var(--line-soft);}
+.alert .node .glyph{font-family:var(--disp);font-size:62px;line-height:1;color:var(--acid);
+  font-weight:900;
+  text-shadow:0 0 8px rgba(255,255,255,.8), 0 0 24px var(--acid-glow), 0 0 48px var(--acid-glow);
+  animation:node-strobe 1.5s ease-in-out infinite;}
+@keyframes node-strobe{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+
+/* glowing acid KICKER pill/tag (the event label) — hidden in noname mode
+   where the big headline already shows the event */
+.alert .kick{display:inline-flex;align-items:center;gap:11px;
+  font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:.34em;
+  text-transform:uppercase;color:var(--uv-black);text-indent:.34em;
+  margin:0 0 10px;padding:6px 18px 5px;line-height:1;border-radius:999px;
+  background:linear-gradient(180deg,var(--acid),#9ED600);
+  box-shadow:0 0 22px var(--acid-glow),0 0 46px rgba(198,255,0,.28),inset 0 0 8px rgba(255,255,255,.5);
+  max-width:100%;white-space:nowrap;overflow:hidden;
+  animation:kick-pulse 2.4s ease-in-out infinite;}
+@keyframes kick-pulse{0%,100%{box-shadow:0 0 18px var(--acid-glow),0 0 38px rgba(198,255,0,.24),inset 0 0 8px rgba(255,255,255,.45);}
+                      50%{box-shadow:0 0 34px var(--acid-glow),0 0 70px rgba(198,255,0,.5),inset 0 0 12px rgba(255,255,255,.7);}}
+
+/* big bold-display EVENT / NAME headline — heavy, with a cyan/magenta RGB
+   glitch-split living in the .ghost layers behind it. Clamped to one line. */
+.alert .name{position:relative;font-family:var(--disp);font-size:76px;line-height:.9;
+  font-weight:900;letter-spacing:-.01em;text-transform:uppercase;color:var(--white);margin:0;
+  -webkit-text-stroke:1px rgba(255,255,255,.10);
+  text-shadow:0 0 6px rgba(255,255,255,.7), 0 0 30px var(--acid-glow), 0 0 64px rgba(198,255,0,.4);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:name-breath 2.6s ease-in-out infinite;}
+@keyframes name-breath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
+/* RGB / glitch-split ghosts — cyan + magenta offset clones of the headline,
+   driven by JS (textContent mirrors the name). Sit directly over the name. */
+.alert .name .ghost{position:absolute;left:0;top:0;right:0;pointer-events:none;
+  -webkit-text-stroke:0;text-shadow:none;white-space:nowrap;overflow:hidden;
+  text-overflow:clip;mix-blend-mode:screen;}
+.alert .name .ghost.c{color:var(--cyan);opacity:.55;animation:rgb-c 3s steps(1,end) infinite;}
+.alert .name .ghost.m{color:var(--magenta);opacity:.5;animation:rgb-m 3s steps(1,end) infinite;}
+@keyframes rgb-c{0%,86%,100%{transform:translate(-3px,0);opacity:.4}
+                 88%{transform:translate(-9px,-2px);opacity:.7}
+                 92%{transform:translate(6px,2px);opacity:.6}}
+@keyframes rgb-m{0%,86%,100%{transform:translate(3px,0);opacity:.38}
+                 88%{transform:translate(8px,2px);opacity:.65}
+                 92%{transform:translate(-5px,-2px);opacity:.55}}
+
+/* amount readout (neon cyan->acid gradient) — hidden unless .has-amount.
+   Emphasized for cheer / donation / superchat etc. */
+.alert .amount{font-family:var(--disp);font-size:44px;font-weight:900;letter-spacing:0;
+  margin:8px 0 0;display:none;line-height:1;
+  background:linear-gradient(180deg,var(--white) 0%,var(--cyan) 42%,var(--acid) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 16px var(--cyan-glow)) drop-shadow(0 0 26px var(--acid-glow));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+
+/* quiet condensed-mono sub-line (ships empty) */
+.alert .sub{font-family:var(--mono);font-size:18px;letter-spacing:.18em;color:var(--dim);
+  text-transform:uppercase;margin:8px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* a thin tri-color laser rule across the bottom of the card */
+.alert .rule{position:absolute;left:40px;right:40px;bottom:16px;height:3px;border-radius:3px;opacity:.85;
+  background:linear-gradient(90deg,transparent,var(--cyan) 16%,var(--white) 50%,var(--magenta) 84%,transparent);
+  box-shadow:0 0 12px var(--cyan-glow),0 0 22px var(--mag-glow);
+  animation:rule-pulse 2.6s ease-in-out infinite;}
+@keyframes rule-pulse{0%,100%{opacity:.7;transform:scaleX(.985)}50%{opacity:1;transform:scaleX(1)}}
+
+/* channel / room tag readout, top-right of the card — UV purple, glowing */
+.alert .nid{position:absolute;top:14px;right:24px;font-family:var(--mono);
+  font-size:14px;letter-spacing:.30em;color:var(--purple);opacity:.85;text-indent:.30em;
+  text-transform:uppercase;text-shadow:0 0 12px var(--purp-glow);}
+
+/* ============================================================
+   PER-EVENT ENTRANCE MOTIONS — 12 distinct choreographies.
+   JS adds .show + .ev-<type>; the matching keyframe runs.
+   .hide always uses a clean fade/drop-out so chaining never overlaps.
+   ============================================================ */
+.alert.hide{animation:alert-out .46s var(--ease) forwards !important;}
+@keyframes alert-out{from{opacity:1}to{opacity:0;transform:translateY(18px) scale(.985)}}
+
+/* 1 follower — calm rise up from below (settle) */
+.alert.ev-follower.show{animation:fx-follower .66s var(--ease) forwards;}
+@keyframes fx-follower{
+  0%{opacity:0;transform:translateY(64px)}
+  72%{opacity:1;transform:translateY(-8px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 2 subscriber — neon flare-in: scale up from a glowing point + unblur */
+.alert.ev-subscriber.show{animation:fx-subscriber .72s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-subscriber{
+  0%{opacity:0;transform:scale(.62);filter:blur(9px) brightness(1.6)}
+  60%{opacity:1;filter:blur(0) brightness(1.15)}
+  100%{opacity:1;transform:scale(1);filter:blur(0) brightness(1)}}
+
+/* 3 member — slide in hard from the left with a firm stop */
+.alert.ev-member.show{animation:fx-member .6s var(--ease) forwards;}
+@keyframes fx-member{
+  0%{opacity:0;transform:translateX(-150px)}
+  72%{opacity:1;transform:translateX(16px)}
+  100%{opacity:1;transform:translateX(0)}}
+
+/* 4 cheer — energetic bounce-pop + upward kick (amount event) */
+.alert.ev-cheer.show{animation:fx-cheer .58s var(--ease) forwards;transform-origin:16% 84%;}
+@keyframes fx-cheer{
+  0%{opacity:0;transform:translateY(44px) scale(.88)}
+  54%{opacity:1;transform:translateY(-12px) scale(1.05)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* 5 donation — descend from above + gentle settle bounce (premium amount event) */
+.alert.ev-donation.show{animation:fx-donation .76s var(--ease) forwards;}
+@keyframes fx-donation{
+  0%{opacity:0;transform:translateY(-96px)}
+  60%{opacity:1;transform:translateY(13px)}
+  82%{transform:translateY(-6px)}
+  100%{opacity:1;transform:translateY(0)}}
+
+/* 6 host — wide horizontal expand (laser doors open) via scaleX */
+.alert.ev-host.show{animation:fx-host .68s var(--ease) forwards;transform-origin:0% 50%;}
+@keyframes fx-host{
+  0%{opacity:0;transform:scaleX(.1)}
+  60%{opacity:1;transform:scaleX(1.02)}
+  100%{opacity:1;transform:scaleX(1)}}
+
+/* 7 raid — big arrival: overshoot rush in from the left + shake settle */
+.alert.ev-raid.show{animation:fx-raid .8s var(--ease) forwards;}
+@keyframes fx-raid{
+  0%{opacity:0;transform:translateX(-280px) scale(1.05)}
+  55%{opacity:1;transform:translateX(28px) scale(1.02)}
+  72%{transform:translateX(-13px)}
+  86%{transform:translateX(7px)}
+  100%{opacity:1;transform:translateX(0) scale(1)}}
+
+/* 8 like — soft strobe pulse-in (breathe) */
+.alert.ev-like.show{animation:fx-like .62s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-like{
+  0%{opacity:0;transform:scale(.82)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 9 share — skew-swipe in from lower-left (forward motion) */
+.alert.ev-share.show{animation:fx-share .6s var(--ease) forwards;}
+@keyframes fx-share{
+  0%{opacity:0;transform:translateX(-130px) skewX(-10deg)}
+  70%{opacity:1;transform:translateX(9px) skewX(2deg)}
+  100%{opacity:1;transform:translateX(0) skewX(0)}}
+
+/* 10 star — drop + slight rotate settle (a star pinned to the wall) */
+.alert.ev-star.show{animation:fx-star .72s var(--ease) forwards;transform-origin:16% 30%;}
+@keyframes fx-star{
+  0%{opacity:0;transform:translateY(-74px) rotate(-5deg)}
+  62%{opacity:1;transform:translateY(9px) rotate(1.6deg)}
+  100%{opacity:1;transform:translateY(0) rotate(0)}}
+
+/* 11 superchat — zoom-in toward the viewer + settle (loud amount event) */
+.alert.ev-superchat.show{animation:fx-superchat .7s var(--ease) forwards;transform-origin:16% 50%;}
+@keyframes fx-superchat{
+  0%{opacity:0;transform:scale(1.38)}
+  60%{opacity:1;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}}
+
+/* 12 supporter — rise + unblur (calm, recurring support) */
+.alert.ev-supporter.show{animation:fx-supporter .7s var(--ease) forwards;}
+@keyframes fx-supporter{
+  0%{opacity:0;transform:translateY(56px);filter:blur(7px)}
+  60%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* glyph node pops in slightly after the card (shared by all events) */
+.alert.show .node .glyph{animation:node-strobe 1.5s ease-in-out infinite, fx-glyph .6s var(--ease) both .14s;}
+@keyframes fx-glyph{0%{opacity:0;transform:scale(.5) rotate(-12deg)}60%{opacity:1;transform:scale(1.16) rotate(3deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+
+/* ============================================================
+   RENDER MODE: freeze every CSS-driven motion. JS drives the
+   transform/opacity deterministically via __renderAdvance().
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .kick{animation:none!important;}
+#stage.render .alert .name{animation:none!important;filter:brightness(1.07);}
+#stage.render .alert .rule{animation:none!important;}
+#stage.render .alert .node .glyph{animation:none!important;opacity:1;transform:none;filter:brightness(1.2);}
+#stage.render .alert .name .ghost.c{transform:translate(-3px,0);opacity:.45;animation:none!important;}
+#stage.render .alert .name .ghost.m{transform:translate(3px,0);opacity:.42;animation:none!important;}

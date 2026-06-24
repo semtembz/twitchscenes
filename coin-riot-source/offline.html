@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Coin Riot (PNG generator)</title>
+  <!--
+    COIN RIOT · "Insert Coin" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the coin-op arcade look onto a <canvas> and downloads it:
+      - deep arcade-cabinet void (radial purple/red/cyan glows + linear gradient)
+      - a centred dark MARQUEE SIGN, double-bordered with a neon inner track,
+        framed by a RING of round marquee BULBS (gold/cyan/red) hugging the edges
+      - a chunky-mono arcade HUD strip across the sign top
+      - a big neon MARQUEE "OFFLINE" title (gold->red), a thin neon rule
+      - a segmented "CREDITS" lamp meter + editable "[ your text here ]" slots
+      - spinning $-coin tokens flanking the sign top + a drifting neon starfield
+
+    Everything random is drawn from a SEEDED PRNG, so the field is identical on
+    every render (Math.random is never used) — re-running gives the same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --black:#0A0A14; --red:#FF3B3B; --gold:#FFD400; --cyan:#16E0FF; --purple:#7D00FF;
+      --white:#FFFFFF; --dim:#9aa0c0;
+      --marquee:"Arial Black","Arial Bold",Impact,Haettenschweiler,system-ui,sans-serif;
+      --mono:"Courier New",ui-monospace,"Lucida Console",Monaco,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--mono);background:var(--black);color:var(--white);padding:32px;}
+    h1{font-family:var(--marquee);font-weight:900;font-size:30px;color:var(--gold);
+      letter-spacing:.02em;text-transform:uppercase;margin:0 0 6px;text-shadow:0 0 22px rgba(255,212,0,.4);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:820px;line-height:1.6;font-size:14px;letter-spacing:.04em;}
+    .kicker{font-family:var(--mono);font-weight:700;letter-spacing:.42em;font-size:13px;color:var(--cyan);
+      margin:0 0 14px;text-transform:uppercase;text-shadow:0 0 12px rgba(22,224,255,.5);}
+    button{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:3px;text-transform:uppercase;
+      padding:13px 26px;color:var(--black);background:linear-gradient(180deg, #FFF3B0, var(--gold));
+      border:1px solid #FFF3B0;border-radius:3px;cursor:pointer;box-shadow:0 0 30px rgba(255,212,0,.22);}
+    button:hover{filter:brightness(1.06);}
+    .preview{margin-top:22px;background:#0a0a14;padding:14px;border:1px solid #2c2746;border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:var(--mono);color:var(--cyan);background:rgba(22,224,255,.08);padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">COIN RIOT · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline still in the coin-op arcade style — seeded so the
+    starfield is reproducible. Pass <code>?handle=@you</code> to set the handle.
+    The "[13] your text here" lines are editable buyer slots. Click Download then upload it on
+    Twitch under <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview"><canvas id="c" width="1920" height="1080"></canvas></div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    const RED = '#FF3B3B', GOLD = '#FFD400', CYAN = '#16E0FF', PURPLE = '#7D00FF', WHITE = '#FFFFFF';
+    const BULB_OFF = '#2a2236';
+    const COINS = ['#FFD400', '#FF3B3B', '#16E0FF', '#7D00FF', '#FFFFFF'];
+    const BULB_COLS = [GOLD, CYAN, RED];
+    const MARQUEE = '"Arial Black","Arial Bold",Impact,Haettenschweiler,system-ui,sans-serif';
+    const MONO = '"Courier New",ui-monospace,"Lucida Console",Monaco,monospace';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s |= 0; s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function roundRect(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function bloom(x, y, r, color) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+    // a lit round marquee bulb
+    function bulb(x, y, r, col) {
+      x = Math.round(x); y = Math.round(y);
+      ctx.save();
+      const g = ctx.createRadialGradient(x - r*0.3, y - r*0.3, 0, x, y, r);
+      g.addColorStop(0, WHITE); g.addColorStop(0.55, col); g.addColorStop(1, 'rgba(0,0,0,0.2)');
+      ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+    // spinning $-coin token (squashed snapshot)
+    function coinTok(x, y, r, squash) {
+      ctx.save();
+      ctx.translate(x, y); ctx.scale(squash, 1);
+      const disc = ctx.createRadialGradient(-r*0.3, -r*0.3, 4, 0, 0, r);
+      disc.addColorStop(0, '#FFF3B0'); disc.addColorStop(0.52, GOLD); disc.addColorStop(1, '#b88f00');
+      ctx.shadowColor = 'rgba(255,212,0,0.6)'; ctx.shadowBlur = 20; ctx.fillStyle = disc;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#7a5a00'; ctx.font = '900 ' + Math.round(r * 0.95) + 'px ' + MARQUEE;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 1);
+      ctx.restore();
+    }
+
+    function spacedWidth(str, sp) { let total = 0; for (const ch of str) total += ctx.measureText(ch).width + sp; return total - sp; }
+    function drawSpaced(str, x, y, sp) { let cx = x; for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; } }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp); const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp); ctx.textAlign = prev;
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      const total = spacedWidth(str, sp); const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp); ctx.textAlign = prev;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xC0117A);   // fixed seed -> identical field
+
+      // ---- BACKGROUND: arcade-cabinet void ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#100A1E'); grad.addColorStop(0.52, '#0A0A14'); grad.addColorStop(1, '#06060D');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      bloom(W * 0.5, H * 0.18, W * 0.55, 'rgba(125,0,255,0.20)');
+      bloom(W * 0.12, H * 0.92, W * 0.42, 'rgba(255,59,59,0.10)');
+      bloom(W * 0.88, H * 0.88, W * 0.42, 'rgba(22,224,255,0.10)');
+
+      // ---- drifting neon starfield (seeded) ----
+      ctx.save();
+      for (let i = 0; i < 120; i++) {
+        const x = R(rnd, 8, W - 8), y = R(rnd, 8, H - 8);
+        const z = R(rnd, 0.5, 1.8), a = R(rnd, 0.2, 0.7);
+        const c = COINS[(rnd() * COINS.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 5 * z;
+        const sp = Math.max(1, Math.round(z * 2.1));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- vignette ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(2,2,8,0.88)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // THE MARQUEE SIGN — centred
+      // ============================================================
+      const sw = 1340, sh = 760, sx = Math.round(W / 2 - sw / 2), sy = Math.round(H / 2 - sh / 2);
+
+      // sign body
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 90; ctx.shadowOffsetY = 40;
+      roundRect(sx, sy, sw, sh, 26);
+      const sg = ctx.createLinearGradient(0, sy, 0, sy + sh);
+      sg.addColorStop(0, '#14122a'); sg.addColorStop(0.6, '#0c0a1c'); sg.addColorStop(1, '#08071a');
+      ctx.fillStyle = sg; ctx.fill();
+      ctx.restore();
+      // purple wash inside
+      ctx.save(); roundRect(sx, sy, sw, sh, 26); ctx.clip();
+      const w2 = ctx.createRadialGradient(W / 2, sy, 0, W / 2, sy, sw * 0.6);
+      w2.addColorStop(0, 'rgba(125,0,255,0.16)'); w2.addColorStop(1, 'rgba(125,0,255,0)');
+      ctx.fillStyle = w2; ctx.fillRect(sx, sy, sw, sh);
+      ctx.restore();
+      // outer border
+      ctx.lineWidth = 4; ctx.strokeStyle = '#2c2746';
+      roundRect(sx + 2, sy + 2, sw - 4, sh - 4, 24); ctx.stroke();
+      // inner neon track
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(22,224,255,0.22)';
+      ctx.shadowColor = 'rgba(22,224,255,0.3)'; ctx.shadowBlur = 18;
+      roundRect(sx + 54, sy + 54, sw - 108, sh - 108, 14); ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // ---- the BULB RING hugging the four edges ----
+      let bi = 0;
+      const topN = 16, sideN = 8;
+      // top + bottom rows
+      for (let i = 0; i < topN; i++) {
+        const bx = sx + 30 + (i / (topN - 1)) * (sw - 60);
+        bulb(bx, sy + 28, 9, BULB_COLS[(bi++) % 3]);
+        bulb(bx, sy + sh - 28, 9, BULB_COLS[(bi++) % 3]);
+      }
+      // left + right columns
+      for (let i = 0; i < sideN; i++) {
+        const by = sy + 70 + (i / (sideN - 1)) * (sh - 140);
+        bulb(sx + 28, by, 9, BULB_COLS[(bi++) % 3]);
+        bulb(sx + sw - 28, by, 9, BULB_COLS[(bi++) % 3]);
+      }
+
+      // ---- spinning coin tokens flanking the sign top ----
+      coinTok(sx + 300, sy + 128, 32, 0.9);
+      coinTok(sx + sw - 300, sy + 128, 32, 0.4);
+
+      // ---- HUD strip across the sign top ----
+      const hudY = sy + 110, hx0 = sx + 100, hx1 = sx + sw - 100;
+      ctx.save();
+      ctx.font = '700 24px ' + MONO; ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left'; ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 8;
+      ctx.fillText('CREDITS 00', hx0, hudY);
+      ctx.fillStyle = RED; ctx.shadowColor = RED; ctx.fillText('1UP', sx + sw / 2 - 130, hudY);
+      ctx.fillStyle = CYAN; ctx.shadowColor = CYAN; ctx.fillText('HI-SCORE', sx + sw / 2 - 20, hudY);
+      ctx.fillStyle = WHITE; ctx.shadowColor = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
+      ctx.fillText('INSERT COIN', hx1, hudY);
+      ctx.restore();
+
+      // ---- content (centred in the sign face) ----
+      const cx = W / 2;
+      // kicker — editable buyer slot
+      ctx.save();
+      ctx.font = '700 26px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = CYAN; ctx.shadowColor = 'rgba(22,224,255,0.6)'; ctx.shadowBlur = 12;
+      drawSpacedCentered('[14] your text here', cx, sy + 270, 4);
+      ctx.restore();
+
+      // big neon MARQUEE OFFLINE title (gold->red)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '900 150px ' + MARQUEE;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillText('OFFLINE', cx + 2, sy + 410 + 2);
+      const tg = ctx.createLinearGradient(0, sy + 300, 0, sy + 420);
+      tg.addColorStop(0, '#FFF3B0'); tg.addColorStop(0.42, GOLD); tg.addColorStop(1, RED);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(255,212,0,0.5)'; ctx.shadowBlur = 30;
+      ctx.fillText('OFFLINE', cx, sy + 410);
+      ctx.restore();
+
+      // thin neon rule
+      ctx.save();
+      const ruW = 380, ruY = sy + 440;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(255,59,59,0)'); ug.addColorStop(0.18, RED);
+      ug.addColorStop(0.5, GOLD); ug.addColorStop(0.82, CYAN); ug.addColorStop(1, 'rgba(22,224,255,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 3; ctx.shadowColor = 'rgba(255,212,0,0.5)'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      ctx.restore();
+
+      // sub — editable buyer slot
+      ctx.save();
+      ctx.font = '700 26px ' + MONO; ctx.textAlign = 'center'; ctx.fillStyle = GOLD;
+      ctx.shadowColor = 'rgba(255,212,0,0.4)'; ctx.shadowBlur = 10;
+      drawSpacedCentered('[15] your text here', cx, sy + 500, 3);
+      ctx.restore();
+
+      // segmented CREDITS lamp meter (idle, full)
+      drawLampMeter(cx, sy + 580, 20);
+      ctx.save();
+      ctx.font = '700 18px ' + MONO; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(154,160,192,0.9)';
+      drawSpacedCentered('CREDITS', cx, sy + 624, 6);
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, cyan on a coin-slot plate) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      ctx.save();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 30px ' + MONO; ctx.fillStyle = CYAN;
+      ctx.shadowColor = 'rgba(22,224,255,0.4)'; ctx.shadowBlur = 14;
+      drawSpacedRight(handleAt, W - 90, H - 80, 6);
+      ctx.restore();
+
+      // a footer brand tag slot, lower-left
+      ctx.save();
+      ctx.font = '700 22px ' + MONO; ctx.textAlign = 'left'; ctx.fillStyle = PURPLE;
+      ctx.shadowColor = 'rgba(125,0,255,0.6)'; ctx.shadowBlur = 12;
+      drawSpaced('[16] your text here', 90, H - 80, 3);
+      ctx.restore();
+    }
+
+    // a centred row of 20 marquee lamps (all lit = idle/full meter)
+    function drawLampMeter(cx, y, n) {
+      const lampR = 12, gap = 12;
+      const totalW = n * (lampR * 2) + (n - 1) * gap;
+      let x = cx - totalW / 2 + lampR;
+      for (let i = 0; i < n; i++) {
+        bulb(x, y, lampR, GOLD);
+        x += lampR * 2 + gap;
+      }
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

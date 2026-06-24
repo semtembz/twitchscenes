@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Coin Riot — Thanks for Watching</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?handle=@you  ?render=1
+       Editable text slots: ?kicker=...  ?sub=...  ?tag=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* ending: no loading meter — the handle is the hero. "THANKS FOR WATCHING"
+       is the longest line, so trim the title size so both lines fit comfortably
+       INSIDE the 1196px sign face with margin, then make the coin-slot handle a
+       centred focal plate. */
+    .ending .title{font-size:118px;margin:18px 0 8px;}
+    .ending .sub{margin-top:18px;}
+    .ending .handle-hero{margin-top:30px;font-family:var(--mono);font-weight:700;
+      font-size:40px;letter-spacing:.26em;text-indent:.26em;color:var(--cyan);
+      padding:12px 30px;border:2px solid rgba(22,224,255,.45);border-radius:10px;
+      background:rgba(8,8,20,.5);text-shadow:0 0 14px rgba(22,224,255,.7);
+      box-shadow:0 0 22px rgba(22,224,255,.2);
+      animation:sin .7s var(--ease) both 1.05s;}
+    #stage.render .ending .handle-hero{animation:none!important;opacity:1!important;transform:none!important;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- the centred coin-op MARQUEE SIGN -->
+    <main class="marquee ending">
+      <!-- the chasing BULB RING hugging the four edges (filled by script below) -->
+      <div class="ring" aria-hidden="true">
+        <div class="row row--t"></div>
+        <div class="row row--b"></div>
+        <div class="row row--l"></div>
+        <div class="row row--r"></div>
+      </div>
+
+      <!-- spinning coin tokens flanking the sign's top edge -->
+      <span class="coin-tok coin-tok--l" aria-hidden="true"></span>
+      <span class="coin-tok coin-tok--r" aria-hidden="true"></span>
+
+      <div class="face">
+        <!-- arcade HUD strip (chunky mono) -->
+        <div class="hud" aria-hidden="true">
+          <span class="h h--credit">CREDITS&nbsp;99</span>
+          <span class="h h--up">1UP</span>
+          <span class="h h--hi">HI-SCORE</span>
+          <span class="h h--coin">GAME OVER</span>
+        </div>
+
+        <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]" placeholder —
+             type your own text in, or delete the whole line to remove it. -->
+        <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-no">10</span><span class="slot-txt">your text here</span></p>
+
+        <h1 class="title">
+          <span class="ln ln--1">THANKS FOR</span>
+          <span class="ln ln--2">WATCHING</span>
+        </h1>
+        <div class="rule" aria-hidden="true"></div>
+
+        <p class="sub is-slot" data-slot="sub"><span class="slot-no">11</span><span class="slot-txt">your text here</span></p>
+
+        <!-- the handle is the hero here (no loading meter on the ending) -->
+        <div class="handle-hero" id="handle">@yourhandle</div>
+      </div>
+    </main>
+
+    <!-- a footer brand tag = editable slot, lower-left -->
+    <p class="sub is-slot" data-slot="tag"
+       style="position:absolute;left:60px;bottom:46px;margin:0;font-size:22px;color:var(--purple);text-shadow:0 0 12px rgba(125,0,255,.6);"><span class="slot-no">12</span><span class="slot-txt">your text here</span></p>
+
+    <!-- CRT sheen + vignette ride above everything -->
+    <div class="scan" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+  </div>
+
+  <script>
+  /* build the chasing bulb ring (clockwise carnival chase, gold/cyan/red) */
+  (() => {
+    const ring = document.querySelector(".ring");
+    if (!ring) return;
+    const rows = {
+      t: ring.querySelector(".row--t"),
+      r: ring.querySelector(".row--r"),
+      b: ring.querySelector(".row--b"),
+      l: ring.querySelector(".row--l"),
+    };
+    const counts = { t: 16, r: 8, b: 16, l: 8 };
+    const CYC = 1.2;
+    const cols = ["", "c-cyan", "c-red"];
+    let idx = 0;
+    const total = counts.t + counts.r + counts.b + counts.l;
+    function add(rowEl, n) {
+      if (!rowEl) { idx += n; return; }
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement("span");
+        b.className = "bulb" + (cols[idx % 3] ? " " + cols[idx % 3] : "");
+        b.style.animationDelay = (-(idx / total) * CYC).toFixed(3) + "s";
+        rowEl.appendChild(b);
+        idx++;
+      }
+    }
+    add(rows.t, counts.t);
+    add(rows.r, counts.r);
+    add(rows.b, counts.b);
+    add(rows.l, counts.l);
+  })();
+  </script>
+  <script src="shared.js"></script>
+</body>
+</html>

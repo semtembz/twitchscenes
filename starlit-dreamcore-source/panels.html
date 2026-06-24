@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Starlit Dreamcore — Twitch Panels (generator)</title>
+  <!--
+    Twitch profile panels are PNG image files (recommended 320 x 100 px) you
+    upload to your channel's "About" page. This file renders each of the 12
+    panels onto a <canvas> at EXACTLY 320 x 100 in the Starlit Dreamcore
+    "Sleeping Sky" language:
+        - a frameless soft dusk-glow card (no hard border, dreamcore is soft-focus)
+        - a thin glowing lavender hairline rule + soft star diamonds
+        - a thin lavender/white deco line icon tipped with a star
+        - the label in a soft humanist sans, star-white, gently glowing
+    Each panel has its own Download button + there is a "Download all".
+
+    How to use:
+      1. Open this file in a browser.
+      2. Click "Download all" (or the individual Download buttons).
+      3. Upload each .png to Twitch:
+         twitch.tv/<you>/about -> Edit Panels -> + -> upload image.
+  -->
+  <style>
+    /* ---- Starlit Dreamcore "Sleeping Sky" palette ---- */
+    :root {
+      --dusk:#2B2347; --dusk-deep:#1C1733; --dusk-lift:#352B57;
+      --indigo:#6C5CE0; --lavender:#B8A4FF; --pink:#F2C6FF; --white:#FFFFFF;
+      --text:#E8E0FF; --dim:#B8A4FF;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Quicksand", "Comfortaa", "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      padding: 36px 32px 60px;
+      background:
+        radial-gradient(900px 500px at 18% -10%, rgba(108,92,224,0.30), transparent 60%),
+        radial-gradient(700px 480px at 100% 110%, rgba(242,198,255,0.14), transparent 60%),
+        linear-gradient(160deg, #241D3D, var(--dusk-deep));
+      min-height: 100vh;
+    }
+    .kicker {
+      font-family: "Quicksand", "Comfortaa", system-ui, sans-serif;
+      letter-spacing: 6px; font-size: 12px; font-weight: 600;
+      color: var(--lavender); text-transform: uppercase; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 11px; text-indent: 6px;
+    }
+    .dia { width: 9px; height: 9px; background: var(--pink); transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(242,198,255,0.6); }
+    h1 { font-family: "Quicksand", "Comfortaa", system-ui, sans-serif;
+      font-weight: 600; font-size: 32px; letter-spacing: .5px; margin: 0 0 6px;
+      color: var(--white); text-shadow: 0 0 28px rgba(184,164,255,0.4); }
+    p.lead { color: var(--dim); margin: 0 0 24px; max-width: 720px; line-height: 1.6;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-style: italic; font-size: 17px; }
+    code { font-family: "Courier New", monospace; color: var(--pink);
+      background: rgba(184,164,255,0.12); padding: 2px 7px; border-radius: 3px; font-style: normal; }
+    .toolbar { margin: 0 0 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+    button {
+      font-family: "Quicksand", "Comfortaa", system-ui, sans-serif; font-weight: 600;
+      font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+      padding: 12px 24px; cursor: pointer; color: var(--dusk-deep);
+      background: linear-gradient(180deg, var(--lavender), var(--indigo));
+      border: 1px solid rgba(184,164,255,0.6); border-radius: 8px;
+      box-shadow: 0 6px 24px rgba(108,92,224,0.30);
+    }
+    button:hover { filter: brightness(1.08); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(348px, 1fr)); gap: 26px; }
+    .card {
+      background: rgba(28,23,51,0.55); padding: 16px; border-radius: 10px;
+      border: 1px solid rgba(184,164,255,0.22);
+    }
+    /* checkerboard so the panel's transparent corners are visible */
+    .frame {
+      border-radius: 6px; overflow: hidden; display: block;
+      background-color: #241D3D;
+      background-image:
+        linear-gradient(45deg, #2f275220 25%, transparent 25%),
+        linear-gradient(-45deg, #2f275220 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2f275220 75%),
+        linear-gradient(-45deg, transparent 75%, #2f275220 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    canvas { display: block; width: 320px; height: 100px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; font-size: 12px; }
+    .card-row .name { font-family: "Quicksand", "Comfortaa", system-ui, sans-serif; letter-spacing: 2px;
+      color: var(--dim); text-transform: uppercase; }
+    .card-row a { font-family: "Quicksand", "Comfortaa", system-ui, sans-serif; letter-spacing: 1px;
+      color: var(--lavender); text-decoration: none;
+      border: 1px solid rgba(184,164,255,0.34); border-radius: 6px; padding: 5px 12px; }
+    .card-row a:hover { background: rgba(184,164,255,0.18); }
+  </style>
+</head>
+<body>
+  <p class="kicker"><span class="dia"></span>STARLIT DREAMCORE · PANELS</p>
+  <h1>Starlit Dreamcore — Twitch Panels</h1>
+  <p class="lead">
+    Twelve <strong>320&times;100</strong> profile panels in the sleeping-sky dreamcore style:
+    a frameless soft dusk-glow card, a glowing lavender rule, star diamonds, and a thin deco line icon.
+    Download all then upload at <code>twitch.tv/&lt;you&gt;/about → Edit Panels</code>.
+  </p>
+  <div class="toolbar">
+    <button id="dlAll">Download all</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Tokens (hex constants mirror the shared.css design tokens) ----
+    var W = 320, H = 100;
+    var DUSK = '#2B2347', DUSK_DEEP = '#1C1733', DUSK_LIFT = '#352B57';
+    var INDIGO = '#6C5CE0', LAVENDER = '#B8A4FF', PINK = '#F2C6FF';
+    var WHITE = '#FFFFFF', DIM = '#B8A4FF';
+
+    // ---- Panel inventory ----
+    var PANELS = [
+      { id: 'about',     title: 'ABOUT ME',  icon: 'heart' },
+      { id: 'schedule',  title: 'SCHEDULE',  icon: 'calendar' },
+      { id: 'rules',     title: 'RULES',     icon: 'list' },
+      { id: 'donate',    title: 'DONATE',    icon: 'coin' },
+      { id: 'discord',   title: 'DISCORD',   icon: 'discord' },
+      { id: 'twitter',   title: 'TWITTER',   icon: 'twitter' },
+      { id: 'youtube',   title: 'YOUTUBE',   icon: 'play' },
+      { id: 'instagram', title: 'INSTAGRAM', icon: 'camera' },
+      { id: 'merch',     title: 'MERCH',     icon: 'tag' },
+      { id: 'sponsors',  title: 'SPONSORS',  icon: 'ribbon' },
+      { id: 'subscribe', title: 'SUBSCRIBE', icon: 'star' },
+      { id: 'community', title: 'COMMUNITY', icon: 'community' }
+    ];
+
+    // ---- helpers ----------------------------------------------------------
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // soft lavender/indigo bloom (blurred radial gradient)
+    function bloom(ctx, cx, cy, rad, color, alpha) {
+      var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+    }
+
+    // a soft star diamond at (x,y), half-diagonal d
+    function starDiamond(ctx, x, y, d) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - d); ctx.lineTo(x + d * 0.42, y - d * 0.42);
+      ctx.lineTo(x + d, y); ctx.lineTo(x + d * 0.42, y + d * 0.42);
+      ctx.lineTo(x, y + d); ctx.lineTo(x - d * 0.42, y + d * 0.42);
+      ctx.lineTo(x - d, y); ctx.lineTo(x - d * 0.42, y - d * 0.42);
+      ctx.closePath();
+    }
+
+    // ---- panel renderer ---------------------------------------------------
+    function drawPanel(ctx, p) {
+      ctx.clearRect(0, 0, W, H);
+
+      var pad = 5;
+      var x = pad, y = pad, w = W - pad * 2, h = H - pad * 2;
+
+      // frameless soft dusk-glow card body (clipped to a soft rounded shape)
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, 16);
+      ctx.clip();
+
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, 'rgba(53,43,87,0.78)');
+      bg.addColorStop(1, 'rgba(28,23,51,0.88)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // soft lavender/pink blooms inside the card
+      bloom(ctx, 250, 14, 150, 'rgba(184,164,255,0.20)', 1);
+      bloom(ctx, 50, 92, 120, 'rgba(242,198,255,0.12)', 1);
+
+      // a faint scatter of star-dust (deterministic by index so it's stable)
+      ctx.fillStyle = WHITE;
+      var seed = 0x51 + p.title.length * 7;
+      function r2() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+      for (var i = 0; i < 18; i++) {
+        var dx = 8 + r2() * (W - 16), dy = 8 + r2() * (H - 16);
+        ctx.globalAlpha = 0.18 + r2() * 0.4;
+        var sp = r2() < 0.5 ? 1 : 2;
+        ctx.fillRect(Math.round(dx), Math.round(dy), sp, sp);
+      }
+      ctx.globalAlpha = 1;
+
+      // soft vignette
+      var vg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 200);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(20,16,38,0.5)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // glowing lavender hairline accent rule down the left (soft, frameless)
+      ctx.save();
+      var ruleX = x + 46;
+      var rg = ctx.createLinearGradient(0, y + 16, 0, y + h - 16);
+      rg.addColorStop(0, 'rgba(184,164,255,0)');
+      rg.addColorStop(0.5, 'rgba(184,164,255,0.9)');
+      rg.addColorStop(1, 'rgba(242,198,255,0)');
+      ctx.strokeStyle = rg; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(184,164,255,0.6)'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(ruleX, y + 16); ctx.lineTo(ruleX, y + h - 16); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // star diamonds capping the rule
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 7;
+      starDiamond(ctx, ruleX, y + 16, 3); ctx.fill();
+      starDiamond(ctx, ruleX, y + h - 16, 3); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // thin lavender deco line icon (star-tipped where it fits)
+      drawIcon(ctx, p.icon, 26, H / 2, 30);
+
+      // kicker above the title — spaced soft caps
+      ctx.save();
+      ctx.font = '600 9px "Quicksand","Comfortaa",system-ui,sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = DIM;
+      drawSpaced(ctx, 'STARLIT DREAMCORE', 60, 30, 2.2);
+      ctx.restore();
+
+      // label in soft humanist sans (star-white) with a gentle glow
+      ctx.save();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var label = p.title;
+      var size = 27;
+      var maxW = W - 60 - 24;
+      ctx.font = '600 ' + size + 'px "Quicksand","Comfortaa",system-ui,sans-serif';
+      while (ctx.measureText(label).width > maxW && size > 14) {
+        size -= 1;
+        ctx.font = '600 ' + size + 'px "Quicksand","Comfortaa",system-ui,sans-serif';
+      }
+      ctx.shadowColor = 'rgba(184,164,255,0.5)';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = WHITE;
+      ctx.fillText(label, 60, 68);
+      ctx.restore();
+
+      // delicate lavender->pink underline rule with a center star
+      ctx.save();
+      var barX = 60, barY = 79, barW = W - 60 - 24;
+      var grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      grad.addColorStop(0, 'rgba(184,164,255,0)');
+      grad.addColorStop(0.18, LAVENDER);
+      grad.addColorStop(0.5, PINK);
+      grad.addColorStop(0.82, LAVENDER);
+      grad.addColorStop(1, 'rgba(184,164,255,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + barW, barY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 6;
+      starDiamond(ctx, barX + barW * 0.5, barY, 2.6); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSpaced(ctx, str, x, y, sp) {
+      var cx = x;
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        ctx.fillText(ch, cx, y);
+        cx += ctx.measureText(ch).width + sp;
+      }
+    }
+
+    // ---- line icons -------------------------------------------------------
+    function drawIcon(ctx, kind, cx, cy, s) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      var h = s / 2;
+      ctx.strokeStyle = LAVENDER;
+      ctx.fillStyle = LAVENDER;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(184,164,255,0.5)';
+      ctx.shadowBlur = 7;
+
+      switch (kind) {
+        case 'heart': {
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.85);
+          ctx.bezierCurveTo(-h * 1.25, h * 0.05, -h * 0.65, -h * 0.95, 0, -h * 0.25);
+          ctx.bezierCurveTo(h * 0.65, -h * 0.95, h * 1.25, h * 0.05, 0, h * 0.85);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'calendar': {
+          ctx.strokeRect(-h, -h * 0.7, s, s * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(-h, -h * 0.35); ctx.lineTo(h, -h * 0.35);
+          ctx.moveTo(-h * 0.55, -h);  ctx.lineTo(-h * 0.55, -h * 0.5);
+          ctx.moveTo(h * 0.55, -h);   ctx.lineTo(h * 0.55, -h * 0.5);
+          ctx.stroke();
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 3; c++) {
+              ctx.beginPath();
+              ctx.arc(-h * 0.5 + c * h * 0.5, -h * 0.02 + r * h * 0.45, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          break;
+        }
+        case 'list': {
+          ctx.lineWidth = 2.0;
+          for (var i = 0; i < 3; i++) {
+            var ly = -h * 0.6 + i * h * 0.6;
+            ctx.save(); ctx.translate(-h * 0.78, ly); ctx.rotate(Math.PI / 4);
+            ctx.fillRect(-1.6, -1.6, 3.2, 3.2); ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.42, ly); ctx.lineTo(h * 0.9, ly); ctx.stroke();
+          }
+          break;
+        }
+        case 'coin': {
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.95, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.72, 0, Math.PI * 2); ctx.stroke();
+          ctx.font = '600 ' + Math.round(s * 0.56) + 'px "Quicksand",system-ui,sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('$', 0, 1);
+          break;
+        }
+        case 'discord': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.85, -h * 0.45);
+          ctx.quadraticCurveTo(0, -h * 0.85, h * 0.85, -h * 0.45);
+          ctx.lineTo(h * 0.7, h * 0.55);
+          ctx.quadraticCurveTo(h * 0.45, h * 0.8, h * 0.2, h * 0.55);
+          ctx.lineTo(-h * 0.2, h * 0.55);
+          ctx.quadraticCurveTo(-h * 0.45, h * 0.8, -h * 0.7, h * 0.55);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(h * 0.32, 0, 2, 0, Math.PI * 2); ctx.fill();
+          break;
+        }
+        case 'twitter': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.9, h * 0.25);
+          ctx.quadraticCurveTo(-h * 0.1, h * 0.55, h * 0.55, -h * 0.05);
+          ctx.quadraticCurveTo(h * 0.95, -h * 0.35, h * 0.85, -h * 0.7);
+          ctx.quadraticCurveTo(h * 0.4, -h * 0.35, -h * 0.1, -h * 0.2);
+          ctx.quadraticCurveTo(-h * 0.6, -h * 0.05, -h * 0.9, h * 0.25);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'play': {
+          roundRect(ctx, -h, -h * 0.7, s, s * 0.85, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.22, -h * 0.32);
+          ctx.lineTo(-h * 0.22, h * 0.28);
+          ctx.lineTo(h * 0.42, -h * 0.02);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'camera': {
+          roundRect(ctx, -h, -h * 0.55, s, s * 0.95, 6); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, h * 0.1, h * 0.4, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(h * 0.55, -h * 0.25, 1.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.35, -h * 0.55);
+          ctx.lineTo(-h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.15, -h * 0.85);
+          ctx.lineTo(h * 0.35, -h * 0.55);
+          ctx.stroke();
+          break;
+        }
+        case 'tag': {
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.1, -h * 0.85);
+          ctx.lineTo(h * 0.85, -h * 0.85);
+          ctx.lineTo(h * 0.85, h * 0.1);
+          ctx.lineTo(-h * 0.15, h * 0.85);
+          ctx.lineTo(-h * 0.85, h * 0.15);
+          ctx.lineTo(-h * 0.85, -h * 0.6);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, 2, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+        case 'monitor': {
+          roundRect(ctx, -h, -h * 0.75, s, s * 0.95, 5); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.3, h * 0.55);
+          ctx.lineTo(h * 0.3, h * 0.55); ctx.lineTo(h * 0.3, h * 0.2);
+          ctx.moveTo(-h * 0.5, h * 0.55); ctx.lineTo(h * 0.5, h * 0.55);
+          ctx.stroke();
+          for (var b = 0; b < 3; b++) {
+            var bh = (b + 1) * h * 0.16;
+            ctx.beginPath();
+            ctx.moveTo(-h * 0.45 + b * h * 0.32, -h * 0.02);
+            ctx.lineTo(-h * 0.45 + b * h * 0.32, -h * 0.02 - bh);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'ribbon': {
+          ctx.beginPath(); ctx.arc(0, -h * 0.25, h * 0.55, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-h * 0.3, h * 0.2); ctx.lineTo(-h * 0.5, h * 0.85);
+          ctx.lineTo(-h * 0.1, h * 0.55);
+          ctx.moveTo(h * 0.3, h * 0.2);  ctx.lineTo(h * 0.5, h * 0.85);
+          ctx.lineTo(h * 0.1, h * 0.55);
+          ctx.stroke();
+          ctx.save(); ctx.translate(0, -h * 0.25); ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-2, -2, 4, 4); ctx.restore();
+          break;
+        }
+        case 'star': {
+          ctx.beginPath();
+          for (var sp = 0; sp < 10; sp++) {
+            var rad = (sp % 2 === 0) ? h * 0.95 : h * 0.42;
+            var ang = -Math.PI / 2 + sp * Math.PI / 5;
+            var X = Math.cos(ang) * rad, Y = Math.sin(ang) * rad;
+            if (sp === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'community': {
+          // a small constellation: three star nodes joined by faint links
+          var nodes = [
+            [-h * 0.7, -h * 0.45],
+            [ h * 0.72, -h * 0.18],
+            [ 0,        h * 0.7]
+          ];
+          // faint connecting links
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(nodes[0][0], nodes[0][1]); ctx.lineTo(nodes[1][0], nodes[1][1]);
+          ctx.lineTo(nodes[2][0], nodes[2][1]); ctx.lineTo(nodes[0][0], nodes[0][1]);
+          ctx.stroke();
+          // star nodes (small 4-point diamonds, filled white-ish)
+          ctx.fillStyle = PINK;
+          for (var ci = 0; ci < nodes.length; ci++) {
+            var nx = nodes[ci][0], ny = nodes[ci][1], nd = ci === 2 ? 4 : 3.4;
+            ctx.beginPath();
+            ctx.moveTo(nx, ny - nd); ctx.lineTo(nx + nd * 0.42, ny - nd * 0.42);
+            ctx.lineTo(nx + nd, ny); ctx.lineTo(nx + nd * 0.42, ny + nd * 0.42);
+            ctx.lineTo(nx, ny + nd); ctx.lineTo(nx - nd * 0.42, ny + nd * 0.42);
+            ctx.lineTo(nx - nd, ny); ctx.lineTo(nx - nd * 0.42, ny - nd * 0.42);
+            ctx.closePath(); ctx.fill();
+          }
+          break;
+        }
+        default:
+          ctx.beginPath(); ctx.arc(0, 0, h * 0.7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // ---- build the grid ---------------------------------------------------
+    var grid = document.getElementById('grid');
+    var made = [];
+
+    function build() {
+      for (var i = 0; i < PANELS.length; i++) {
+        var p = PANELS[i];
+        var card = document.createElement('div'); card.className = 'card';
+        var frame = document.createElement('div'); frame.className = 'frame';
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var ctx = cv.getContext('2d');
+        drawPanel(ctx, p);
+        frame.appendChild(cv);
+
+        var row = document.createElement('div'); row.className = 'card-row';
+        var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = p.title;
+        var dl = document.createElement('a'); dl.textContent = 'Download'; dl.href = '#';
+        (function (canvas, id) {
+          dl.addEventListener('click', function (e) { e.preventDefault(); save(canvas, id); });
+        })(cv, p.id);
+        row.appendChild(nm); row.appendChild(dl);
+
+        card.appendChild(frame); card.appendChild(row);
+        grid.appendChild(card);
+        made.push({ canvas: cv, id: p.id });
+      }
+    }
+
+    function save(canvas, id) {
+      var a = document.createElement('a');
+      a.download = 'panel-' + id + '.png';
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dlAll').addEventListener('click', function () {
+      var i = 0;
+      (function next() {
+        if (i >= made.length) return;
+        save(made[i].canvas, made[i].id);
+        i++;
+        setTimeout(next, 200);
+      })();
+    });
+
+    window.__exportAssets = function () {
+      return made.map(function (m) { return { name: m.id, dataURL: m.canvas.toDataURL('image/png') }; });
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(build);
+    } else {
+      build();
+    }
+  })();
+  </script>
+</body>
+</html>

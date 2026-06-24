@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Starlit Dreamcore — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable slots: ?kicker=...  ?sub=...  ?tag=...  ?tag2=...  (use =- to remove one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- the hazy dreamcore night sky -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- drifting nebula blooms hugging the margins (clear of the centre) -->
+    <div class="neb neb--1" aria-hidden="true"></div>
+    <div class="neb neb--2" aria-hidden="true"></div>
+    <div class="neb neb--3" aria-hidden="true"></div>
+    <div class="neb neb--4" aria-hidden="true"></div>
+
+    <!-- soft glowing moon, low in the left margin -->
+    <div class="moon" aria-hidden="true"></div>
+
+    <!-- dreamy soft bloom + gentle vignette -->
+    <div class="haze" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.)
+         These corner brand tags sit in the screen margins, clear of the title + bar. -->
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-txt"><span class="slot-no">1</span><span class="slot-txt">your text here</span></span></div>
+    <div class="tag tag--bl is-slot" data-slot="tag"><span class="slot-txt"><span class="slot-no">2</span><span class="slot-txt">your text here</span></span></div>
+
+    <!-- the centred dream panel — a frameless halo of soft light -->
+    <main class="dream">
+      <div class="crest" aria-hidden="true">
+        <span class="r"></span><span class="star"></span><span class="r r--r"></span>
+      </div>
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-txt"><span class="slot-no">3</span><span class="slot-txt">your text here</span></span></p>
+      <h1 class="title"><span class="line">STARTING</span><span class="accent">SOON</span></h1>
+      <p class="sub is-slot" data-slot="sub"><span class="slot-txt"><span class="slot-no">4</span><span class="slot-txt">your text here</span></span></p>
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <!-- handle — soft pink-lavender, lower-right margin -->
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

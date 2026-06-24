@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Starlit Dreamcore — Webcam Frame</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT scene with one "Sleeping Sky" ~16:9 webcam frame. Place your
+       camera BEHIND this overlay; the inside of the frame is fully transparent so
+       the camera shows through it. The cutout has a soft glowing lavender->pink
+       hairline border (frameless dreamcore — no hard box), star-tipped corners, a
+       breathing constellation crest, and a soft-light @handle nameplate clipped to
+       the lower edge. A faint drift of twinkling star-dust hugs the frame.
+       Optional URL params: ?handle=@you  ?pos=center|lower  ?w=1120&h=630  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT everywhere so the cam (under this overlay) shows through */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of twinkling star-dust around the frame, low alpha */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* the cam frame wrapper — centered or lower-third, ~16:9 */
+    .cam{position:absolute;left:50%;top:50%;width:1120px;height:630px;
+      transform:translate(-50%,-50%);
+      animation:camin 1s var(--ease) both .1s;}
+    .cam.lower{top:auto;bottom:96px;transform:translateX(-50%);}
+
+    /* ---- soft glowing lavender->pink hairline border; INSIDE stays transparent.
+       Dreamcore stays frameless: a thin luminous edge + a wide outer halo bloom,
+       no hard opaque box. Rounded so it reads soft, not boxy. ---- */
+    .frame{position:absolute;inset:0;background:transparent;border-radius:26px;
+      border:1px solid var(--hair);
+      box-shadow:
+        0 0 0 1px rgba(28,23,51,.4),
+        0 0 26px rgba(184,164,255,.34),
+        0 0 70px rgba(108,92,224,.20),
+        inset 0 0 34px rgba(184,164,255,.10);}
+    /* inner soft hairline, a touch in from the edge (double-line dream glow) */
+    .frame::before{content:"";position:absolute;inset:9px;border-radius:20px;
+      border:1px solid var(--hair-soft);pointer-events:none;}
+    /* a glowing lavender->pink accent arc along the BOTTOM edge of the cutout */
+    .frame::after{content:"";position:absolute;left:42px;right:42px;bottom:-1px;height:2px;
+      pointer-events:none;border-radius:2px;
+      background:linear-gradient(90deg,transparent,var(--lavender) 24%,var(--pink) 76%,transparent);
+      box-shadow:0 0 14px rgba(184,164,255,.6),0 0 26px rgba(242,198,255,.4);opacity:.9;}
+
+    /* ---- star-diamond corner ornaments in every corner of the frame ---- */
+    .st-c{position:absolute;width:18px;height:18px;pointer-events:none;background:var(--white);
+      clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+      filter:drop-shadow(0 0 8px var(--halo-pink)) drop-shadow(0 0 16px var(--halo));
+      animation:cornin 1.1s var(--ease) both .3s, twk 3.4s ease-in-out infinite;}
+    .st-c--tl{left:-9px;top:-9px;}   .st-c--tr{right:-9px;top:-9px;animation-delay:.34s,.5s;}
+    .st-c--bl{left:-9px;bottom:-9px;animation-delay:.42s,1.1s;}
+    .st-c--br{right:-9px;bottom:-9px;animation-delay:.5s,1.7s;}
+    /* tiny faint companion stars near each corner (a little constellation) */
+    .sp-c{position:absolute;width:7px;height:7px;pointer-events:none;border-radius:50%;
+      background:var(--lavender);box-shadow:0 0 8px var(--halo);opacity:.8;
+      animation:cornin 1.2s var(--ease) both .5s;}
+    .sp-c--tl{left:30px;top:14px;}   .sp-c--tr{right:14px;top:30px;}
+    .sp-c--bl{left:14px;bottom:30px;} .sp-c--br{right:30px;bottom:14px;}
+    @keyframes cornin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+    @keyframes twk{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.84)}}
+
+    /* ---- small constellation crest, top-left above the frame:
+       a thin glowing rule tipped with a soft star diamond ---- */
+    .crest-tl{position:absolute;left:6px;top:-40px;display:flex;align-items:center;gap:14px;
+      pointer-events:none;animation:fade 1s var(--ease) both .35s;}
+    .crest-tl .r{width:70px;height:1px;background:linear-gradient(90deg,var(--lavender),transparent);}
+    .crest-tl .st{width:11px;height:11px;background:var(--white);
+      clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+      filter:drop-shadow(0 0 7px var(--halo-pink)) drop-shadow(0 0 12px var(--halo));}
+
+    /* ---- small "ON CAMERA"-style caption is an EDITABLE SLOT, top-right above
+       the frame: type your own text, or delete the line to remove it ---- */
+    .cap-tr{position:absolute;right:6px;top:-42px;display:flex;align-items:center;gap:12px;
+      font-family:var(--display);font-weight:600;letter-spacing:.42em;font-size:16px;
+      color:var(--lavender);text-indent:.42em;opacity:.82;white-space:nowrap;
+      text-shadow:0 0 12px rgba(184,164,255,.4);
+      animation:fade 1s var(--ease) both .4s;}
+    .cap-tr.is-slot{letter-spacing:.26em;}
+    .cap-tr .st{width:9px;height:9px;flex:none;background:var(--pink);
+      clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+      filter:drop-shadow(0 0 6px var(--halo-pink));}
+
+    /* ---- handle nameplate — a frameless soft-light pill clipped to the
+       bottom-center of the frame, star + handle, gently glowing ---- */
+    .name{position:absolute;left:50%;bottom:-21px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:14px;white-space:nowrap;
+      padding:9px 28px;border-radius:22px;
+      background:
+        linear-gradient(180deg, rgba(53,43,87,.82), rgba(28,23,51,.74)),
+        radial-gradient(120% 200% at 50% 0%, rgba(184,164,255,.16), transparent 70%);
+      border:1px solid var(--hair-soft);
+      box-shadow:0 12px 30px rgba(20,16,38,.5), 0 0 24px rgba(184,164,255,.12),
+        inset 0 0 22px rgba(108,92,224,.10);
+      animation:namein 1s var(--ease) both .45s;}
+    .name .st{width:11px;height:11px;flex:none;background:var(--white);
+      clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+      filter:drop-shadow(0 0 7px var(--halo-pink)) drop-shadow(0 0 12px var(--halo));
+      animation:twk 2.8s ease-in-out infinite;}
+    .name .who{font-family:var(--display);font-weight:600;letter-spacing:.06em;font-size:25px;
+      color:var(--white);text-shadow:0 0 22px rgba(242,198,255,.42),0 0 40px rgba(184,164,255,.3);}
+    @keyframes namein{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translateX(-50%)}}
+
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+    @keyframes camin{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+    /* render mode: freeze entrances + ambient loops to a clean final state */
+    #stage.render .cam,#stage.render .st-c,#stage.render .sp-c,
+    #stage.render .crest-tl,#stage.render .cap-tr,#stage.render .name{animation:none!important;}
+    #stage.render .name .st{animation:none;}
+    #stage.render .cam{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    #stage.render .cam.lower{transform:translateX(-50%);}
+    #stage.render .st-c,#stage.render .sp-c{opacity:1;transform:scale(1);}
+    #stage.render .crest-tl{opacity:1;}
+    #stage.render .cap-tr{opacity:.82;}
+    #stage.render .name{opacity:1;transform:translateX(-50%);}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <div class="cam" id="cam">
+      <div class="frame" aria-hidden="true"></div>
+
+      <!-- star-diamond corner ornaments + tiny companion stars -->
+      <span class="st-c st-c--tl" aria-hidden="true"></span>
+      <span class="st-c st-c--tr" aria-hidden="true"></span>
+      <span class="st-c st-c--bl" aria-hidden="true"></span>
+      <span class="st-c st-c--br" aria-hidden="true"></span>
+      <span class="sp-c sp-c--tl" aria-hidden="true"></span>
+      <span class="sp-c sp-c--tr" aria-hidden="true"></span>
+      <span class="sp-c sp-c--bl" aria-hidden="true"></span>
+      <span class="sp-c sp-c--br" aria-hidden="true"></span>
+
+      <!-- constellation crest, top-left -->
+      <span class="crest-tl" aria-hidden="true"><span class="r"></span><span class="st"></span></span>
+
+      <!-- caption, top-right — EDITABLE SLOT: type your own text in, or delete the
+           line to remove it (or ?cap=... / =- at render time) -->
+      <div class="cap-tr is-slot" data-slot="cap"><span class="st" aria-hidden="true"></span><span class="slot-txt"><span class="slot-no">26</span><span class="slot-txt">your text here</span></span></div>
+
+      <!-- handle nameplate clipped to the bottom edge of the frame -->
+      <div class="name"><span class="st" aria-hidden="true"></span><span class="who" id="handle">@yourhandle</span></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle + position + size (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    const cam = document.getElementById("cam");
+    if (cam){
+      if ((params.get("pos") || "center").toLowerCase() === "lower") cam.classList.add("lower");
+      const fw = num("w", 1120), fh = num("h", 630);
+      if (fw > 50) cam.style.width = fw + "px";
+      if (fh > 50) cam.style.height = fh + "px";
+    }
+
+    /* ---- editable text slots: any [data-slot] ships "[27] your text here";
+       ?slotname=Text sets it, ?slotname=- (or empty/none/off) removes it. ---- */
+    document.querySelectorAll("[data-slot]").forEach((s) => {
+      const v = params.get(s.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { s.remove(); return; }
+      const t = s.querySelector(".slot-txt"); if (t) t.textContent = v; else s.textContent = v;
+      s.classList.remove("is-slot");
+    });
+
+    /* ---- canvas: faint twinkling star-dust motes drifting around the frame,
+       deterministic seeded RNG so render mode is reproducible ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0x5747 >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const TINT = ["#FFFFFF","#F2C6FF","#B8A4FF","#D9CCFF"];
+    const dust = Array.from({ length: Math.max(0, num("dust", 56)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vy: R(-5, -1)/60, sway: R(0.2, 0.9),
+      ph: R(0, 6.28), tw: R(0.5, 1.5), a: R(0.14, 0.48),
+      c: TINT[(srnd()*TINT.length)|0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const d of dust){
+        d.y += d.vy * dt * 60; d.ph += 0.03 * dt * 60; d.x += Math.sin(d.ph) * d.sway * 0.5;
+        if (d.y < -10){ d.y = H + 10; d.x = R(0, W); }
+        if (d.x < -10) d.x = W + 10; if (d.x > W + 10) d.x = -10;
+        const tw = 0.5 + Math.sin(d.ph * d.tw) * 0.5;
+        ctx.globalAlpha = d.a * tw;
+        ctx.fillStyle = d.c; ctx.shadowColor = d.c; ctx.shadowBlur = 7 * d.z;
+        const sz = Math.max(1, Math.round(d.z * 1.6));
+        ctx.fillRect(Math.round(d.x), Math.round(d.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    window.__dreamDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>

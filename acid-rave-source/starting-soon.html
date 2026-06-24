@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Acid Rave — Starting Soon</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       Optional URL params: ?seconds=60  ?handle=@you  ?render=1
+       Editable slots: ?kicker=...  ?sub=...  ?tag=...  ?tag2=...  (=- removes one) -->
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- ONE canvas: blacklight glow blobs + corner lasers + bottom equalizer -->
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="grid" aria-hidden="true"></div>
+    <div class="sheen" aria-hidden="true"></div>
+    <div class="vign" aria-hidden="true"></div>
+
+    <!-- EDITABLE TEXT SLOTS: each .is-slot below ships a "[ your text here ]"
+         placeholder — type your own text in, or delete the whole line to remove it.
+         (Or set ?tag=...&tag2=...&kicker=...&sub=... at render time; use =- to remove one.) -->
+    <div class="tag tag--tl is-slot" data-slot="tag"><span class="slot-txt"><span class="slot-no">1</span><span class="slot-txt">your text here</span></span></div>
+    <div class="tag tag--tr is-slot" data-slot="tag2"><span class="slot-txt"><span class="slot-no">2</span><span class="slot-txt">your text here</span></span></div>
+
+    <main class="console">
+      <p class="kicker is-slot" id="kicker" data-slot="kicker"><span class="slot-txt"><span class="slot-no">3</span><span class="slot-txt">your text here</span></span></p>
+
+      <h1 class="title"><span class="l1">STARTING<span class="glitch c" aria-hidden="true">STARTING</span><span class="glitch m" aria-hidden="true">STARTING</span></span><span class="l2">SOON<span class="glitch c" aria-hidden="true">SOON</span><span class="glitch m" aria-hidden="true">SOON</span></span></h1>
+
+      <div class="rule" aria-hidden="true"></div>
+
+      <p class="sub is-slot" data-slot="sub"><span class="slot-txt"><span class="slot-no">4</span><span class="slot-txt">your text here</span></span></p>
+
+      <div class="bar" aria-hidden="true"><div class="fill" id="fill"></div></div>
+    </main>
+
+    <div class="handle" id="handle">@yourhandle</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

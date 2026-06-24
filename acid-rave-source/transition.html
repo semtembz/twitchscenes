@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Transition — Acid Rave Laser / Strobe-Glow Wipe</title>
+  <!--
+    ACID RAVE stinger ("Drop the Laser"). A UV-blacklight LASER WIPE: as the beat
+    drops, a row of dancing EQUALIZER teeth surges up from the bottom edge and a
+    mirror row plunges down from the top, slamming shut over the centre on a bright
+    horizontal LASER SCANLINE. Sweeping neon beams fan from all four corners and
+    rake across the void, vertical RGB-split slits (cyan/magenta) shear the cover,
+    and a smooth acid-green / magenta GLOW-STROBE flash pops at full cover (t=0.5).
+    Then the teeth retract back to the edges, the scanline snaps out, and the
+    screen clears. Transparent before & after, deterministic (seeded RNG, no
+    Math.random in the frame fn), sine-driven, ~1100ms. Loud, neon, NO velvet/frost.
+
+    Plays ONCE on load, then clears.
+      ?loop=1   loop it (for previewing)
+      ?ms=1100  total duration in ms (default 1100)
+
+    To use as an OBS Stinger you need a VIDEO file (OBS can't use a web page as a
+    stinger). Use transition-export.html to record a transparent .webm, then add it
+    as a Stinger transition with the Transition Point at ~50% (the full-cover flash).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    const DUR = Number(params.get('ms')) || 1100;
+    const LOOP = params.get('loop') === '1';
+
+    /* ---- palette (acid rave / UV blacklight) ---- */
+    const UV_BLACK = [7, 3, 15], UV_BLACK2 = [4, 2, 10];
+    const ACID = [198, 255, 0], MAG = [255, 20, 200], CYAN = [0, 229, 255], PURP = [178, 107, 255];
+    const WHITE = [255, 255, 255];
+    const PAL = [ACID, MAG, CYAN, PURP];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };       // smoothstep
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a > 1 ? 1 : a).toFixed(3) + ')';
+
+    /* ---- seeded RNG (mulberry32), used ONCE up-front to lay out the EQ teeth +
+       drifting rave specks; the frame fn is a pure deterministic function of t
+       (no Math.random anywhere in the per-frame path). ---- */
+    let _s = 0xACED >>> 0;
+    const rnd = () => { _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    /* EQUALIZER teeth — a full row that grows from each edge toward the centre.
+       Each tooth has its own twin-sine dance height + a color grade, so the wall
+       reads as a strobing EQ slamming shut rather than a flat slab. */
+    const N_EQ = 72, GAP = 3, BW = (W / N_EQ) - GAP;
+    const teeth = Array.from({ length: N_EQ }, (_, i) => ({
+      x: i * (BW + GAP), w: BW,
+      f1: R(7, 16), f2: R(2, 5),                 // fast dance freqs (lifetime 0..1)
+      ph: R(0, 6.283), ph2: R(0, 6.283),
+      amp: R(0.32, 0.62),                        // dance amplitude on top of the wipe
+      c: PAL[(rnd() * PAL.length) | 0],
+    }));
+
+    /* drifting neon rave specks (UV dust) that rush in toward centre with the
+       drop and thin out as it clears — staggered windows for a lively flurry. */
+    const N_SPK = 70;
+    const specks = Array.from({ length: N_SPK }, () => {
+      const fromTop = rnd() < 0.5;
+      return {
+        x0: R(W * 0.04, W * 0.96),
+        y0: fromTop ? R(-40, H * 0.30) : R(H * 0.70, H + 40),
+        toY: R(CY - 60, CY + 60),
+        sway: R(20, 90), swf: R(1.2, 3.0), phase: R(0, 6.283),
+        s: R(1.6, 4.6), c: PAL[(rnd() * PAL.length) | 0],
+        lead: R(0, 0.28), span: R(0.45, 0.8), a: R(0.4, 0.95), tw: R(1.4, 2.8),
+      };
+    });
+
+    /* ---- sweeping corner LASER beams (mirrors the starting-soon field): thin
+       bright cores + soft wide washes that fan from the four corners and rake the
+       void. Deterministic in t. Strongest mid-wipe, faint at the clear ends. ---- */
+    function drawLasers(t, cover) {
+      const energy = lerp(0.18, 1, cover);            // beams flare with the drop
+      const corners = [
+        { x: 0, y: 0, base: 0.20, c: ACID },
+        { x: W, y: 0, base: -Math.PI / 2 - 0.20, c: MAG },
+        { x: 0, y: H, base: Math.PI / 2 + 0.20, c: CYAN },
+        { x: W, y: H, base: Math.PI + 0.20, c: PURP },
+      ];
+      const L = Math.hypot(W, H) * 1.1;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      let k = 0;
+      for (const cor of corners) {
+        for (let j = 0; j < 2; j++) {
+          const sweep = Math.sin(t * 6.2832 * (1.1 + j * 0.4) + k * 1.7) * 0.42;
+          const spread = (cor.x === 0 ? 1 : -1) * (j === 0 ? 0.16 : 0.44);
+          const ang = cor.base + spread + sweep;
+          const ex = cor.x + Math.cos(ang) * L;
+          const ey = cor.y + Math.sin(ang) * L;
+          const pulse = 0.5 + 0.5 * Math.sin(t * 6.2832 * 2.2 + k * 2.0);
+          // soft wide wash
+          ctx.globalAlpha = (0.06 + pulse * 0.06) * energy;
+          ctx.strokeStyle = rgba(cor.c, 1);
+          ctx.lineWidth = 30;
+          ctx.beginPath(); ctx.moveTo(cor.x, cor.y); ctx.lineTo(ex, ey); ctx.stroke();
+          // bright thin core
+          ctx.globalAlpha = (0.20 + pulse * 0.24) * energy;
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(cor.x, cor.y); ctx.lineTo(ex, ey); ctx.stroke();
+          k++;
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- the EQ wipe: a UV-black wall built of dancing teeth grows from the top
+       AND bottom edges and meets at the centre seam (cover 0..1..0). Each tooth's
+       reach = cover*halfH + its own twin-sine dance, color-graded tips glowing. */
+    function drawEqWipe(t, cover) {
+      if (cover <= 0.001) return;
+      const halfH = CY + 40;                          // overlap a touch past centre at full cover
+      ctx.save();
+      for (const b of teeth) {
+        const dance = (0.5 + 0.5 * Math.sin(t * 6.2832 * b.f1 + b.ph)) * 0.7
+                    + (0.5 + 0.5 * Math.sin(t * 6.2832 * b.f2 + b.ph2)) * 0.3;
+        const reach = cover * halfH + dance * b.amp * 150 * cover;
+        const x = Math.round(b.x), w = Math.max(2, Math.round(b.w));
+
+        // --- TOP tooth: solid UV-black body falling from y=0, neon glowing tip ---
+        let bodyH = Math.round(reach);
+        if (bodyH > 1) {
+          // dark body (gives the wall its inky UV mass)
+          let g = ctx.createLinearGradient(0, 0, 0, bodyH);
+          g.addColorStop(0, rgba(UV_BLACK2, 0.96));
+          g.addColorStop(0.7, rgba(UV_BLACK, 0.96));
+          g.addColorStop(1, rgba(UV_BLACK, 0.7));
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = g;
+          ctx.fillRect(x, 0, w, bodyH);
+          // glowing color tip riding the leading edge (additive)
+          ctx.globalCompositeOperation = 'lighter';
+          let tg = ctx.createLinearGradient(0, bodyH - 70, 0, bodyH);
+          tg.addColorStop(0, rgba(b.c, 0));
+          tg.addColorStop(0.6, rgba(b.c, 0.35));
+          tg.addColorStop(1, rgba(b.c, 0.9));
+          ctx.fillStyle = tg;
+          ctx.fillRect(x, Math.max(0, bodyH - 70), w, Math.min(70, bodyH));
+          ctx.fillStyle = rgba(b.c, 0.95);            // bright cap line
+          ctx.fillRect(x, bodyH - 3, w, 3);
+        }
+
+        // --- BOTTOM tooth: mirror, rising from y=H ---
+        if (bodyH > 1) {
+          const top = H - bodyH;
+          let g = ctx.createLinearGradient(0, H, 0, top);
+          g.addColorStop(0, rgba(UV_BLACK2, 0.96));
+          g.addColorStop(0.7, rgba(UV_BLACK, 0.96));
+          g.addColorStop(1, rgba(UV_BLACK, 0.7));
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = g;
+          ctx.fillRect(x, top, w, bodyH);
+          ctx.globalCompositeOperation = 'lighter';
+          let tg = ctx.createLinearGradient(0, top + 70, 0, top);
+          tg.addColorStop(0, rgba(b.c, 0));
+          tg.addColorStop(0.6, rgba(b.c, 0.35));
+          tg.addColorStop(1, rgba(b.c, 0.9));
+          ctx.fillStyle = tg;
+          ctx.fillRect(x, top, w, Math.min(70, bodyH));
+          ctx.fillStyle = rgba(b.c, 0.95);
+          ctx.fillRect(x, top, w, 3);
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- the bright horizontal LASER SCANLINE that the two EQ walls slam shut
+       on. It thickens + flares to white-hot at full cover, with cyan/magenta
+       RGB-split ghosts above & below it. ---- */
+    function drawScanline(t, cover) {
+      if (cover <= 0.02) return;
+      const flare = Math.pow(cover, 0.8);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      // wide soft wash
+      const washH = lerp(8, 150, flare);
+      let wg = ctx.createLinearGradient(0, CY - washH, 0, CY + washH);
+      wg.addColorStop(0, rgba(MAG, 0));
+      wg.addColorStop(0.5, rgba(WHITE, 0.5 * flare));
+      wg.addColorStop(1, rgba(CYAN, 0));
+      ctx.fillStyle = wg;
+      ctx.fillRect(0, CY - washH, W, washH * 2);
+      // RGB split: cyan ghost just above, magenta ghost just below
+      const split = lerp(0, 10, flare);
+      ctx.globalAlpha = 0.55 * flare;
+      ctx.fillStyle = rgba(CYAN, 1);
+      ctx.fillRect(0, Math.round(CY - 3 - split), W, 3);
+      ctx.fillStyle = rgba(MAG, 1);
+      ctx.fillRect(0, Math.round(CY + split), W, 3);
+      // white-hot core
+      ctx.globalAlpha = 1;
+      const coreH = lerp(1, 6, flare);
+      ctx.fillStyle = rgba(WHITE, 0.95 * flare);
+      ctx.fillRect(0, Math.round(CY - coreH / 2), W, Math.ceil(coreH));
+      ctx.restore();
+    }
+
+    /* ---- vertical RGB-split SLITS: a handful of thin neon shears sweep across
+       the cover with the drop, giving that glitchy laser-strobe feel without a
+       full-screen seizure flash. Deterministic positions keyed to t. ---- */
+    function drawSlits(t, cover) {
+      if (cover <= 0.04) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const n = 6;
+      for (let i = 0; i < n; i++) {
+        const phase = (t * 1.4 + i / n) % 1;
+        const sx = phase * W;
+        const a = Math.sin(phase * Math.PI) * cover * 0.5;
+        if (a <= 0.02) continue;
+        const c = PAL[i % PAL.length];
+        ctx.globalAlpha = a;
+        ctx.fillStyle = rgba(c, 1);
+        ctx.fillRect(Math.round(sx), 0, 2, H);
+        ctx.globalAlpha = a * 0.4;
+        ctx.fillRect(Math.round(sx) - 6, 0, 12, H);
+      }
+      ctx.restore();
+    }
+
+    /* ---- drifting neon specks rushing toward centre with the drop ---- */
+    function drawSpecks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const d of specks) {
+        const lt = clamp01((t - d.lead) / d.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const e = smooth(lt);
+        const px = d.x0 + Math.sin(d.phase + lt * d.swf * 6.2832) * d.sway;
+        const py = lerp(d.y0, d.toY, e);
+        const ends = Math.sin(lt * Math.PI);                 // 0 at ends, 1 mid
+        const twk = 0.55 + Math.sin(d.phase + lt * d.tw * 6.2832) * 0.45;
+        const a = d.a * ends * twk * lerp(0.4, 1, cover);
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = rgba(d.c, 1);
+        ctx.beginPath();
+        ctx.arc(Math.round(px), Math.round(py), d.s, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);          // 0 -> 1 -> 0, full cover at t=0.5
+
+      drawLasers(t, cover);
+      drawSpecks(t, cover);
+      drawEqWipe(t, cover);
+      drawScanline(t, cover);
+      drawSlits(t, cover);
+
+      // smooth acid/magenta GLOW-STROBE flash at the very peak (full cover).
+      // A soft, brief bloom — NOT a hard strobe — biased acid-green into magenta.
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0.0, rgba(WHITE, 0.46 * flash));
+        fg.addColorStop(0.28, rgba(ACID, 0.30 * flash));
+        fg.addColorStop(0.62, rgba(MAG, 0.16 * flash));
+        fg.addColorStop(1.0, rgba(MAG, 0));
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Exposed so a verification step / headless pipeline can render any frame (t in 0..1).
+    window.__txDraw = (t) => frame(clamp01(t));
+
+    let start = null;
+    function loop(ts) {
+      if (start == null) start = ts;
+      let t = (ts - start) / DUR;
+      if (t >= 1) {
+        if (LOOP) { start = ts + 600; t = 0; }                // pause then replay
+        else { ctx.clearRect(0, 0, W, H); return; }           // play once, then clear
+      }
+      frame(clamp01(t));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

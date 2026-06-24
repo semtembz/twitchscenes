@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline Screen — Starlit Dreamcore (PNG generator)</title>
+  <!--
+    STARLIT DREAMCORE · "Sleeping Sky" OFFLINE image generator.
+
+    Twitch's offline image is a static 1920x1080 PNG you upload to your channel.
+    This page bakes the sleeping-sky look (deep dusk->indigo gradient, a soft
+    glowing moon low-left, drifting nebula blooms, a seeded twinkling star field,
+    a CENTERED frameless dream halo with a constellation crest, a soft-glowing
+    OFFLINE title, a thin star-trail rule, and corner brand tags) onto a <canvas>
+    and downloads it as a PNG.
+
+    Everything random is drawn from a SEEDED LCG, so the star scatter is identical
+    on every render (Math.random is never used) — re-running gives the same frame.
+
+    ?handle=@you customises the bottom-right handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download offline-screen.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Video Player Banner" (shown when you're offline).
+  -->
+  <style>
+    :root{
+      --dusk:#2B2347; --dusk-deep:#1C1733; --dusk-lift:#352B57;
+      --indigo:#6C5CE0; --lavender:#B8A4FF; --pink:#F2C6FF; --white:#FFFFFF;
+      --text:#E8E0FF; --dim:#B8A4FF;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif;
+      background:var(--dusk-deep);color:var(--text);padding:32px;}
+    h1{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;font-weight:600;
+      font-size:28px;color:var(--white);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(184,164,255,.4);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:820px;line-height:1.6;
+      font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;letter-spacing:6px;font-weight:600;
+      font-size:13px;color:var(--lavender);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;font-weight:600;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--dusk-deep);
+      background:linear-gradient(180deg,var(--lavender),var(--indigo));border:1px solid rgba(184,164,255,.6);
+      border-radius:8px;cursor:pointer;box-shadow:0 0 30px rgba(108,92,224,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#241D3D;padding:14px;border:1px solid #352B57;
+      border-radius:6px;display:inline-block;}
+    canvas{display:block;width:960px;height:540px;border-radius:4px;}
+    code{font-family:"Courier New",monospace;color:var(--pink);background:rgba(184,164,255,.12);
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">STARLIT DREAMCORE · OFFLINE SCREEN</p>
+  <h1>OFFLINE SCREEN GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;1080 offline image in the sleeping-sky dreamcore style — seeded so the
+    star field is reproducible. Pass <code>?handle=@you</code> to set the handle.
+    Click Download then upload it on Twitch under
+    <code>Settings → Channel → Brand → Video Player Banner</code>.
+  </p>
+  <button id="dl">Download offline-screen.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 1080;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const DUSK = '#2B2347', DUSK_DEEP = '#1C1733', DUSK_LIFT = '#352B57';
+    const INDIGO = '#6C5CE0', LAVENDER = '#B8A4FF', PINK = '#F2C6FF', WHITE = '#FFFFFF', DIM = '#B8A4FF';
+    const TINTS = [WHITE, PINK, LAVENDER, WHITE, '#D9CCFF'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    // ---- seeded pseudo-random (small LCG) — NEVER Math.random, so it's reproducible ----
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    // ---- soft bloom (radial gradient) ----
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a soft star diamond at (x,y), half-diagonal d ----
+    function starDiamond(x, y, d) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - d); ctx.lineTo(x + d * 0.42, y - d * 0.42);
+      ctx.lineTo(x + d, y); ctx.lineTo(x + d * 0.42, y + d * 0.42);
+      ctx.lineTo(x, y + d); ctx.lineTo(x - d * 0.42, y + d * 0.42);
+      ctx.lineTo(x - d, y); ctx.lineTo(x - d * 0.42, y - d * 0.42);
+      ctx.closePath();
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0x6C5CE0); // fixed seed (indigo hex) -> identical scatter every render
+
+      // ---- BACKGROUND: dusk -> indigo dreamcore sky (mirrors shared.css #stage) ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#34285C'); grad.addColorStop(0.40, DUSK);
+      grad.addColorStop(0.74, '#241D3D'); grad.addColorStop(1, DUSK_DEEP);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // horizon glow low-left + soft pink glow upper-right + indigo crown
+      bloom(W * 0.16, H * 0.80, W * 0.50, 'rgba(184,164,255,0.16)', 1);
+      bloom(W * 0.84, H * 0.14, W * 0.42, 'rgba(242,198,255,0.10)', 1);
+      bloom(W * 0.50, H * 0.06, W * 0.55, 'rgba(108,92,224,0.30)', 1);
+
+      // ---- drifting NEBULA blooms hugging the corners (screen-blend) ----
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      bloom(-40, -20, 620, 'rgba(108,92,224,0.30)', 1);
+      bloom(W + 60, 220, 660, 'rgba(242,198,255,0.18)', 1);
+      bloom(W + 20, H + 80, 700, 'rgba(184,164,255,0.20)', 1);
+      bloom(-80, H + 40, 560, 'rgba(108,92,224,0.20)', 1);
+      ctx.restore();
+
+      // ---- soft glowing MOON, low in the LEFT margin ----
+      const mx = 320, my = 430, mr = 150;
+      ctx.save();
+      ctx.shadowColor = 'rgba(242,198,255,0.45)'; ctx.shadowBlur = 120;
+      const mg = ctx.createRadialGradient(mx - mr * 0.1, my - mr * 0.12, 0, mx, my, mr);
+      mg.addColorStop(0, 'rgba(255,255,255,0.95)');
+      mg.addColorStop(0.40, 'rgba(242,198,255,0.55)');
+      mg.addColorStop(0.66, 'rgba(184,164,255,0.18)');
+      mg.addColorStop(0.74, 'rgba(184,164,255,0)');
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(mx, my, mr, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      // faint craters
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      bloom(mx + mr * 0.2, my - mr * 0.2, mr * 0.28, 'rgba(184,164,255,0.5)', 0.4);
+      bloom(mx - mr * 0.2, my + mr * 0.18, mr * 0.22, 'rgba(184,164,255,0.4)', 0.35);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      // ---- SEEDED TWINKLING STAR FIELD ----
+      ctx.save();
+      for (let i = 0; i < 220; i++) {
+        const x = R(rnd, 10, W - 10), y = R(rnd, 10, H - 10);
+        const rr = R(rnd, 0.6, 2.6), a = R(rnd, 0.25, 0.95);
+        const c = TINTS[(rnd() * TINTS.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = rr * 4;
+        ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), rr, 0, 6.2832); ctx.fill();
+        if (rnd() < 0.12 && a > 0.5) {
+          ctx.globalAlpha = a * 0.5; ctx.strokeStyle = c; ctx.lineWidth = 1;
+          const g = rr * 5;
+          ctx.beginPath();
+          ctx.moveTo(x - g, y); ctx.lineTo(x + g, y);
+          ctx.moveTo(x, y - g); ctx.lineTo(x, y + g); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- a couple of frozen shooting stars in the upper sky ----
+      ctx.save();
+      [[W * 0.62, H * 0.18, 280], [W * 0.40, H * 0.30, 220]].forEach(([sx, sy, len]) => {
+        const ang = 2.7, dx = Math.cos(ang), dy = Math.sin(ang);
+        const hx = sx, hy = sy, tx = hx - dx * len, ty = hy - dy * len;
+        const gr = ctx.createLinearGradient(tx, ty, hx, hy);
+        gr.addColorStop(0, 'rgba(242,198,255,0)');
+        gr.addColorStop(1, 'rgba(255,255,255,0.8)');
+        ctx.strokeStyle = gr; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        ctx.shadowColor = PINK; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+        ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, 6.2832); ctx.fill();
+      });
+      ctx.restore();
+      ctx.shadowBlur = 0;
+
+      // ---- DEEP VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, W * 0.66);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(20,16,38,0.80)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ============================================================
+      // CENTERED FRAMELESS DREAM HALO — the signature composition
+      // ============================================================
+      const cx = W / 2, cyc = H / 2;
+      // a wide soft luminous bloom seating the words (no hard frame)
+      ctx.save();
+      const dh = ctx.createRadialGradient(cx, cyc, 60, cx, cyc, 760);
+      dh.addColorStop(0, 'rgba(43,35,71,0.5)');
+      dh.addColorStop(0.5, 'rgba(43,35,71,0.22)');
+      dh.addColorStop(1, 'rgba(43,35,71,0)');
+      ctx.fillStyle = dh; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // crest: lavender rule + star diamond + rule above the kicker
+      ctx.save();
+      const crestY = cyc - 200;
+      const rl = ctx.createLinearGradient(cx - 132, 0, cx - 12, 0);
+      rl.addColorStop(0, 'rgba(184,164,255,0)'); rl.addColorStop(1, LAVENDER);
+      ctx.strokeStyle = rl; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - 132, crestY); ctx.lineTo(cx - 18, crestY); ctx.stroke();
+      const rr = ctx.createLinearGradient(cx + 12, 0, cx + 132, 0);
+      rr.addColorStop(0, LAVENDER); rr.addColorStop(1, 'rgba(184,164,255,0)');
+      ctx.strokeStyle = rr;
+      ctx.beginPath(); ctx.moveTo(cx + 18, crestY); ctx.lineTo(cx + 132, crestY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 14;
+      starDiamond(cx, crestY, 8); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // kicker — spaced soft caps (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 26px "Quicksand","Comfortaa",system-ui,sans-serif';
+      ctx.fillStyle = LAVENDER;
+      ctx.shadowColor = 'rgba(184,164,255,0.4)'; ctx.shadowBlur = 18;
+      drawSpacedCentered('[18] your text here', cx, cyc - 132, 12);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // big TITLE: OFFLINE (white -> pink -> lavender gradient + halo)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 184px "Quicksand","Comfortaa",system-ui,sans-serif';
+      const tg = ctx.createLinearGradient(0, cyc - 90, 0, cyc + 70);
+      tg.addColorStop(0, WHITE); tg.addColorStop(0.5, PINK); tg.addColorStop(1, LAVENDER);
+      ctx.fillStyle = tg;
+      ctx.shadowColor = 'rgba(184,164,255,0.5)'; ctx.shadowBlur = 70;
+      ctx.fillText('OFFLINE', cx, cyc - 6);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // thin star-trail underline rule with end star diamonds
+      ctx.save();
+      const ruY = cyc + 86, ruW = 320;
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(184,164,255,0)'); ug.addColorStop(0.22, LAVENDER);
+      ug.addColorStop(0.5, PINK); ug.addColorStop(0.78, LAVENDER); ug.addColorStop(1, 'rgba(184,164,255,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, ruY); ctx.lineTo(cx + ruW / 2, ruY); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 10;
+      starDiamond(cx - ruW / 2 - 14, ruY, 4); ctx.fill();
+      starDiamond(cx + ruW / 2 + 14, ruY, 4); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // subtitle — refined italic serif (editable placeholder)
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'italic 400 32px "Iowan Old Style","Palatino Linotype",Georgia,serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText('[19] your text here', cx, cyc + 140);
+      ctx.restore();
+
+      // ---- corner brand tags on the sky (editable placeholders) ----
+      ctx.save();
+      ctx.font = '600 20px "Quicksand","Comfortaa",system-ui,sans-serif';
+      ctx.fillStyle = LAVENDER; ctx.textBaseline = 'alphabetic';
+      ctx.shadowColor = 'rgba(184,164,255,0.4)'; ctx.shadowBlur = 12;
+      ctx.textAlign = 'left';  drawSpaced('[20] your text here', 64, 70, 7);
+      ctx.textAlign = 'right'; drawSpacedRight('[21] your text here', W - 64, 70, 7);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ---- HANDLE (bottom-right, pink-lavender) ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleClean = handle.replace(/^@/, '');
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.font = '600 26px "Quicksand","Comfortaa",system-ui,sans-serif';
+      ctx.fillStyle = PINK; ctx.shadowColor = 'rgba(242,198,255,0.4)'; ctx.shadowBlur = 14;
+      ctx.fillText(handle.startsWith('@') ? handle : '@' + handle, W - 64, H - 60);
+      ctx.shadowBlur = 0;
+      ctx.font = '400 18px "Quicksand","Comfortaa",system-ui,sans-serif'; ctx.fillStyle = DIM;
+      ctx.fillText('twitch.tv/' + handleClean, W - 64, H - 34);
+    }
+
+    // ---- manual letter-spaced text helpers ----
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'offline-screen.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'offline', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

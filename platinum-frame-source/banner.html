@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Platinum Frame (PNG generator)</title>
+  <!--
+    PLATINUM FRAME · "Cold Minimal Luxury" PROFILE BANNER generator.
+
+    Twitch's profile banner is a 1920x480 PNG. This page bakes the platinum-on-charcoal
+    look (charcoal void, sparse cold steel specks, a razor-thin platinum hairline frame
+    band with L-shaped corner ticks, identity on the LEFT, a tagline on the RIGHT, and a
+    delicate diamond-node rule) onto a <canvas> and downloads a PNG. Seeded LCG so the
+    speck scatter is reproducible.
+
+    ?handle=@you customises the identity handle.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: Settings → Channel → Brand → Profile Banner.
+  -->
+  <style>
+    :root{
+      --bg-deep:#0E1013; --bg-lift:#1A1E24; --steel:#9AA7B2;
+      --platinum:#D7DEE6; --white:#F4F7FA; --dim:#8794A0;
+      --sans:"Segoe UI",system-ui,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:var(--sans);font-weight:300;
+      background:var(--bg-deep);color:var(--white);padding:32px;}
+    h1{font-weight:200;font-size:28px;color:var(--white);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(215,222,230,.22);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;font-size:16px;}
+    .kicker{letter-spacing:6px;font-size:13px;color:var(--steel);margin:0 0 14px;
+      text-transform:uppercase;text-indent:6px;}
+    button{font-family:var(--sans);font-weight:300;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--bg-deep);
+      background:linear-gradient(180deg,var(--white),var(--steel));border:1px solid rgba(215,222,230,.6);
+      border-radius:2px;cursor:pointer;box-shadow:0 0 30px rgba(215,222,230,.18);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#14171C;padding:14px;border:1px solid #242a31;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:960px;height:240px;border-radius:4px;}
+    .ghost{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:33%;height:calc(100% - 28px);
+      border:1px dashed rgba(215,222,230,0.28);background:rgba(20,24,30,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(244,247,250,0.6);display:flex;align-items:center;justify-content:center;
+      font-family:var(--sans);font-size:12px;letter-spacing:2px;}
+    code{font-family:"Consolas","Courier New",monospace;color:var(--platinum);background:#1a1e24;
+      padding:2px 6px;border-radius:3px;}
+  </style>
+</head>
+<body>
+  <p class="kicker">PLATINUM FRAME · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the cold platinum-on-charcoal style — seeded so the
+    speck scatter is reproducible. Identity sits on the <strong>left</strong>, the tagline on the
+    <strong>right</strong>; the centre is decorative so Twitch's offline player can sit over it.
+    Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const STEEL = '#9AA7B2', PLATINUM = '#D7DEE6', WHITE = '#F4F7FA', DIM = '#8794A0';
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    function regTick(x, y, sx, sy, arm) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(244,247,250,0.85)'; ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(215,222,230,0.5)'; ctx.shadowBlur = 7;
+      ctx.beginPath();
+      ctx.moveTo(x, y); ctx.lineTo(x + sx * arm, y);
+      ctx.moveTo(x, y); ctx.lineTo(x, y + sy * arm);
+      ctx.stroke();
+      ctx.restore();
+    }
+    function diamond(x, y, s, fill) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = fill; ctx.fillRect(-s, -s, s * 2, s * 2); ctx.restore();
+    }
+    function drawSpaced(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedRight(str, x, y, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      total -= sp;
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpaced(str, x - total, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xD7DEE6);
+
+      // ---- BACKGROUND: charcoal void ----
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, '#12151A'); grad.addColorStop(0.5, '#0E1013'); grad.addColorStop(1, '#090A0D');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      bloom(W * 0.50, H * 0.40, W * 0.42, 'rgba(26,30,36,0.85)', 1);
+      bloom(W * 0.12, H * 0.5, W * 0.30, 'rgba(154,167,178,0.05)', 1);
+      bloom(W * 0.88, H * 0.5, W * 0.30, 'rgba(215,222,230,0.04)', 1);
+
+      // ---- SEEDED COLD STEEL SPECKS ----
+      ctx.save();
+      for (let i = 0; i < 48; i++) {
+        const x = R(rnd, 8, W - 8), y = R(rnd, 8, H - 8);
+        const z = R(rnd, 0.5, 1.6), a = R(rnd, 0.16, 0.55);
+        const ice = rnd() < 0.4;
+        ctx.globalAlpha = a; ctx.shadowBlur = 6 * z;
+        ctx.fillStyle = ice ? PLATINUM : STEEL; ctx.shadowColor = ice ? WHITE : STEEL;
+        const sp = Math.max(1, Math.round(z * 1.5));
+        ctx.fillRect(Math.round(x), Math.round(y), sp, sp);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- cool light-sweep ----
+      ctx.save();
+      const sweep = ctx.createLinearGradient(W * 0.30, 0, W * 0.62, H);
+      sweep.addColorStop(0.40, 'rgba(0,0,0,0)');
+      sweep.addColorStop(0.49, 'rgba(215,222,230,0.08)');
+      sweep.addColorStop(0.51, 'rgba(244,247,250,0.04)');
+      sweep.addColorStop(0.60, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // ---- razor-thin platinum frame band ----
+      const m = 40;
+      ctx.strokeStyle = 'rgba(215,222,230,0.46)'; ctx.lineWidth = 1;
+      ctx.strokeRect(m + 0.5, m + 0.5, W - m * 2 - 1, H - m * 2 - 1);
+      ctx.strokeStyle = 'rgba(215,222,230,0.16)';
+      ctx.strokeRect(m + 11.5, m + 11.5, W - m * 2 - 22, H - m * 2 - 18);
+      const arm = 24;
+      regTick(m, m, 1, 1, arm); regTick(W - m, m, -1, 1, arm);
+      regTick(m, H - m, 1, -1, arm); regTick(W - m, H - m, -1, -1, arm);
+
+      // ---- IDENTITY (left): handle in thin-weight platinum->steel ----
+      const handle = params.get('handle') || '@yourhandle';
+      const handleClean = handle.replace(/^@/, '');
+      const lx = 110, midY = H / 2;
+
+      // leading diamond node
+      ctx.fillStyle = PLATINUM; ctx.shadowColor = 'rgba(215,222,230,0.5)'; ctx.shadowBlur = 9;
+      diamond(lx + 4, midY - 26, 5, PLATINUM); ctx.shadowBlur = 0;
+
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '200 72px "Segoe UI", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif';
+      const tg = ctx.createLinearGradient(0, midY - 38, 0, midY + 38);
+      tg.addColorStop(0, WHITE); tg.addColorStop(0.54, PLATINUM); tg.addColorStop(1, STEEL);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 22;
+      const at = handle.startsWith('@') ? handle : '@' + handle;
+      ctx.fillText(at, lx + 30, midY - 4);
+      ctx.shadowBlur = 0;
+      // url under it (thin steel)
+      ctx.font = '300 22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = DIM;
+      drawSpaced('twitch.tv/' + handleClean, lx + 32, midY + 52, 2);
+
+      // ---- TAGLINE (right): editable slot, thin wide-tracked steel caps ----
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.font = '300 26px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = STEEL; ctx.globalAlpha = 0.85;
+      drawSpacedRight('[21] your text here', W - 110, midY - 16, 6);
+      // a delicate hairline rule + diamond under the tagline
+      ctx.globalAlpha = 1;
+      const ruY = midY + 22, ruW = 300, rx = W - 110;
+      const ug = ctx.createLinearGradient(rx - ruW, 0, rx, 0);
+      ug.addColorStop(0, 'rgba(215,222,230,0)'); ug.addColorStop(0.7, 'rgba(215,222,230,0.46)'); ug.addColorStop(1, 'rgba(215,222,230,0.46)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx - ruW, ruY); ctx.lineTo(rx, ruY); ctx.stroke();
+      ctx.fillStyle = PLATINUM; ctx.shadowColor = 'rgba(215,222,230,0.6)'; ctx.shadowBlur = 9;
+      diamond(rx, ruY, 3, PLATINUM); ctx.shadowBlur = 0;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

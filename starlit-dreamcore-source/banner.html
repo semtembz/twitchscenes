@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile Banner — Starlit Dreamcore (PNG generator)</title>
+  <!--
+    STARLIT DREAMCORE · "Sleeping Sky" PROFILE BANNER generator (1920 x 480, 5:2).
+
+    Twitch overlays its offline video player over the CENTRE of the banner, so the
+    branding lives in the LEFT and RIGHT thirds: left = @YOURHANDLE + STREAMER kicker;
+    right = a dreamcore tagline. The centre is decorative only — a soft glowing moon +
+    nebula haze — so the player can sit over it without hiding anything important.
+
+    Everything random is drawn from a SEEDED LCG, so the star scatter is identical on
+    every render (Math.random is never used) — re-running gives the same banner.
+
+    ?handle=@you customises the left identity block.
+
+    The dashed "approx. offline-player area" guide is a PAGE-PREVIEW overlay only; it is
+    NOT drawn onto the downloaded PNG.
+
+    How to use:
+      1. Open this file in a browser (optionally ?handle=@you).
+      2. Click "Download profile-banner.png".
+      3. Upload it: twitch.tv/<you>/dashboard -> Settings -> Channel -> Brand
+         -> "Profile Banner".
+  -->
+  <style>
+    :root{
+      --dusk:#2B2347; --dusk-deep:#1C1733; --dusk-lift:#352B57;
+      --indigo:#6C5CE0; --lavender:#B8A4FF; --pink:#F2C6FF; --white:#FFFFFF;
+      --text:#E8E0FF; --dim:#B8A4FF;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Quicksand","Comfortaa","Segoe UI",system-ui,sans-serif;
+      background:var(--dusk-deep);color:var(--text);padding:32px;}
+    h1{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;font-weight:600;
+      font-size:28px;color:var(--white);letter-spacing:1px;margin:0 0 6px;
+      text-shadow:0 0 22px rgba(184,164,255,.4);}
+    p.lead{color:var(--dim);margin:0 0 22px;max-width:840px;line-height:1.6;
+      font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;font-style:italic;font-size:17px;}
+    .kicker{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;letter-spacing:6px;font-weight:600;
+      font-size:13px;color:var(--lavender);margin:0 0 14px;text-transform:uppercase;text-indent:6px;}
+    button{font-family:"Quicksand","Comfortaa",system-ui,sans-serif;font-weight:600;font-size:14px;
+      letter-spacing:3px;text-transform:uppercase;padding:13px 26px;color:var(--dusk-deep);
+      background:linear-gradient(180deg,var(--lavender),var(--indigo));border:1px solid rgba(184,164,255,.6);
+      border-radius:8px;cursor:pointer;box-shadow:0 0 30px rgba(108,92,224,.25);}
+    button:hover{filter:brightness(1.08);}
+    .preview{margin-top:22px;background:#241D3D;padding:14px;border:1px solid #352B57;
+      border-radius:6px;display:inline-block;position:relative;}
+    canvas{display:block;width:1152px;height:288px;border-radius:4px;}
+    .ghost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:470px;height:160px;border:2px dashed rgba(184,164,255,0.45);
+      background:rgba(28,23,51,0.45);pointer-events:none;border-radius:6px;
+      color:rgba(232,224,255,0.72);display:flex;align-items:center;justify-content:center;
+      font-family:"Quicksand","Comfortaa",system-ui,sans-serif;font-size:12px;letter-spacing:2px;}
+    code{font-family:"Courier New",monospace;color:var(--pink);background:rgba(184,164,255,.12);
+      padding:2px 6px;border-radius:3px;font-style:normal;}
+  </style>
+</head>
+<body>
+  <p class="kicker">STARLIT DREAMCORE · PROFILE BANNER</p>
+  <h1>PROFILE BANNER GENERATOR</h1>
+  <p class="lead">
+    Renders a 1920&times;480 profile banner in the sleeping-sky dreamcore style — seeded so the
+    star scatter is reproducible. Identity sits on the <strong>left</strong>, the
+    tagline on the <strong>right</strong>; the centre is decorative so Twitch's offline player
+    can sit over it. Pass <code>?handle=@you</code>, then upload at
+    <code>Settings → Channel → Brand → Profile Banner</code>.
+  </p>
+  <button id="dl">Download profile-banner.png</button>
+
+  <div class="preview">
+    <canvas id="c" width="1920" height="480"></canvas>
+    <div class="ghost">approx. offline-player area</div>
+  </div>
+
+  <script>
+    "use strict";
+    const W = 1920, H = 480;
+    const params = new URLSearchParams(location.search);
+    // ---- palette (JS hex constants mirror the shared.css design tokens) ----
+    const DUSK = '#2B2347', DUSK_DEEP = '#1C1733', DUSK_LIFT = '#352B57';
+    const INDIGO = '#6C5CE0', LAVENDER = '#B8A4FF', PINK = '#F2C6FF', WHITE = '#FFFFFF', DIM = '#B8A4FF';
+    const TINTS = [WHITE, PINK, LAVENDER, WHITE, '#D9CCFF'];
+
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+
+    function makeRand(seed) {
+      let s = seed >>> 0;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    }
+    const R = (rnd, a, b) => a + rnd() * (b - a);
+
+    function bloom(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function starDiamond(x, y, d) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - d); ctx.lineTo(x + d * 0.42, y - d * 0.42);
+      ctx.lineTo(x + d, y); ctx.lineTo(x + d * 0.42, y + d * 0.42);
+      ctx.lineTo(x, y + d); ctx.lineTo(x - d * 0.42, y + d * 0.42);
+      ctx.lineTo(x - d, y); ctx.lineTo(x - d * 0.42, y - d * 0.42);
+      ctx.closePath();
+    }
+
+    // ---- soft glowing MOON at the centre (behind the player) ----
+    function drawMoon(cx, cy, r) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(242,198,255,0.4)'; ctx.shadowBlur = 90;
+      const mg = ctx.createRadialGradient(cx - r * 0.1, cy - r * 0.12, 0, cx, cy, r);
+      mg.addColorStop(0, 'rgba(255,255,255,0.85)');
+      mg.addColorStop(0.40, 'rgba(242,198,255,0.45)');
+      mg.addColorStop(0.66, 'rgba(184,164,255,0.16)');
+      mg.addColorStop(0.74, 'rgba(184,164,255,0)');
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      bloom(cx + r * 0.2, cy - r * 0.2, r * 0.26, 'rgba(184,164,255,0.5)', 0.4);
+      bloom(cx - r * 0.2, cy + r * 0.18, r * 0.2, 'rgba(184,164,255,0.4)', 0.35);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- a centred branding block: star + kicker, big serif title, sub ----
+    function block(cx, kickerLabel, titleText, titleSize, subText) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 22px "Quicksand","Comfortaa",system-ui,sans-serif';
+      ctx.fillStyle = LAVENDER;
+      ctx.shadowColor = 'rgba(184,164,255,0.4)'; ctx.shadowBlur = 14;
+      drawSpacedCentered(kickerLabel, cx, 132, 9);
+      // flanking star diamonds
+      const kw = spacedWidth(kickerLabel, 9);
+      ctx.shadowColor = 'rgba(242,198,255,0.6)'; ctx.shadowBlur = 10; ctx.fillStyle = WHITE;
+      [cx - kw / 2 - 22, cx + kw / 2 + 22].forEach(dx => { starDiamond(dx, 132, 5); ctx.fill(); });
+      ctx.shadowBlur = 0;
+
+      // title — soft sans, white->pink->lavender gradient, soft glow
+      ctx.font = '600 ' + titleSize + 'px "Quicksand","Comfortaa",system-ui,sans-serif';
+      const tg = ctx.createLinearGradient(0, 200 - titleSize / 2, 0, 200 + titleSize / 2);
+      tg.addColorStop(0, WHITE); tg.addColorStop(0.5, PINK); tg.addColorStop(1, LAVENDER);
+      ctx.fillStyle = tg; ctx.shadowColor = 'rgba(184,164,255,0.45)'; ctx.shadowBlur = 34;
+      ctx.fillText(titleText, cx, 232);
+      ctx.shadowBlur = 0;
+
+      // thin lavender->pink rule + star under the title
+      const ruW = Math.min(360, titleSize * 4);
+      const ug = ctx.createLinearGradient(cx - ruW / 2, 0, cx + ruW / 2, 0);
+      ug.addColorStop(0, 'rgba(184,164,255,0)'); ug.addColorStop(0.22, LAVENDER);
+      ug.addColorStop(0.5, PINK); ug.addColorStop(0.78, LAVENDER); ug.addColorStop(1, 'rgba(184,164,255,0)');
+      ctx.strokeStyle = ug; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - ruW / 2, 296); ctx.lineTo(cx + ruW / 2, 296); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 7;
+      starDiamond(cx, 296, 3); ctx.fill(); ctx.shadowBlur = 0;
+
+      // subtitle — refined italic serif
+      ctx.font = 'italic 400 22px "Iowan Old Style","Palatino Linotype",Georgia,serif';
+      ctx.fillStyle = DIM;
+      ctx.fillText(subText, cx, 338);
+    }
+
+    async function draw() {
+      await document.fonts.ready;
+      const rnd = makeRand(0xB8A4FF); // fixed seed -> identical scatter every render
+
+      // ---- BACKGROUND: dusk velvet gradient ----
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#34285C'); grad.addColorStop(0.6, DUSK); grad.addColorStop(1, DUSK_DEEP);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // soft glow behind the centre + lavender glows flanking
+      bloom(W / 2, H / 2 + 20, 720, 'rgba(108,92,224,0.45)', 1);
+      bloom(W * 0.16, H * 0.32, 360, 'rgba(184,164,255,0.16)', 1);
+      bloom(W * 0.84, H * 0.32, 360, 'rgba(242,198,255,0.12)', 1);
+
+      // nebula haze hugging the corners (screen-blend)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      bloom(-20, -10, 340, 'rgba(108,92,224,0.26)', 1);
+      bloom(W + 20, H + 10, 360, 'rgba(184,164,255,0.18)', 1);
+      ctx.restore();
+
+      // ---- SEEDED STAR SCATTER across the whole banner ----
+      ctx.save();
+      for (let i = 0; i < 120; i++) {
+        const x = R(rnd, 0, W), y = R(rnd, 0, H);
+        const rr = R(rnd, 0.6, 2.2), a = R(rnd, 0.25, 0.9);
+        const c = TINTS[(rnd() * TINTS.length) | 0];
+        ctx.globalAlpha = a; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = rr * 4;
+        ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), rr, 0, 6.2832); ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+      // ---- soft glowing moon centre (decorative, behind the player) ----
+      drawMoon(W / 2, H / 2 + 8, 120);
+
+      // ---- VIGNETTE ----
+      const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.30, W / 2, H / 2, W * 0.55);
+      vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(20,16,38,0.66)');
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+      // ---- LEFT BLOCK: identity (centre ~ x=400) ----
+      const handle = params.get('handle') || '@YOURHANDLE';
+      const handleAt = handle.startsWith('@') ? handle : '@' + handle;
+      const handleClean = handle.replace(/^@/, '');
+      block(400, 'STREAMER', handleAt.toUpperCase(), 76, 'twitch.tv/' + handleClean.toLowerCase());
+
+      // ---- RIGHT BLOCK: tagline (centre ~ x=1520) — all editable placeholders ----
+      block(1520, '[22] your text here', '[ your text ]', 76, '[23] your text here');
+
+      // accent star rails flanking the centre clear-zone
+      ctx.fillStyle = 'rgba(184,164,255,0.4)';
+      for (let yy = 96; yy < H - 70; yy += 16) { ctx.fillRect(672, yy, 3, 7); ctx.fillRect(1245, yy, 3, 7); }
+      ctx.fillStyle = WHITE; ctx.shadowColor = PINK; ctx.shadowBlur = 8;
+      [[673, 80], [1246, 80], [673, H - 70], [1246, H - 70]].forEach(([x, y]) => { starDiamond(x, y, 5); ctx.fill(); });
+      ctx.shadowBlur = 0;
+    }
+
+    function spacedWidth(str, sp) {
+      let total = 0;
+      for (const ch of str) total += ctx.measureText(ch).width + sp;
+      return total - sp;
+    }
+    function drawSpacedFrom(str, x, y, sp) {
+      let cx = x;
+      for (const ch of str) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+    }
+    function drawSpacedCentered(str, x, y, sp) {
+      const total = spacedWidth(str, sp);
+      const prev = ctx.textAlign; ctx.textAlign = 'left';
+      drawSpacedFrom(str, x - total / 2, y, sp);
+      ctx.textAlign = prev;
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.download = 'profile-banner.png';
+      a.href = cv.toDataURL('image/png');
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    document.getElementById('dl').addEventListener('click', download);
+    window.__exportAssets = () => [{ name: 'profile-banner', dataURL: document.getElementById('c').toDataURL('image/png') }];
+    draw();
+  </script>
+</body>
+</html>

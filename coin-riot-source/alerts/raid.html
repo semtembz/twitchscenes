@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Coin Riot — Raid Alert</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, transparent, Local file -> this file.
+       Background is TRANSPARENT so the alert composites over your scene/gameplay.
+       Auto-plays a looping demo. Override via URL params:
+         ?name=SomeName  ?amount=10   (?type= can also force a different event)
+         ?noname=1 hides the baked name (your alert platform overlays the live name)
+         ?render=1 deterministic capture mode for the headless webm pipeline -->
+  <link rel="stylesheet" href="../alerts.css" />
+</head>
+<body data-event="raid">
+  <div id="stage">
+    <canvas class="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <aside class="alert" id="alert">
+      <!-- chasing marquee bulb rows along the top + bottom edges -->
+      <span class="bulbrow bulbrow--t" aria-hidden="true"></span>
+      <span class="bulbrow bulbrow--b" aria-hidden="true"></span>
+
+      <span class="tagid" aria-hidden="true">1UP</span>
+
+      <!-- spinning $-coin token plate -->
+      <div class="tok" aria-hidden="true"><div class="coin"><span class="glyph" id="glyph">⚑</span></div></div>
+
+      <div class="meta">
+        <p class="kick"><span class="credit" aria-hidden="true"></span><span id="kick-label">RAID INCOMING</span></p>
+        <h1 class="name" id="name">Player</h1>
+        <p class="amount" id="amount"></p>
+        <p class="sub" id="sub"></p>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+  /* fill the top + bottom marquee bulb rows (gold/cyan/red carnival chase),
+     staggered so the light runs along the edge on load. */
+  (() => {
+    const rows = document.querySelectorAll(".alert .bulbrow");
+    if (!rows.length) return;
+    const PER = 18, CYC = 1.1, cols = ["", "c-cyan", "c-red"];
+    rows.forEach((row, ri) => {
+      for (let i = 0; i < PER; i++) {
+        const b = document.createElement("span");
+        b.className = "blb" + (cols[i % 3] ? " " + cols[i % 3] : "");
+        b.style.animationDelay = (-(i / PER) * CYC - ri * 0.05).toFixed(3) + "s";
+        row.appendChild(b);
+      }
+    });
+  })();
+  </script>
+  <script src="../alerts.js"></script>
+</body>
+</html>

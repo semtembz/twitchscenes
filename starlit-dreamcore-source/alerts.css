@@ -1,0 +1,278 @@
+/* ============================================================
+   STARLIT DREAMCORE — alert system ("Sleeping Sky")
+   A frameless soft-glow dream card that enters with a DISTINCT
+   sleepy motion per event (drift, bloom, descend, rise, soft-zoom,
+   drift-right, sweep, pop, glide-tilt, twinkle, banner-drop, unfold),
+   holds, then dissolves out. Background is TRANSPARENT so it
+   composites over gameplay / the scene. Bespoke to this theme:
+   NO hard frame (dreamcore is soft-focus) — a luminous lavender
+   halo seats the words; a soft star plate carries the event glyph;
+   spaced soft caps for the event line, a glowing star-white name,
+   an optional pink-gradient amount. A star-dust burst lifts behind
+   the card. Mirrors shared.css tokens so alerts/*.html run alone.
+
+   MOTION is driven by a per-event class on #stage (.m-<motion>):
+   the entrance keyframes differ per event so each reads distinct,
+   yet they all share the soft dreamcore easing + glow language.
+   Long viewer names are clamped to one line so the card never breaks.
+   ============================================================ */
+:root{
+  /* palette (mirrors shared.css so alerts/*.html work standalone) */
+  --dusk:#2B2347; --dusk-deep:#1C1733; --dusk-lift:#352B57;
+  --indigo:#6C5CE0; --lavender:#B8A4FF; --pink:#F2C6FF; --white:#FFFFFF;
+  --text:#E8E0FF;
+  --dim:rgba(184,164,255,.62);
+  --halo:rgba(184,164,255,.45);
+  --halo-pink:rgba(242,198,255,.40);
+  --hair:rgba(184,164,255,.30);
+  --hair-soft:rgba(184,164,255,.14);
+  --display:"Quicksand","Comfortaa","Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Georgia,"Times New Roman",serif;
+  --ease:cubic-bezier(.22,.78,.28,1);   /* gentle, sleepy ease */
+}
+*{box-sizing:border-box;}
+/* TRANSPARENT — overlay composites over the scene below it */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;}
+
+/* fixed design stage, scaled to fit viewport == OBS browser source */
+#stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(var(--scale,1));transform-origin:center;
+  overflow:hidden;color:var(--text);background:transparent;
+  font-family:var(--display);}
+
+/* one canvas for the star-dust burst, sits behind the card, transparent */
+canvas.fx{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;}
+
+/* ---- the alert card: anchored bottom-left by default. FRAMELESS — a soft
+   luminous lavender halo seats the words (dreamcore is soft-focus, no hard
+   border), with only a thin glowing star-hairline rule down the left edge.
+   The card's resting position is fixed; the ENTRANCE motion varies per
+   event via the #stage.m-<motion> classes below. ---- */
+.alert{position:absolute;left:90px;bottom:130px;width:780px;padding:34px 46px;
+  background:
+    radial-gradient(120% 140% at 0% 50%, rgba(184,164,255,.16), transparent 64%),
+    radial-gradient(70% 90% at 50% 46%, rgba(53,43,87,.62), rgba(28,23,51,.42) 60%, transparent 84%);
+  box-shadow:0 30px 90px rgba(20,16,38,.55), 0 0 70px rgba(184,164,255,.10),
+    inset 0 0 70px rgba(108,92,224,.08);
+  display:grid;grid-template-columns:150px 1fr;gap:32px;align-items:center;
+  /* hidden until JS toggles .show; the per-motion @keyframes set the from-state */
+  opacity:0;
+  will-change:transform,opacity,filter;
+  transform-origin:18% 60%;}
+/* a soft lavender hairline underline that glows beneath the whole card */
+.alert::before{content:"";position:absolute;left:30px;right:30px;bottom:18px;height:1px;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--lavender),transparent);
+  box-shadow:0 0 12px rgba(184,164,255,.5);opacity:.5;}
+/* a slow soft star-light sweep travelling across the card */
+.alert::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  opacity:.6;
+  background:linear-gradient(110deg, transparent 40%, rgba(242,198,255,.14) 49%, rgba(255,255,255,.05) 51%, transparent 60%);
+  animation:alert-sweep 5s linear infinite;}
+@keyframes alert-sweep{0%{transform:translateX(-30%)}100%{transform:translateX(30%)}}
+
+/* a thin glowing star-hairline seam down the left edge — the deco accent */
+.alert .seam{position:absolute;left:16px;top:24px;bottom:24px;width:2px;
+  background:linear-gradient(180deg,transparent,var(--lavender) 20%,var(--pink) 80%,transparent);
+  box-shadow:0 0 14px rgba(184,164,255,.7);}
+/* a tiny star diamond capping the top of the seam */
+.alert .seam::before{content:"";position:absolute;left:-4px;top:-6px;width:10px;height:10px;
+  background:var(--white);
+  clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+  filter:drop-shadow(0 0 7px var(--halo-pink)) drop-shadow(0 0 12px var(--halo));}
+
+/* exit is shared (a soft dissolve + slight drop) — the ENTRANCE is what differs */
+.alert.hide{animation:alert-out .54s var(--ease) forwards;}
+@keyframes alert-out{
+  0%{opacity:1;transform:translate(0,0) scale(1);filter:blur(0);}
+  100%{opacity:0;transform:translate(0,26px) scale(.98);filter:blur(4px);}
+}
+
+/* ============================================================
+   PER-EVENT DISTINCT ENTRANCES
+   Each motion is a bespoke @keyframes; #stage.m-<motion> .alert.show
+   binds it. All use the soft dreamcore --ease + a blur-clear so they
+   read sleepy, never snappy. The 12 are visually distinct (direction,
+   origin, scale, rotate) yet cohesive.
+   ============================================================ */
+.alert.show{animation-duration:.72s;animation-timing-function:var(--ease);
+  animation-fill-mode:forwards;}
+
+/* 1) follower — DRIFT-LEFT: the signature gentle glide in from the left */
+#stage.m-driftleft .alert.show{animation-name:m-driftleft;}
+@keyframes m-driftleft{
+  0%{opacity:0;transform:translateX(-720px);filter:blur(7px);}
+  72%{opacity:1;transform:translateX(20px);filter:blur(0);}
+  100%{opacity:1;transform:translateX(0);}
+}
+
+/* 2) subscriber — BLOOM: blooms up from a small soft point, blur clears */
+#stage.m-bloom .alert.show{animation-name:m-bloom;animation-duration:.86s;}
+@keyframes m-bloom{
+  0%{opacity:0;transform:scale(.7);filter:blur(12px);}
+  60%{opacity:1;transform:scale(1.035);filter:blur(0);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* 3) member — DESCEND: settles down from above like a star coming to rest */
+#stage.m-descend .alert.show{animation-name:m-descend;animation-duration:.82s;}
+@keyframes m-descend{
+  0%{opacity:0;transform:translateY(-300px) scale(.97);filter:blur(8px);}
+  74%{opacity:1;transform:translateY(14px) scale(1);filter:blur(0);}
+  100%{opacity:1;transform:translateY(0);}
+}
+
+/* 4) cheer — RISE: floats up from below (bits drifting up) */
+#stage.m-rise .alert.show{animation-name:m-rise;animation-duration:.8s;}
+@keyframes m-rise{
+  0%{opacity:0;transform:translateY(320px) scale(.98);filter:blur(8px);}
+  74%{opacity:1;transform:translateY(-16px) scale(1);filter:blur(0);}
+  100%{opacity:1;transform:translateY(0);}
+}
+
+/* 5) donation — SOFT-ZOOM: a slow heart pulse, scales from big+blur to rest */
+#stage.m-zoom .alert.show{animation-name:m-zoom;animation-duration:.86s;}
+@keyframes m-zoom{
+  0%{opacity:0;transform:scale(1.32);filter:blur(14px);}
+  58%{opacity:1;transform:scale(.985);filter:blur(0);}
+  78%{transform:scale(1.012);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* 6) host — DRIFT-RIGHT: drifts in from the right (the moon side) */
+#stage.m-driftright .alert.show{animation-name:m-driftright;animation-duration:.76s;}
+@keyframes m-driftright{
+  0%{opacity:0;transform:translateX(720px);filter:blur(7px);}
+  72%{opacity:1;transform:translateX(-20px);filter:blur(0);}
+  100%{opacity:1;transform:translateX(0);}
+}
+
+/* 7) raid — SWEEP: a bigger, energetic sweep in from the left + overshoot */
+#stage.m-sweep .alert.show{animation-name:m-sweep;animation-duration:.78s;
+  animation-timing-function:cubic-bezier(.16,.84,.24,1);}
+@keyframes m-sweep{
+  0%{opacity:0;transform:translateX(-940px) scale(1.04);filter:blur(9px);}
+  66%{opacity:1;transform:translateX(34px) scale(1);filter:blur(0);}
+  84%{transform:translateX(-8px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+
+/* 8) like — POP: a small soft spring pop from the centre */
+#stage.m-pop .alert.show{animation-name:m-pop;animation-duration:.7s;}
+@keyframes m-pop{
+  0%{opacity:0;transform:scale(.82);filter:blur(6px);}
+  55%{opacity:1;transform:scale(1.05);filter:blur(0);}
+  78%{transform:scale(.985);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* 9) share — GLIDE-TILT: rises with a tiny rotate settle (arrow forward) */
+#stage.m-glidetilt .alert.show{animation-name:m-glidetilt;animation-duration:.8s;}
+@keyframes m-glidetilt{
+  0%{opacity:0;transform:translate(-90px,80px) rotate(-3deg);filter:blur(8px);}
+  72%{opacity:1;transform:translate(6px,-6px) rotate(.6deg);filter:blur(0);}
+  100%{opacity:1;transform:translate(0,0) rotate(0);}
+}
+
+/* 10) star — TWINKLE: scales from a point with a soft counter-rotate (a star born) */
+#stage.m-twinkle .alert.show{animation-name:m-twinkle;animation-duration:.84s;}
+@keyframes m-twinkle{
+  0%{opacity:0;transform:scale(.4) rotate(-8deg);filter:blur(12px);}
+  62%{opacity:1;transform:scale(1.04) rotate(1.4deg);filter:blur(0);}
+  100%{opacity:1;transform:scale(1) rotate(0);}
+}
+
+/* 11) superchat — BANNER-DROP: drops from the top edge + settles (premium) */
+#stage.m-drop .alert.show{animation-name:m-drop;animation-duration:.82s;
+  animation-timing-function:cubic-bezier(.2,.86,.3,1);}
+@keyframes m-drop{
+  0%{opacity:0;transform:translateY(-360px) scale(1.015);filter:blur(7px);}
+  70%{opacity:1;transform:translateY(18px) scale(1);filter:blur(0);}
+  86%{transform:translateY(-6px);}
+  100%{opacity:1;transform:translateY(0);}
+}
+
+/* 12) supporter — UNFOLD: a gentle horizontal unfold from a thin line */
+#stage.m-unfold .alert.show{animation-name:m-unfold;animation-duration:.82s;}
+@keyframes m-unfold{
+  0%{opacity:0;transform:scaleX(.16) scaleY(.86);filter:blur(10px);}
+  60%{opacity:1;transform:scaleX(1.02) scaleY(1);filter:blur(0);}
+  100%{opacity:1;transform:scaleX(1) scaleY(1);}
+}
+
+/* event glyph plate — a soft star halo disc carrying the glyph (frameless) */
+.alert .art{width:150px;height:150px;position:relative;overflow:hidden;border-radius:24px;
+  background:
+    radial-gradient(60% 60% at 50% 42%, rgba(242,198,255,.30), rgba(108,92,224,.22) 52%, rgba(28,23,51,.5) 78%, transparent),
+    radial-gradient(120% 120% at 50% 120%, rgba(184,164,255,.16), transparent 60%);
+  box-shadow:inset 0 0 30px rgba(184,164,255,.18), 0 8px 28px rgba(20,16,38,.4);}
+.alert .art .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:76px;color:var(--white);
+  text-shadow:0 0 22px rgba(242,198,255,.6), 0 0 44px rgba(184,164,255,.5);
+  animation:glyph-pop .7s var(--ease) both .18s;}
+/* a soft star-ring glaze around the glyph plate */
+.alert .art::after{content:"";position:absolute;inset:14px;border-radius:18px;pointer-events:none;
+  border:1px solid rgba(184,164,255,.22);box-shadow:0 0 16px rgba(184,164,255,.12) inset;}
+@keyframes glyph-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* meta column */
+.alert .meta{min-width:0;}
+/* soft spaced caps kicker line (the small event line) */
+.alert .kick{font-family:var(--display);
+  letter-spacing:.42em;font-size:20px;font-weight:600;text-transform:uppercase;color:var(--lavender);
+  display:flex;align-items:center;gap:14px;margin-bottom:10px;white-space:nowrap;text-indent:.42em;
+  text-shadow:0 0 16px rgba(184,164,255,.5);
+  overflow:hidden;text-overflow:ellipsis;}
+.alert .kick .dia{width:11px;height:11px;background:var(--pink);flex:none;text-indent:0;
+  clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+  filter:drop-shadow(0 0 8px var(--halo-pink));
+  animation:diapulse 2s ease-in-out infinite;}
+@keyframes diapulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+
+/* big NAME — soft glowing star-white, clamped to one line so a long handle never breaks the card */
+.alert .name{font-size:64px;line-height:1.0;font-weight:600;letter-spacing:.012em;margin:2px 0 8px;
+  text-transform:uppercase;color:var(--white);
+  text-shadow:0 0 30px rgba(255,255,255,.3),0 0 60px rgba(184,164,255,.4);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* amount line (pink/lavender gradient) — hidden unless .has-amount.
+   donation/cheer/superchat get a slightly bigger, brighter amount via
+   #stage.amt-emph (the amount is the headline of the moment). */
+.alert .amount{font-size:30px;font-weight:600;letter-spacing:.04em;margin-bottom:6px;display:none;
+  background:linear-gradient(180deg,var(--white) 0%,var(--pink) 50%,var(--lavender) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 14px rgba(242,198,255,.5));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert.has-amount .amount{display:block;}
+.alert .amount b{color:var(--white);-webkit-text-fill-color:var(--white);}
+/* amount-emphasis events: enlarge + add a gentle glow pulse to the amount */
+#stage.amt-emph .alert.has-amount .amount{font-size:38px;letter-spacing:.05em;margin-bottom:4px;
+  filter:drop-shadow(0 0 18px rgba(242,198,255,.65));
+  animation:amtpulse 2.2s ease-in-out infinite;}
+@keyframes amtpulse{0%,100%{opacity:1}50%{opacity:.82}}
+
+/* tiny italic serif sub line (ships EMPTY — no flavor text) */
+.alert .sub{font-size:23px;font-style:italic;font-family:var(--serif);color:var(--dim);letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* small constellation tag top-right of the card (room readout) */
+.alert .tagid{position:absolute;top:20px;right:28px;
+  font-family:var(--display);font-weight:600;
+  font-size:15px;letter-spacing:.4em;color:var(--lavender);opacity:.8;text-indent:.4em;
+  text-shadow:0 0 12px rgba(184,164,255,.4);}
+/* a small star rule under the tag for the soft detail */
+.alert .tagrule{position:absolute;top:44px;right:28px;width:96px;height:1px;opacity:.7;
+  background:linear-gradient(90deg,transparent,var(--lavender) 30%,var(--pink) 70%);}
+
+/* ============================================================
+   RENDER MODE: freeze all CSS-driven motion. JS drives transform /
+   opacity / filter deterministically via __renderAdvance so the
+   headless pipeline captures a clean reproducible webm.
+   ============================================================ */
+#stage.render .alert,
+#stage.render .alert.show,
+#stage.render .alert.hide{animation:none!important;}
+#stage.render .alert::after{animation:none;display:none;}
+#stage.render .alert .glyph{animation:none!important;}
+#stage.render .alert .kick .dia{animation:none!important;}
+#stage.render .alert .amount{animation:none!important;}

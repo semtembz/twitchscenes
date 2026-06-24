@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Platinum Frame Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the Platinum Frame "Razor Sweep" stinger to a TRANSPARENT .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition (Transition Point ≈ 600 ms).
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames drop. The recording takes the same time as the
+    animation (~1.2s). The frame() function below is an EXACT mirror of
+    transition.html so the recorded clip matches the live stinger.
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #0E1013; color: #F4F7FA;
+      font-family: "Segoe UI", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    h1 { font-size: 20px; color: #D7DEE6; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; font-weight: 300; text-shadow: 0 0 16px rgba(215,222,230,.35); }
+    p  { color: rgba(154,167,178,.78); line-height: 1.55; margin: 0 0 14px; max-width: 820px; }
+    code { color: #D7DEE6; background: #1A1E24; padding: 2px 6px; border-radius: 4px;
+      font-family: "Consolas","Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: linear-gradient(180deg,#F4F7FA,#9AA7B2);
+      color: #0E1013; border: 1px solid #D7DEE6; border-radius: 8px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
+    button:hover:not(:disabled) { background: #F4F7FA; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #D7DEE6; font-family: "Consolas","Courier New", monospace; }
+    .stage { background: #14171C; border: 1px solid rgba(215,222,230,.16); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #0E1013;
+      background-image:
+        linear-gradient(45deg, #1A1E24 25%, transparent 25%),
+        linear-gradient(-45deg, #1A1E24 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1A1E24 75%),
+        linear-gradient(-45deg, transparent 75%, #1A1E24 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Platinum Frame Transition → .webm</h1>
+  <p>Records the razor-line sweep stinger to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 600 ms</strong>
+     (half the ~1200 ms total — the full-cover bloom when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1200;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (EXACT mirror of transition.html) ===== */
+    const BG_DEEP = [14, 16, 19], BG_LIFT = [26, 30, 36], BG_DARK = [9, 10, 13];
+    const STEEL = [154, 167, 178], PLATINUM = [215, 222, 230], WHITE = [244, 247, 250];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a.toFixed(3) + ')';
+
+    let seed = 0xD7DE >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const R = (a, b) => a + rnd() * (b - a);
+
+    const N_SPECK = 70;
+    const specks = Array.from({ length: N_SPECK }, () => ({
+      y: R(40, H - 40),
+      back: R(8, 230),
+      drift: R(-26, 26),
+      s: R(1.0, 3.0),
+      a: R(0.22, 0.7),
+      tw: R(1.1, 2.6), phase: R(0, 6.2832),
+      ice: rnd() < 0.42,
+    }));
+
+    const FRM_W = 1180, FRM_H = 560;
+    const FX = CX - FRM_W / 2, FY = CY - FRM_H / 2;
+    const IN_L = 12, IN_T = 12, IN_R = 6, IN_B = 6;
+
+    function strokeRectProgress(x, y, w, h, g) {
+      g = clamp01(g);
+      const top = w, right = h, bottom = w, left = h;
+      const per = top + right + bottom + left;
+      let rem = g * per;
+      ctx.beginPath();
+      let seg = Math.min(rem, top); if (seg > 0) { ctx.moveTo(x, y); ctx.lineTo(x + seg, y); } rem -= top;
+      if (rem > 0) { seg = Math.min(rem, right); ctx.moveTo(x + w, y); ctx.lineTo(x + w, y + seg); rem -= right; }
+      if (rem > 0) { seg = Math.min(rem, bottom); ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - seg, y + h); rem -= bottom; }
+      if (rem > 0) { seg = Math.min(rem, left); ctx.moveTo(x, y + h); ctx.lineTo(x, y + h - seg); rem -= left; }
+      ctx.stroke();
+    }
+
+    function drawFrame(fIn, tickA, glowA) {
+      if (fIn <= 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.strokeStyle = rgba(PLATINUM, 0.74);
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = rgba(PLATINUM, 0.5);
+      ctx.shadowBlur = 8 * glowA;
+      strokeRectProgress(Math.round(FX), Math.round(FY), FRM_W, FRM_H, fIn);
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = rgba(PLATINUM, 0.30);
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+      strokeRectProgress(
+        Math.round(FX + IN_L), Math.round(FY + IN_T),
+        FRM_W - IN_L - IN_R, FRM_H - IN_T - IN_B, fIn);
+
+      if (fIn > 0.6) {
+        const ra = (fIn - 0.6) / 0.4;
+        ctx.globalAlpha = 0.7 * ra;
+        ctx.strokeStyle = rgba(PLATINUM, 0.7);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(CX, FY - 1); ctx.lineTo(CX, FY + 17);
+        ctx.moveTo(CX, FY + FRM_H + 1); ctx.lineTo(CX, FY + FRM_H - 17);
+        ctx.stroke();
+      }
+
+      if (tickA > 0.01) {
+        ctx.globalAlpha = clamp01(tickA);
+        ctx.strokeStyle = rgba(WHITE, 0.9);
+        ctx.lineWidth = 1.4;
+        ctx.shadowColor = rgba(PLATINUM, 0.6);
+        ctx.shadowBlur = 7 * glowA;
+        const arm = 26;
+        const corners = [
+          [FX, FY, 1, 1], [FX + FRM_W, FY, -1, 1],
+          [FX, FY + FRM_H, 1, -1], [FX + FRM_W, FY + FRM_H, -1, -1],
+        ];
+        for (const [x, y, sx, sy] of corners) {
+          ctx.beginPath();
+          ctx.moveTo(x, y); ctx.lineTo(x + sx * arm, y);
+          ctx.moveTo(x, y); ctx.lineTo(x, y + sy * arm);
+          ctx.stroke();
+        }
+        const ms = 6;
+        ctx.shadowBlur = 12 * glowA;
+        ctx.fillStyle = rgba(WHITE, 0.92);
+        ctx.beginPath();
+        ctx.moveTo(CX, CY - ms); ctx.lineTo(CX + ms, CY);
+        ctx.lineTo(CX, CY + ms); ctx.lineTo(CX - ms, CY); ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawPanel(edgeX, lineA) {
+      if (edgeX <= 0.5) return;
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0.00, rgba(BG_LIFT, 0.97));
+      g.addColorStop(0.45, rgba(BG_DEEP, 0.99));
+      g.addColorStop(1.00, rgba(BG_DARK, 1.0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, Math.ceil(edgeX), H);
+
+      if (edgeX > 6 && edgeX < W) {
+        const ww = 140;
+        const sg = ctx.createLinearGradient(edgeX - ww, 0, edgeX, 0);
+        sg.addColorStop(0, rgba(PLATINUM, 0));
+        sg.addColorStop(1, rgba(PLATINUM, 0.06));
+        ctx.fillStyle = sg;
+        ctx.fillRect(Math.max(0, edgeX - ww), 0, Math.min(ww, edgeX), H);
+      }
+
+      if (lineA > 0.01 && edgeX > 1 && edgeX < W - 1) {
+        ctx.save();
+        ctx.globalAlpha = 0.28 * lineA;
+        ctx.strokeStyle = rgba(PLATINUM, 0.9);
+        ctx.lineWidth = 10;
+        ctx.shadowColor = rgba(WHITE, 0.8);
+        ctx.shadowBlur = 34;
+        ctx.beginPath(); ctx.moveTo(edgeX, 0); ctx.lineTo(edgeX, H); ctx.stroke();
+        ctx.globalAlpha = lineA;
+        ctx.strokeStyle = rgba(WHITE, 0.95);
+        ctx.lineWidth = 1.4;
+        ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(edgeX, 0); ctx.lineTo(edgeX, H); ctx.stroke();
+        ctx.globalAlpha = 0.85 * lineA;
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.moveTo(edgeX - 9, 1); ctx.lineTo(edgeX + 9, 1);
+        ctx.moveTo(edgeX - 9, H - 1); ctx.lineTo(edgeX + 9, H - 1);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawSpecks(frontX, cover, t) {
+      ctx.save();
+      for (const p of specks) {
+        const px = frontX - p.back;
+        if (px < 2 || px > W) continue;
+        const py = p.y + p.drift * smooth(cover);
+        const twk = 0.55 + Math.sin(p.phase + t * p.tw * 6.2832) * 0.45;
+        const a = p.a * twk * cover;
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.ice ? rgba(PLATINUM, 1) : rgba(STEEL, 1);
+        ctx.shadowColor = p.ice ? rgba(WHITE, 0.9) : rgba(STEEL, 0.8);
+        ctx.shadowBlur = 6;
+        const s = p.s;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(px), Math.round(py - s));
+        ctx.lineTo(Math.round(px + s), Math.round(py));
+        ctx.lineTo(Math.round(px), Math.round(py + s));
+        ctx.lineTo(Math.round(px - s), Math.round(py));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      t = clamp01(t);
+      const cover = Math.sin(t * Math.PI);
+
+      let frontX;
+      let leftX = 0;
+      let lineX;
+      if (t < 0.5) {
+        const p = smooth(t / 0.5);
+        frontX = p * W;
+        lineX = frontX;
+        drawPanel(frontX, 1);
+      } else {
+        const p = smooth((t - 0.5) / 0.5);
+        leftX = p * W;
+        frontX = W;
+        lineX = leftX;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(Math.floor(leftX), 0, W - Math.floor(leftX) + 1, H);
+        ctx.clip();
+        drawPanel(W, 0);
+        ctx.restore();
+        drawPanel(0, 0);
+        if (leftX > 1 && leftX < W - 1) {
+          ctx.save();
+          ctx.globalAlpha = 0.28;
+          ctx.strokeStyle = rgba(PLATINUM, 0.9);
+          ctx.lineWidth = 10;
+          ctx.shadowColor = rgba(WHITE, 0.8);
+          ctx.shadowBlur = 34;
+          ctx.beginPath(); ctx.moveTo(leftX, 0); ctx.lineTo(leftX, H); ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = rgba(WHITE, 0.95);
+          ctx.lineWidth = 1.4;
+          ctx.shadowBlur = 12;
+          ctx.beginPath(); ctx.moveTo(leftX, 0); ctx.lineTo(leftX, H); ctx.stroke();
+          ctx.globalAlpha = 0.85;
+          ctx.lineWidth = 1; ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.moveTo(leftX - 9, 1); ctx.lineTo(leftX + 9, 1);
+          ctx.moveTo(leftX - 9, H - 1); ctx.lineTo(leftX + 9, H - 1);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      drawSpecks(lineX, cover, t);
+
+      let fIn = 0, tickA = 0, glowA = 0;
+      if (t >= 0.30 && t <= 0.78) {
+        const fp = clamp01((t - 0.30) / 0.20);
+        const fade = clamp01((t - 0.62) / 0.16);
+        fIn = smooth(fp);
+        tickA = clamp01((fIn - 0.78) / 0.22) * (1 - fade);
+        glowA = (1 - fade);
+        ctx.save();
+        ctx.globalAlpha = 1 - smooth(fade);
+        drawFrame(fIn, tickA, glowA);
+        ctx.restore();
+      }
+
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.05, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.55);
+        fg.addColorStop(0, rgba(WHITE, 0.34 * flash));
+        fg.addColorStop(0.45, rgba(PLATINUM, 0.14 * flash));
+        fg.addColorStop(1, rgba(STEEL, 0));
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before recording.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

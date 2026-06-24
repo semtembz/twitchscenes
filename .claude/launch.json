@@ -156,6 +156,30 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.js", "oni-circuit-source", "5602"],
       "port": 5602
+    },
+    {
+      "name": "starlit-dreamcore-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "starlit-dreamcore-source", "5603"],
+      "port": 5603
+    },
+    {
+      "name": "coin-riot-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "coin-riot-source", "5604"],
+      "port": 5604
+    },
+    {
+      "name": "platinum-frame-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "platinum-frame-source", "5605"],
+      "port": 5605
+    },
+    {
+      "name": "acid-rave-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/static-server.js", "acid-rave-source", "5606"],
+      "port": 5606
     }
   ]
 }

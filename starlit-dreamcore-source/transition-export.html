@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export Starlit Dreamcore Transition → .webm</title>
+  <!--
+    Opens in any modern Chromium browser (Chrome, Edge, Brave, Opera).
+    Records the dreamcore nebula-bloom dissolve to a transparent .webm at
+    1920x1080 60fps. Click "Record .webm" — the stinger plays once while it
+    records, then your browser downloads `transition.webm` automatically.
+    Use that file as an OBS Stinger transition.
+
+    NOTE: keep this tab visible while it records. Browsers throttle background
+    tabs and the canvas frames will drop. The recording takes the same time as
+    the animation (~1.3s).
+  -->
+  <style>
+    html, body { margin: 0; padding: 24px; background: #1C1733; color: #E8E0FF;
+      font-family: "Quicksand", "Comfortaa", "Segoe UI", system-ui, sans-serif; }
+    h1 { font-size: 22px; color: #F2C6FF; letter-spacing: 3px; margin: 0 0 10px;
+      text-transform: uppercase; text-shadow: 0 0 18px rgba(242,198,255,.45); }
+    p  { color: #B8A4FF; line-height: 1.55; margin: 0 0 14px; max-width: 820px; }
+    code { color: #F2C6FF; background: rgba(108,92,224,.22); padding: 2px 6px; border-radius: 4px;
+      font-family: "Courier New", monospace; }
+    button { font-size: 16px; padding: 14px 26px; background: #6C5CE0; color: #FFFFFF;
+      border: 2px solid #B8A4FF; border-radius: 10px; cursor: pointer;
+      letter-spacing: 2px; font-weight: bold; text-transform: uppercase;
+      font-family: "Quicksand", "Comfortaa", system-ui, sans-serif; }
+    button:hover:not(:disabled) { background: #B8A4FF; color: #1C1733; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status { margin-left: 16px; color: #F2C6FF; font-family: "Courier New", monospace; }
+    .stage { background: rgba(108,92,224,.14); border: 1px solid rgba(184,164,255,.22); border-radius: 14px;
+      padding: 12px; display: inline-block; margin-top: 18px; }
+    /* Checkered backdrop behind the canvas so transparent pixels are visible during preview. */
+    .checker {
+      background-color: #241D3D;
+      background-image:
+        linear-gradient(45deg, #2f2752 25%, transparent 25%),
+        linear-gradient(-45deg, #2f2752 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2f2752 75%),
+        linear-gradient(-45deg, transparent 75%, #2f2752 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, 11px 0;
+    }
+    canvas { display: block; width: 800px; height: 450px; }
+  </style>
+</head>
+<body>
+  <h1>Export Starlit Dreamcore Transition → .webm</h1>
+  <p>Records the dreamcore nebula-bloom dissolve to a transparent <code>.webm</code> at
+     <code>1920×1080 60fps</code>. Click Record; the stinger plays once while it captures;
+     when it finishes, your browser downloads <code>transition.webm</code>.</p>
+  <p><strong>OBS setup:</strong> Settings → Scene Transitions → <strong>+ → Stinger</strong>,
+     pick <code>transition.webm</code>, and set <strong>Transition Point ≈ 650 ms</strong>
+     (half the default 1300 ms — that's the full-cover bloom when OBS swaps scenes).</p>
+  <p><strong>Want a <code>.mov</code> instead?</strong> Browsers can only export <code>.webm</code>,
+     but a quick ffmpeg conversion gives ProRes 4444 .mov with alpha:<br>
+     <code>ffmpeg -i transition.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le transition.mov</code></p>
+
+  <div>
+    <button id="rec">Record .webm</button>
+    <span id="status">Ready.</span>
+  </div>
+
+  <div class="stage checker">
+    <canvas id="c" width="1920" height="1080"></canvas>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+    const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+    const DUR = 1300;    // must match transition.html default
+
+    /* ===== TRANSITION RENDERING (mirror of transition.html) ===== */
+    const INDIGO = '#6C5CE0', LAVENDER = '#B8A4FF', PINK = '#F2C6FF', WHITE = '#FFFFFF';
+    const TINTS = [WHITE, PINK, LAVENDER, WHITE, '#D9CCFF'];
+
+    const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const smooth = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    let _s = 0x5747 >>> 0;
+    function srnd() {
+      _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+      let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const R = (a, b) => a + srnd() * (b - a);
+
+    const N_STAR = 220;
+    const stars = Array.from({ length: N_STAR }, () => {
+      const arm = (srnd() * 3) | 0;
+      const along = Math.pow(srnd(), 0.62);
+      const armAng = arm * (6.2832 / 3);
+      const swirl = along * 5.4;
+      const jitter = R(-0.42, 0.42);
+      const ang = armAng + swirl + jitter;
+      const rad = along * (W * 0.62) + R(0, 60);
+      return {
+        ang, rad,
+        spin: R(0.6, 1.5),
+        r: R(0.7, 2.7),
+        base: R(0.25, 0.7), amp: R(0.3, 0.85), sp: R(2.2, 6.5), ph: R(0, 6.2832),
+        c: TINTS[(srnd() * TINTS.length) | 0],
+        big: srnd() < 0.13,
+        lead: srnd() * 0.22,
+        rise: R(30, 150),
+      };
+    });
+
+    const N_SHOOT = 3;
+    const shoots = Array.from({ length: N_SHOOT }, (_, i) => ({
+      x0: R(W * 0.28, W * 0.84), y0: R(H * 0.10, H * 0.40),
+      ang: R(2.45, 2.95), len: R(220, 380), sp: R(900, 1300),
+      lead: 0.30 + i * 0.13 + R(0, 0.05), span: R(0.22, 0.34),
+    }));
+
+    const N_SPARK = 54;
+    const sparks = Array.from({ length: N_SPARK }, () => ({
+      a0: R(0, 6.2832), r0: R(40, W * 0.5),
+      rise: R(90, 300), sway: R(20, 80), swf: R(0.8, 2.2), ph: R(0, 6.2832),
+      s: R(1.2, 3.4), c: srnd() < 0.5 ? PINK : LAVENDER,
+      lead: R(0.05, 0.42), span: R(0.45, 0.8), a: R(0.4, 0.95), tw: R(1.4, 2.6),
+    }));
+
+    function drawNebula(cover, t) {
+      const grow = smooth(cover);
+      const radius = lerp(40, W * 0.92, grow);
+      const ox = Math.sin(t * 6.2832 * 0.6) * 26 * cover;
+      const oy = Math.cos(t * 6.2832 * 0.5) * 20 * cover;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      let g = ctx.createRadialGradient(CX + ox, CY + oy, 0, CX + ox, CY + oy, radius);
+      g.addColorStop(0.00, 'rgba(184,164,255,' + (0.55 * cover).toFixed(3) + ')');
+      g.addColorStop(0.32, 'rgba(108,92,224,' + (0.34 * cover).toFixed(3) + ')');
+      g.addColorStop(0.66, 'rgba(108,92,224,' + (0.14 * cover).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(43,35,71,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      const cr = lerp(20, W * 0.40, grow);
+      g = ctx.createRadialGradient(CX - ox * 0.6, CY - oy * 0.6, 0, CX - ox * 0.6, CY - oy * 0.6, cr);
+      g.addColorStop(0.00, 'rgba(255,255,255,' + (0.62 * cover).toFixed(3) + ')');
+      g.addColorStop(0.30, 'rgba(242,198,255,' + (0.40 * cover).toFixed(3) + ')');
+      g.addColorStop(0.70, 'rgba(184,164,255,' + (0.16 * cover).toFixed(3) + ')');
+      g.addColorStop(1.00, 'rgba(184,164,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    function drawStars(cover, t) {
+      const open = smooth(cover);
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const s of stars) {
+        const present = clamp01((cover - s.lead * (1 - cover)) * 1.4);
+        if (present <= 0.01) continue;
+        const sweep = s.ang + (1 - open) * s.spin;
+        const rad = s.rad * open;
+        const drift = (1 - cover) * s.rise * t;
+        const px = CX + Math.cos(sweep) * rad;
+        const py = CY + Math.sin(sweep) * rad - drift;
+        if (px < -20 || px > W + 20 || py < -20 || py > H + 20) continue;
+        const tw = s.base + s.amp * (0.5 + 0.5 * Math.sin(t * 6.2832 * s.sp + s.ph));
+        const a = clamp01(tw) * present;
+        if (a <= 0.02) continue;
+        const x = Math.round(px), y = Math.round(py);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = s.c;
+        ctx.shadowColor = s.c;
+        ctx.shadowBlur = s.r * 4;
+        ctx.beginPath();
+        ctx.arc(x, y, s.r, 0, 6.2832);
+        ctx.fill();
+        if (s.big && a > 0.5) {
+          ctx.globalAlpha = a * 0.55;
+          ctx.strokeStyle = s.c;
+          ctx.lineWidth = 1;
+          const g = s.r * 5;
+          ctx.beginPath();
+          ctx.moveTo(x - g, y); ctx.lineTo(x + g, y);
+          ctx.moveTo(x, y - g); ctx.lineTo(x, y + g);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawSparks(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const p of sparks) {
+        const lt = clamp01((t - p.lead) / p.span);
+        if (lt <= 0 || lt >= 1) continue;
+        const r = p.r0 * smooth(cover);
+        const px = CX + Math.cos(p.a0) * r + Math.sin(p.ph + lt * p.swf * 6.2832) * p.sway;
+        const py = CY + Math.sin(p.a0) * r - p.rise * lt;
+        const ends = Math.sin(lt * Math.PI);
+        const twk = 0.55 + Math.sin(p.ph + lt * p.tw * 6.2832) * 0.45;
+        const a = p.a * ends * twk * lerp(0.4, 1, cover);
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.c;
+        ctx.shadowColor = p.c;
+        ctx.shadowBlur = 8;
+        const s = p.s;
+        const xx = Math.round(px), yy = Math.round(py);
+        ctx.beginPath();
+        ctx.moveTo(xx, yy - s); ctx.lineTo(xx + s, yy);
+        ctx.lineTo(xx, yy + s); ctx.lineTo(xx - s, yy);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawShoots(t, cover) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const sh of shoots) {
+        const k = clamp01((t - sh.lead) / sh.span);
+        if (k <= 0 || k >= 1) continue;
+        const dx = Math.cos(sh.ang), dy = Math.sin(sh.ang);
+        const travel = sh.sp * sh.span;
+        const hx = sh.x0 + dx * travel * k;
+        const hy = sh.y0 + dy * travel * k;
+        const tx = hx - dx * sh.len;
+        const ty = hy - dy * sh.len;
+        const fade = Math.sin(k * Math.PI) * cover;
+        if (fade <= 0.02) continue;
+        const grad = ctx.createLinearGradient(tx, ty, hx, hy);
+        grad.addColorStop(0, 'rgba(242,198,255,0)');
+        grad.addColorStop(1, 'rgba(255,255,255,' + (0.9 * fade).toFixed(3) + ')');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = PINK;
+        ctx.shadowBlur = 16 * fade;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(tx), Math.round(ty));
+        ctx.lineTo(Math.round(hx), Math.round(hy));
+        ctx.stroke();
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = WHITE;
+        ctx.shadowBlur = 10 * fade;
+        ctx.beginPath();
+        ctx.arc(Math.round(hx), Math.round(hy), 2.6, 0, 6.2832);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const cover = Math.sin(clamp01(t) * Math.PI);
+      drawNebula(cover, t);
+      drawStars(cover, t);
+      drawSparks(t, cover);
+      drawShoots(t, cover);
+      const flash = Math.exp(-Math.pow((t - 0.5) / 0.055, 2));
+      if (flash > 0.02) {
+        ctx.save();
+        const fg = ctx.createRadialGradient(CX, CY, 0, CX, CY, W * 0.62);
+        fg.addColorStop(0, 'rgba(255,255,255,' + (0.5 * flash).toFixed(3) + ')');
+        fg.addColorStop(0.4, 'rgba(242,198,255,' + (0.22 * flash).toFixed(3) + ')');
+        fg.addColorStop(1, 'rgba(184,164,255,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Show a preview frame at the peak so you see the look before clicking Record.
+    frame(0.5);
+
+    /* ===== RECORDING ===== */
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('rec');
+
+    function pickMime() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      const candidates = [
+        'video/webm; codecs=vp9',   // alpha survives in VP9
+        'video/webm; codecs=vp8',   // ...and VP8
+        'video/webm',
+      ];
+      return candidates.find(m => MediaRecorder.isTypeSupported(m)) || null;
+    }
+
+    btn.addEventListener('click', () => {
+      const mime = pickMime();
+      if (!mime) { statusEl.textContent = 'MediaRecorder not supported here. Try Chrome / Edge.'; return; }
+      btn.disabled = true;
+
+      const stream = cv.captureStream(60);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'transition.webm';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Done — transition.webm downloaded (' + Math.round(blob.size / 1024) + ' KB).';
+        btn.disabled = false;
+      };
+
+      statusEl.textContent = 'Recording… (' + mime + ')';
+      // Start with one clear frame so the initial transparency lands first in the .webm.
+      ctx.clearRect(0, 0, W, H);
+      rec.start();
+
+      const t0 = performance.now();
+      function tick(now) {
+        const t = (now - t0) / DUR;
+        if (t >= 1) {
+          // Pad a few clear frames at the end so the final transparency lands cleanly.
+          let pad = 0;
+          (function clearTick() {
+            ctx.clearRect(0, 0, W, H);
+            if (++pad < 6) requestAnimationFrame(clearTick);
+            else setTimeout(() => rec.stop(), 80);
+          })();
+          return;
+        }
+        frame(Math.max(0, t));
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  })();
+  </script>
+</body>
+</html>

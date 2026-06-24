@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Acid Rave — In-Game Overlay</title>
+  <!-- OBS Browser Source: 1920x1080, custom FPS 60, Local file -> this file.
+       TRANSPARENT in-game HUD in the "UV Blacklight" language: thin acid-green
+       laser crop-brackets in the corners, a slim UV-glass console lower-left
+       carrying @handle + a clean "LIVE" status pip + a small dancing mini-EQ,
+       plus an editable brand tag top-right. Almost everything stays transparent
+       so gameplay shows through; only a faint UV mote drift hugs the console.
+       All decoration is pointer-events:none.
+       Optional URL params: ?handle=@you  ?tag=Text (=- removes)  ?render=1 -->
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    /* TRANSPARENT overlay: no UV void, no grid/vignette/sheen full-bleed */
+    html,body{background:transparent;}
+    #stage{background:transparent;}
+
+    /* a sparse drift of UV motes, very low alpha, hugging the HUD */
+    canvas.bg{pointer-events:none;opacity:.6;}
+
+    /* ---- thin laser crop-brackets in the four corners (acid/cyan/mag/purple) ---- */
+    .lb{position:absolute;width:56px;height:56px;pointer-events:none;opacity:.85;
+      animation:lbin 1s var(--ease) both .2s;}
+    .lb::before,.lb::after{content:"";position:absolute;}
+    .lb::before{width:56px;height:2px;} .lb::after{width:2px;height:56px;}
+    .lb--tl{left:48px;top:48px;}  .lb--tl::before{left:0;top:0;}  .lb--tl::after{left:0;top:0;}
+    .lb--tr{right:48px;top:48px;} .lb--tr::before{right:0;top:0;} .lb--tr::after{right:0;top:0;}
+    .lb--bl{left:48px;bottom:48px;}  .lb--bl::before{left:0;bottom:0;}  .lb--bl::after{left:0;bottom:0;}
+    .lb--br{right:48px;bottom:48px;} .lb--br::before{right:0;bottom:0;} .lb--br::after{right:0;bottom:0;}
+    .lb--tl::before,.lb--tl::after{background:var(--acid);box-shadow:0 0 10px var(--acid-glow);}
+    .lb--tr::before,.lb--tr::after{background:var(--magenta);box-shadow:0 0 10px var(--mag-glow);}
+    .lb--bl::before,.lb--bl::after{background:var(--cyan);box-shadow:0 0 10px var(--cyan-glow);}
+    .lb--br::before,.lb--br::after{background:var(--purple);box-shadow:0 0 10px rgba(178,107,255,.55);}
+    @keyframes lbin{from{opacity:0}to{opacity:.85}}
+
+    /* ---- slim UV-glass console, lower-left ---- */
+    .slot{position:absolute;left:56px;bottom:56px;height:60px;
+      display:flex;align-items:center;gap:20px;padding:0 28px 0 22px;
+      background:linear-gradient(180deg, rgba(178,107,255,.10), rgba(7,3,15,.55));
+      border:1px solid rgba(178,107,255,.40);border-radius:12px;
+      box-shadow:0 22px 60px rgba(0,0,0,.55),
+        0 0 26px rgba(178,107,255,.18),
+        inset 0 0 30px rgba(178,107,255,.06);
+      animation:slotin .9s var(--ease) both .15s;}
+    /* bright acid hairline along the top edge (UV light bar) */
+    .slot::before{content:"";position:absolute;left:14px;right:14px;top:0;height:2px;
+      border-radius:2px;background:linear-gradient(90deg,transparent,var(--acid),transparent);
+      box-shadow:0 0 12px var(--acid-glow);opacity:.9;}
+    /* slow acid light-sweep travels along the console */
+    .slot::after{content:"";position:absolute;top:0;bottom:0;width:120px;left:-120px;pointer-events:none;
+      mix-blend-mode:screen;border-radius:12px;
+      background:linear-gradient(105deg, transparent, rgba(198,255,0,.16), transparent);
+      animation:slotsweep 6s linear infinite;}
+    @keyframes slotin{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+    @keyframes slotsweep{0%{left:-120px}100%{left:100%}}
+
+    /* "LIVE" status — clean functional label + a soft pulsing magenta pip */
+    .slot .live{display:flex;align-items:center;gap:11px;
+      font-family:"Bahnschrift","Roboto Condensed","DejaVu Sans Mono",Consolas,monospace;
+      letter-spacing:.36em;font-size:16px;font-weight:700;text-transform:uppercase;
+      color:var(--magenta);text-indent:.36em;text-shadow:0 0 12px var(--mag-glow);}
+    .slot .live .pip{width:10px;height:10px;border-radius:50%;background:var(--magenta);
+      box-shadow:0 0 12px var(--mag-glow),0 0 22px rgba(255,20,200,.5);
+      animation:pip 1.8s ease-in-out infinite;}
+    @keyframes pip{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.78)}}
+
+    /* tiny dancing mini-EQ (signature) sitting between LIVE and the handle */
+    .eqmini{display:flex;align-items:flex-end;gap:3px;height:26px;}
+    .eqmini i{display:block;width:4px;height:6px;border-radius:2px;
+      background:linear-gradient(180deg,var(--acid),var(--cyan));
+      box-shadow:0 0 8px var(--acid-glow);transform-origin:bottom;
+      animation:eqb 1.1s ease-in-out infinite;}
+    .eqmini i:nth-child(1){animation-delay:0s;}
+    .eqmini i:nth-child(2){animation-delay:.16s;background:linear-gradient(180deg,var(--magenta),var(--purple));box-shadow:0 0 8px var(--mag-glow);}
+    .eqmini i:nth-child(3){animation-delay:.32s;}
+    .eqmini i:nth-child(4){animation-delay:.10s;background:linear-gradient(180deg,var(--cyan),var(--acid));box-shadow:0 0 8px var(--cyan-glow);}
+    .eqmini i:nth-child(5){animation-delay:.24s;}
+    @keyframes eqb{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+
+    /* thin UV divider with a tiny acid diamond, between sections */
+    .slot .div{position:relative;width:1px;height:32px;
+      background:linear-gradient(180deg,transparent,var(--purple),transparent);}
+    .slot .div::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+      border:1px solid var(--acid);transform:translate(-50%,-50%) rotate(45deg);
+      box-shadow:0 0 8px var(--acid-glow);}
+
+    /* handle — acid green, glowing, bold mono */
+    .slot .who{font-family:"Bahnschrift","Roboto Condensed","DejaVu Sans Mono",Consolas,monospace;
+      letter-spacing:.22em;font-size:25px;font-weight:700;color:var(--acid);
+      text-indent:.22em;text-shadow:0 0 16px var(--acid-glow);white-space:nowrap;}
+
+    /* editable brand tag, top-right (a slot — buyer types their text or removes it) */
+    .tag-tr{position:absolute;top:46px;right:120px;display:flex;align-items:center;gap:12px;
+      font-family:"Bahnschrift","Roboto Condensed","DejaVu Sans Mono",Consolas,monospace;
+      letter-spacing:.4em;font-size:16px;color:var(--purple);text-indent:.4em;
+      text-shadow:0 0 14px rgba(178,107,255,.5);white-space:nowrap;max-width:560px;overflow:hidden;
+      animation:fade .9s var(--ease) both .3s;}
+    .tag-tr .pt{flex:none;width:7px;height:7px;border:1px solid var(--acid);transform:rotate(45deg);
+      box-shadow:0 0 8px var(--acid-glow);}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+
+    /* render mode: freeze entrances + free animations to a clean final state */
+    #stage.render .slot,#stage.render .lb,#stage.render .tag-tr{animation:none!important;}
+    #stage.render .slot::after{animation:none;display:none;}
+    #stage.render .slot .live .pip{animation:none;opacity:1;transform:none;}
+    #stage.render .eqmini i{animation:none;}
+    #stage.render .eqmini i:nth-child(1){transform:scaleY(.55);}
+    #stage.render .eqmini i:nth-child(2){transform:scaleY(.95);}
+    #stage.render .eqmini i:nth-child(3){transform:scaleY(.40);}
+    #stage.render .eqmini i:nth-child(4){transform:scaleY(.80);}
+    #stage.render .eqmini i:nth-child(5){transform:scaleY(.60);}
+    #stage.render .slot{opacity:1;transform:none;}
+    #stage.render .lb{opacity:.85;}
+    #stage.render .tag-tr{opacity:1;}
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas class="bg" width="1920" height="1080" aria-hidden="true"></canvas>
+
+    <!-- thin laser crop-brackets in all four corners -->
+    <span class="lb lb--tl" aria-hidden="true"></span>
+    <span class="lb lb--tr" aria-hidden="true"></span>
+    <span class="lb lb--bl" aria-hidden="true"></span>
+    <span class="lb lb--br" aria-hidden="true"></span>
+
+    <!-- editable brand tag, top-right (delete the line or set ?tag=- to remove) -->
+    <div class="tag-tr is-slot" data-slot="tag"><span class="pt" aria-hidden="true"></span><span class="slot-txt"><span class="slot-no">22</span><span class="slot-txt">your text here</span></span></div>
+
+    <!-- slim UV-glass console, lower-left -->
+    <div class="slot">
+      <span class="live"><span class="pip" aria-hidden="true"></span>LIVE</span>
+      <span class="eqmini" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="div" aria-hidden="true"></span>
+      <span class="who" id="handle">@yourhandle</span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => Number(params.get(k)) || d;
+    const stage = document.getElementById("stage");
+    const render = params.get("render") === "1";
+    if (render && stage) stage.classList.add("render");
+
+    /* ---- fit the 1920x1080 stage to the window (guarded) ---- */
+    function fit(){
+      const iw = window.innerWidth, ih = window.innerHeight;
+      if (iw < 10 || ih < 10) return;          // never write --scale:0
+      document.documentElement.style.setProperty("--scale", Math.min(iw/1920, ih/1080));
+    }
+    fit(); window.addEventListener("resize", fit);
+    let ticks = 0; const iv = setInterval(() => { fit(); if (++ticks > 10) clearInterval(iv); }, 60);
+
+    /* ---- optional handle (null-guarded) ---- */
+    const h = params.get("handle"), el = document.getElementById("handle");
+    if (h && el) el.textContent = h;
+
+    /* ---- editable text slots: ?slotname=Text sets it; =- (or empty/none/off) removes it ---- */
+    document.querySelectorAll("[data-slot]").forEach((node) => {
+      const v = params.get(node.dataset.slot);
+      if (v == null) return;
+      if (v === "-" || v === "" || v === "none" || v === "off") { node.remove(); return; }
+      node.classList.remove("is-slot");
+      const txt = node.querySelector(".slot-txt");
+      if (txt) txt.textContent = v; else node.textContent = v;
+    });
+
+    /* ---- canvas: a few subtle drifting UV motes (low alpha), deterministic ---- */
+    const cv = document.querySelector(".bg");
+    const ctx = cv ? cv.getContext("2d") : null;
+    const W = cv ? (cv.width || 1920) : 1920, H = cv ? (cv.height || 1080) : 1080;
+    // tiny seeded PRNG (mulberry32) — no Math.random in the frame fn
+    let _s = 0xACED >>> 0;
+    function srnd(){ _s|=0; _s=(_s+0x6D2B79F5)|0; let t=Math.imul(_s^(_s>>>15),1|_s);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+    const R = (a,b) => a + srnd()*(b-a);
+    const PAL = ["#C6FF00","#FF14C8","#00E5FF","#B26BFF"];
+    const motes = Array.from({ length: Math.max(0, num("motes", 46)) }, () => ({
+      x: R(0, W), y: R(0, H), z: R(0.4, 1.6), vx: R(-3, 3)/60, vy: R(-5, 2)/60,
+      ph: R(0, 6.28), tw: R(0.4, 1.3), a: R(0.14, 0.5), c: PAL[(srnd()*PAL.length)|0],
+    }));
+    function drawBg(dt){
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of motes){
+        p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.ph += 0.04 * dt * 60;
+        if (p.x < -8) p.x = W + 8; if (p.x > W + 8) p.x = -8;
+        if (p.y < -8) p.y = H + 8; if (p.y > H + 8) p.y = -8;
+        const tw = 0.55 + Math.sin(p.ph * p.tw) * 0.45;
+        ctx.globalAlpha = p.a * tw;
+        ctx.fillStyle = p.c;
+        const sz = Math.max(1, Math.round(p.z * 1.6));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+    }
+    window.__acidDraw = function(){ drawBg(1/30); }; // rAF-independent verification hook
+    drawBg(1/30);
+
+    if (render){
+      // deterministic frame stepping for the headless pipeline
+      let rf = 0;
+      window.__renderPlay = function(){ rf = 0; drawBg(0); };
+      window.__renderAdvance = function(){ drawBg(1/30); rf++; return rf*(1000/30); };
+    } else {
+      let last = null, acc = 0; const FRAME = 1000/30;
+      function loop(now){
+        requestAnimationFrame(loop);
+        if (last == null) last = now;
+        let dt = now - last; last = now; if (dt > 100) dt = 100;
+        acc += dt; if (acc < FRAME) return; const step = acc/1000; acc = 0;
+        drawBg(step);
+      }
+      requestAnimationFrame(loop);
+    }
+  })();
+  </script>
+</body>
+</html>
